@@ -19,7 +19,7 @@ type OrganizationRepository interface {
 	GetByID(id uuid.UUID) (models.Organization, *response.Error)
 	UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
-	UpdateUserStatus(userID uuid.UUID, req models.User) *response.Error
+	UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error
 }
 
 func InitOrganizationRepository(deps models.Config) OrganizationRepository {
@@ -206,7 +206,7 @@ func (d *Organizationdatabase) DeleteOrganization(id uuid.UUID) *response.Error 
 	return nil
 }
 
-func (d *Organizationdatabase) UpdateUserStatus(userID uuid.UUID, req models.User) *response.Error {
+func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error {
 
 	result := d.DB.
 		Model(&models.User{}).

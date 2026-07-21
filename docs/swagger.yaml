@@ -22,6 +22,19 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.CreateOrganizationRequest:
+    properties:
+      domain:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+    required:
+    - domain
+    - logo_url
+    - name
+    type: object
   dto.RefreshTokenRequest:
     properties:
       refresh_token:
@@ -31,23 +44,11 @@ definitions:
     required:
     - refresh_token
     type: object
-  dto.Role:
-    enum:
-    - super_admin
-    - org_admin
-    - project_manager
-    - developer
-    - viewer
-    type: string
-    x-enum-varnames:
-    - RoleSuperAdmin
-    - RoleOrgAdmin
-    - RoleProjectManager
-    - RoleDeveloper
-    - RoleViewer
   dto.SignInRequest:
     properties:
       email:
+        type: string
+      organization_id:
         type: string
       password:
         type: string
@@ -67,8 +68,6 @@ definitions:
         type: string
       password:
         type: string
-      role:
-        $ref: '#/definitions/dto.Role'
       timezone:
         type: string
       username:
@@ -77,6 +76,16 @@ definitions:
     - email
     - full_name
     - password
+    - username
+    type: object
+  dto.UpdateOrganizationRequest:
+    properties:
+      domain:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
     type: object
   dto.UpdateUserRequest:
     properties:
@@ -89,14 +98,25 @@ definitions:
       username:
         type: string
     type: object
+  dto.UserStatusRequest:
+    properties:
+      is_active:
+        type: boolean
+      user_id:
+        type: string
+    type: object
   models.Organization:
     properties:
       created_at:
+        type: string
+      created_by:
         type: string
       domain:
         type: string
       id:
         type: string
+      is_active:
+        type: boolean
       logo_url:
         type: string
       name:
@@ -233,7 +253,43 @@ info:
   title: PMT API
   version: "1.0"
 paths:
-  /auth/changepassword:
+  /Organizations/update:
+    patch:
+      consumes:
+      - application/json
+      description: Updates Organization profile.
+      parameters:
+      - description: Update Organization Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update Organization
+      tags:
+      - Organizations
+  /auth/change-password:
     post:
       consumes:
       - application/json
@@ -271,7 +327,7 @@ paths:
       - Authentication
   /auth/logout:
     post:
-      description: Revokes the user's refresh token and logs the user out.
+      description: Revokes the user's refresh token and let user logout.
       produces:
       - application/json
       responses:
@@ -292,7 +348,7 @@ paths:
       summary: Logout user
       tags:
       - Authentication
-  /auth/mine:
+  /auth/me:
     get:
       description: Returns the profile of the authenticated user.
       produces:
@@ -430,7 +486,7 @@ paths:
       summary: Register a new user
       tags:
       - Authentication
-  /users/{id}:
+  /auth/update:
     patch:
       consumes:
       - application/json
@@ -466,6 +522,132 @@ paths:
       summary: Update user
       tags:
       - Users
+  /organization/create:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new Organization account.
+      parameters:
+      - description: Creates new Organization
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Register a new Organization
+      tags:
+      - Organizations
+  /organization/delete:
+    delete:
+      description: Returns the profile of the authenticated Organization.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Organization'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: delete current Organization
+      tags:
+      - Organizations
+  /organization/get:
+    get:
+      description: Returns the profile of the authenticated Organization.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Organization'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current Organization
+      tags:
+      - Organizations
+  /organization/user-status/:
+    patch:
+      consumes:
+      - application/json
+      description: Updates User profile.
+      parameters:
+      - description: Update User Status Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UserStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update User Status
+      tags:
+      - Organizations
 securityDefinitions:
   BearerAuth:
     description: 'Enter your JWT token in the format: Bearer <your-token>'
