@@ -42,7 +42,7 @@ func (h *AuthHandler) SignUp(g *gin.Context) {
 
 	var payload dto.SignUpRequest
 
-	if err := g.Bind(&payload); err != nil {
+	if err := g.ShouldBindJSON(&payload); err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
@@ -87,27 +87,6 @@ func (h *AuthHandler) SignUp(g *gin.Context) {
 		h.logger.Error("Validation failed",
 			zap.Error(err))
 
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	if utils.ValidatePassword(payload.Password) {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Validation Failure",
-				Details: []response.Details{
-					{
-						Field:   "password",
-						Message: "must contain at least one uppercase/lowercase letter, one number and one special character",
-					},
-				},
-			},
-		}
-
-		h.logger.Error("Validation failed for password")
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -219,52 +198,119 @@ func (h *AuthHandler) SignIn(g *gin.Context) {
 }
 
 func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
+
 	var payload dto.PasswordResetRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
-		h.logger.Error("Invalid request payload in Handler Layer", zap.Error(err))
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrBadRequest, StatusCode: http.StatusBadRequest, Message: "Invalid request payload", Details: []response.Details{{Field: "body", Message: err.Error()}}}})
+		h.logger.Error("Invalid request payload",
+			zap.Error(err))
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{
+					{
+						Field:   "body",
+						Message: err.Error(),
+					},
+				},
+			},
+		})
 		return
 	}
 
 	if err := validator.New().Struct(payload); err != nil {
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrValidation, StatusCode: http.StatusBadRequest, Message: "Validation failed", Details: []response.Details{{Field: "email", Message: "must be a valid email"}}}})
+		h.logger.Error("Validation failed",
+			zap.Error(err))
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Validation failed",
+				Details: []response.Details{
+					{
+						Field:   "email",
+						Message: "must be a valid email",
+					},
+				},
+			},
+		})
 		return
 	}
 
 	if err := h.service.RequestPasswordReset(payload.Email); err != nil {
-		g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
+		g.JSON(err.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		})
 		return
 	}
 
-	g.JSON(http.StatusOK, &response.SuccessResponse{Success: true, StatusCode: http.StatusOK, Message: "A password reset OTP has been sent to your email address"})
+	g.JSON(http.StatusOK, &response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "A password reset OTP has been sent to your email address",
+	})
 }
 
 func (h *AuthHandler) ResetPassword(g *gin.Context) {
+
 	var payload dto.ResetPasswordRequest
+
 	if err := g.ShouldBindJSON(&payload); err != nil {
-		h.logger.Error("Invalid request payload in Handler Layer", zap.Error(err))
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrBadRequest, StatusCode: http.StatusBadRequest, Message: "Invalid request payload", Details: []response.Details{{Field: "body", Message: err.Error()}}}})
+		h.logger.Error("Invalid request payload",
+			zap.Error(err))
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{
+					{
+						Field:   "body",
+						Message: err.Error(),
+					},
+				},
+			},
+		})
 		return
 	}
 
 	if err := validator.New().Struct(payload); err != nil {
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrValidation, StatusCode: http.StatusBadRequest, Message: "Validation failed", Details: []response.Details{{Field: "otp", Message: "OTP is required"}}}})
-		return
-	}
-
-	if utils.ValidatePassword(payload.NewPassword) {
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrValidation, StatusCode: http.StatusBadRequest, Message: "Validation failed", Details: []response.Details{{Field: "new_password", Message: "must contain at least one uppercase/lowercase letter, one number and one special character"}}}})
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Validation failed",
+				Details: []response.Details{
+					{
+						Field:   "otp",
+						Message: "OTP is required",
+					},
+				},
+			},
+		})
 		return
 	}
 
 	if err := h.service.ResetPassword(payload); err != nil {
-		g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
+		g.JSON(err.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		})
 		return
 	}
 
-	g.JSON(http.StatusOK, &response.SuccessResponse{Success: true, StatusCode: http.StatusOK, Message: "Password reset successfully"})
+	g.JSON(http.StatusOK, &response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Password reset successfully",
+	})
 }
-
 
 // RefreshToken godoc
 //
@@ -441,7 +487,7 @@ func (h *AuthHandler) Logout(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /auth/changepassword [post]
+// @Router       /auth/change-password [post]
 func (h *AuthHandler) ChangePassword(g *gin.Context) {
 
 	var payload dto.ChangePasswordRequest
@@ -529,7 +575,7 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /users/{id} [patch]
+// @Router       /auth/update [patch]
 func (h *AuthHandler) Updateuser(g *gin.Context) {
 
 	var payload dto.UpdateUserRequest
@@ -581,7 +627,6 @@ func (h *AuthHandler) Updateuser(g *gin.Context) {
 	id, errorResponse := utils.StringToUUID(userIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		h.logger.Error("Failed to convert the string into UUID in Handler layer")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
@@ -617,7 +662,7 @@ func (h *AuthHandler) Updateuser(g *gin.Context) {
 // @Success      200 {object} response.SuccessResponse{data=models.User}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /auth/mine [get]
+// @Router       /auth/me [get]
 func (h *AuthHandler) GetUser(g *gin.Context) {
 
 	userID, exist := g.Get("user_id")
@@ -645,7 +690,7 @@ func (h *AuthHandler) GetUser(g *gin.Context) {
 
 	id, errorResponse := utils.StringToUUID(userIDStr)
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID in Handler layer")
+		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}

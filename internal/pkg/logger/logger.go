@@ -12,6 +12,7 @@ func InitLogger(config *config.Config) (*zap.Logger, error) {
 	var Log *zap.Logger
 	var err error
 
+	//Set flag for the logger type #default development
 	if config.Logger.Type == "production" {
 		Log, err = zap.NewProduction(zap.AddStacktrace(zap.DPanicLevel))
 	} else {

@@ -20,6 +20,7 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 	// initialize handlers
 	AuthHandler := handlers.InitAuthHandler(AuthService, deps.Logger)
 
+	// initialize middleware
 	middleware := middleware.InitMiddleware(deps.Logger)
 
 	auth := api.Group("/auth")

@@ -29,7 +29,7 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 			}
 
 			m.Logger.Error("Forbidden,Missing Authentication in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
 			return
@@ -50,7 +50,7 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 			}
 
 			m.Logger.Error("Forbidden,Missing Authentication in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
 			return
@@ -74,7 +74,7 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 		}
 
 		m.Logger.Error("Forbidden,Missing Authentication in Middleware Layer",
-			zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+			zap.Error(fmt.Errorf("%v", errorResponse)))
 
 		c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
 	}

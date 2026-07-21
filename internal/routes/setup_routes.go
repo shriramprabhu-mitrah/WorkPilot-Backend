@@ -61,7 +61,10 @@ func SetupRoutes(deps models.Config) {
 		})
 	})
 
+	// Swagger init
 	deps.Router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	//Creating the router api/v1
 	api := deps.Router.Group("/api/v1")
 	{
 		AuthRoutes(deps, api)

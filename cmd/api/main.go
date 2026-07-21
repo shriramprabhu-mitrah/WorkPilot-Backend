@@ -69,12 +69,14 @@ func main() {
 	//Initialize the Gin router and set up routes
 	router := gin.Default()
 
+	//Getting dependences in config 
 	deps := models.Config{
 		Database: dbConn,
 		Router:   router,
 		Redis:    redisClient,
 		Logger:   Logger,
 	}
+	
 	// Set up routes
 	routes.SetupRoutes(deps)
 
