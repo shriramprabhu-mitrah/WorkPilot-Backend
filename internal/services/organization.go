@@ -18,6 +18,7 @@ type OrganizationService interface {
 	DeleteOrganization(id uuid.UUID) *response.Error
 	UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error
 	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
+	GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error)
 }
 
 func InitOrganizationService(repo repository.OrganizationRepository, AuthRepo repository.AuthRepository, logger *zap.Logger) OrganizationService {
@@ -149,4 +150,9 @@ func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *respon
 
 	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
 
+}
+
+func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
+
+	return s.OrganizationRepo.GetUsersByOrganizationID(id, page, pageSize)
 }

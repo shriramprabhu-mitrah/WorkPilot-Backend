@@ -31,5 +31,6 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 		org.GET("/get", middleware.ValidateJWT(), OrganizationHandler.GetOrganizationByID)
 		org.PATCH("/user-status", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.UpdateUserStatus)
 		org.PATCH("/user-role", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.UpdateUserRole)
+		org.GET("/get-users", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.GetUserInOrganization)
 	}
 }

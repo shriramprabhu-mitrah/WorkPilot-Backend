@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/gofrs/uuid"
@@ -20,6 +21,7 @@ type OrganizationRepository interface {
 	UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
 	UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error
+	GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error)
 }
 
 func InitOrganizationRepository(deps models.Config) OrganizationRepository {
@@ -267,4 +269,56 @@ func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.
 	}
 
 	return nil
+}
+
+func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
+
+	var users []models.User
+	var totalItems int64
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	offset := (page - 1) * pageSize
+
+	if err := d.DB.Model(&models.User{}).
+		Where("organization_id = ?", organizationID).
+		Count(&totalItems).Error; err != nil {
+
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to count users",
+		}
+	}
+
+	if err := d.DB.
+		Where("organization_id = ?", organizationID).
+		Limit(pageSize).
+		Offset(offset).
+		Find(&users).Error; err != nil {
+
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve users",
+		}
+	}
+
+	totalPages := int(math.Ceil(float64(totalItems) / float64(pageSize)))
+
+	pagination := response.Pagination{
+		Page:        page,
+		PageSize:    pageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     page < totalPages,
+		HasPrevious: page > 1,
+	}
+
+	return users, pagination, nil
 }
