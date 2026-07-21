@@ -473,6 +473,122 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 
 }
 
+// UpdateUserRole godoc
+//
+// @Summary      Update User Role
+// @Description  Updates User profile.
+// @Tags         Organizations
+// @Accept       json
+// @Produce      json
+// @Security	 BearerAuth
+// @Param        request body dto.UserRoleRequest true "Update User Role Request"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      404 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /user-role/ [patch]
+func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
+
+	var payload dto.UserRoleRequest
+
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{{
+					Field:   "body",
+					Message: err.Error(),
+				}},
+			},
+		}
+
+		h.logger.Error("Invalid request payload",
+			zap.Error(err))
+
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	OrganizationID, exist := g.Get("Organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid Organization ID",
+				Details: []response.Details{
+					{
+						Field:   "Organization ID",
+						Message: "Organization Id Invalid/Missing",
+					},
+				},
+			},
+		}
+
+		h.logger.Error("Organization Id Invalid/Missing ")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	OrganizationIDStr := OrganizationID.(string)
+
+	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	userID, errorResponse := utils.StringToUUID(payload.UserID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	if err := payload.Role.Validate(); err != nil {
+		h.logger.Error("Invalid role", zap.Error(err))
+
+		resp := response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Invalid role",
+		}
+
+		g.JSON(resp.StatusCode, resp)
+		return
+	}
+
+	credentials := dto.UpdateUserRole{
+		OrganizationID: id,
+		UserID:         userID,
+		Role:           string(payload.Role),
+	}
+	err := h.service.UpdateUserRole(credentials)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Updated User Role successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data: map[string]any{
+			"OrganizationID": id,
+			"user_id":        payload.UserID},
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+
+}
+
 func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 	var payload dto.InviteOrganizationMemberRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
