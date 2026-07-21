@@ -17,6 +17,7 @@ type OrganizationService interface {
 	UpdateOrganization(id uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
 	UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error
+	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
 }
 
 func InitOrganizationService(repo repository.OrganizationRepository, AuthRepo repository.AuthRepository, logger *zap.Logger) OrganizationService {
@@ -109,6 +110,43 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 		Timezone:       result.Timezone,
 	}
 
-	return s.OrganizationRepo.UpdateUserStatus(payload.UserID, req)
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
+
+}
+
+func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *response.Error {
+
+	result, err := s.AuthRepo.GetByID(payload.UserID)
+	if err != nil {
+		return err
+	}
+
+	if *result.OrganizationID != payload.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", payload.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Unauthorized Access",
+			Details: []response.Details{{
+				Field:   "Organization Id",
+				Message: "Unauthorized Access",
+			}},
+		}
+	}
+	req := models.User{
+		ID:             result.ID,
+		OrganizationID: result.OrganizationID,
+		UserName:       result.UserName,
+		Email:          result.Email,
+		PasswordHash:   result.PasswordHash,
+		Role:           payload.Role,
+		FullName:       result.FullName,
+		IsActive:       result.IsActive,
+		AvatarURL:      result.AvatarURL,
+		Timezone:       result.Timezone,
+	}
+
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
 
 }

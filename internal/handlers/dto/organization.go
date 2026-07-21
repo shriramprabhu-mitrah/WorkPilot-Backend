@@ -24,3 +24,14 @@ type UpdateUserStatus struct {
 	UserID         uuid.UUID `json:"user_id"`
 	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
 }
+
+type UserRoleRequest struct {
+	Role   Role   `json:"role"`
+	UserID string `json:"user_id"`
+}
+
+type UpdateUserRole struct {
+	Role           string    `json:"role"`
+	UserID         uuid.UUID `json:"user_id"`
+	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
+}
