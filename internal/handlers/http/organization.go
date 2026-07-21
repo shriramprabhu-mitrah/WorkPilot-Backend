@@ -578,7 +578,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 	}
 
 	successResponse := &response.SuccessResponse{
-		Message:    "Updated User Status successfully",
+		Message:    "Updated User Role successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]any{
