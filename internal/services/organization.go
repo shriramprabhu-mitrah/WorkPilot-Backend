@@ -82,16 +82,18 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 	}
 
 	if *result.OrganizationID != payload.OrganizationID {
-		s.logger.Error("Unauthorized Access",
+		s.logger.Error("Unauthorized",
 			zap.String("Organization Id", payload.OrganizationID.String()))
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized Access",
-			Details: []response.Details{{
-				Field:   "Organization Id",
-				Message: "Unauthorized Access",
-			}},
+			Message:    "Unauthorized",
+			Details: []response.Details{
+				{
+					Field:   "Organization Id",
+					Message: "Invalid Organization Id",
+				},
+			},
 		}
 	}
 	req := models.User{

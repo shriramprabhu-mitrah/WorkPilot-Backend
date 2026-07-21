@@ -18,9 +18,8 @@ func GenerateJWT(tokencredentials dto.JWtcredentials, logger *zap.Logger) (strin
 
 	expiresIn, err := utils.StringToInt(config.GetEnv("JWT_EXPIRY", "900"))
 	if err != nil {
-
-		logger.Error("Failed to set the expire time in Middleware Layer",
-			zap.String("ERROR : ", fmt.Sprintf("%v", err)))
+		logger.Error("Failed to set the expire time",
+			zap.Error(fmt.Errorf("%v", err)))
 		return "", err
 	}
 
@@ -28,11 +27,11 @@ func GenerateJWT(tokencredentials dto.JWtcredentials, logger *zap.Logger) (strin
 }
 
 func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger *zap.Logger) (string, *response.Error) {
+
+	var organizationID uuid.UUID
 	var jwtKey = config.GetEnv("JWT_SECRET_KEY", "")
 
 	expirationTime := time.Now().Add(ttl)
-
-	var organizationID uuid.UUID
 
 	if tokencredentials.OrganizationID == nil || *tokencredentials.OrganizationID == uuid.Nil {
 		organizationID = uuid.Nil
@@ -50,8 +49,7 @@ func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger 
 		OrganizationID: organizationID,
 	}
 
-	fmt.Printf("claims cred : %v", claims)
-
+	//Generate the jwt token using the HS256
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	tokenString, err := token.SignedString([]byte(jwtKey))
@@ -59,15 +57,17 @@ func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger 
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed generating the token",
+			Message:    "Internal Server Error",
 			Details: []response.Details{
 				{
-					Field:   "token",
-					Message: err.Error()},
+					Field:   "Token",
+					Message: "Failed generating the token",
+				},
 			},
 		}
-		logger.Error("Failed generating the token in Middleware Layer",
-			zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+		logger.Error("Failed generating the token",
+			zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)),
+			zap.Error(err))
 		return "", &errorResponse
 	}
 

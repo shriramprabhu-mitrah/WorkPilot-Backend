@@ -33,7 +33,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter the Token",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "authorization",
@@ -42,8 +42,8 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 				},
 			}
 
-			m.Logger.Error("Missing token in while validation in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+			m.Logger.Error("Missing token in while validation",
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse)
 			return
@@ -54,17 +54,17 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter valid Token",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "authorization",
-						Message: "Malformed authorization header",
+						Message: "Enter valid Token",
 					},
 				},
 			}
 
-			m.Logger.Error("Malformed authorization header in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+			m.Logger.Error("Malformed authorization header",
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse)
 			return
@@ -79,17 +79,17 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter valid Token",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "token",
-						Message: err.Error(),
+						Message: "Enter valid Token",
 					},
 				},
 			}
 
-			m.Logger.Error("Invalid token in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+			m.Logger.Error("Invalid token",
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse)
 			return
@@ -100,17 +100,17 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrInternalServerError,
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed parse the claims",
+				Message:    "Internal Server Error",
 				Details: []response.Details{
 					{
 						Field:   "token",
-						Message: "Unable to parse claims",
+						Message: "Failed parse the claims",
 					},
 				},
 			}
 
-			m.Logger.Error("Failed parse the claims in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+			m.Logger.Error("Failed parse the claims",
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse)
 			return
@@ -124,17 +124,17 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Access Denied",
+				Message:    "Forbidden",
 				Details: []response.Details{
 					{
-						Field:   "token",
-						Message: "Forbidden",
+						Field:   "Token",
+						Message: "Access Denied",
 					},
 				},
 			}
 
-			m.Logger.Error("Access Denied in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+			m.Logger.Error("Access Denied",
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
 			return

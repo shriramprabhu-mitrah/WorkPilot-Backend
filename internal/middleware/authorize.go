@@ -19,17 +19,17 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Need Authentication",
+				Message:    "Forbidden",
 				Details: []response.Details{
 					{
 						Field:   "role",
-						Message: "Forbidden",
+						Message: "Need Authentication",
 					},
 				},
 			}
 
 			m.Logger.Error("Forbidden,Missing Authentication in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
 			return
@@ -40,17 +40,17 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Access Denied",
+				Message:    "Forbidden",
 				Details: []response.Details{
 					{
 						Field:   "role",
-						Message: "Forbidden",
+						Message: "Access Denied",
 					},
 				},
 			}
 
 			m.Logger.Error("Forbidden,Missing Authentication in Middleware Layer",
-				zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
 			return
@@ -64,17 +64,17 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 		errorResponse := response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Access Denied",
+			Message:    "Forbidden",
 			Details: []response.Details{
 				{
 					Field:   "role",
-					Message: "Forbidden",
+					Message: "Access Denied",
 				},
 			},
 		}
 
 		m.Logger.Error("Forbidden,Missing Authentication in Middleware Layer",
-			zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)))
+			zap.Error(fmt.Errorf("%v", errorResponse)))
 
 		c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
 	}

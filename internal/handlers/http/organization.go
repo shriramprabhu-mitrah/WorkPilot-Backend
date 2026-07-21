@@ -64,7 +64,7 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 
 	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID in Handler layer")
+		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
@@ -101,7 +101,7 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /Organizations/ [patch]
+// @Router       /Organizations/update [patch]
 func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 
 	var payload dto.UpdateOrganizationRequest
@@ -193,7 +193,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 // @Success      200 {object} response.SuccessResponse{data=models.Organization}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /organization/mine [get]
+// @Router       /organization/get [get]
 func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 
 	OrganizationID, exist := g.Get("Organization_id")
@@ -221,7 +221,7 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 
 	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID in Handler layer")
+		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
@@ -258,7 +258,7 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /organization/Create [post]
+// @Router       /organization/create [post]
 func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 
 	var payload dto.CreateOrganizationRequest
@@ -336,19 +336,18 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		return
 	}
 
-	credentials := models.Organization{
-		Name:    payload.Name,
-		Domain:  payload.Domain,
-		LogoURL: payload.LogoURL,
-	}
-
-	uuid, errorResponse := utils.StringToUUID(userID.(string))
+	UserUUID, errorResponse := utils.StringToUUID(userID.(string))
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		return
 	}
 
-	credentials.CreatedBy = uuid
+	credentials := models.Organization{
+		Name:      payload.Name,
+		Domain:    payload.Domain,
+		LogoURL:   payload.LogoURL,
+		CreatedBy: UserUUID,
+	}
 
 	err := h.service.CreateOrganization(credentials)
 	if err != nil {
@@ -383,7 +382,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /user-status/ [patch]
+// @Router      /organization/user-status/ [patch]
 func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 
 	var payload dto.UserStatusRequest
@@ -432,7 +431,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 	}
 	OrganizationIDStr := OrganizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	organizationUUID, errorResponse := utils.StringToUUID(OrganizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -447,7 +446,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 	}
 
 	credentials := dto.UpdateUserStatus{
-		OrganizationID: id,
+		OrganizationID: organizationUUID,
 		UserID:         userID,
 		IsActive:       payload.IsActive,
 	}
@@ -466,7 +465,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]any{
-			"OrganizationID": id,
+			"OrganizationID": organizationUUID,
 			"user_id":        payload.UserID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)

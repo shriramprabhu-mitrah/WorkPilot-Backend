@@ -31,7 +31,7 @@ func HashPassword(password string) (string, *response.Error) {
 			Details: []response.Details{
 				{
 					Field:   "Password",
-					Message: "Error while hashing password : " + err.Error(),
+					Message: "InternalServerError",
 				},
 			},
 		}
@@ -54,7 +54,7 @@ func StringToUUID(idStr string) (uuid.UUID, *response.Error) {
 			Details: []response.Details{
 				{
 					Field:   "ID",
-					Message: "Failed to parse UUID : " + err.Error(),
+					Message: "Bad Request",
 				},
 			},
 		}
@@ -73,7 +73,7 @@ func StringToInt(str string) (int, *response.Error) {
 			Message:    "Failed to convert the string into integer",
 			Details: []response.Details{
 				{
-					Message: err.Error()},
+					Message: "InternalServerError"},
 			},
 		}
 		return 0, &errorResponse

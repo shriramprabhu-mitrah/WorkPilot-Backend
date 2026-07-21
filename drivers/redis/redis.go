@@ -24,6 +24,7 @@ func InitRedisClient(cfg *config.Config) (*redis.Client, error) {
 	return rdb, err
 }
 
+//check the redis connection
 func PingRedis(rdb *redis.Client) error {
 	_, err := rdb.Ping(context.Background()).Result()
 	if err != nil {
