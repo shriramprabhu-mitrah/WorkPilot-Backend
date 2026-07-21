@@ -716,6 +716,19 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 		Message:    "Invitation sent successfully"})
 }
 
+// AcceptInvitation godoc
+//
+// @Summary      Accept organization invitation
+// @Description  Accepts a pending organization invitation using the provided token.
+// @Tags         Organizations
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.AcceptInvitationRequest true "Accept invitation"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /organization/invitations/accept [post]
 func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 	var payload dto.AcceptInvitationRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
