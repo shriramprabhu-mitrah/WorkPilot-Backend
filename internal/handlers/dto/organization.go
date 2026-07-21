@@ -24,3 +24,12 @@ type UpdateUserStatus struct {
 	UserID         uuid.UUID `json:"user_id"`
 	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
 }
+
+type InviteOrganizationMemberRequest struct {
+	Email string `json:"email" validate:"required,email"`
+	Role  string `json:"role" validate:"required"`
+}
+
+type AcceptInvitationRequest struct {
+	Token string `json:"token" validate:"required"`
+}

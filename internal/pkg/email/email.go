@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"strconv"
 	"time"
 
 	"github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/internal/pkg/utils"
-	mail "github.com/xhit/go-simple-mail/v2"
+	simplemail "github.com/xhit/go-simple-mail/v2"
 )
 
 func SendPasswordResetOTP(toEmail, otp string) error {
@@ -36,6 +37,28 @@ func SendPasswordResetOTP(toEmail, otp string) error {
 	return nil
 }
 
+func SendOrganizationInvitation(toEmail, organizationName, role, inviteLink string) error {
+	if _, err := mail.ParseAddress(toEmail); err != nil {
+		return fmt.Errorf("invalid recipient email address: %w", err)
+	}
+
+	fromEmail := config.GetEnv("GMAIL_FROM_EMAIL", config.GetEnv("BREVO_FROM_EMAIL", ""))
+	if fromEmail == "" {
+		return fmt.Errorf("email sender address is not configured")
+	}
+
+	renderedHTML, err := utils.RenderEmbeddedTemplate("organization_invitation.html", map[string]any{
+		"OrganizationName": organizationName,
+		"Role":             role,
+		"InviteLink":       inviteLink,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to render organization invitation template: %w", err)
+	}
+
+	return sendViaGmailSMTP(toEmail, fromEmail, "Organization invitation", renderedHTML)
+}
+
 func sendViaGmailSMTP(toEmail, fromEmail, subject, htmlContent string) error {
 	host := config.GetEnv("GMAIL_SMTP_HOST", "smtp.gmail.com")
 	portString := config.GetEnv("GMAIL_SMTP_PORT", "587")
@@ -51,16 +74,16 @@ func sendViaGmailSMTP(toEmail, fromEmail, subject, htmlContent string) error {
 		return fmt.Errorf("invalid gmail smtp port: %w", err)
 	}
 
-	smtpClient := mail.NewSMTPClient()
+	smtpClient := simplemail.NewSMTPClient()
 	smtpClient.Host = host
 	smtpClient.Port = port
 	smtpClient.Username = username
 	smtpClient.Password = password
-	smtpClient.Authentication = mail.AuthPlain
+	smtpClient.Authentication = simplemail.AuthPlain
 	smtpClient.KeepAlive = false
 	smtpClient.ConnectTimeout = 10 * time.Second
 	smtpClient.SendTimeout = 10 * time.Second
-	smtpClient.Encryption = mail.EncryptionSTARTTLS
+	smtpClient.Encryption = simplemail.EncryptionSTARTTLS
 
 	smtpServer, err := smtpClient.Connect()
 	if err != nil {
@@ -68,11 +91,11 @@ func sendViaGmailSMTP(toEmail, fromEmail, subject, htmlContent string) error {
 	}
 	defer smtpServer.Close()
 
-	email := mail.NewMSG()
+	email := simplemail.NewMSG()
 	email.SetFrom(fromEmail)
 	email.AddTo(toEmail)
 	email.SetSubject(subject)
-	email.SetBody(mail.TextHTML, htmlContent)
+	email.SetBody(simplemail.TextHTML, htmlContent)
 
 	if email.Error != nil {
 		return email.Error

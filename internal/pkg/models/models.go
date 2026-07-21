@@ -17,6 +17,14 @@ const (
 	RoleViewer         Role = "viewer"
 )
 
+type InvitationStatus string
+
+const (
+	InvitationStatusPending  InvitationStatus = "pending"
+	InvitationStatusAccepted InvitationStatus = "accepted"
+	InvitationStatusExpired  InvitationStatus = "expired"
+)
+
 type Organization struct {
 	ID        uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
 	Name      string         `json:"name" gorm:"size:50;not null;unique;index:idx_organization_name"`
@@ -70,6 +78,33 @@ type PasswordResetOTP struct {
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index:idx_password_reset_otps_deleted_at"`
 }
 
+type OrganizationInvitation struct {
+	ID             uuid.UUID        `json:"id" gorm:"primaryKey;type:uuid"`
+	OrganizationID uuid.UUID        `json:"organization_id" gorm:"type:uuid;index:idx_org_invites_org_id;not null"`
+	Organization   Organization     `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	Email          string           `json:"email" gorm:"size:100;not null;index:idx_org_invites_email"`
+	Role           string           `json:"role" gorm:"size:30;not null"`
+	Token          string           `json:"token" gorm:"size:255;not null;unique;index:idx_org_invites_token"`
+	Status         InvitationStatus `json:"status" gorm:"size:20;not null;default:'pending'"`
+	ExpiresAt      time.Time        `json:"expires_at" gorm:"not null;type:timestamptz"`
+	AcceptedAt     *time.Time       `json:"accepted_at,omitempty" gorm:"type:timestamptz"`
+	CreatedBy      uuid.UUID        `json:"created_by" gorm:"not null"`
+	CreatedAt      time.Time        `json:"created_at" gorm:"not null;type:timestamptz"`
+	UpdatedAt      time.Time        `json:"updated_at" gorm:"type:timestamptz"`
+	DeletedAt      gorm.DeletedAt   `json:"-" gorm:"index:idx_org_invites_deleted_at"`
+}
+
+type AuditLog struct {
+	ID             uuid.UUID  `json:"id" gorm:"primaryKey;type:uuid"`
+	UserID         *uuid.UUID `json:"user_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_user_id"`
+	OrganizationID *uuid.UUID `json:"organization_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_org_id"`
+	Action         string     `json:"action" gorm:"size:100;not null;index:idx_audit_logs_action"`
+	ResourceType   string     `json:"resource_type" gorm:"size:50;not null"`
+	ResourceID     string     `json:"resource_id" gorm:"size:255"`
+	Details        string     `json:"details" gorm:"type:text"`
+	CreatedAt      time.Time  `json:"created_at" gorm:"not null;type:timestamptz"`
+}
+
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.ID == uuid.Nil {
 		u.ID, err = uuid.NewV7()
@@ -104,6 +139,28 @@ func (p *PasswordResetOTP) BeforeCreate(tx *gorm.DB) error {
 	if p.ID == uuid.Nil {
 		var err error
 		p.ID, err = uuid.NewV7()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (i *OrganizationInvitation) BeforeCreate(tx *gorm.DB) error {
+	if i.ID == uuid.Nil {
+		var err error
+		i.ID, err = uuid.NewV7()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *AuditLog) BeforeCreate(tx *gorm.DB) error {
+	if a.ID == uuid.Nil {
+		var err error
+		a.ID, err = uuid.NewV7()
 		if err != nil {
 			return err
 		}

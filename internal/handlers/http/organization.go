@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"net/mail"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -470,4 +471,180 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
+}
+
+func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
+	var payload dto.InviteOrganizationMemberRequest
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		h.logger.Error("Invalid invite payload", zap.Error(err))
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{{
+					Field:   "body",
+					Message: err.Error()},
+				},
+			}},
+		)
+		return
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(payload); err != nil {
+		var details []response.Details
+		for _, fieldErr := range err.(validator.ValidationErrors) {
+			details = append(details, response.Details{Field: fieldErr.Field(),
+				Message: fmt.Sprintf("Validation Failed on '%s'", fieldErr.Tag())})
+		}
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Validation failed",
+				Details:    details},
+		})
+		return
+	}
+
+	if payload.Email == "" {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Email is required",
+				Details: []response.Details{{
+					Field:   "email",
+					Message: "Email is required"}},
+			}},
+		)
+		return
+	}
+	if payload.Role == string(dto.RoleSuperAdmin) {
+		g.JSON(http.StatusForbidden, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "Super admin cannot be invited",
+				Details:    []response.Details{{Field: "role", Message: "Super admin cannot be invited"}}},
+		})
+		return
+	}
+	if _, err := mail.ParseAddress(payload.Email); err != nil {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Email must be a valid RFC 5322 address",
+				Details:    []response.Details{{Field: "email", Message: "Email must be a valid RFC 5322 address"}}},
+		})
+		return
+	}
+
+	organizationIDVal, exist := g.Get("Organization_id")
+	if !exist {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid Organization ID",
+				Details: []response.Details{{
+					Field:   "Organization ID",
+					Message: "Organization Id Invalid/Missing"}},
+			}},
+		)
+		return
+	}
+	organizationID, convErr := utils.StringToUUID(organizationIDVal.(string))
+	if convErr != nil {
+		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+		return
+	}
+
+	inviterIDVal, exist := g.Get("user_id")
+	if !exist {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid User ID",
+				Details: []response.Details{{
+					Field:   "User ID",
+					Message: "User Id Invalid/Missing"}},
+			}},
+		)
+		return
+	}
+	inviterID, convErr := utils.StringToUUID(inviterIDVal.(string))
+	if convErr != nil {
+		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+		return
+	}
+
+	if err := h.service.InviteOrganizationMember(inviterID, organizationID, payload); err != nil {
+		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
+	g.JSON(http.StatusCreated, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusCreated,
+		Message:    "Invitation sent successfully"})
+}
+
+func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
+	var payload dto.AcceptInvitationRequest
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{{
+					Field:   "body",
+					Message: err.Error()}},
+			}},
+		)
+		return
+	}
+
+	userIDVal, exist := g.Get("user_id")
+	if !exist {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid User ID",
+				Details: []response.Details{{
+					Field:   "User ID",
+					Message: "User Id Invalid/Missing"}},
+			}},
+		)
+		return
+	}
+	userID, convErr := utils.StringToUUID(userIDVal.(string))
+	if convErr != nil {
+		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+		return
+	}
+
+	if err := h.service.AcceptInvitation(userID, payload.Token); err != nil {
+		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Invitation accepted successfully"})
 }
