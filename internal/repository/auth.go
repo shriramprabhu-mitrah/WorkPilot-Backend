@@ -57,11 +57,11 @@ func (d *authdatabase) GetByEmail(email string) (models.User, *response.Error) {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter valid Email/Password",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "Email/Password",
-						Message: "Unauthorized",
+						Message: "Enter valid Email/Password",
 					},
 				},
 			}
@@ -73,12 +73,7 @@ func (d *authdatabase) GetByEmail(email string) (models.User, *response.Error) {
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "InternalServerError",
-			Details: []response.Details{
-				{
-					Message: "InternalServerError",
-				},
-			},
+			Message:    "Internal Server Error",
 		}
 
 		d.logger.Error("Database error occurred",
@@ -102,10 +97,10 @@ func (d *authdatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
 			return models.User{}, &response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "User not found",
+				Message:    "Internal Server Error",
 				Details: []response.Details{{
 					Field:   "User",
-					Message: "InternalServerError",
+					Message: "User not found",
 				}},
 			}
 		}
@@ -115,9 +110,9 @@ func (d *authdatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
 		return models.User{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to retrieve user",
+			Message:    "Internal Server Error",
 			Details: []response.Details{{
-				Message: "InternalServerError",
+				Message: "Failed to retrieve user",
 			}},
 		}
 	}
@@ -143,8 +138,8 @@ func (d *authdatabase) CreateUser(row models.User) *response.Error {
 				zap.Error(err))
 			return &response.Error{
 				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid reference",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal Server Error",
 			}
 
 		default:
@@ -181,10 +176,12 @@ func (d *authdatabase) StoreRefreshToken(token models.RefreshToken) *response.Er
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to store refresh token",
-			Details: []response.Details{{
-				Message: "InternalServerError",
-			}},
+			Message:    "Internal Server Error",
+			Details: []response.Details{
+				{
+					Message: "Failed to store refresh token",
+				},
+			},
 		}
 
 		d.logger.Error("Database error occurred while storing refresh token",
@@ -211,7 +208,7 @@ func (d *authdatabase) GetRefreshToken(userID string) (models.RefreshToken, *res
 				Message:    "Invalid refresh token",
 				Details: []response.Details{{
 					Field:   "refresh_token",
-					Message: "InternalServerError",
+					Message: "Unauthorized",
 				}},
 			}
 		}
@@ -223,7 +220,7 @@ func (d *authdatabase) GetRefreshToken(userID string) (models.RefreshToken, *res
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to read refresh token",
 			Details: []response.Details{{
-				Message: "InternalServerError",
+				Message: "Internal Server Error",
 			}},
 		}
 	}
@@ -246,9 +243,9 @@ func (d *authdatabase) ChangePassword(password string, userID uuid.UUID) *respon
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to update paswword",
+			Message:    "Internal Server Error",
 			Details: []response.Details{{
-				Message: "InternalServerError",
+				Message: "Failed to update paswword",
 			}},
 		}
 	}
@@ -261,11 +258,13 @@ func (d *authdatabase) ChangePassword(password string, userID uuid.UUID) *respon
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "User not found",
-			Details: []response.Details{{
-				Field:   "user_id",
-				Message: "Unauthorized",
-			}},
+			Message:    "Unauthorized",
+			Details: []response.Details{
+				{
+					Field:   "user_id",
+					Message: "User not found",
+				},
+			},
 		}
 	}
 
@@ -281,11 +280,11 @@ func (d *authdatabase) RequestPasswordReset(email string) (models.User, *respons
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "The provided email does not match a known account",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "Email",
-						Message: "Unauthorized",
+						Message: "The provided email does not match a known account",
 					},
 				},
 			}
@@ -300,12 +299,7 @@ func (d *authdatabase) RequestPasswordReset(email string) (models.User, *respons
 		return models.User{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to lookup user",
-			Details: []response.Details{
-				{
-					Message: "InternalServerError",
-				},
-			},
+			Message:    "Internal Server Error",
 		}
 	}
 	return row, nil
@@ -318,10 +312,10 @@ func (d *authdatabase) SavePasswordResetOTP(otp models.PasswordResetOTP) *respon
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to save OTP",
+			Message:    "Something went wrong",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to save OTP",
 				},
 			},
 		}
@@ -334,10 +328,10 @@ func (d *authdatabase) SavePasswordResetOTP(otp models.PasswordResetOTP) *respon
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to save OTP",
+			Message:    "Something went wrong",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to save OTP",
 				},
 			},
 		}
@@ -355,10 +349,10 @@ func (d *authdatabase) SavePasswordResetOTP(otp models.PasswordResetOTP) *respon
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to save OTP",
+			Message:    "Something went wrong",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to save OTP",
 				},
 			},
 		}
@@ -373,10 +367,10 @@ func (d *authdatabase) InvalidatePasswordResetOTPs(userID uuid.UUID) *response.E
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to invalidate OTPs",
+			Message:    "Something went wrong",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to invalidate OTPs",
 				},
 			},
 		}
@@ -388,10 +382,10 @@ func (d *authdatabase) InvalidatePasswordResetOTPs(userID uuid.UUID) *response.E
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to invalidate OTPs",
+			Message:    "Something went wrong",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to invalidate OTPs",
 				},
 			},
 		}
@@ -406,10 +400,10 @@ func (d *authdatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models
 		return models.PasswordResetOTP{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to read OTP",
+			Message:    "Something went wrong",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to invalidate OTPs",
 				},
 			},
 		}
@@ -424,11 +418,11 @@ func (d *authdatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models
 			return models.PasswordResetOTP{}, &response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Invalid OTP",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "otp",
-						Message: "Unauthorized",
+						Message: "The provided OTP is invalid or expired",
 					},
 				},
 			}
@@ -439,12 +433,7 @@ func (d *authdatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models
 		return models.PasswordResetOTP{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to read OTP",
-			Details: []response.Details{
-				{
-					Message: "InternalServerError",
-				},
-			},
+			Message:    "Something went wrong",
 		}
 	}
 
@@ -454,10 +443,10 @@ func (d *authdatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models
 		return models.PasswordResetOTP{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to read OTP",
+			Message:    "Something went wrong",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to read OTP",
 				},
 			},
 		}
@@ -470,10 +459,10 @@ func (d *authdatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models
 			return models.PasswordResetOTP{}, &response.Error{
 				Code:       response.ErrInternalServerError,
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to read OTP",
+				Message:    "Something went wrong",
 				Details: []response.Details{
 					{
-						Message: "InternalServerError",
+						Message: "Failed to read OTP",
 					},
 				},
 			}
@@ -483,11 +472,14 @@ func (d *authdatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models
 		return models.PasswordResetOTP{}, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid OTP",
+			Message:    "Unauthorized",
 			Details: []response.Details{
 				{
 					Field:   "otp",
-					Message: "Unauthorized"}}}
+					Message: "The provided OTP is invalid or expired",
+				},
+			},
+		}
 	}
 
 	return row, nil
@@ -509,9 +501,9 @@ func (d *authdatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string)
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to update user",
+			Message:    "Internal Server Error",
 			Details: []response.Details{{
-				Message: "InternalServerError",
+				Message: "Failed to update user",
 			}},
 		}
 	}
@@ -524,11 +516,11 @@ func (d *authdatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string)
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "User not found",
+			Message:    "Unauthorized",
 			Details: []response.Details{
 				{
 					Field:   "user_id",
-					Message: "Unauthorized",
+					Message: "User not found",
 				},
 			},
 		}
@@ -549,10 +541,10 @@ func (d *authdatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to revoke refresh tokens",
+			Message:    "Internal Server Error",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to revoke refresh tokens",
 				},
 			},
 		}
@@ -566,11 +558,11 @@ func (d *authdatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Token not found",
+			Message:    "Unauthorized",
 			Details: []response.Details{
 				{
 					Field:   "Token",
-					Message: "Unauthorized",
+					Message: "UnToken not foundauthorized",
 				},
 			},
 		}
@@ -594,10 +586,10 @@ func (d *authdatabase) UpdateUser(userID uuid.UUID, req models.User) *response.E
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to update user",
+			Message:    "Internal Server Error",
 			Details: []response.Details{
 				{
-					Message: "InternalServerError",
+					Message: "Failed to update user",
 				},
 			},
 		}
@@ -611,10 +603,10 @@ func (d *authdatabase) UpdateUser(userID uuid.UUID, req models.User) *response.E
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "User not found",
+			Message:    "Unauthorized",
 			Details: []response.Details{{
 				Field:   "user_id",
-				Message: "Unauthorized",
+				Message: "User not found",
 			}},
 		}
 	}

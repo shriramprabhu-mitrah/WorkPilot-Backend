@@ -19,11 +19,11 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Need Authentication",
+				Message:    "Forbidden",
 				Details: []response.Details{
 					{
 						Field:   "role",
-						Message: "Forbidden",
+						Message: "Need Authentication",
 					},
 				},
 			}
@@ -40,11 +40,11 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Access Denied",
+				Message:    "Forbidden",
 				Details: []response.Details{
 					{
 						Field:   "role",
-						Message: "Forbidden",
+						Message: "Access Denied",
 					},
 				},
 			}
@@ -64,11 +64,11 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 		errorResponse := response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Access Denied",
+			Message:    "Forbidden",
 			Details: []response.Details{
 				{
 					Field:   "role",
-					Message: "Forbidden",
+					Message: "Access Denied",
 				},
 			},
 		}

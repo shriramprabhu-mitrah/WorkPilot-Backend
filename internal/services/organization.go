@@ -91,7 +91,7 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 			Details: []response.Details{
 				{
 					Field:   "Organization Id",
-					Message: "Unauthorized",
+					Message: "Invalid Organization Id",
 				},
 			},
 		}

@@ -57,14 +57,15 @@ func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger 
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed generating the token",
+			Message:    "Internal Server Error",
 			Details: []response.Details{
 				{
 					Field:   "Token",
-					Message: "InternalServerError"},
+					Message: "Failed generating the token",
+				},
 			},
 		}
-		logger.Error("Failed generating the token in Middleware Layer",
+		logger.Error("Failed generating the token",
 			zap.String("ERROR : ", fmt.Sprintf("%v", errorResponse)),
 			zap.Error(err))
 		return "", &errorResponse

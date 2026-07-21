@@ -33,7 +33,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter the Token",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "authorization",
@@ -54,11 +54,11 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter valid Token",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "authorization",
-						Message: "Unauthorized",
+						Message: "Enter valid Token",
 					},
 				},
 			}
@@ -79,11 +79,11 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter valid Token",
+				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
 						Field:   "token",
-						Message: "Unauthorized",
+						Message: "Enter valid Token",
 					},
 				},
 			}
@@ -100,11 +100,11 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrInternalServerError,
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed parse the claims",
+				Message:    "Internal Server Error",
 				Details: []response.Details{
 					{
 						Field:   "token",
-						Message: "InternalServerError",
+						Message: "Failed parse the claims",
 					},
 				},
 			}
@@ -124,11 +124,11 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Access Denied",
+				Message:    "Forbidden",
 				Details: []response.Details{
 					{
 						Field:   "Token",
-						Message: "Forbidden",
+						Message: "Access Denied",
 					},
 				},
 			}
