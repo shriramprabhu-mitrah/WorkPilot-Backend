@@ -20,9 +20,9 @@ type UserStatusRequest struct {
 }
 
 type UpdateUserStatus struct {
-	IsActive       bool      `json:"is_active"`
-	UserID         uuid.UUID `json:"user_id"`
-	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
+	IsActive       bool       `json:"is_active"`
+	UserID         uuid.UUID  `json:"user_id"`
+	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
 }
 
 type UserRoleRequest struct {
@@ -31,9 +31,18 @@ type UserRoleRequest struct {
 }
 
 type UpdateUserRole struct {
-	Role           string    `json:"role"`
-	UserID         uuid.UUID `json:"user_id"`
-	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
+	Role           string     `json:"role"`
+	UserID         uuid.UUID  `json:"user_id"`
+	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
+}
+
+type RemoveUser struct {
+	UserID         uuid.UUID  `json:"user_id"`
+	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
+}
+
+type RemoveUserRequest struct {
+	UserID string `json:"user_id"`
 }
 
 type InviteOrganizationMemberItem struct {

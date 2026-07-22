@@ -25,6 +25,7 @@ type OrganizationService interface {
 	InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error
 	AcceptInvitation(userID uuid.UUID, token string) *response.Error
 	GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error)
+	RemoveUser(payload dto.RemoveUser) *response.Error
 }
 
 func InitOrganizationService(repo repository.OrganizationRepository, AuthRepo repository.AuthRepository, logger *zap.Logger) OrganizationService {
@@ -89,9 +90,18 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 		return err
 	}
 
-	if *result.OrganizationID != payload.OrganizationID {
-		s.logger.Error("Unauthorized",
-			zap.String("Organization Id", payload.OrganizationID.String()))
+	if result.OrganizationID == nil || payload.OrganizationID == nil {
+		return &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Organization ID missing",
+		}
+	}
+
+	if *result.OrganizationID != *payload.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
@@ -104,20 +114,11 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 			},
 		}
 	}
-	req := models.User{
-		ID:             result.ID,
-		OrganizationID: result.OrganizationID,
-		UserName:       result.UserName,
-		Email:          result.Email,
-		PasswordHash:   result.PasswordHash,
-		Role:           result.Role,
-		FullName:       result.FullName,
-		IsActive:       payload.IsActive,
-		AvatarURL:      result.AvatarURL,
-		Timezone:       result.Timezone,
-	}
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
+	request := result
+	request.IsActive = payload.IsActive
+
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
 
 }
 
@@ -128,9 +129,18 @@ func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *respon
 		return err
 	}
 
-	if *result.OrganizationID != payload.OrganizationID {
+	if result.OrganizationID == nil || payload.OrganizationID == nil {
+		return &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Organization ID missing",
+		}
+	}
+
+	if *result.OrganizationID != *payload.OrganizationID {
 		s.logger.Error("Unauthorized Access",
-			zap.String("Organization Id", payload.OrganizationID.String()))
+			zap.String("Payload Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
@@ -141,20 +151,11 @@ func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *respon
 			}},
 		}
 	}
-	req := models.User{
-		ID:             result.ID,
-		OrganizationID: result.OrganizationID,
-		UserName:       result.UserName,
-		Email:          result.Email,
-		PasswordHash:   result.PasswordHash,
-		Role:           payload.Role,
-		FullName:       result.FullName,
-		IsActive:       result.IsActive,
-		AvatarURL:      result.AvatarURL,
-		Timezone:       result.Timezone,
-	}
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
+	request := result
+	request.Role = payload.Role
+
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
 
 }
 
@@ -361,4 +362,42 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
 
 	return s.OrganizationRepo.GetUsersByOrganizationID(id, page, pageSize)
+}
+
+func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error {
+
+	result, err := s.AuthRepo.GetByID(payload.UserID)
+	if err != nil {
+		return err
+	}
+
+	if result.OrganizationID == nil || payload.OrganizationID == nil {
+		return &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Organization ID missing",
+		}
+	}
+
+	if *result.OrganizationID != *payload.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Unauthorized Access",
+			Details: []response.Details{{
+				Field:   "Organization Id",
+				Message: "Unauthorized Access",
+			}},
+		}
+	}
+	
+	request := result
+	request.Role = string(dto.RoleGuest)
+	request.OrganizationID = nil
+
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+
 }
