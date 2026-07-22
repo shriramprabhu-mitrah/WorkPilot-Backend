@@ -15,6 +15,7 @@ import (
 
 type stubAuthRepository struct {
 	user                 models.User
+	userByEmail          map[string]models.User
 	refreshToken         models.RefreshToken
 	otp                  models.PasswordResetOTP
 	err                  *response.Error
@@ -28,7 +29,16 @@ func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Er
 	if s.err != nil {
 		return models.User{}, s.err
 	}
-	return s.user, nil
+	if s.userByEmail != nil {
+		if user, ok := s.userByEmail[email]; ok {
+			return user, nil
+		}
+		return models.User{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
+	}
+	if email == s.user.Email {
+		return s.user, nil
+	}
+	return models.User{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
 }
 
 func (s *stubAuthRepository) GetByID(id uuid.UUID) (models.User, *response.Error) {
@@ -63,6 +73,7 @@ func (s *stubAuthRepository) UpdateUser(userID uuid.UUID, req models.User) *resp
 	if s.err != nil {
 		return s.err
 	}
+	s.user = req
 	return nil
 }
 

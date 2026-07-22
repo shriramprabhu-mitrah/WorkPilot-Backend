@@ -197,6 +197,18 @@ func (h *AuthHandler) SignIn(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// RequestPasswordReset godoc
+//
+// @Summary      Request password reset
+// @Description  Sends a password reset OTP to the provided email address.
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.PasswordResetRequest true "Password reset request"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /auth/password-reset/request [post]
 func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
 
 	var payload dto.PasswordResetRequest
@@ -255,6 +267,18 @@ func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
 	})
 }
 
+// ResetPassword godoc
+//
+// @Summary      Confirm password reset
+// @Description  Validates the reset OTP and updates the user's password.
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.ResetPasswordRequest true "Password reset confirmation"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /auth/password-reset/confirm [post]
 func (h *AuthHandler) ResetPassword(g *gin.Context) {
 
 	var payload dto.ResetPasswordRequest

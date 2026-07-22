@@ -1,5 +1,12 @@
 basePath: /api/v1
 definitions:
+  dto.AcceptInvitationRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
   dto.AuthTokensResponse:
     properties:
       access_token:
@@ -34,6 +41,13 @@ definitions:
     - domain
     - logo_url
     - name
+    type: object
+  dto.PasswordResetRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
     type: object
   dto.RefreshTokenRequest:
     properties:
@@ -216,6 +230,7 @@ definitions:
     - FORBIDDEN
     - RESOURCE_NOT_FOUND
     - CONFLICT
+    - GONE
     - BUSINESS_RULE_VIOLATION
     - RATE_LIMIT_EXCEEDED
     - INTERNAL_SERVER_ERROR
@@ -230,6 +245,7 @@ definitions:
     - ErrForbidden
     - ErrNotFound
     - ErrConflict
+    - ErrGone
     - ErrBusinessRule
     - ErrRateLimitExceeded
     - ErrInternalServerError
@@ -404,6 +420,66 @@ paths:
       summary: Get current user
       tags:
       - Users
+  /auth/password-reset/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Validates the reset OTP and updates the user's password.
+      parameters:
+      - description: Password reset confirmation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Confirm password reset
+      tags:
+      - Authentication
+  /auth/password-reset/request:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset OTP to the provided email address.
+      parameters:
+      - description: Password reset request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PasswordResetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Request password reset
+      tags:
+      - Authentication
   /auth/refresh:
     post:
       consumes:

@@ -118,7 +118,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 
 		role, roleOk := claims["role"].(string)
 		userID, userIDOk := claims["user_id"].(string)
-		organizationID, organizationIDOk := claims["Organization_id"].(string)
+		organizationID, organizationIDOk := claims["organization_id"].(string)
 
 		if !roleOk || !userIDOk || !organizationIDOk || (role == "" && userID == "") {
 			errorResponse := response.Error{
@@ -142,7 +142,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 
 		c.Set("role", role)
 		c.Set("user_id", userID)
-		c.Set("Organization_id", organizationID)
+		c.Set("organization_id", organizationID)
 
 		c.Next()
 	}

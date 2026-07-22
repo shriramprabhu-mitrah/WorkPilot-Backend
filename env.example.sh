@@ -33,3 +33,6 @@ export GMAIL_SMTP_PORT=587
 export GMAIL_SMTP_USERNAME= # Your Gmail address (e.g. yourgmail@gmail.com)
 export GMAIL_SMTP_PASSWORD= # Your Gmail app password (16-character). Do NOT commit secrets here.
 export GMAIL_FROM_EMAIL= # Optional sender email for Gmail SMTP. Defaults to BREVO_FROM_EMAIL if blank
+
+# Frontend configs
+export FRONTEND_DASHBOARD_URL=http://localhost:3000
