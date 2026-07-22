@@ -170,9 +170,14 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 			Details:    []response.Details{{Field: "role", Message: "Only organization administrators can invite members"}}}
 	}
 
-	existingPending, pendingErr := s.OrganizationRepo.GetPendingInvitationByEmail(organizationID, payload.Email)
-	if pendingErr != nil {
-		return pendingErr
+	inviteItems := payload.Members
+	if len(inviteItems) == 0 {
+		return &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "At least one member invitation is required",
+			Details:    []response.Details{{Field: "members", Message: "At least one member invitation is required"}},
+		}
 	}
 
 	org, orgErr := s.OrganizationRepo.GetByID(organizationID)
@@ -180,55 +185,74 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 		return orgErr
 	}
 
-	expiresAt := time.Now().Add(1 * 24 * time.Hour)
-	invitation := models.OrganizationInvitation{
-		OrganizationID: organizationID,
-		Email:          payload.Email,
-		Role:           payload.Role,
-		Status:         models.InvitationStatusPending,
-		ExpiresAt:      expiresAt,
-		CreatedBy:      inviterID,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
+	for _, inviteItem := range inviteItems {
+		existingUser, userErr := s.AuthRepo.GetByEmail(inviteItem.Email)
+		if userErr == nil && existingUser.OrganizationID != nil && *existingUser.OrganizationID == organizationID && existingUser.IsActive {
+			return &response.Error{
+				Code:       response.ErrConflict,
+				StatusCode: http.StatusConflict,
+				Message:    "User is already an active member of the organization",
+				Details:    []response.Details{{Field: "email", Message: "User is already an active member of the organization"}},
+			}
+		} else if userErr != nil && userErr.StatusCode != http.StatusUnauthorized {
+			return userErr
+		}
 
-	invitationToken, err := s.generateInvitationToken()
-	if err != nil {
-		return err
-	}
-	invitation.Token = invitationToken
-	invitation.Status = models.InvitationStatusPending
-	invitation.ExpiresAt = expiresAt
-	invitation.AcceptedAt = nil
-	invitation.UpdatedAt = time.Now()
-	if existingPending.ID != uuid.Nil {
-		invitation.ID = existingPending.ID
-		invitation.CreatedAt = existingPending.CreatedAt
-		if err := s.OrganizationRepo.UpdateInvitation(invitation); err != nil {
+		existingPending, pendingErr := s.OrganizationRepo.GetPendingInvitationByEmail(organizationID, inviteItem.Email)
+		if pendingErr != nil {
+			return pendingErr
+		}
+
+		expiresAt := time.Now().Add(1 * 24 * time.Hour)
+		invitation := models.OrganizationInvitation{
+			OrganizationID: organizationID,
+			Email:          inviteItem.Email,
+			Role:           inviteItem.Role,
+			Status:         models.InvitationStatusPending,
+			ExpiresAt:      expiresAt,
+			CreatedBy:      inviterID,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+
+		invitationToken, err := s.generateInvitationToken()
+		if err != nil {
 			return err
 		}
-	} else {
-		if err := s.OrganizationRepo.CreateOrganizationInvitation(invitation); err != nil {
-			return err
+		invitation.Token = invitationToken
+		invitation.Status = models.InvitationStatusPending
+		invitation.ExpiresAt = expiresAt
+		invitation.AcceptedAt = nil
+		invitation.UpdatedAt = time.Now()
+		if existingPending.ID != uuid.Nil {
+			invitation.ID = existingPending.ID
+			invitation.CreatedAt = existingPending.CreatedAt
+			if err := s.OrganizationRepo.UpdateInvitation(invitation); err != nil {
+				return err
+			}
+		} else {
+			if err := s.OrganizationRepo.CreateOrganizationInvitation(invitation); err != nil {
+				return err
+			}
 		}
-	}
 
-	inviteLink := fmt.Sprintf("%s/invitations/accept?token=%s", config.GetEnv("FRONTEND_URL", "http://localhost:3000"), invitation.Token)
-	if err := email.SendOrganizationInvitation(payload.Email, org.Name, invitation.Role, inviteLink); err != nil {
-		s.logger.Warn("Failed to send organization invitation email", zap.Error(err))
-	}
+		inviteLink := fmt.Sprintf("%s/invitations/accept?token=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), invitation.Token)
+		if err := email.SendOrganizationInvitation(inviteItem.Email, org.Name, invitation.Role, inviteLink); err != nil {
+			s.logger.Warn("Failed to send organization invitation email", zap.Error(err))
+		}
 
-	auditErr := s.OrganizationRepo.CreateAuditLog(models.AuditLog{
-		UserID:         &inviterID,
-		OrganizationID: &organizationID,
-		Action:         "organization_invitation_created",
-		ResourceType:   "organization_invitation",
-		ResourceID:     invitation.Token,
-		Details:        fmt.Sprintf("Invited %s to %s as %s", payload.Email, org.Name, payload.Role),
-		CreatedAt:      time.Now(),
-	})
-	if auditErr != nil {
-		return auditErr
+		auditErr := s.OrganizationRepo.CreateAuditLog(models.AuditLog{
+			UserID:         &inviterID,
+			OrganizationID: &organizationID,
+			Action:         "organization_invitation_created",
+			ResourceType:   "organization_invitation",
+			ResourceID:     invitation.Token,
+			Details:        fmt.Sprintf("Invited %s to %s as %s", inviteItem.Email, org.Name, inviteItem.Role),
+			CreatedAt:      time.Now(),
+		})
+		if auditErr != nil {
+			return auditErr
+		}
 	}
 	return nil
 }

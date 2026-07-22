@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"net/mail"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -40,7 +39,7 @@ type OrganizationHandler struct {
 // @Router       /organization/delete [delete]
 func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -128,7 +127,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -197,7 +196,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 // @Router       /organization/get [get]
 func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -409,7 +408,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -512,7 +511,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -608,62 +607,7 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 		return
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(payload); err != nil {
-		var details []response.Details
-		for _, fieldErr := range err.(validator.ValidationErrors) {
-			details = append(details, response.Details{Field: fieldErr.Field(),
-				Message: fmt.Sprintf("Validation Failed on '%s'", fieldErr.Tag())})
-		}
-		g.JSON(http.StatusBadRequest, response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details:    details},
-		})
-		return
-	}
-
-	if payload.Email == "" {
-		g.JSON(http.StatusBadRequest, response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Email is required",
-				Details: []response.Details{{
-					Field:   "email",
-					Message: "Email is required"}},
-			}},
-		)
-		return
-	}
-	if payload.Role == string(dto.RoleSuperAdmin) {
-		g.JSON(http.StatusForbidden, response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "Super admin cannot be invited",
-				Details:    []response.Details{{Field: "role", Message: "Super admin cannot be invited"}}},
-		})
-		return
-	}
-	if _, err := mail.ParseAddress(payload.Email); err != nil {
-		g.JSON(http.StatusBadRequest, response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Email must be a valid RFC 5322 address",
-				Details:    []response.Details{{Field: "email", Message: "Email must be a valid RFC 5322 address"}}},
-		})
-		return
-	}
-
-	organizationIDVal, exist := g.Get("Organization_id")
+	organizationIDVal, exist := g.Get("organization_id")
 	if !exist {
 		g.JSON(http.StatusBadRequest, response.ErrorResponse{
 			Success: false,
