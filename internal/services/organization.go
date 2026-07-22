@@ -108,20 +108,11 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 			},
 		}
 	}
-	req := models.User{
-		ID:             result.ID,
-		OrganizationID: result.OrganizationID,
-		UserName:       result.UserName,
-		Email:          result.Email,
-		PasswordHash:   result.PasswordHash,
-		Role:           result.Role,
-		FullName:       result.FullName,
-		IsActive:       payload.IsActive,
-		AvatarURL:      result.AvatarURL,
-		Timezone:       result.Timezone,
-	}
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
+	request := result
+	request.IsActive = payload.IsActive
+
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
 
 }
 
@@ -154,20 +145,11 @@ func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *respon
 			}},
 		}
 	}
-	req := models.User{
-		ID:             result.ID,
-		OrganizationID: result.OrganizationID,
-		UserName:       result.UserName,
-		Email:          result.Email,
-		PasswordHash:   result.PasswordHash,
-		Role:           payload.Role,
-		FullName:       result.FullName,
-		IsActive:       result.IsActive,
-		AvatarURL:      result.AvatarURL,
-		Timezone:       result.Timezone,
-	}
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
+	request := result
+	request.Role = payload.Role
+
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
 
 }
 
@@ -205,19 +187,11 @@ func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error
 			}},
 		}
 	}
-	req := models.User{
-		ID:             result.ID,
-		OrganizationID: nil,
-		UserName:       result.UserName,
-		Email:          result.Email,
-		PasswordHash:   result.PasswordHash,
-		Role:           string(dto.RoleGuest),
-		FullName:       result.FullName,
-		IsActive:       result.IsActive,
-		AvatarURL:      result.AvatarURL,
-		Timezone:       result.Timezone,
-	}
+	
+	request := result
+	request.Role = string(dto.RoleGuest)
+	request.OrganizationID = nil
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, req)
+	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
 
 }
