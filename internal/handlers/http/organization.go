@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -583,6 +584,92 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		Data: map[string]any{
 			"OrganizationID": id,
 			"user_id":        payload.UserID},
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+
+}
+
+// GetUserInOrganization godoc
+//
+// @Summary      Get current Organization
+// @Description  Returns the profile of the authenticated Organization.
+// @Tags         Organizations
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200 {object} response.SuccessResponse{data=models.Organization}
+// @Failure      401 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /organization/get-user [get]
+func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
+
+	OrganizationID, exist := g.Get("organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid Organization ID",
+				Details: []response.Details{
+					{
+						Field:   "Organization ID",
+						Message: "Organization Id Invalid/Missing",
+					},
+				},
+			},
+		}
+
+		h.logger.Error("Organization Id Invalid/Missing ")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	OrganizationIDStr := OrganizationID.(string)
+
+	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	page, pageErr := strconv.Atoi(g.DefaultQuery("page", "1"))
+	pageSize, pageSizeErr := strconv.Atoi(g.DefaultQuery("page_size", "10"))
+	if pageErr != nil || pageSizeErr != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Bad Request",
+				Details: []response.Details{
+					{
+						Field:   "Page",
+						Message: "Query  Invalid",
+					},
+				},
+			},
+		}
+
+		h.logger.Error("Query  Invalid")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	users, pagination, respErr := h.service.GetUserInOrganization(id, page, pageSize)
+	if respErr != nil {
+		g.JSON(respErr.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *respErr,
+		})
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Organization detail received successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       users,
+		Meta:       &pagination,
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 

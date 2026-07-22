@@ -24,6 +24,7 @@ type OrganizationService interface {
 	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
 	InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error
 	AcceptInvitation(userID uuid.UUID, token string) *response.Error
+	GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error)
 }
 
 func InitOrganizationService(repo repository.OrganizationRepository, AuthRepo repository.AuthRepository, logger *zap.Logger) OrganizationService {
@@ -355,4 +356,9 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 		return auditErr
 	}
 	return nil
+}
+
+func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
+
+	return s.OrganizationRepo.GetUsersByOrganizationID(id, page, pageSize)
 }
