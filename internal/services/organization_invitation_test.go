@@ -74,6 +74,11 @@ func (s *stubOrganizationRepository) CreateAuditLog(log models.AuditLog) *respon
 	return nil
 }
 
+func (s *stubOrganizationRepository) UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error {
+	s.memberUser = req
+	return nil
+}
+
 func TestInviteOrganizationMemberReturnsConflictForActiveMember(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}, memberUser: models.User{Email: "member@example.com", OrganizationID: &orgID, IsActive: true}}
