@@ -602,7 +602,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 // @Router       /organization/get-user [get]
 func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
