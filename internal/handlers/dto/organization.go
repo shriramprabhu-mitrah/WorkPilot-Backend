@@ -35,3 +35,16 @@ type UpdateUserRole struct {
 	UserID         uuid.UUID `json:"user_id"`
 	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
 }
+
+type InviteOrganizationMemberItem struct {
+	Email string `json:"email" binding:"required,email"`
+	Role  string `json:"role" binding:"required,oneof=org_admin project_manager developer viewer guest"`
+}
+
+type InviteOrganizationMemberRequest struct {
+	Members []InviteOrganizationMemberItem `json:"members,omitempty" binding:"required,dive"`
+}
+
+type AcceptInvitationRequest struct {
+	Token string `json:"token" binding:"required"`
+}
