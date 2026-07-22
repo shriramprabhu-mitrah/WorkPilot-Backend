@@ -22,70 +22,8 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/Organizations/update": {
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Updates Organization profile.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Organizations"
-                ],
-                "summary": "Update Organization",
-                "parameters": [
-                    {
-                        "description": "Update Organization Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.UpdateOrganizationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/auth/change-password": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Changes the password of the authenticated user.",
                 "consumes": [
                     "application/json"
@@ -138,11 +76,6 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Revokes the user's refresh token and let user logout.",
                 "produces": [
                     "application/json"
@@ -175,11 +108,6 @@ const docTemplate = `{
         },
         "/auth/me": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Returns the profile of the authenticated user.",
                 "produces": [
                     "application/json"
@@ -316,11 +244,6 @@ const docTemplate = `{
         },
         "/auth/refresh": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Generates a new access token using the refresh token.",
                 "consumes": [
                     "application/json"
@@ -332,17 +255,6 @@ const docTemplate = `{
                     "Authentication"
                 ],
                 "summary": "Refresh access token",
-                "parameters": [
-                    {
-                        "description": "refresh token",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.RefreshTokenRequest"
-                        }
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -495,11 +407,6 @@ const docTemplate = `{
         },
         "/auth/update": {
             "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Updates user profile.",
                 "consumes": [
                     "application/json"
@@ -604,11 +511,6 @@ const docTemplate = `{
         },
         "/organization/delete": {
             "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Returns the profile of the authenticated Organization.",
                 "produces": [
                     "application/json"
@@ -653,11 +555,6 @@ const docTemplate = `{
         },
         "/organization/get": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Returns the profile of the authenticated Organization.",
                 "produces": [
                     "application/json"
@@ -702,11 +599,6 @@ const docTemplate = `{
         },
         "/organization/get-user": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Returns the profile of the authenticated Organization.",
                 "produces": [
                     "application/json"
@@ -751,11 +643,6 @@ const docTemplate = `{
         },
         "/organization/invitations/accept": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Accepts a pending organization invitation using the provided token.",
                 "consumes": [
                     "application/json"
@@ -800,13 +687,60 @@ const docTemplate = `{
                 }
             }
         },
-        "/organization/user-status/": {
+        "/organization/update": {
             "patch": {
-                "security": [
+                "description": "Updates Organization profile.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Organizations"
+                ],
+                "summary": "Update Organization",
+                "parameters": [
                     {
-                        "BearerAuth": []
+                        "description": "Update Organization Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateOrganizationRequest"
+                        }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/organization/user-status/": {
+            "patch": {
                 "description": "Updates User profile.",
                 "consumes": [
                     "application/json"
@@ -859,11 +793,6 @@ const docTemplate = `{
         },
         "/remove-user/": {
             "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "RemoveUser.",
                 "consumes": [
                     "application/json"
@@ -916,11 +845,6 @@ const docTemplate = `{
         },
         "/user-role/": {
             "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Updates User profile.",
                 "consumes": [
                     "application/json"
@@ -1044,20 +968,6 @@ const docTemplate = `{
             ],
             "properties": {
                 "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.RefreshTokenRequest": {
-            "type": "object",
-            "required": [
-                "refresh_token"
-            ],
-            "properties": {
-                "refresh_token": {
-                    "type": "string"
-                },
-                "user_id": {
                     "type": "string"
                 }
             }
@@ -1411,7 +1321,6 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "Enter your JWT token in the format: Bearer \u003cyour-token\u003e",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

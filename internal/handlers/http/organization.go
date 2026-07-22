@@ -32,7 +32,6 @@ type OrganizationHandler struct {
 // @Summary      delete current Organization
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
-// @Security     BearerAuth
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse{data=models.Organization}
 // @Failure      401 {object} response.ErrorResponse
@@ -96,13 +95,12 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Security	 BearerAuth
 // @Param        request body dto.UpdateOrganizationRequest true "Update Organization Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /Organizations/update [patch]
+// @Router       /organization/update [patch]
 func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 
 	var payload dto.UpdateOrganizationRequest
@@ -189,7 +187,6 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 // @Summary      Get current Organization
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
-// @Security     BearerAuth
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse{data=models.Organization}
 // @Failure      401 {object} response.ErrorResponse
@@ -377,7 +374,6 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Security	 BearerAuth
 // @Param        request body dto.UserStatusRequest true "Update User Status Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
@@ -480,7 +476,6 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Security	 BearerAuth
 // @Param        request body dto.UserRoleRequest true "Update User Role Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
@@ -594,7 +589,6 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 // @Summary      Get current Organization
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
-// @Security     BearerAuth
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse{data=models.Organization}
 // @Failure      401 {object} response.ErrorResponse
@@ -682,7 +676,6 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Security	 BearerAuth
 // @Param        request body dto.RemoveUserRequest true "RemoveUser Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
@@ -856,7 +849,6 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Security     BearerAuth
 // @Param        request body dto.AcceptInvitationRequest true "Accept invitation"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse

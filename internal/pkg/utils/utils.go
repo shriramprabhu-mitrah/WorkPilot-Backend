@@ -80,3 +80,21 @@ func StringToInt(str string) (int, *response.Error) {
 	}
 	return num, nil
 }
+
+func StringToBool(str string) (bool, *response.Error) {
+
+	b, err := strconv.ParseBool(str)
+	if err != nil {
+		errorResponse := response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to convert the string into bool",
+			Details: []response.Details{
+				{
+					Message: "InternalServerError"},
+			},
+		}
+		return false, &errorResponse
+	}
+	return b, nil
+}

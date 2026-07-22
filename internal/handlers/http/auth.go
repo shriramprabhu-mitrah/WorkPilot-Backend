@@ -6,7 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/internal/handlers/dto"
+	cookies "github.com/ms-kanban-server/internal/pkg/cookie"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
@@ -187,6 +189,30 @@ func (h *AuthHandler) SignIn(g *gin.Context) {
 		return
 	}
 
+	secure, err := utils.StringToBool(config.GetEnv("COOKIE_SECURE", ""))
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	cookies.SetAccessToken(
+		g,
+		tokens.AccessToken,
+		tokens.ExpiresIn,
+		secure,
+	)
+
+	cookies.SetRefreshToken(
+		g,
+		tokens.RefreshToken,
+		tokens.RefreshExpiresIn,
+		secure,
+	)
+
 	successResponse := &response.SuccessResponse{
 		Message:    "Successfully Logged in",
 		StatusCode: http.StatusOK,
@@ -341,10 +367,8 @@ func (h *AuthHandler) ResetPassword(g *gin.Context) {
 // @Summary      Refresh access token
 // @Description  Generates a new access token using the refresh token.
 // @Tags         Authentication
-// @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.RefreshTokenRequest true "refresh token"
 // @Success      200 {object} response.SuccessResponse{data=dto.AuthTokensResponse}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
@@ -352,53 +376,6 @@ func (h *AuthHandler) ResetPassword(g *gin.Context) {
 func (h *AuthHandler) RefreshToken(g *gin.Context) {
 
 	var payload dto.RefreshTokenRequest
-
-	if err := g.ShouldBindJSON(&payload); err != nil {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error(),
-				}},
-			},
-		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	validate := validator.New()
-	if err := validate.Struct(payload); err != nil {
-		var details []response.Details
-		for _, fieldErr := range err.(validator.ValidationErrors) {
-			details = append(details, response.Details{
-				Field:   fieldErr.Field(),
-				Message: fmt.Sprintf("Validation Failed on '%s'", fieldErr.Tag()),
-			})
-		}
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details:    details,
-			},
-		}
-
-		h.logger.Error("Validation failed",
-			zap.Error(err))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
 
 	userID, exist := g.Get("user_id")
 	if !exist {
@@ -424,6 +401,27 @@ func (h *AuthHandler) RefreshToken(g *gin.Context) {
 	}
 	payload.UserID = userID.(string)
 
+	token, cookieError := g.Cookie("refresh_token")
+	if cookieError != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Bad Request",
+				Details: []response.Details{
+					{
+						Field:   "refresh_token",
+						Message: "Refresh Token Missig",
+					},
+				},
+			},
+		}
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	payload.RefreshToken = token
+
 	tokens, err := h.service.RefreshToken(payload)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
@@ -448,7 +446,6 @@ func (h *AuthHandler) RefreshToken(g *gin.Context) {
 // @Summary      Logout user
 // @Description  Revokes the user's refresh token and let user logout.
 // @Tags         Authentication
-// @Security     BearerAuth
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse
 // @Failure      401 {object} response.ErrorResponse
@@ -490,6 +487,18 @@ func (h *AuthHandler) Logout(g *gin.Context) {
 		return
 	}
 
+	secure, err := utils.StringToBool(config.GetEnv("COOKIE_SECURE", ""))
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	cookies.Clear(g, secure)
+
 	successResponse := &response.SuccessResponse{
 		Message:    "Logedout successfully",
 		StatusCode: http.StatusOK,
@@ -503,7 +512,6 @@ func (h *AuthHandler) Logout(g *gin.Context) {
 // @Summary      Change password
 // @Description  Changes the password of the authenticated user.
 // @Tags         Authentication
-// @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.ChangePasswordRequest true "Change Password Request"
@@ -593,7 +601,6 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 // @Tags         Users
 // @Accept       json
 // @Produce      json
-// @Security	 BearerAuth
 // @Param        request body dto.UpdateUserRequest true "Update User Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
@@ -681,7 +688,6 @@ func (h *AuthHandler) Updateuser(g *gin.Context) {
 // @Summary      Get current user
 // @Description  Returns the profile of the authenticated user.
 // @Tags         Users
-// @Security     BearerAuth
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse{data=models.User}
 // @Failure      401 {object} response.ErrorResponse
