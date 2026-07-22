@@ -12,10 +12,12 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		&models.Organization{},
 		&models.User{},
 		&models.RefreshToken{},
+		&models.OrganizationInvitation{},
+		&models.AuditLog{},
 	)
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }

@@ -40,7 +40,7 @@ type OrganizationHandler struct {
 // @Router       /organization/delete [delete]
 func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -128,7 +128,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -197,7 +197,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 // @Router       /organization/get [get]
 func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -409,7 +409,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -512,7 +512,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("Organization_id")
+	OrganizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -673,4 +673,138 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
+}
+
+func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
+	var payload dto.InviteOrganizationMemberRequest
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		h.logger.Error("Invalid invite payload", zap.Error(err))
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{{
+					Field:   "body",
+					Message: err.Error()},
+				},
+			}},
+		)
+		return
+	}
+
+	organizationIDVal, exist := g.Get("organization_id")
+	if !exist {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid Organization ID",
+				Details: []response.Details{{
+					Field:   "Organization ID",
+					Message: "Organization Id Invalid/Missing"}},
+			}},
+		)
+		return
+	}
+	organizationID, convErr := utils.StringToUUID(organizationIDVal.(string))
+	if convErr != nil {
+		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+		return
+	}
+
+	inviterIDVal, exist := g.Get("user_id")
+	if !exist {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid User ID",
+				Details: []response.Details{{
+					Field:   "User ID",
+					Message: "User Id Invalid/Missing"}},
+			}},
+		)
+		return
+	}
+	inviterID, convErr := utils.StringToUUID(inviterIDVal.(string))
+	if convErr != nil {
+		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+		return
+	}
+
+	if err := h.service.InviteOrganizationMember(inviterID, organizationID, payload); err != nil {
+		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
+	g.JSON(http.StatusCreated, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusCreated,
+		Message:    "Invitation sent successfully"})
+}
+
+// AcceptInvitation godoc
+//
+// @Summary      Accept organization invitation
+// @Description  Accepts a pending organization invitation using the provided token.
+// @Tags         Organizations
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.AcceptInvitationRequest true "Accept invitation"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /organization/invitations/accept [post]
+func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
+	var payload dto.AcceptInvitationRequest
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{{
+					Field:   "body",
+					Message: err.Error()}},
+			}},
+		)
+		return
+	}
+
+	userIDVal, exist := g.Get("user_id")
+	if !exist {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid User ID",
+				Details: []response.Details{{
+					Field:   "User ID",
+					Message: "User Id Invalid/Missing"}},
+			}},
+		)
+		return
+	}
+	userID, convErr := utils.StringToUUID(userIDVal.(string))
+	if convErr != nil {
+		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+		return
+	}
+
+	if err := h.service.AcceptInvitation(userID, payload.Token); err != nil {
+		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Invitation accepted successfully"})
 }

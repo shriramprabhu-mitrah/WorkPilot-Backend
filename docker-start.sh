@@ -1,5 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
 # Export environment variables for the application
 source ./env.sh
 
-# Start the application
-docker compose up -d
+# Rebuild and start the application so the latest routes are included
+docker compose up -d --build
