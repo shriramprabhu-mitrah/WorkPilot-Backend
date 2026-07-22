@@ -63,6 +63,19 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.ResetPasswordRequest:
+    properties:
+      email:
+        type: string
+      new_password:
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - new_password
+    - otp
+    type: object
   dto.Role:
     enum:
     - super_admin
@@ -742,6 +755,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current Organization
+      tags:
+      - Organizations
+  /organization/invitations/accept:
+    post:
+      consumes:
+      - application/json
+      description: Accepts a pending organization invitation using the provided token.
+      parameters:
+      - description: Accept invitation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AcceptInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Accept organization invitation
       tags:
       - Organizations
   /organization/user-status/:
