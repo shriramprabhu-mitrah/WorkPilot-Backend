@@ -79,6 +79,11 @@ func (s *stubOrganizationRepository) UpdateStatusAndRole(userID uuid.UUID, req m
 	return nil
 }
 
+func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
+
+	return nil, response.Pagination{}, nil
+}
+
 func TestInviteOrganizationMemberReturnsConflictForActiveMember(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}, memberUser: models.User{Email: "member@example.com", OrganizationID: &orgID, IsActive: true}}
