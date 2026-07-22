@@ -447,7 +447,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 	}
 
 	credentials := dto.UpdateUserStatus{
-		OrganizationID: organizationUUID,
+		OrganizationID: &organizationUUID,
 		UserID:         userID,
 		IsActive:       payload.IsActive,
 	}
@@ -563,7 +563,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 	}
 
 	credentials := dto.UpdateUserRole{
-		OrganizationID: id,
+		OrganizationID: &id,
 		UserID:         userID,
 		Role:           string(payload.Role),
 	}
@@ -670,6 +670,108 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		Success:    true,
 		Data:       users,
 		Meta:       &pagination,
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+
+}
+
+// UpdateUserRole godoc
+//
+// @Summary      RemoveUser
+// @Description  RemoveUser.
+// @Tags         Organizations
+// @Accept       json
+// @Produce      json
+// @Security	 BearerAuth
+// @Param        request body dto.RemoveUserRequest true "RemoveUser Request"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      404 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /remove-user/ [patch]
+func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
+
+	var payload dto.RemoveUserRequest
+
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid request payload",
+				Details: []response.Details{{
+					Field:   "body",
+					Message: err.Error(),
+				}},
+			},
+		}
+
+		h.logger.Error("Invalid request payload",
+			zap.Error(err))
+
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	OrganizationID, exist := g.Get("Organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid Organization ID",
+				Details: []response.Details{
+					{
+						Field:   "Organization ID",
+						Message: "Organization Id Invalid/Missing",
+					},
+				},
+			},
+		}
+
+		h.logger.Error("Organization Id Invalid/Missing ")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	OrganizationIDStr := OrganizationID.(string)
+
+	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	userID, errorResponse := utils.StringToUUID(payload.UserID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	credentials := dto.RemoveUser{
+		OrganizationID: &id,
+		UserID:         userID,
+	}
+	err := h.service.RemoveUser(credentials)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Removed User Successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data: map[string]any{
+			"OrganizationID": id,
+			"user_id":        payload.UserID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 

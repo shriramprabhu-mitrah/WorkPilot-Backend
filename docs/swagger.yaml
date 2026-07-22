@@ -44,6 +44,27 @@ definitions:
     required:
     - refresh_token
     type: object
+  dto.RemoveUserRequest:
+    properties:
+      user_id:
+        type: string
+    type: object
+  dto.Role:
+    enum:
+    - super_admin
+    - org_admin
+    - project_manager
+    - developer
+    - viewer
+    - guest
+    type: string
+    x-enum-varnames:
+    - RoleSuperAdmin
+    - RoleOrgAdmin
+    - RoleProjectManager
+    - RoleDeveloper
+    - RoleViewer
+    - RoleGuest
   dto.SignInRequest:
     properties:
       email:
@@ -96,6 +117,13 @@ definitions:
       timezone:
         type: string
       username:
+        type: string
+    type: object
+  dto.UserRoleRequest:
+    properties:
+      role:
+        $ref: '#/definitions/dto.Role'
+      user_id:
         type: string
     type: object
   dto.UserStatusRequest:
@@ -612,6 +640,34 @@ paths:
       summary: Get current Organization
       tags:
       - Organizations
+  /organization/get-user:
+    get:
+      description: Returns the profile of the authenticated Organization.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Organization'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current Organization
+      tags:
+      - Organizations
   /organization/user-status/:
     patch:
       consumes:
@@ -646,6 +702,78 @@ paths:
       security:
       - BearerAuth: []
       summary: Update User Status
+      tags:
+      - Organizations
+  /remove-user/:
+    patch:
+      consumes:
+      - application/json
+      description: RemoveUser.
+      parameters:
+      - description: RemoveUser Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RemoveUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: RemoveUser
+      tags:
+      - Organizations
+  /user-role/:
+    patch:
+      consumes:
+      - application/json
+      description: Updates User profile.
+      parameters:
+      - description: Update User Role Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update User Role
       tags:
       - Organizations
 securityDefinitions:
