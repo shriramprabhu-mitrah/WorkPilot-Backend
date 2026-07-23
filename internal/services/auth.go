@@ -32,6 +32,8 @@ type AuthService interface {
 	ResetPassword(credentials dto.ResetPasswordRequest) *response.Error
 	UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID) *response.Error
 	GetUser(userID uuid.UUID) (models.User, *response.Error)
+	IsEmailAvailable(email string) (bool, *response.Error)
+	IsUsernameAvailable(username string) (bool, *response.Error)
 }
 
 func InitAuthService(repo repository.AuthRepository, logger *zap.Logger) AuthService {
@@ -578,4 +580,20 @@ func (s *authservice) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 func (s *authservice) GetUser(userID uuid.UUID) (models.User, *response.Error) {
 
 	return s.Repo.GetByID(userID)
+}
+
+func (s *authservice) IsEmailAvailable(email string) (bool, *response.Error) {
+	exists, err := s.Repo.ExistsByEmail(email)
+	if err != nil {
+		return false, err
+	}
+	return !exists, nil
+}
+
+func (s *authservice) IsUsernameAvailable(username string) (bool, *response.Error) {
+	exists, err := s.Repo.ExistsByUsername(username)
+	if err != nil {
+		return false, err
+	}
+	return !exists, nil
 }

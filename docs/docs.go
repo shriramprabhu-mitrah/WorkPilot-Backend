@@ -457,6 +457,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/validate": {
+            "get": {
+                "description": "Returns whether the provided email or username is not already registered.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Check whether an email or username is available",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Validation type: email or username",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Value to validate",
+                        "name": "value",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/organization/create": {
             "post": {
                 "description": "Creates a new Organization account.",
