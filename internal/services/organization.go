@@ -93,9 +93,9 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 
 	if result.OrganizationID == nil || payload.OrganizationID == nil {
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Organization ID missing",
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 
@@ -104,15 +104,9 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 			zap.String("Organization Id", payload.OrganizationID.String()),
 			zap.String("User Organization Id", result.OrganizationID.String()))
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized",
-			Details: []response.Details{
-				{
-					Field:   "Organization Id",
-					Message: "Invalid Organization Id",
-				},
-			},
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 
@@ -132,9 +126,9 @@ func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *respon
 
 	if result.OrganizationID == nil || payload.OrganizationID == nil {
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Organization ID missing",
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 
@@ -143,13 +137,9 @@ func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *respon
 			zap.String("Payload Organization Id", payload.OrganizationID.String()),
 			zap.String("User Organization Id", result.OrganizationID.String()))
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized Access",
-			Details: []response.Details{{
-				Field:   "Organization Id",
-				Message: "Unauthorized Access",
-			}},
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 
@@ -169,8 +159,8 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Only organization administrators can invite members",
-			Details:    []response.Details{{Field: "role", Message: "Only organization administrators can invite members"}}}
+			Message:    "You do not have permission to perform this action",
+		}
 	}
 
 	inviteItems := payload.Members
@@ -179,7 +169,6 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
 			Message:    "At least one member invitation is required",
-			Details:    []response.Details{{Field: "members", Message: "At least one member invitation is required"}},
 		}
 	}
 
@@ -195,7 +184,6 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 				Code:       response.ErrConflict,
 				StatusCode: http.StatusConflict,
 				Message:    "User is already an active member of the organization",
-				Details:    []response.Details{{Field: "email", Message: "User is already an active member of the organization"}},
 			}
 		} else if userErr != nil && userErr.StatusCode != http.StatusUnauthorized {
 			return userErr
@@ -266,8 +254,7 @@ func (s *Organizationservice) generateInvitationToken() (string, *response.Error
 		return "", &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to generate invitation token",
-			Details:    []response.Details{{Message: err.Error()}},
+			Message:    "Something went wrong. Please try again later.",
 		}
 	}
 	return newToken.String(), nil
@@ -279,9 +266,6 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Invitation token is required",
-			Details: []response.Details{{
-				Field:   "token",
-				Message: "Invitation token is required"}},
 		}
 	}
 
@@ -294,9 +278,6 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 			Code:       response.ErrNotFound,
 			StatusCode: http.StatusNotFound,
 			Message:    "Invitation not found",
-			Details: []response.Details{{
-				Field:   "token",
-				Message: "Invitation not found"}},
 		}
 	}
 	if invitation.Status == models.InvitationStatusAccepted {
@@ -304,9 +285,6 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 			Code:       response.ErrConflict,
 			StatusCode: http.StatusConflict,
 			Message:    "Invitation has already been accepted",
-			Details: []response.Details{{
-				Field:   "token",
-				Message: "Invitation has already been accepted"}},
 		}
 	}
 	if invitation.Status == models.InvitationStatusExpired || invitation.ExpiresAt.Before(time.Now()) {
@@ -319,9 +297,6 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 			Code:       response.ErrGone,
 			StatusCode: http.StatusGone,
 			Message:    "Invitation has expired",
-			Details: []response.Details{{
-				Field:   "token",
-				Message: "Invitation has expired"}},
 		}
 	}
 
@@ -374,9 +349,9 @@ func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error
 
 	if result.OrganizationID == nil || payload.OrganizationID == nil {
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Organization ID missing",
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 
@@ -385,13 +360,9 @@ func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error
 			zap.String("Organization Id", payload.OrganizationID.String()),
 			zap.String("User Organization Id", result.OrganizationID.String()))
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized Access",
-			Details: []response.Details{{
-				Field:   "Organization Id",
-				Message: "Unauthorized Access",
-			}},
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 

@@ -51,43 +51,9 @@ func (h *AuthHandler) SignUp(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details: []response.Details{
-					{
-						Field:   "body",
-						Message: err.Error()},
-				},
-			},
-		}
-
+				Message:    "Invalid request payload.",
+			}}
 		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	validate := validator.New()
-	if err := validate.Struct(payload); err != nil {
-		var details []response.Details
-		for _, fieldErr := range err.(validator.ValidationErrors) {
-			details = append(details, response.Details{
-				Field:   fieldErr.Field(),
-				Message: fmt.Sprintf("Validation Failed on '%s'", fieldErr.Tag()),
-			})
-		}
-
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details:    details,
-			},
-		}
-
-		h.logger.Error("Validation failed",
 			zap.Error(err))
 
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
@@ -137,43 +103,11 @@ func (h *AuthHandler) SignIn(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Failed converting json to struct",
-				Details: []response.Details{
-					{
-						Field:   "body",
-						Message: err.Error()},
-				},
+				Message:    "Invalid request payload.",
 			},
 		}
 
 		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	validate := validator.New()
-	if err := validate.Struct(loginCredentials); err != nil {
-		var details []response.Details
-		for _, fieldErr := range err.(validator.ValidationErrors) {
-			details = append(details, response.Details{
-				Field:   fieldErr.Field(),
-				Message: fmt.Sprintf("Validation Failed on '%s'", fieldErr.Tag()),
-			})
-		}
-
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details:    details,
-			},
-		}
-
-		h.logger.Error("Validation failed",
 			zap.Error(err))
 
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
@@ -247,13 +181,7 @@ func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details: []response.Details{
-					{
-						Field:   "body",
-						Message: err.Error(),
-					},
-				},
+				Message:    "Invalid request payload.",
 			},
 		})
 		return
@@ -262,18 +190,13 @@ func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
 	if err := validator.New().Struct(payload); err != nil {
 		h.logger.Error("Validation failed",
 			zap.Error(err))
+		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details: []response.Details{
-					{
-						Field:   "email",
-						Message: "must be a valid email",
-					},
-				},
+				Message:    message,
 			},
 		})
 		return
@@ -318,31 +241,20 @@ func (h *AuthHandler) ResetPassword(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details: []response.Details{
-					{
-						Field:   "body",
-						Message: err.Error(),
-					},
-				},
+				Message:    "Invalid request payload.",
 			},
 		})
 		return
 	}
 
 	if err := validator.New().Struct(payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details: []response.Details{
-					{
-						Field:   "otp",
-						Message: "OTP is required",
-					},
-				},
+				Message:    message,
 			},
 		})
 		return
@@ -383,15 +295,9 @@ func (h *AuthHandler) RefreshToken(g *gin.Context) {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid User ID",
-				Details: []response.Details{
-					{
-						Field:   "User ID",
-						Message: "User Id Invalid/Missing",
-					},
-				},
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
 			},
 		}
 
@@ -407,15 +313,9 @@ func (h *AuthHandler) RefreshToken(g *gin.Context) {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Bad Request",
-				Details: []response.Details{
-					{
-						Field:   "refresh_token",
-						Message: "Refresh Token Missig",
-					},
-				},
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
 			},
 		}
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
@@ -459,15 +359,9 @@ func (h *AuthHandler) Logout(g *gin.Context) {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid User ID",
-				Details: []response.Details{
-					{
-						Field:   "User ID",
-						Message: "User Id Invalid/Missing",
-					},
-				},
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
 			},
 		}
 
@@ -531,11 +425,7 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error(),
-				}},
+				Message:    "Invalid request payload.",
 			},
 		}
 
@@ -551,15 +441,9 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid User ID",
-				Details: []response.Details{
-					{
-						Field:   "User ID",
-						Message: "User Id Invalid/Missing",
-					},
-				},
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
 			},
 		}
 
@@ -618,11 +502,7 @@ func (h *AuthHandler) UpdateUser(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error(),
-				}},
+				Message:    "Invalid request payload.",
 			},
 		}
 
@@ -638,15 +518,9 @@ func (h *AuthHandler) UpdateUser(g *gin.Context) {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid User ID",
-				Details: []response.Details{
-					{
-						Field:   "User ID",
-						Message: "User Id Invalid/Missing",
-					},
-				},
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
 			},
 		}
 
@@ -701,15 +575,9 @@ func (h *AuthHandler) GetUser(g *gin.Context) {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid User ID",
-				Details: []response.Details{
-					{
-						Field:   "User ID",
-						Message: "User Id Invalid/Missing",
-					},
-				},
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
 			},
 		}
 
@@ -768,7 +636,7 @@ func (h *AuthHandler) Validate(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed: type query parameter is required",
+				Message:    "Type is required.",
 			},
 		})
 		return
@@ -780,7 +648,7 @@ func (h *AuthHandler) Validate(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed: value query parameter is required",
+				Message:    "Value is required.",
 			},
 		})
 		return
@@ -800,7 +668,7 @@ func (h *AuthHandler) Validate(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed: type must be 'email' or 'username'",
+				Message:    "Type must be 'email' or 'username'.",
 			},
 		})
 		return
@@ -814,8 +682,12 @@ func (h *AuthHandler) Validate(g *gin.Context) {
 		return
 	}
 
+	message := fmt.Sprintf("%s is available.", validationType)
+	if !available {
+		message = fmt.Sprintf("%s is already taken.", validationType)
+	}
 	successResponse := &response.SuccessResponse{
-		Message:    fmt.Sprintf("The %s is already taken", validationType),
+		Message:    message,
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]any{

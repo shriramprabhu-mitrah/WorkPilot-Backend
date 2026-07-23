@@ -25,34 +25,34 @@ type AuthTokensResponse struct {
 }
 
 type SignInRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	Password       string `json:"password" validate:"required"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required"`
 	OrganizationID string `json:"organization_id,omitempty"`
 }
 
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required"`
+	RefreshToken string `json:"refresh_token" binding:"required"`
 	UserID       string `json:"user_id"`
 }
 
 type SignUpRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	Password       string `json:"password" validate:"required"`
-	FullName       string `json:"full_name" validate:"required"`
-	UserName       string `json:"username" validate:"required"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required"`
+	FullName       string `json:"full_name" binding:"required"`
+	UserName       string `json:"username" binding:"required"`
 	OrganizationID string `json:"organization_id,omitempty"`
 	AvatarURL      string `json:"avatar_url"`
 	Timezone       string `json:"timezone"`
 }
 
 type PasswordResetRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type ResetPasswordRequest struct {
-	Email       string `json:"email" validate:"required,email"`
-	OTP         string `json:"otp" validate:"required"`
-	NewPassword string `json:"new_password" validate:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	OTP         string `json:"otp" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
 }
 
 func (r Role) Validate() error {
