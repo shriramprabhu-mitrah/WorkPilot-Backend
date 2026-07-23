@@ -4,26 +4,15 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE organizations (
     id UUID PRIMARY KEY,
- 
-    -- Basic Info
     name VARCHAR(150) NOT NULL,
     slug VARCHAR(100) NOT NULL UNIQUE,
     industry VARCHAR(100),
- 
-    -- Branding
     logo_url TEXT,
- 
-    -- Organization Settings
     domain VARCHAR(255),
- 
-    -- Team Information
     team_size VARCHAR(20),
     country VARCHAR(100),
     timezone VARCHAR(50) DEFAULT 'UTC',
- 
-    -- Status
     status VARCHAR(20) DEFAULT 'active',
- 
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ
