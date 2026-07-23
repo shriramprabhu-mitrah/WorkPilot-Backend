@@ -577,6 +577,38 @@ paths:
       summary: Update user
       tags:
       - Users
+  /auth/validate:
+    get:
+      description: Returns whether the provided email or username is not already registered.
+      parameters:
+      - description: 'Validation type: email or username'
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: Value to validate
+        in: query
+        name: value
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Check whether an email or username is available
+      tags:
+      - Authentication
   /organization/create:
     post:
       consumes:

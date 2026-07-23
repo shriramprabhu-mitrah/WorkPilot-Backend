@@ -23,6 +23,8 @@ type stubAuthRepository struct {
 	updatedPasswordHash  string
 	revokedRefreshTokens bool
 	storedOTPs           []models.PasswordResetOTP
+	emailExists          bool
+	usernameExists       bool
 }
 
 func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Error) {
@@ -61,6 +63,20 @@ func (s *stubAuthRepository) GetRefreshToken(userID string) (models.RefreshToken
 		return models.RefreshToken{}, s.err
 	}
 	return s.refreshToken, nil
+}
+
+func (s *stubAuthRepository) ExistsByEmail(email string) (bool, *response.Error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	return s.emailExists, nil
+}
+
+func (s *stubAuthRepository) ExistsByUsername(username string) (bool, *response.Error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	return s.usernameExists, nil
 }
 
 func (s *stubAuthRepository) ChangePassword(tokenHash string, userID uuid.UUID) *response.Error {
@@ -241,5 +257,31 @@ func TestResetPasswordUpdatesHashAndRevokesTokens(t *testing.T) {
 	}
 	if repo.storedOTP.UsedAt == nil {
 		t.Fatal("expected otp to be marked as used")
+	}
+}
+
+func TestIsEmailAvailableReturnsTrueWhenEmailDoesNotExist(t *testing.T) {
+	repo := &stubAuthRepository{emailExists: false}
+	service := InitAuthService(repo, zap.NewNop())
+
+	available, err := service.IsEmailAvailable("new@example.com")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !available {
+		t.Fatal("expected email to be available")
+	}
+}
+
+func TestIsUsernameAvailableReturnsFalseWhenUsernameAlreadyExists(t *testing.T) {
+	repo := &stubAuthRepository{usernameExists: true}
+	service := InitAuthService(repo, zap.NewNop())
+
+	available, err := service.IsUsernameAvailable("existinguser")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if available {
+		t.Fatal("expected username to be unavailable")
 	}
 }

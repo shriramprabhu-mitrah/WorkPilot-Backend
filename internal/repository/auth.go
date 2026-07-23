@@ -20,6 +20,8 @@ import (
 type AuthRepository interface {
 	GetByEmail(email string) (models.User, *response.Error)
 	GetByID(id uuid.UUID) (models.User, *response.Error)
+	ExistsByEmail(email string) (bool, *response.Error)
+	ExistsByUsername(username string) (bool, *response.Error)
 	CreateUser(row models.User) *response.Error
 	StoreRefreshToken(token models.RefreshToken) *response.Error
 	GetRefreshToken(userID string) (models.RefreshToken, *response.Error)
@@ -117,6 +119,34 @@ func (d *authdatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
 		}
 	}
 	return row, nil
+}
+
+func (d *authdatabase) ExistsByEmail(email string) (bool, *response.Error) {
+	var count int64
+	if err := d.DB.Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err != nil {
+		d.logger.Error("Database error checking email existence",
+			zap.String("Email", email), zap.Error(err))
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Internal Server Error",
+		}
+	}
+	return count > 0, nil
+}
+
+func (d *authdatabase) ExistsByUsername(username string) (bool, *response.Error) {
+	var count int64
+	if err := d.DB.Model(&models.User{}).Where("username = ?", username).Count(&count).Error; err != nil {
+		d.logger.Error("Database error checking username existence",
+			zap.String("Username", username), zap.Error(err))
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Internal Server Error",
+		}
+	}
+	return count > 0, nil
 }
 
 func (d *authdatabase) CreateUser(row models.User) *response.Error {

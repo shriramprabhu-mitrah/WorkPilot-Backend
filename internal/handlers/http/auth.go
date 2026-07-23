@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -743,4 +744,85 @@ func (h *AuthHandler) GetUser(g *gin.Context) {
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
+}
+
+// Validate godoc
+//
+// @Summary      Check whether an email or username is available
+// @Description  Returns whether the provided email or username is not already registered.
+// @Tags         Authentication
+// @Produce      json
+// @Param        type   query    string  true  "Validation type: email or username"
+// @Param        value  query    string  true  "Value to validate"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /auth/validate [get]
+func (h *AuthHandler) Validate(g *gin.Context) {
+	validationType := strings.ToLower(g.Query("type"))
+	value := g.Query("value")
+
+	if validationType == "" {
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Validation failed: type query parameter is required",
+			},
+		})
+		return
+	}
+
+	if value == "" {
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Validation failed: value query parameter is required",
+			},
+		})
+		return
+	}
+
+	var available bool
+	var err *response.Error
+
+	switch validationType {
+	case "email":
+		available, err = h.service.IsEmailAvailable(value)
+	case "username":
+		available, err = h.service.IsUsernameAvailable(value)
+	default:
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Validation failed: type must be 'email' or 'username'",
+			},
+		})
+		return
+	}
+
+	if err != nil {
+		g.JSON(err.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		})
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    fmt.Sprintf("The %s is already taken", validationType),
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data: map[string]any{
+			"type":      validationType,
+			"value":     value,
+			"available": available,
+		},
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
 }
