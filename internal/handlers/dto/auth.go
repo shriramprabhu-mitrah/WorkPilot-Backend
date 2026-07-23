@@ -14,7 +14,6 @@ const (
 	RoleProjectManager Role = "project_manager"
 	RoleDeveloper      Role = "developer"
 	RoleViewer         Role = "viewer"
-	RoleGuest          Role = "guest"
 )
 
 type AuthTokensResponse struct {
@@ -81,4 +80,3 @@ type UpdateUserRequest struct {
 	AvatarURL string `json:"avatar_url"`
 	Timezone  string `json:"timezone"`
 }
-
