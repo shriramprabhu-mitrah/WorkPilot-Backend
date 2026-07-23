@@ -66,6 +66,13 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.ResendVerificationOTPRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   dto.ResetPasswordRequest:
     properties:
       email:
@@ -113,8 +120,6 @@ definitions:
         type: string
       full_name:
         type: string
-      organization_id:
-        type: string
       password:
         type: string
       timezone:
@@ -161,6 +166,16 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.VerifyEmailRequest:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - otp
+    type: object
   models.Organization:
     properties:
       country:
@@ -205,6 +220,8 @@ definitions:
       id:
         type: string
       is_active:
+        type: boolean
+      is_verified:
         type: boolean
       name:
         type: string
@@ -480,6 +497,40 @@ paths:
       summary: Refresh access token
       tags:
       - Authentication
+  /auth/resend-verification-otp:
+    post:
+      consumes:
+      - application/json
+      description: Sends a new email verification OTP to an unverified user.
+      parameters:
+      - description: Resend verification OTP request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResendVerificationOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Resend verification OTP
+      tags:
+      - Authentication
   /auth/signin:
     post:
       consumes:
@@ -617,6 +668,40 @@ paths:
           schema:
             $ref: '#/definitions/response.ErrorResponse'
       summary: Check whether an email or username is available
+      tags:
+      - Authentication
+  /auth/verify-email:
+    post:
+      consumes:
+      - application/json
+      description: Validates the verification OTP and marks the email as verified.
+      parameters:
+      - description: Email verification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.VerifyEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Verify email address
       tags:
       - Authentication
   /organization/create:

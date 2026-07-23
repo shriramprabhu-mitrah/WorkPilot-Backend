@@ -162,7 +162,11 @@ func (s *stubAuthRepository) GetEmailVerificationOTP(userID uuid.UUID, otp strin
 		return models.PasswordResetOTP{}, s.err
 	}
 	if !utils.IsValidPassword(s.otp.OTPHash, otp) {
-		return models.PasswordResetOTP{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "Invalid OTP", Details: []response.Details{{Field: "otp", Message: "The provided OTP is invalid or expired"}}}
+		return models.PasswordResetOTP{}, &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "The provided OTP is invalid or expired",
+		}
 	}
 	return s.otp, nil
 }

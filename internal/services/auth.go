@@ -101,11 +101,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Forbidden",
-			Details: []response.Details{{
-				Field:   "Email",
-				Message: "Email address must be verified before login",
-			}},
+			Message:    "Email address must be verified before login",
 		}
 	}
 
@@ -471,7 +467,11 @@ func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	refreshTokenValue, refreshTokenErr := generateRefreshTokenValue()
 	if refreshTokenErr != nil {
 		s.logger.Error("Failed to create refresh token after email verification", zap.String("email", credentials.Email))
-		return nil, &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Internal Server Error", Details: []response.Details{{Field: "Refresh token", Message: "Failed to create refresh token"}}}
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
 	}
 
 	hashedRefreshToken, hashErr := utils.HashPassword(refreshTokenValue)

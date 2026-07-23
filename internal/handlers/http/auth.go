@@ -297,20 +297,21 @@ func (h *AuthHandler) VerifyEmail(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details:    []response.Details{{Field: "body", Message: err.Error()}}}})
+				Message:    "Invalid request payload.",
+			}})
 		return
 	}
 
 	if err := validator.New().Struct(payload); err != nil {
 		h.logger.Error("Validation failed", zap.Error(err))
+		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details:    []response.Details{{Field: "otp", Message: "otp is required"}}}})
+				Message:    message,
+			}})
 		return
 	}
 
@@ -357,20 +358,21 @@ func (h *AuthHandler) ResendVerificationOTP(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
-				Details:    []response.Details{{Field: "body", Message: err.Error()}}}})
+				Message:    "Invalid request payload.",
+			}})
 		return
 	}
 
 	if err := validator.New().Struct(payload); err != nil {
 		h.logger.Error("Validation failed", zap.Error(err))
+		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Validation failed",
-				Details:    []response.Details{{Field: "email", Message: "must be a valid email"}}}})
+				Message:    message,
+			}})
 		return
 	}
 

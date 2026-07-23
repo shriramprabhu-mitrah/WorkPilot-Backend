@@ -458,7 +458,11 @@ func emailVerificationResendRedisKey(email string) string {
 
 func (d *authdatabase) IsEmailVerificationResendAllowed(email string, interval time.Duration) (bool, *response.Error) {
 	if d.redisClient == nil {
-		return false, &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Something went wrong", Details: []response.Details{{Message: "Failed to rate-limit verification resend"}}}
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
 	}
 
 	key := emailVerificationResendRedisKey(email)
@@ -467,12 +471,20 @@ func (d *authdatabase) IsEmailVerificationResendAllowed(email string, interval t
 		return true, nil
 	}
 	if err != nil {
-		return false, &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Something went wrong", Details: []response.Details{{Message: "Failed to rate-limit verification resend"}}}
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
 	}
 
 	lastSentAt, parseErr := time.Parse(time.RFC3339Nano, value)
 	if parseErr != nil {
-		return false, &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Something went wrong", Details: []response.Details{{Message: "Failed to rate-limit verification resend"}}}
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
 	}
 
 	return time.Since(lastSentAt) >= interval, nil
@@ -480,12 +492,20 @@ func (d *authdatabase) IsEmailVerificationResendAllowed(email string, interval t
 
 func (d *authdatabase) RecordEmailVerificationResend(email string, sentAt time.Time) *response.Error {
 	if d.redisClient == nil {
-		return &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Something went wrong", Details: []response.Details{{Message: "Failed to record verification resend"}}}
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
 	}
 
 	key := emailVerificationResendRedisKey(email)
 	if err := d.redisClient.Set(context.Background(), key, sentAt.Format(time.RFC3339Nano), time.Hour).Err(); err != nil {
-		return &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Something went wrong", Details: []response.Details{{Message: "Failed to record verification resend"}}}
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
 	}
 	return nil
 }
@@ -494,10 +514,10 @@ func (d *authdatabase) MarkUserEmailVerified(userID uuid.UUID) *response.Error {
 	result := d.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{"is_verified": true, "is_active": true})
 	if result.Error != nil {
 		d.logger.Error("Database error occurred while updating verification status", zap.Error(result.Error))
-		return &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Internal Server Error", Details: []response.Details{{Message: "Failed to update verification status"}}}
+		return &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Something went wrong"}
 	}
 	if result.RowsAffected == 0 {
-		return &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "Unauthorized", Details: []response.Details{{Field: "user_id", Message: "User not found"}}}
+		return &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
 	}
 	return nil
 }
