@@ -36,3 +36,9 @@ export GMAIL_FROM_EMAIL= # Optional sender email for Gmail SMTP. Defaults to BRE
 
 # Frontend configs
 export FRONTEND_DASHBOARD_URL=http://localhost:3000
+
+#Cookie
+export COOKIE_SECURE= #bool
+export COOKIE_DOMAIN= #backend domain
+export COOKIE_PATH=/ #default path
+export COOKIE_SAMESITE= #Controls when browsers send cookies with cross-site requests.

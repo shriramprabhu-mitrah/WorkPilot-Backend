@@ -3,7 +3,6 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -28,49 +27,27 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 
 		var jwtSecret = config.GetEnv("JWT_SECRET_KEY", "")
 
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		tokenString, err := c.Cookie("access_token")
+		if err != nil {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
 				Message:    "Unauthorized",
 				Details: []response.Details{
 					{
-						Field:   "authorization",
-						Message: "Missing token",
+						Field:   "access_token",
+						Message: "Missing access token",
 					},
 				},
 			}
 
-			m.Logger.Error("Missing token in while validation",
+			m.Logger.Error("Missing access token cookie",
 				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse)
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			errorResponse := response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Unauthorized",
-				Details: []response.Details{
-					{
-						Field:   "authorization",
-						Message: "Enter valid Token",
-					},
-				},
-			}
-
-			m.Logger.Error("Malformed authorization header",
-				zap.Error(fmt.Errorf("%v", errorResponse)))
-
-			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse)
-			return
-		}
-
-		tokenString := parts[1]
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 			return []byte(jwtSecret), nil
 		})
