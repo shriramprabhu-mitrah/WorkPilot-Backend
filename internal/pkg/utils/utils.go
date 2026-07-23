@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/response"
@@ -77,4 +78,12 @@ func StringToBool(str string) (bool, *response.Error) {
 		return false, &errorResponse
 	}
 	return b, nil
+}
+
+func ExtractSlug(input string) string {
+	input = strings.TrimSpace(input)
+	input = strings.TrimSuffix(input, "/")
+
+	parts := strings.Split(input, "/")
+	return parts[len(parts)-1]
 }

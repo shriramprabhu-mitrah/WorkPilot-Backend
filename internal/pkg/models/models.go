@@ -52,7 +52,7 @@ type User struct {
 	Role           string         `json:"role" gorm:"size:30;index:idx_users_role"`
 	AvatarURL      string         `json:"avatar_url" gorm:"size:255"`
 	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
-	IsActive       bool           `json:"is_active" gorm:"default:false"`
+	IsActive       bool           `json:"is_active" gorm:"default:true"`
 	CreatedAt      time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
 	UpdatedAt      time.Time      `json:"updated_at" gorm:"type:timestamptz"`
 	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index:idx_users_deleted_at"`
