@@ -51,7 +51,7 @@ func (h *AuthHandler) SignUp(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    err.Error(),
+				Message:    "Invalid request payload" + err.Error(),
 			}}
 		h.logger.Error("Invalid request payload",
 			zap.Error(err))
@@ -103,7 +103,7 @@ func (h *AuthHandler) SignIn(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    err.Error(),
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 
@@ -181,7 +181,7 @@ func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    err.Error(),
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		})
 		return
@@ -240,7 +240,7 @@ func (h *AuthHandler) ResetPassword(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    err.Error(),
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		})
 		return
@@ -423,7 +423,7 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    err.Error(),
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 
@@ -500,7 +500,7 @@ func (h *AuthHandler) UpdateUser(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    err.Error(),
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 

@@ -840,7 +840,7 @@ const docTemplate = `{
             }
         },
         "/remove-user/": {
-            "patch": {
+            "delete": {
                 "description": "RemoveUser.",
                 "consumes": [
                     "application/json"

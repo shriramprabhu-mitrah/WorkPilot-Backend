@@ -830,7 +830,7 @@ paths:
       tags:
       - Organizations
   /remove-user/:
-    patch:
+    delete:
       consumes:
       - application/json
       description: RemoveUser.

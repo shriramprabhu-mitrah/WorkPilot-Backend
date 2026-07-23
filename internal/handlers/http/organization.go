@@ -105,7 +105,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 
@@ -245,7 +245,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 
@@ -352,7 +352,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 
@@ -444,7 +444,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 
@@ -611,7 +611,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /remove-user/ [patch]
+// @Router       /remove-user/ [delete]
 func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 
 	var payload dto.RemoveUserRequest
@@ -622,7 +622,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
+				Message:    "Invalid request payload" + err.Error(),
 			},
 		}
 
@@ -699,7 +699,7 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
+				Message:    "Invalid request payload" + err.Error(),
 			}},
 		)
 		return
@@ -772,7 +772,7 @@ func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload",
+				Message:    "Invalid request payload" + err.Error(),
 			}},
 		)
 		return
