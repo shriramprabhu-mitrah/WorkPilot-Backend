@@ -17,21 +17,15 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 		roleVal, exists := c.Get("role")
 		if !exists {
 			errorResponse := response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "Forbidden",
-				Details: []response.Details{
-					{
-						Field:   "role",
-						Message: "Need Authentication",
-					},
-				},
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
 			}
 
 			m.Logger.Error("Forbidden,Missing Authentication",
 				zap.Error(fmt.Errorf("%v", errorResponse)))
 
-			c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse)
 			return
 		}
 
@@ -40,13 +34,7 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Forbidden",
-				Details: []response.Details{
-					{
-						Field:   "role",
-						Message: "Access Denied",
-					},
-				},
+				Message:    "You do not have permission to perform this action",
 			}
 
 			m.Logger.Error("Forbidden,Missing Authentication",
@@ -64,13 +52,7 @@ func (m Middleware) Authorize(rolesAllowed ...string) gin.HandlerFunc {
 		errorResponse := response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Forbidden",
-			Details: []response.Details{
-				{
-					Field:   "role",
-					Message: "Access Denied",
-				},
-			},
+			Message:    "You do not have permission to perform this action",
 		}
 
 		m.Logger.Error("Forbidden,Missing Authentication",

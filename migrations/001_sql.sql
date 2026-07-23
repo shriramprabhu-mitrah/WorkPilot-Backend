@@ -4,9 +4,15 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE organizations (
     id UUID PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    domain VARCHAR(150) NOT NULL,
-    logo_url VARCHAR(150) NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    industry VARCHAR(100),
+    logo_url TEXT,
+    domain VARCHAR(255),
+    team_size VARCHAR(20),
+    country VARCHAR(100),
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ
@@ -15,6 +21,8 @@ CREATE TABLE organizations (
 ALTER TABLE organizations ADD CONSTRAINT uq_organizations_name UNIQUE (name);
 ALTER TABLE organizations ADD CONSTRAINT uq_organizations_domain UNIQUE (domain);
 
+CREATE UNIQUE INDEX uq_org_slugON organizations(slug);
+CREATE INDEX idx_org_slugON organizations(slug);
 CREATE INDEX idx_organization_name ON organizations(name);
 CREATE INDEX idx_organization_deleted_at ON organizations(deleted_at);
 

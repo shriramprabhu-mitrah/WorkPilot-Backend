@@ -9,9 +9,13 @@ type UpdateOrganizationRequest struct {
 }
 
 type CreateOrganizationRequest struct {
-	Name    string `json:"name" validate:"required"`
-	Domain  string `json:"domain" validate:"required"`
-	LogoURL string `json:"logo_url" validate:"required"`
+	Name     string `json:"name" binding:"required"`
+	Slug     string `json:"slug" binding:"required"`
+	Domain   string `json:"domain" binding:"required"`
+	LogoURL  string `json:"logo_url" binding:"required"`
+	Industry string `json:"industry" binding:"required"`
+	TeamSize string `json:"team_size" binding:"required"`
+	Country  string `json:"country" binding:"required"`
 }
 
 type UserStatusRequest struct {

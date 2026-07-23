@@ -840,7 +840,7 @@ const docTemplate = `{
             }
         },
         "/remove-user/": {
-            "patch": {
+            "delete": {
                 "description": "RemoveUser.",
                 "consumes": [
                     "application/json"
@@ -993,18 +993,34 @@ const docTemplate = `{
         "dto.CreateOrganizationRequest": {
             "type": "object",
             "required": [
+                "country",
                 "domain",
+                "industry",
                 "logo_url",
-                "name"
+                "name",
+                "slug",
+                "team_size"
             ],
             "properties": {
+                "country": {
+                    "type": "string"
+                },
                 "domain": {
+                    "type": "string"
+                },
+                "industry": {
                     "type": "string"
                 },
                 "logo_url": {
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "team_size": {
                     "type": "string"
                 }
             }
@@ -1054,16 +1070,14 @@ const docTemplate = `{
                 "org_admin",
                 "project_manager",
                 "developer",
-                "viewer",
-                "guest"
+                "viewer"
             ],
             "x-enum-varnames": [
                 "RoleSuperAdmin",
                 "RoleOrgAdmin",
                 "RoleProjectManager",
                 "RoleDeveloper",
-                "RoleViewer",
-                "RoleGuest"
+                "RoleViewer"
             ]
         },
         "dto.SignInRequest": {
@@ -1172,10 +1186,16 @@ const docTemplate = `{
         "models.Organization": {
             "type": "object",
             "required": [
+                "country",
                 "domain",
-                "logo_url"
+                "industry",
+                "logo_url",
+                "team_size"
             ],
             "properties": {
+                "country": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1188,6 +1208,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "industry": {
+                    "type": "string"
+                },
                 "is_active": {
                     "type": "boolean"
                 },
@@ -1195,6 +1218,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "team_size": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -1250,28 +1279,11 @@ const docTemplate = `{
                 }
             }
         },
-        "response.Details": {
-            "type": "object",
-            "properties": {
-                "field": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
         "response.Error": {
             "type": "object",
             "properties": {
                 "code": {
                     "$ref": "#/definitions/response.ErrorCode"
-                },
-                "details": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/response.Details"
-                    }
                 },
                 "message": {
                     "type": "string"
