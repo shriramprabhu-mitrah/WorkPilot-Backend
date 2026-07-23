@@ -49,6 +49,7 @@ type User struct {
 	AvatarURL      string         `json:"avatar_url" gorm:"size:255"`
 	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
 	IsActive       bool           `json:"is_active" gorm:"default:false"`
+	IsVerified     bool           `json:"is_verified" gorm:"default:false"`
 	CreatedAt      time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
 	UpdatedAt      time.Time      `json:"updated_at" gorm:"type:timestamptz"`
 	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index:idx_users_deleted_at"`

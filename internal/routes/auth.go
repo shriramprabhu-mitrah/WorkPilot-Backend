@@ -29,6 +29,8 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 		auth.POST("/refresh", middleware.ValidateJWT(), AuthHandler.RefreshToken)
 		auth.POST("/logout", middleware.ValidateJWT(), AuthHandler.Logout)
 		auth.POST("/signup", AuthHandler.SignUp)
+		auth.POST("/verify-email", AuthHandler.VerifyEmail)
+		auth.POST("/resend-verification-otp", AuthHandler.ResendVerificationOTP)
 		auth.POST("/change-password", middleware.ValidateJWT(), AuthHandler.ChangePassword)
 		auth.POST("/password-reset/request", AuthHandler.RequestPasswordReset)
 		auth.POST("/password-reset/confirm", AuthHandler.ResetPassword)

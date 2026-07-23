@@ -36,13 +36,21 @@ type RefreshTokenRequest struct {
 }
 
 type SignUpRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	Password       string `json:"password" validate:"required"`
-	FullName       string `json:"full_name" validate:"required"`
-	UserName       string `json:"username" validate:"required"`
-	OrganizationID string `json:"organization_id,omitempty"`
-	AvatarURL      string `json:"avatar_url"`
-	Timezone       string `json:"timezone"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required"`
+	FullName  string `json:"full_name" validate:"required"`
+	UserName  string `json:"username" validate:"required"`
+	AvatarURL string `json:"avatar_url"`
+	Timezone  string `json:"timezone"`
+}
+
+type VerifyEmailRequest struct {
+	Email string `json:"email" validate:"required,email"`
+	OTP   string `json:"otp" validate:"required"`
+}
+
+type ResendVerificationOTPRequest struct {
+	Email string `json:"email" validate:"required,email"`
 }
 
 type PasswordResetRequest struct {
