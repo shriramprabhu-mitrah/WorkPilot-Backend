@@ -32,7 +32,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Missing access token",
+				Message:    "Authentication required",
 			}
 
 			m.Logger.Error("Missing access token cookie",
@@ -50,7 +50,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Enter valid Token",
+				Message:    "Authentication required",
 			}
 
 			m.Logger.Error("Invalid token",
@@ -65,7 +65,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrInternalServerError,
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Something went wrong",
+				Message:    "Something went wrong. Please try again later.",
 			}
 
 			m.Logger.Error("Failed parse the claims",
@@ -83,7 +83,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
-				Message:    "Access Denied",
+				Message:    "You do not have permission to perform this action",
 			}
 
 			m.Logger.Error("Access Denied",

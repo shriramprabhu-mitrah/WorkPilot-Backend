@@ -68,7 +68,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Account is Inactive",
+			Message:    "Please verify your email address before signing in",
 		}
 	}
 
@@ -78,7 +78,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Email/Password is incorrect",
+			Message:    "Invalid email or password",
 		}
 	}
 
@@ -102,7 +102,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong",
+			Message:    "Something went wrong. Please try again later.",
 		}
 	}
 
@@ -169,7 +169,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		return nil, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid Refresh token",
+			Message:    "Authentication required",
 		}
 	}
 
@@ -179,7 +179,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		return nil, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Refresh token expired",
+			Message:    "Session has expired. Please sign in again.",
 		}
 	}
 
@@ -201,7 +201,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Account is inactive",
+			Message:    "Please verify your email address before signing in",
 		}
 	}
 	tokencredentials := dto.JWtcredentials{
@@ -275,7 +275,7 @@ func (s *authservice) RequestPasswordReset(email string) *response.Error {
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong",
+			Message:    "Something went wrong. Please try again later.",
 		}
 	}
 
@@ -301,7 +301,7 @@ func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must meet the minimum complexity requirements",
+			Message:    "Password does not meet complexity requirements",
 		}
 	}
 
@@ -319,7 +319,7 @@ func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "The provided OTP is invalid or expired",
+			Message:    "Invalid or expired OTP",
 		}
 	}
 
@@ -356,7 +356,7 @@ func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must meet the minimum complexity requirements",
+			Message:    "Password does not meet complexity requirements",
 		}
 
 	}
@@ -421,7 +421,7 @@ func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *respons
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Invaild Old Password",
+			Message:    "Invalid email or password",
 		}
 	}
 
@@ -430,7 +430,7 @@ func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *respons
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must meet the minimum complexity requirements",
+			Message:    "Password does not meet complexity requirements",
 		}
 
 	}
@@ -452,7 +452,7 @@ func (s *authservice) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Full Name length exceeds the limit, Must be smaller than 30",
+			Message:    "Full name must not exceed 30 characters",
 		}
 	}
 
@@ -461,7 +461,7 @@ func (s *authservice) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Username length exceeds the limit, Must be smaller than 30",
+			Message:    "Username must not exceed 30 characters",
 		}
 	}
 
