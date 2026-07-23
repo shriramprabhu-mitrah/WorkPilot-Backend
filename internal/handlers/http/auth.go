@@ -608,7 +608,7 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/update [patch]
-func (h *AuthHandler) Updateuser(g *gin.Context) {
+func (h *AuthHandler) UpdateUser(g *gin.Context) {
 
 	var payload dto.UpdateUserRequest
 
