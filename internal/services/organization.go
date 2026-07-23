@@ -11,6 +11,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/email"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/repository"
 	"go.uber.org/zap"
 )
@@ -48,6 +49,9 @@ func (s *Organizationservice) GetOrganizationByID(id uuid.UUID) (models.Organiza
 }
 
 func (s *Organizationservice) CreateOrganization(row models.Organization) *response.Error {
+
+	slug := utils.ExtractSlug(row.Domain)
+	row.Slug = slug
 
 	err := s.OrganizationRepo.CreateOrganization(row)
 	if err != nil {

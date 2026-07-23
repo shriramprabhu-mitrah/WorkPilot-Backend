@@ -304,9 +304,8 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		Domain:    payload.Domain,
 		LogoURL:   payload.LogoURL,
 		CreatedBy: UserUUID,
-		Slug:      payload.Slug,
-		Industry:  payload.Industry,
-		TeamSize:  payload.TeamSize,
+		Industry:  string(payload.Industry),
+		TeamSize:  string(payload.TeamSize),
 		Country:   payload.Country,
 	}
 

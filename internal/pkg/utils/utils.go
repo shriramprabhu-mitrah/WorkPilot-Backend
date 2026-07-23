@@ -3,11 +3,10 @@ package utils
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"reflect"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid"
@@ -156,4 +155,12 @@ func toTitleCase(s string) string {
 		return "Field"
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+func ExtractSlug(input string) string {
+	input = strings.TrimSpace(input)
+	input = strings.TrimSuffix(input, "/")
+
+	parts := strings.Split(input, "/")
+	return parts[len(parts)-1]
 }

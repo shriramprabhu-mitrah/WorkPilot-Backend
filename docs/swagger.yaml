@@ -36,7 +36,19 @@ definitions:
       domain:
         type: string
       industry:
-        type: string
+        allOf:
+        - $ref: '#/definitions/dto.Industry'
+        enum:
+        - Information_Technology
+        - Finance
+        - Healthcare
+        - Education
+        - Manufacturing
+        - Retail
+        - Real Estate
+        - Logistics
+        - Hospitality
+        - Other
       logo_url:
         type: string
       name:
@@ -44,16 +56,47 @@ definitions:
       slug:
         type: string
       team_size:
-        type: string
+        allOf:
+        - $ref: '#/definitions/dto.TeamSize'
+        enum:
+        - 1-10
+        - 11-50
+        - 51-200
+        - 201-500
+        - 501-1000
+        - 1000+
     required:
     - country
     - domain
     - industry
     - logo_url
     - name
-    - slug
     - team_size
     type: object
+  dto.Industry:
+    enum:
+    - Information_Technology
+    - Finance
+    - Healthcare
+    - Education
+    - Manufacturing
+    - Retail
+    - Real Estate
+    - Logistics
+    - Hospitality
+    - Other
+    type: string
+    x-enum-varnames:
+    - IndustryInformationTechnology
+    - IndustryFinance
+    - IndustryHealthcare
+    - IndustryEducation
+    - IndustryManufacturing
+    - IndustryRetail
+    - IndustryRealEstate
+    - IndustryLogistics
+    - IndustryHospitality
+    - IndustryOther
   dto.PasswordResetRequest:
     properties:
       email:
@@ -132,6 +175,22 @@ definitions:
     - password
     - username
     type: object
+  dto.TeamSize:
+    enum:
+    - 1-10
+    - 11-50
+    - 51-200
+    - 201-500
+    - 501-1000
+    - 1000+
+    type: string
+    x-enum-varnames:
+    - TeamSize1To10
+    - TeamSize11To50
+    - TeamSize51To200
+    - TeamSize201To500
+    - TeamSize501To1000
+    - TeamSize1000Plus
   dto.UpdateOrganizationRequest:
     properties:
       domain:
