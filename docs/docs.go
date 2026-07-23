@@ -1279,28 +1279,11 @@ const docTemplate = `{
                 }
             }
         },
-        "response.Details": {
-            "type": "object",
-            "properties": {
-                "field": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
         "response.Error": {
             "type": "object",
             "properties": {
                 "code": {
                     "$ref": "#/definitions/response.ErrorCode"
-                },
-                "details": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/response.Details"
-                    }
                 },
                 "message": {
                     "type": "string"

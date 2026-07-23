@@ -81,13 +81,7 @@ func (d *Organizationdatabase) GetByName(name string) (models.Organization, *res
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Unauthorized",
-				Details: []response.Details{
-					{
-						Field:   "Organization",
-						Message: "Organization Invalid/Missing",
-					},
-				},
+				Message:    "Organization Invalid/Missing",
 			}
 			d.logger.Error("Organization not found in database",
 				zap.String("Name", name),
@@ -98,7 +92,7 @@ func (d *Organizationdatabase) GetByName(name string) (models.Organization, *res
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Internal Server Error",
+			Message:    "Something went wrong",
 		}
 
 		d.logger.Error("Database error occurred",
@@ -120,13 +114,7 @@ func (d *Organizationdatabase) GetByID(id uuid.UUID) (models.Organization, *resp
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
-				Message:    "Unauthorized",
-				Details: []response.Details{
-					{
-						Field:   "Organization",
-						Message: "Organization Invalid/Missing",
-					},
-				},
+				Message:    "Organization Invalid/Missing",
 			}
 			d.logger.Error("Organization not found in database",
 				zap.String("Id", fmt.Sprint(id)),
@@ -137,7 +125,7 @@ func (d *Organizationdatabase) GetByID(id uuid.UUID) (models.Organization, *resp
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Internal Server Error",
+			Message:    "Something went wrong",
 		}
 
 		d.logger.Error("Database error occurred",
@@ -163,12 +151,7 @@ func (d *Organizationdatabase) UpdateOrganization(OrganizationID uuid.UUID, req 
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to update Organization",
-			Details: []response.Details{
-				{
-					Message: "Internal Server Error",
-				},
-			},
+			Message:    "Something went wrong",
 		}
 	}
 
@@ -180,13 +163,7 @@ func (d *Organizationdatabase) UpdateOrganization(OrganizationID uuid.UUID, req 
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized",
-			Details: []response.Details{
-				{
-					Field:   "Organization_id",
-					Message: "Organization not found",
-				},
-			},
+			Message:    "Organization not found",
 		}
 	}
 
@@ -204,10 +181,7 @@ func (d *Organizationdatabase) DeleteOrganization(id uuid.UUID) *response.Error 
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Internal Server Error",
-			Details: []response.Details{{
-				Message: "Failed to delete Organization",
-			}},
+			Message:    "Something went wrong",
 		}
 	}
 
@@ -218,13 +192,7 @@ func (d *Organizationdatabase) DeleteOrganization(id uuid.UUID) *response.Error 
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized",
-			Details: []response.Details{
-				{
-					Field:   "Organization",
-					Message: "Organization not found",
-				},
-			},
+			Message:    "Organization not found",
 		}
 	}
 
@@ -242,10 +210,7 @@ func (d *Organizationdatabase) DeleteUser(id uuid.UUID) *response.Error {
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Internal Server Error",
-			Details: []response.Details{{
-				Message: "Failed to delete User",
-			}},
+			Message:    "Something went wrong",
 		}
 	}
 
@@ -256,13 +221,7 @@ func (d *Organizationdatabase) DeleteUser(id uuid.UUID) *response.Error {
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized",
-			Details: []response.Details{
-				{
-					Field:   "User",
-					Message: "User not found",
-				},
-			},
+			Message:    "User not found",
 		}
 	}
 
@@ -284,12 +243,7 @@ func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Internal Server Error",
-			Details: []response.Details{
-				{
-					Message: "Failed to update user",
-				},
-			},
+			Message:    "Something went wrong",
 		}
 	}
 
@@ -301,13 +255,7 @@ func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized",
-			Details: []response.Details{
-				{
-					Field:   "user_id",
-					Message: "User not found",
-				},
-			},
+			Message:    "User not found",
 		}
 	}
 
@@ -321,8 +269,6 @@ func (d *Organizationdatabase) CreateOrganizationInvitation(invitation models.Or
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to create invitation",
-			Details: []response.Details{{
-				Message: "Failed inserting invitation"}},
 		}
 	}
 	return nil
@@ -339,8 +285,6 @@ func (d *Organizationdatabase) GetPendingInvitationByEmail(orgID uuid.UUID, emai
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to load invitation",
-			Details: []response.Details{{
-				Message: err.Error()}},
 		}
 	}
 	return row, nil
@@ -357,8 +301,6 @@ func (d *Organizationdatabase) GetInvitationByToken(token string) (models.Organi
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to load invitation",
-			Details: []response.Details{{
-				Message: err.Error()}},
 		}
 	}
 	return row, nil
@@ -371,8 +313,6 @@ func (d *Organizationdatabase) UpdateInvitation(invitation models.OrganizationIn
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to update invitation",
-			Details: []response.Details{{
-				Message: err.Error()}},
 		}
 	}
 	return nil
@@ -385,8 +325,6 @@ func (d *Organizationdatabase) CreateAuditLog(log models.AuditLog) *response.Err
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to record audit log",
-			Details: []response.Details{{
-				Message: err.Error()}},
 		}
 	}
 	return nil
@@ -413,7 +351,7 @@ func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to count users",
+			Message:    "Something went wrong",
 		}
 	}
 
@@ -426,7 +364,7 @@ func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to retrieve users",
+			Message:    "Something went wrong",
 		}
 	}
 

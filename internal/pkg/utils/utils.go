@@ -26,14 +26,8 @@ func HashPassword(password string) (string, *response.Error) {
 	if err != nil {
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
-			Message:    "InternalServerError",
+			Message:    "Something went wrong",
 			StatusCode: http.StatusInternalServerError,
-			Details: []response.Details{
-				{
-					Field:   "Password",
-					Message: "InternalServerError",
-				},
-			},
 		}
 		return "", &errorResponse
 	}
@@ -50,13 +44,7 @@ func StringToUUID(idStr string) (uuid.UUID, *response.Error) {
 		errorResponse := response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Invalid Format",
-			Details: []response.Details{
-				{
-					Field:   "ID",
-					Message: "Bad Request",
-				},
-			},
+			Message:    "Something went wrong",
 		}
 		return uuid.Nil, &errorResponse
 	}
@@ -70,11 +58,7 @@ func StringToInt(str string) (int, *response.Error) {
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to convert the string into integer",
-			Details: []response.Details{
-				{
-					Message: "InternalServerError"},
-			},
+			Message:    "Something went wrong",
 		}
 		return 0, &errorResponse
 	}
@@ -88,11 +72,7 @@ func StringToBool(str string) (bool, *response.Error) {
 		errorResponse := response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to convert the string into bool",
-			Details: []response.Details{
-				{
-					Message: "InternalServerError"},
-			},
+			Message:    "Something went wrong",
 		}
 		return false, &errorResponse
 	}

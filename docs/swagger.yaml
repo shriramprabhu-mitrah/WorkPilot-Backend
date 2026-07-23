@@ -226,21 +226,10 @@ definitions:
     - email
     - password_hash
     type: object
-  response.Details:
-    properties:
-      field:
-        type: string
-      message:
-        type: string
-    type: object
   response.Error:
     properties:
       code:
         $ref: '#/definitions/response.ErrorCode'
-      details:
-        items:
-          $ref: '#/definitions/response.Details'
-        type: array
       message:
         type: string
       status_code:

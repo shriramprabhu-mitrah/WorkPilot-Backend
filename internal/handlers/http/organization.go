@@ -47,12 +47,6 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{
-					{
-						Field:   "Organization ID",
-						Message: "Organization Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -112,10 +106,6 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error(),
-				}},
 			},
 		}
 
@@ -134,12 +124,6 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{
-					{
-						Field:   "Organization ID",
-						Message: "Organization Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -202,12 +186,6 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{
-					{
-						Field:   "Organization ID",
-						Message: "Organization Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -268,11 +246,6 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid request payload",
-				Details: []response.Details{
-					{
-						Field:   "body",
-						Message: err.Error()},
-				},
 			},
 		}
 
@@ -285,21 +258,12 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 
 	validate := validator.New()
 	if err := validate.Struct(payload); err != nil {
-		var details []response.Details
-		for _, fieldErr := range err.(validator.ValidationErrors) {
-			details = append(details, response.Details{
-				Field:   fieldErr.Field(),
-				Message: fmt.Sprintf("Validation Failed on '%s'", fieldErr.Tag()),
-			})
-		}
-
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Validation failed",
-				Details:    details,
 			},
 		}
 
@@ -318,12 +282,6 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid User ID",
-				Details: []response.Details{
-					{
-						Field:   "User ID",
-						Message: "User Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -395,10 +353,6 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error(),
-				}},
 			},
 		}
 
@@ -417,12 +371,6 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{
-					{
-						Field:   "Organization ID",
-						Message: "Organization Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -497,10 +445,6 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error(),
-				}},
 			},
 		}
 
@@ -519,12 +463,6 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{
-					{
-						Field:   "Organization ID",
-						Message: "Organization Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -608,12 +546,6 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{
-					{
-						Field:   "Organization ID",
-						Message: "Organization Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -638,13 +570,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Bad Request",
-				Details: []response.Details{
-					{
-						Field:   "Page",
-						Message: "Query  Invalid",
-					},
-				},
+				Message:    "Query  Invalid",
 			},
 		}
 
@@ -697,10 +623,6 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error(),
-				}},
 			},
 		}
 
@@ -719,12 +641,6 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{
-					{
-						Field:   "Organization ID",
-						Message: "Organization Id Invalid/Missing",
-					},
-				},
 			},
 		}
 
@@ -784,10 +700,6 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error()},
-				},
 			}},
 		)
 		return
@@ -801,9 +713,6 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid Organization ID",
-				Details: []response.Details{{
-					Field:   "Organization ID",
-					Message: "Organization Id Invalid/Missing"}},
 			}},
 		)
 		return
@@ -822,9 +731,6 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid User ID",
-				Details: []response.Details{{
-					Field:   "User ID",
-					Message: "User Id Invalid/Missing"}},
 			}},
 		)
 		return
@@ -867,9 +773,6 @@ func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid request payload",
-				Details: []response.Details{{
-					Field:   "body",
-					Message: err.Error()}},
 			}},
 		)
 		return
@@ -883,9 +786,6 @@ func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid User ID",
-				Details: []response.Details{{
-					Field:   "User ID",
-					Message: "User Id Invalid/Missing"}},
 			}},
 		)
 		return
