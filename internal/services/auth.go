@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -25,6 +26,8 @@ type AuthService interface {
 	SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResponse, *response.Error)
 	RefreshToken(credentials dto.RefreshTokenRequest) (*dto.AuthTokensResponse, *response.Error)
 	SignUp(credentials dto.SignUpRequest) *response.Error
+	VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.AuthTokensResponse, *response.Error)
+	ResendVerificationOTP(email string) *response.Error
 	Logout(UserID string) *response.Error
 	ChangePassword(payload dto.ChangePasswordRequest) *response.Error
 	RequestPasswordReset(email string) *response.Error
@@ -68,7 +71,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Account is Inactive",
+			Message:    "Please verify your email address before signing in",
 		}
 	}
 
@@ -78,7 +81,27 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Email/Password is incorrect",
+			Message:    "Invalid email or password",
+		}
+	}
+
+	if !result.IsActive {
+		s.logger.Error("The account is deactivated or locked",
+			zap.String("email", credentials.Email))
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Account is Inactive",
+		}
+	}
+
+	if !result.IsVerified {
+		s.logger.Error("Login rejected for unverified email",
+			zap.String("email", credentials.Email))
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Email address must be verified before login",
 		}
 	}
 
@@ -102,7 +125,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong",
+			Message:    "Something went wrong. Please try again later.",
 		}
 	}
 
@@ -169,7 +192,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		return nil, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid Refresh token",
+			Message:    "Authentication required",
 		}
 	}
 
@@ -179,7 +202,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		return nil, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Refresh token expired",
+			Message:    "Session has expired. Please sign in again.",
 		}
 	}
 
@@ -201,7 +224,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Account is inactive",
+			Message:    "Please verify your email address before signing in",
 		}
 	}
 	tokencredentials := dto.JWtcredentials{
@@ -275,7 +298,7 @@ func (s *authservice) RequestPasswordReset(email string) *response.Error {
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong",
+			Message:    "Something went wrong. Please try again later.",
 		}
 	}
 
@@ -301,7 +324,7 @@ func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must meet the minimum complexity requirements",
+			Message:    "Password does not meet complexity requirements",
 		}
 	}
 
@@ -319,7 +342,7 @@ func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "The provided OTP is invalid or expired",
+			Message:    "Invalid or expired OTP",
 		}
 	}
 
@@ -356,40 +379,206 @@ func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must meet the minimum complexity requirements",
+			Message:    "Password does not meet complexity requirements",
 		}
-
 	}
 
 	passwordhash, errorResponse := utils.HashPassword(credentials.Password)
 	if errorResponse != nil {
-		s.logger.Error("Failed Hashing Password",
-			zap.Error(fmt.Errorf("%v", errorResponse)))
+		s.logger.Error("Failed Hashing Password", zap.Error(fmt.Errorf("%v", errorResponse)))
 		return errorResponse
 	}
 
 	result := models.User{
-		Email:        credentials.Email,
+		ID:           uuid.Must(uuid.NewV7()),
+		Email:        strings.ToLower(strings.TrimSpace(credentials.Email)),
 		PasswordHash: passwordhash,
-		FullName:     credentials.FullName,
-		UserName:     credentials.UserName,
+		FullName:     strings.TrimSpace(credentials.FullName),
+		UserName:     strings.TrimSpace(credentials.UserName),
 		AvatarURL:    credentials.AvatarURL,
 		Timezone:     credentials.Timezone,
+		IsActive:     false,
+		IsVerified:   false,
 	}
 
-	organizationID, errorResponse := utils.StringToUUID(credentials.OrganizationID)
-	if errorResponse != nil {
-		s.logger.Error("Failed to convert the string into UUID",
-			zap.Error(fmt.Errorf("%v", errorResponse)))
-		return errorResponse
+	if createErr := s.Repo.CreateUser(result); createErr != nil {
+		return createErr
 	}
 
-	if organizationID != uuid.Nil {
-		result.OrganizationID = &organizationID
+	if otpErr := s.sendEmailVerificationOTP(result.ID, result.Email); otpErr != nil {
+		return otpErr
 	}
 
-	return s.Repo.CreateUser(result)
+	s.logger.Info("User registered successfully", zap.String("email", result.Email))
+	return nil
+}
 
+func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.AuthTokensResponse, *response.Error) {
+	user, err := s.Repo.GetByEmail(strings.ToLower(strings.TrimSpace(credentials.Email)))
+	if err != nil {
+		return nil, err
+	}
+
+	if user.IsVerified {
+		s.logger.Warn("Email verification requested for already verified account", zap.String("email", credentials.Email))
+		return nil, &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "Email address is already verified",
+		}
+	}
+
+	otpRecord, otpErr := s.Repo.GetEmailVerificationOTP(user.ID, credentials.OTP)
+	if otpErr != nil {
+		return nil, otpErr
+	}
+
+	if otpRecord.ExpiresAt.Before(time.Now()) || otpRecord.UsedAt != nil || !utils.IsValidPassword(otpRecord.OTPHash, credentials.OTP) {
+		s.logger.Error("Verification OTP rejected", zap.String("email", credentials.Email))
+		return nil, &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "The provided OTP is invalid or expired",
+		}
+	}
+
+	if markErr := s.Repo.MarkUserEmailVerified(user.ID); markErr != nil {
+		return nil, markErr
+	}
+
+	var organizationID uuid.UUID
+	if user.OrganizationID == nil || *user.OrganizationID == uuid.Nil {
+		organizationID = uuid.Nil
+	} else {
+		organizationID = *user.OrganizationID
+	}
+
+	tokencredentials := dto.JWtcredentials{
+		Role:           user.Role,
+		UserId:         user.ID,
+		OrganizationID: &organizationID,
+	}
+
+	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+
+	refreshTokenValue, refreshTokenErr := generateRefreshTokenValue()
+	if refreshTokenErr != nil {
+		s.logger.Error("Failed to create refresh token after email verification", zap.String("email", credentials.Email))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	hashedRefreshToken, hashErr := utils.HashPassword(refreshTokenValue)
+	if hashErr != nil {
+		s.logger.Error("Failed hashing the refresh token after email verification", zap.String("email", credentials.Email), zap.Error(fmt.Errorf("%v", hashErr)))
+		return nil, hashErr
+	}
+
+	expiresIn, parseErr := utils.StringToInt(config.GetEnv("JWT_EXPIRY", "900"))
+	if parseErr != nil {
+		s.logger.Error("Failed to set the expire time", zap.Error(fmt.Errorf("%v", parseErr)))
+		return nil, parseErr
+	}
+
+	refreshExpiresIn, refreshParseErr := utils.StringToInt(config.GetEnv("REFRESH_TOKEN_EXPIRY", "604800"))
+	if refreshParseErr != nil {
+		s.logger.Error("Failed to set the expire time", zap.Error(fmt.Errorf("%v", refreshParseErr)))
+		return nil, refreshParseErr
+	}
+
+	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
+	if storeErr := s.Repo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt}); storeErr != nil {
+		return nil, storeErr
+	}
+
+	s.logger.Info("Email verification completed", zap.String("email", credentials.Email))
+	return &dto.AuthTokensResponse{
+		AccessToken:      accessToken,
+		RefreshToken:     refreshTokenValue,
+		TokenType:        "Bearer",
+		ExpiresIn:        expiresIn,
+		RefreshExpiresIn: refreshExpiresIn,
+	}, nil
+}
+
+func (s *authservice) ResendVerificationOTP(email string) *response.Error {
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+	user, err := s.Repo.GetByEmail(cleanEmail)
+	if err != nil {
+		return err
+	}
+
+	if user.IsVerified {
+		s.logger.Warn("Resend verification OTP requested for verified account", zap.String("email", cleanEmail))
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "Email address is already verified",
+		}
+	}
+
+	allowed, rateLimitErr := s.Repo.IsEmailVerificationResendAllowed(cleanEmail, time.Minute)
+	if rateLimitErr != nil {
+		return rateLimitErr
+	}
+	if !allowed {
+		s.logger.Warn("Verification OTP resend rate limit exceeded", zap.String("email", cleanEmail))
+		return &response.Error{
+			Code:       response.ErrRateLimitExceeded,
+			StatusCode: http.StatusTooManyRequests,
+			Message:    "Please wait before requesting another verification code",
+		}
+	}
+
+	if recordErr := s.Repo.RecordEmailVerificationResend(cleanEmail, time.Now()); recordErr != nil {
+		return recordErr
+	}
+
+	if otpErr := s.sendEmailVerificationOTP(user.ID, cleanEmail); otpErr != nil {
+		return otpErr
+	}
+
+	s.logger.Info("Verification OTP resent", zap.String("email", cleanEmail))
+	return nil
+}
+
+func (s *authservice) sendEmailVerificationOTP(userID uuid.UUID, email string) *response.Error {
+	otpValue := generateOTP(6)
+	otpExpiryMinutes, parseErr := strconv.Atoi(config.GetEnv("OTP_EXPIRY_MINUTES", "15"))
+	if parseErr != nil || otpExpiryMinutes <= 0 {
+		otpExpiryMinutes = 15
+	}
+
+	expiresAt := time.Now().Add(time.Duration(otpExpiryMinutes) * time.Minute)
+	hashedOTP, hashErr := utils.HashPassword(otpValue)
+	if hashErr != nil {
+		s.logger.Error("Failed hashing the OTP", zap.Error(fmt.Errorf("%v", hashErr)))
+		return hashErr
+	}
+
+	otpRecord := models.PasswordResetOTP{UserID: userID, OTPHash: hashedOTP, ExpiresAt: expiresAt}
+
+	if invalidateErr := s.Repo.InvalidateEmailVerificationOTPs(userID); invalidateErr != nil {
+		return invalidateErr
+	}
+
+	if saveErr := s.Repo.SaveEmailVerificationOTP(otpRecord); saveErr != nil {
+		return saveErr
+	}
+
+	if err := mail.SendEmailVerificationOTP(email, otpValue, otpExpiryMinutes); err != nil {
+		s.logger.Warn("Failed to send email verification OTP; continuing with registration", zap.String("email", email), zap.Error(err))
+		return nil
+	}
+
+	s.logger.Info("Email verification OTP generated", zap.String("email", email))
+	return nil
 }
 
 func (s *authservice) Logout(UserID string) *response.Error {
@@ -421,7 +610,7 @@ func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *respons
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Invaild Old Password",
+			Message:    "Invalid email or password",
 		}
 	}
 
@@ -430,7 +619,7 @@ func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *respons
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must meet the minimum complexity requirements",
+			Message:    "Password does not meet complexity requirements",
 		}
 
 	}
@@ -452,7 +641,7 @@ func (s *authservice) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Full Name length exceeds the limit, Must be smaller than 30",
+			Message:    "Full name must not exceed 30 characters",
 		}
 	}
 
@@ -461,7 +650,7 @@ func (s *authservice) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Username length exceeds the limit, Must be smaller than 30",
+			Message:    "Username must not exceed 30 characters",
 		}
 	}
 

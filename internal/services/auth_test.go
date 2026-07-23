@@ -14,17 +14,22 @@ import (
 )
 
 type stubAuthRepository struct {
-	user                 models.User
-	userByEmail          map[string]models.User
-	refreshToken         models.RefreshToken
-	otp                  models.PasswordResetOTP
-	err                  *response.Error
-	storedOTP            models.PasswordResetOTP
-	updatedPasswordHash  string
-	revokedRefreshTokens bool
-	storedOTPs           []models.PasswordResetOTP
-	emailExists          bool
-	usernameExists       bool
+	user                    models.User
+	userByEmail             map[string]models.User
+	refreshToken            models.RefreshToken
+	otp                     models.PasswordResetOTP
+	err                     *response.Error
+	storedOTP               models.PasswordResetOTP
+	updatedPasswordHash     string
+	revokedRefreshTokens    bool
+	storedOTPs              []models.PasswordResetOTP
+	emailExists             bool
+	usernameExists          bool
+	createdUser             models.User
+	savedVerificationOTP    models.PasswordResetOTP
+	verifiedUserID          uuid.UUID
+	createdOrganization     models.Organization
+	createOrganizationCalls int
 }
 
 func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Error) {
@@ -51,7 +56,25 @@ func (s *stubAuthRepository) GetByID(id uuid.UUID) (models.User, *response.Error
 }
 
 func (s *stubAuthRepository) CreateUser(row models.User) *response.Error {
+	if row.ID == uuid.Nil {
+		row.ID = uuid.Must(uuid.NewV4())
+	}
+	s.createdUser = row
+	s.user = row
 	return nil
+}
+
+func (s *stubAuthRepository) CreateOrganization(row models.Organization) *response.Error {
+	s.createdOrganization = row
+	s.createOrganizationCalls++
+	return nil
+}
+
+func (s *stubAuthRepository) GetOrganizationByName(name string) (models.Organization, *response.Error) {
+	if s.err != nil {
+		return models.Organization{}, s.err
+	}
+	return models.Organization{Name: name}, nil
 }
 
 func (s *stubAuthRepository) StoreRefreshToken(token models.RefreshToken) *response.Error {
@@ -125,6 +148,45 @@ func (s *stubAuthRepository) UpdateUserPassword(userID uuid.UUID, passwordHash s
 	return nil
 }
 
+func (s *stubAuthRepository) SaveEmailVerificationOTP(otp models.PasswordResetOTP) *response.Error {
+	s.savedVerificationOTP = otp
+	return nil
+}
+
+func (s *stubAuthRepository) InvalidateEmailVerificationOTPs(userID uuid.UUID) *response.Error {
+	return nil
+}
+
+func (s *stubAuthRepository) GetEmailVerificationOTP(userID uuid.UUID, otp string) (models.PasswordResetOTP, *response.Error) {
+	if s.err != nil {
+		return models.PasswordResetOTP{}, s.err
+	}
+	if !utils.IsValidPassword(s.otp.OTPHash, otp) {
+		return models.PasswordResetOTP{}, &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "The provided OTP is invalid or expired",
+		}
+	}
+	return s.otp, nil
+}
+
+func (s *stubAuthRepository) MarkUserEmailVerified(userID uuid.UUID) *response.Error {
+	s.verifiedUserID = userID
+	return nil
+}
+
+func (s *stubAuthRepository) IsEmailVerificationResendAllowed(email string, interval time.Duration) (bool, *response.Error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	return true, nil
+}
+
+func (s *stubAuthRepository) RecordEmailVerificationResend(email string, sentAt time.Time) *response.Error {
+	return nil
+}
+
 func (s *stubAuthRepository) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 	s.revokedRefreshTokens = true
 	return nil
@@ -164,7 +226,28 @@ func TestSignInRejectsInactiveUser(t *testing.T) {
 		t.Fatalf("failed to hash password: %v", err)
 	}
 
-	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: false}}
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: false, IsVerified: true}}
+	service := InitAuthService(repo, zap.NewNop())
+
+	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
+	if authErr == nil {
+		t.Fatalf("expected auth error, got nil")
+	}
+	if authErr.StatusCode != 403 {
+		t.Fatalf("expected 403 status, got %d", authErr.StatusCode)
+	}
+	if result != nil {
+		t.Fatalf("expected no auth tokens, got %#v", result)
+	}
+}
+
+func TestSignInRejectsUnverifiedUser(t *testing.T) {
+	hash, err := utils.HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true, IsVerified: false}}
 	service := InitAuthService(repo, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
@@ -185,7 +268,7 @@ func TestSignInReturnsAuthTokensForValidCredentials(t *testing.T) {
 		t.Fatalf("failed to hash password: %v", err)
 	}
 
-	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true}}
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true, IsVerified: true}}
 	service := InitAuthService(repo, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
@@ -206,6 +289,41 @@ func TestSignInReturnsAuthTokensForValidCredentials(t *testing.T) {
 	}
 }
 
+func TestSignUpCreatesUnverifiedAccountAndSendsVerificationOTP(t *testing.T) {
+	repo := &stubAuthRepository{}
+	service := InitAuthService(repo, zap.NewNop()).(*authservice)
+
+	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPass123!", FullName: "Jane Doe", UserName: "janedoe"})
+	if err != nil {
+		t.Fatalf("expected signup to succeed, got error: %v", err)
+	}
+	if repo.createdUser.IsVerified {
+		t.Fatal("expected newly created user to be unverified")
+	}
+	if repo.createdUser.IsActive {
+		t.Fatal("expected newly created user account to be inactive until verified")
+	}
+	if repo.savedVerificationOTP.UserID != repo.createdUser.ID {
+		t.Fatalf("expected verification OTP for user %s, got %s", repo.createdUser.ID, repo.savedVerificationOTP.UserID)
+	}
+}
+
+func TestSignUpDoesNotCreateOrganizationDuringInitialRegistration(t *testing.T) {
+	repo := &stubAuthRepository{}
+	service := InitAuthService(repo, zap.NewNop()).(*authservice)
+
+	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPass123!", FullName: "Jane Doe", UserName: "janedoe"})
+	if err != nil {
+		t.Fatalf("expected signup to succeed, got error: %v", err)
+	}
+	if repo.createOrganizationCalls != 0 {
+		t.Fatalf("expected no organization creation during signup, got %d calls", repo.createOrganizationCalls)
+	}
+	if repo.createdUser.OrganizationID != nil {
+		t.Fatalf("expected user organization to remain unset during signup, got %v", repo.createdUser.OrganizationID)
+	}
+}
+
 func TestRefreshTokenReturnsNewAccessTokenForValidRefreshToken(t *testing.T) {
 	refreshHash, err := utils.HashPassword("valid-refresh")
 	if err != nil {
@@ -213,7 +331,7 @@ func TestRefreshTokenReturnsNewAccessTokenForValidRefreshToken(t *testing.T) {
 	}
 
 	repo := &stubAuthRepository{
-		user:         models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", Role: "developer", IsActive: true},
+		user:         models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", Role: "developer", IsActive: true, IsVerified: true},
 		refreshToken: models.RefreshToken{UserID: uuid.Must(uuid.NewV7()), TokenHash: refreshHash, ExpiresAt: time.Now().Add(7 * 24 * time.Hour)},
 	}
 	service := InitAuthService(repo, zap.NewNop())
