@@ -447,7 +447,6 @@ func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 	result := models.User{
 		Email:        credentials.Email,
 		PasswordHash: passwordhash,
-		Role:         string(dto.RoleOrgAdmin),
 		FullName:     credentials.FullName,
 		UserName:     credentials.UserName,
 		AvatarURL:    credentials.AvatarURL,
