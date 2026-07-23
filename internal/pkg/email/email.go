@@ -59,6 +59,24 @@ func SendOrganizationInvitation(toEmail, organizationName, role, inviteLink stri
 	return sendViaGmailSMTP(toEmail, fromEmail, "Organization invitation", renderedHTML)
 }
 
+func SendEmailVerificationOTP(toEmail, otp string, expiryMinutes int) error {
+	if _, err := mail.ParseAddress(toEmail); err != nil {
+		return fmt.Errorf("invalid recipient email address: %w", err)
+	}
+
+	fromEmail := config.GetEnv("GMAIL_FROM_EMAIL", config.GetEnv("BREVO_FROM_EMAIL", ""))
+	if fromEmail == "" {
+		return fmt.Errorf("email sender address is not configured")
+	}
+
+	renderedHTML, err := utils.RenderEmbeddedTemplate("email_verification.html", map[string]any{"OTP": otp, "ExpiryMinutes": expiryMinutes})
+	if err != nil {
+		return fmt.Errorf("failed to render verification email template: %w", err)
+	}
+
+	return sendViaGmailSMTP(toEmail, fromEmail, "Verify your email address", renderedHTML)
+}
+
 func sendViaGmailSMTP(toEmail, fromEmail, subject, htmlContent string) error {
 	host := config.GetEnv("GMAIL_SMTP_HOST", "smtp.gmail.com")
 	portString := config.GetEnv("GMAIL_SMTP_PORT", "587")
