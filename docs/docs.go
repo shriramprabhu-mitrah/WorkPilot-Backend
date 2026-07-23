@@ -1102,7 +1102,6 @@ const docTemplate = `{
                 "industry",
                 "logo_url",
                 "name",
-                "slug",
                 "team_size"
             ],
             "properties": {
@@ -1113,7 +1112,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "industry": {
-                    "type": "string"
+                    "enum": [
+                        "Information_Technology",
+                        "Finance",
+                        "Healthcare",
+                        "Education",
+                        "Manufacturing",
+                        "Retail",
+                        "Real Estate",
+                        "Logistics",
+                        "Hospitality",
+                        "Other"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.Industry"
+                        }
+                    ]
                 },
                 "logo_url": {
                     "type": "string"
@@ -1125,9 +1140,48 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "team_size": {
-                    "type": "string"
+                    "enum": [
+                        "1-10",
+                        "11-50",
+                        "51-200",
+                        "201-500",
+                        "501-1000",
+                        "1000+"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.TeamSize"
+                        }
+                    ]
                 }
             }
+        },
+        "dto.Industry": {
+            "type": "string",
+            "enum": [
+                "Information_Technology",
+                "Finance",
+                "Healthcare",
+                "Education",
+                "Manufacturing",
+                "Retail",
+                "Real Estate",
+                "Logistics",
+                "Hospitality",
+                "Other"
+            ],
+            "x-enum-varnames": [
+                "IndustryInformationTechnology",
+                "IndustryFinance",
+                "IndustryHealthcare",
+                "IndustryEducation",
+                "IndustryManufacturing",
+                "IndustryRetail",
+                "IndustryRealEstate",
+                "IndustryLogistics",
+                "IndustryHospitality",
+                "IndustryOther"
+            ]
         },
         "dto.PasswordResetRequest": {
             "type": "object",
@@ -1241,6 +1295,25 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "dto.TeamSize": {
+            "type": "string",
+            "enum": [
+                "1-10",
+                "11-50",
+                "51-200",
+                "201-500",
+                "501-1000",
+                "1000+"
+            ],
+            "x-enum-varnames": [
+                "TeamSize1To10",
+                "TeamSize11To50",
+                "TeamSize51To200",
+                "TeamSize201To500",
+                "TeamSize501To1000",
+                "TeamSize1000Plus"
+            ]
         },
         "dto.UpdateOrganizationRequest": {
             "type": "object",
