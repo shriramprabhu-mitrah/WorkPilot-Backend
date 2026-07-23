@@ -30,7 +30,11 @@ type Organization struct {
 	Name      string         `json:"name" gorm:"size:50;not null;unique;index:idx_organization_name"`
 	CreatedBy uuid.UUID      `json:"created_by" gorm:"not null"`
 	IsActive  bool           `json:"is_active" gorm:"default:true"`
-	Domain    string         `json:"domain" validate:"required" gorm:"size:150;not null;unique"`
+	Slug      string         `json:"slug" gorm:"size:50;not null;unique;uniqueIndex:idx_organization_slug"`
+	Domain    string         `json:"domain" validate:"required" gorm:"size:150;not null"`
+	Industry  string         `json:"industry" validate:"required" gorm:"size:150;not null"`
+	TeamSize  string         `json:"team_size" validate:"required" gorm:"not null"`
+	Country   string         `json:"country" validate:"required" gorm:"not null"`
 	LogoURL   string         `json:"logo_url" validate:"required" gorm:"size:150;not null"`
 	CreatedAt time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
 	UpdatedAt time.Time      `json:"updated_at" gorm:"type:timestamptz"`

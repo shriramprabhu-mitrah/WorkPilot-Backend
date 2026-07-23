@@ -345,6 +345,10 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		Domain:    payload.Domain,
 		LogoURL:   payload.LogoURL,
 		CreatedBy: UserUUID,
+		Slug:      payload.Slug,
+		Industry:  payload.Industry,
+		TeamSize:  payload.TeamSize,
+		Country:   payload.Country,
 	}
 
 	err := h.service.CreateOrganization(credentials)

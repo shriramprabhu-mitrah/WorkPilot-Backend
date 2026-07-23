@@ -32,7 +32,7 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 		auth.POST("/change-password", middleware.ValidateJWT(), AuthHandler.ChangePassword)
 		auth.POST("/password-reset/request", AuthHandler.RequestPasswordReset)
 		auth.POST("/password-reset/confirm", AuthHandler.ResetPassword)
-		auth.PATCH("/update", middleware.ValidateJWT(), AuthHandler.Updateuser)
+		auth.PATCH("/update", middleware.ValidateJWT(), AuthHandler.UpdateUser)
 		auth.GET("/me", middleware.ValidateJWT(), AuthHandler.GetUser)
 	}
 }

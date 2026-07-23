@@ -62,6 +62,7 @@ func (s *Organizationservice) CreateOrganization(row models.Organization) *respo
 	user := models.User{
 		OrganizationID: &organization.ID,
 		Role:           string(dto.RoleOrgAdmin),
+		IsActive:       true,
 	}
 
 	err = s.AuthRepo.UpdateUser(row.CreatedBy, user)
