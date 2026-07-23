@@ -393,11 +393,7 @@ func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error
 			}},
 		}
 	}
-	
-	request := result
-	request.Role = string(dto.RoleGuest)
-	request.OrganizationID = nil
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+	return s.OrganizationRepo.DeleteOrganization(payload.UserID)
 
 }
