@@ -1,12 +1,14 @@
-package utils
+package utils_test
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/ms-kanban-server/internal/pkg/utils"
 )
 
 func TestRenderEmbeddedTemplateRendersPasswordResetTemplate(t *testing.T) {
-	rendered, err := RenderEmbeddedTemplate("password_reset.html", map[string]any{"OTP": "123456", "ExpiryMinutes": 15})
+	rendered, err := utils.RenderEmbeddedTemplate("password_reset.html", map[string]any{"OTP": "123456", "ExpiryMinutes": 15})
 	if err != nil {
 		t.Fatalf("expected embedded template to render, got error: %v", err)
 	}

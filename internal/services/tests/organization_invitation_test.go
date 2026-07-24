@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"net/http"
@@ -9,8 +9,11 @@ import (
 	"github.com/ms-kanban-server/internal/handlers/dto"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var InitOrganizationService = services.InitOrganizationService
 
 type stubOrganizationRepository struct {
 	organization models.Organization
@@ -78,6 +81,9 @@ func (s *stubOrganizationRepository) UpdateStatusAndRole(userID uuid.UUID, req m
 	s.memberUser = req
 	return nil
 }
+func (s *stubOrganizationRepository) DeleteUser(id uuid.UUID) *response.Error {
+	return nil
+}
 
 func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
 
@@ -88,7 +94,7 @@ func TestInviteOrganizationMemberReturnsConflictForActiveMember(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}, memberUser: models.User{Email: "member@example.com", OrganizationID: &orgID, IsActive: true}}
 	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}, userByEmail: map[string]models.User{"member@example.com": {ID: uuid.Must(uuid.NewV4()), Email: "member@example.com", Role: string(dto.RoleViewer), OrganizationID: &orgID, IsActive: true}}}
-	service := InitOrganizationService(repo, authRepo, zap.NewNop()).(*Organizationservice)
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
 
 	orgRepo := repo
 	orgRepo.memberUser = models.User{Email: "member@example.com", OrganizationID: &orgID, IsActive: true}
@@ -106,7 +112,7 @@ func TestInviteOrganizationMemberRefreshesPendingInvitation(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}}
 	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
-	service := InitOrganizationService(repo, authRepo, zap.NewNop()).(*Organizationservice)
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
 
 	existing := models.OrganizationInvitation{OrganizationID: orgID, Email: "new-user@example.com", Status: models.InvitationStatusPending, ExpiresAt: time.Now().Add(1 * time.Hour), Token: "old-token"}
 	repo.invites = []models.OrganizationInvitation{existing}
@@ -127,7 +133,7 @@ func TestInviteOrganizationMemberSupportsBulkMembers(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}}
 	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
-	service := InitOrganizationService(repo, authRepo, zap.NewNop()).(*Organizationservice)
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
 
 	inviteErr := service.InviteOrganizationMember(uuid.Must(uuid.NewV4()), orgID, dto.InviteOrganizationMemberRequest{Members: []dto.InviteOrganizationMemberItem{{Email: "one@example.com", Role: string(dto.RoleDeveloper)}, {Email: "two@example.com", Role: string(dto.RoleViewer)}}})
 	if inviteErr != nil {
@@ -146,7 +152,7 @@ func TestAcceptInvitationMarksMembershipAndStatus(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}}
 	authRepo := &stubAuthRepository{user: models.User{ID: userID, Email: "member@example.com", Role: string(dto.RoleViewer), OrganizationID: nil, IsActive: true}}
-	service := InitOrganizationService(repo, authRepo, zap.NewNop()).(*Organizationservice)
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
 
 	repo.invite = models.OrganizationInvitation{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "member@example.com", Role: string(dto.RoleDeveloper), Status: models.InvitationStatusPending, Token: "token-123", ExpiresAt: time.Now().Add(24 * time.Hour)}
 

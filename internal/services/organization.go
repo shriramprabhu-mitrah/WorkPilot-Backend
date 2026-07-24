@@ -13,7 +13,8 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
-	"github.com/ms-kanban-server/internal/repository"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	organizationrepo "github.com/ms-kanban-server/internal/repository/organization-repo"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +31,7 @@ type OrganizationService interface {
 	RemoveUser(payload dto.RemoveUser) *response.Error
 }
 
-func InitOrganizationService(repo repository.OrganizationRepository, AuthRepo repository.AuthRepository, logger *zap.Logger) OrganizationService {
+func InitOrganizationService(repo organizationrepo.OrganizationRepository, AuthRepo authrepo.AuthRepository, logger *zap.Logger) OrganizationService {
 	return &Organizationservice{
 		OrganizationRepo: repo,
 		logger:           logger,
@@ -39,8 +40,8 @@ func InitOrganizationService(repo repository.OrganizationRepository, AuthRepo re
 }
 
 type Organizationservice struct {
-	AuthRepo         repository.AuthRepository
-	OrganizationRepo repository.OrganizationRepository
+	AuthRepo         authrepo.AuthRepository
+	OrganizationRepo organizationrepo.OrganizationRepository
 	logger           *zap.Logger
 }
 
@@ -426,6 +427,6 @@ func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error
 		}
 	}
 
-	return s.OrganizationRepo.DeleteOrganization(payload.UserID)
+	return s.OrganizationRepo.DeleteUser(payload.UserID)
 
 }
