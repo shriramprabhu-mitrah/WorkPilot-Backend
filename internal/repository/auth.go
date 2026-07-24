@@ -99,7 +99,7 @@ func (d *authdatabase) StoreUserTemp(row models.User) *response.Error {
 		}
 	}
 
-	if err := d.redisClient.Set(ctx, key, data, 15*time.Minute).Err(); err != nil {
+	if err := d.redisClient.Set(ctx, key, data, 3*time.Minute).Err(); err != nil {
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
