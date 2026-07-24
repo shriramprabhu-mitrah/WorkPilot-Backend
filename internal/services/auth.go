@@ -91,7 +91,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Account is Inactive",
+			Message:    "Your account has been deactivated. Please contact support.",
 		}
 	}
 
@@ -319,12 +319,12 @@ func generateOTP(length int) string {
 
 func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *response.Error {
 
-	if utils.ValidatePassword(credentials.NewPassword) {
+	if !utils.ValidatePassword(credentials.NewPassword) {
 		s.logger.Error("Validation failure in Password")
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password does not meet complexity requirements",
+			Message:    "Password must be at least 8 characters long",
 		}
 	}
 
@@ -374,12 +374,39 @@ func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 
 func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 
-	if utils.ValidatePassword(credentials.Password) {
-		s.logger.Error("Validated failure in Password before")
+	cleanEmail := strings.ToLower(strings.TrimSpace(credentials.Email))
+	cleanUsername := strings.TrimSpace(credentials.UserName)
+
+	if !utils.ValidatePassword(credentials.Password) {
+		s.logger.Error("Validation failure in Password before signup")
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password does not meet complexity requirements",
+			Message:    "Password must be at least 8 characters long",
+		}
+	}
+
+	emailExists, emailErr := s.Repo.ExistsByEmail(cleanEmail)
+	if emailErr != nil {
+		return emailErr
+	}
+	if emailExists {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "User with this email already exists",
+		}
+	}
+
+	usernameExists, usernameErr := s.Repo.ExistsByUsername(cleanUsername)
+	if usernameErr != nil {
+		return usernameErr
+	}
+	if usernameExists {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "Username is already taken",
 		}
 	}
 
@@ -391,10 +418,10 @@ func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 
 	result := models.User{
 		ID:           uuid.Must(uuid.NewV7()),
-		Email:        strings.ToLower(strings.TrimSpace(credentials.Email)),
+		Email:        cleanEmail,
 		PasswordHash: passwordhash,
 		FullName:     strings.TrimSpace(credentials.FullName),
-		UserName:     strings.TrimSpace(credentials.UserName),
+		UserName:     cleanUsername,
 		AvatarURL:    credentials.AvatarURL,
 		Timezone:     credentials.Timezone,
 		IsActive:     false,
@@ -605,21 +632,21 @@ func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *respons
 		return err
 	}
 
-	if utils.IsValidPassword(result.PasswordHash, payload.OldPassword) {
-		s.logger.Error("Login failed due to invalid credentials")
+	if !utils.IsValidPassword(result.PasswordHash, payload.OldPassword) {
+		s.logger.Error("Password change failed due to incorrect old password")
 		return &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Invalid email or password",
+			Message:    "Current password is incorrect",
 		}
 	}
 
-	if utils.ValidatePassword(payload.NewPassword) {
+	if !utils.ValidatePassword(payload.NewPassword) {
 		s.logger.Error("Validation failure in Password")
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password does not meet complexity requirements",
+			Message:    "Password must be at least 8 characters long",
 		}
 
 	}

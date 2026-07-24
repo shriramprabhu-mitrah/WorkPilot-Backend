@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/ms-kanban-server/internal/handlers/dto"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
@@ -45,8 +44,8 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			},
 		}
 
@@ -100,18 +99,17 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 	var payload dto.UpdateOrganizationRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			},
 		}
 
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -122,8 +120,8 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			},
 		}
 
@@ -184,8 +182,8 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			},
 		}
 
@@ -240,24 +238,6 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 	var payload dto.CreateOrganizationRequest
 
 	if err := g.Bind(&payload); err != nil {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
-			},
-		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	validate := validator.New()
-	if err := validate.Struct(payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -267,10 +247,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 				Message:    message,
 			},
 		}
-
-		h.logger.Error("Validation failed",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -281,8 +258,8 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			},
 		}
 
@@ -347,18 +324,16 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 	var payload dto.UserStatusRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			},
 		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -369,8 +344,8 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			},
 		}
 
@@ -439,18 +414,16 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 	var payload dto.UserRoleRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			},
 		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -461,8 +434,8 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			},
 		}
 
@@ -490,9 +463,9 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		h.logger.Error("Invalid role", zap.Error(err))
 
 		resp := response.Error{
-			Code:       response.ErrBadRequest,
+			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Invalid role.",
+			Message:    "Role must be one of org_admin, project_manager, developer, viewer.",
 		}
 
 		g.JSON(resp.StatusCode, response.ErrorResponse{Success: false, Error: resp})
@@ -544,8 +517,8 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			},
 		}
 
@@ -617,18 +590,16 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 	var payload dto.RemoveUserRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			},
 		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -639,8 +610,8 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			},
 		}
 
@@ -694,12 +665,13 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 	var payload dto.InviteOrganizationMemberRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid invite payload", zap.Error(err))
+		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			}},
 		)
 		return
@@ -707,12 +679,12 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 
 	organizationIDVal, exist := g.Get("organization_id")
 	if !exist {
-		g.JSON(http.StatusUnauthorized, response.ErrorResponse{
+		g.JSON(http.StatusInternalServerError, response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
 			}},
 		)
 		return
@@ -725,12 +697,12 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 
 	inviterIDVal, exist := g.Get("user_id")
 	if !exist {
-		g.JSON(http.StatusUnauthorized, response.ErrorResponse{
+		g.JSON(http.StatusInternalServerError, response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			}},
 		)
 		return
@@ -767,12 +739,13 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 	var payload dto.AcceptInvitationRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			}},
 		)
 		return
@@ -780,12 +753,12 @@ func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 
 	userIDVal, exist := g.Get("user_id")
 	if !exist {
-		g.JSON(http.StatusUnauthorized, response.ErrorResponse{
+		g.JSON(http.StatusInternalServerError, response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			}},
 		)
 		return

@@ -9,6 +9,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	redisclient "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -46,25 +47,16 @@ type Organizationdatabase struct {
 func (d *Organizationdatabase) CreateOrganization(row models.Organization) *response.Error {
 
 	if err := d.DB.Create(&row).Error; err != nil {
+		if utils.IsDuplicateKeyError(err) {
+			d.logger.Error("Duplicated Key conflict", zap.Error(err))
+			return utils.ParseOrgDuplicateError(err)
+		}
 
-		switch {
-		case errors.Is(err, gorm.ErrDuplicatedKey):
-			d.logger.Error("Duplicated Key conflict",
-				zap.Error(err))
-			return &response.Error{
-				Code:       response.ErrConflict,
-				StatusCode: http.StatusConflict,
-				Message:    "Organization already exists",
-			}
-
-		default:
-			d.logger.Error("Database error occurred",
-				zap.Error(err))
-			return &response.Error{
-				Code:       response.ErrInternalServerError,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Something went wrong. Please try again later.",
-			}
+		d.logger.Error("Database error occurred", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
 		}
 	}
 
@@ -144,6 +136,10 @@ func (d *Organizationdatabase) UpdateOrganization(OrganizationID uuid.UUID, req 
 		Updates(req)
 
 	if result.Error != nil {
+		if utils.IsDuplicateKeyError(result.Error) {
+			d.logger.Error("Duplicate key error while updating Organization", zap.Error(result.Error))
+			return utils.ParseOrgDuplicateError(result.Error)
+		}
 
 		d.logger.Error("Database error occurred while updating Organization",
 			zap.Error(result.Error))

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/internal/handlers/dto"
 	cookies "github.com/ms-kanban-server/internal/pkg/cookie"
@@ -46,16 +45,15 @@ func (h *AuthHandler) SignUp(g *gin.Context) {
 	var payload dto.SignUpRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			}}
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -98,18 +96,16 @@ func (h *AuthHandler) SignIn(g *gin.Context) {
 	var loginCredentials dto.SignInRequest
 
 	if err := g.ShouldBindJSON(&loginCredentials); err != nil {
+		message := utils.ValidationErrorMessage(err, loginCredentials)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			},
 		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -174,22 +170,7 @@ func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
 
 	var payload dto.PasswordResetRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
-			},
-		})
-		return
-	}
-
-	if err := validator.New().Struct(payload); err != nil {
-		h.logger.Error("Validation failed",
-			zap.Error(err))
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
@@ -234,20 +215,7 @@ func (h *AuthHandler) ResetPassword(g *gin.Context) {
 	var payload dto.ResetPasswordRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
-			},
-		})
-		return
-	}
-
-	if err := validator.New().Struct(payload); err != nil {
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
@@ -292,18 +260,6 @@ func (h *AuthHandler) VerifyEmail(g *gin.Context) {
 	var payload dto.VerifyEmailRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
-			}})
-		return
-	}
-
-	if err := validator.New().Struct(payload); err != nil {
-		h.logger.Error("Validation failed", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
@@ -353,18 +309,6 @@ func (h *AuthHandler) ResendVerificationOTP(g *gin.Context) {
 	var payload dto.ResendVerificationOTPRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
-		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
-			}})
-		return
-	}
-
-	if err := validator.New().Struct(payload); err != nil {
-		h.logger.Error("Validation failed", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
@@ -408,8 +352,8 @@ func (h *AuthHandler) RefreshToken(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			},
 		}
 
@@ -472,8 +416,8 @@ func (h *AuthHandler) Logout(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			},
 		}
 
@@ -532,18 +476,16 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 	var payload dto.ChangePasswordRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			},
 		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -554,8 +496,8 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			},
 		}
 
@@ -609,18 +551,16 @@ func (h *AuthHandler) UpdateUser(g *gin.Context) {
 	var payload dto.UpdateUserRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrBadRequest,
+				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid request payload.",
+				Message:    message,
 			},
 		}
-
-		h.logger.Error("Invalid request payload",
-			zap.Error(err))
-
+		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -631,8 +571,8 @@ func (h *AuthHandler) UpdateUser(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			},
 		}
 
@@ -688,8 +628,8 @@ func (h *AuthHandler) GetUser(g *gin.Context) {
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
-				Message:    "Authentication required",
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
 			},
 		}
 
