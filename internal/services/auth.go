@@ -65,16 +65,6 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		organizationID = *result.OrganizationID
 	}
 
-	if !result.IsActive {
-		s.logger.Error("The account is deactivated or locked",
-			zap.String("email", credentials.Email))
-		return nil, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "Please verify your email address before signing in",
-		}
-	}
-
 	if !utils.IsValidPassword(result.PasswordHash, credentials.Password) {
 		s.logger.Error("Login failed due to incorrect password",
 			zap.String("email", credentials.Email))
