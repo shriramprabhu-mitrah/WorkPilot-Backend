@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -19,9 +21,7 @@ func IsValidPassword(storedHash, enteredPassword string) bool {
 }
 
 func ValidatePassword(password string) bool {
-
-	emailRegex := regexp.MustCompile(`^[a-z0-9A-Z._%+\-]{8,}$`)
-	return emailRegex.MatchString(password)
+	return len(password) >= 8
 }
 
 func HashPassword(password string) (string, *response.Error) {
@@ -84,28 +84,46 @@ func StringToBool(str string) (bool, *response.Error) {
 }
 
 func ValidationErrorMessage(err error, payload any) string {
-	verrs, ok := err.(validator.ValidationErrors)
-	if !ok || len(verrs) == 0 {
-		return "Invalid request."
+	if err == nil {
+		return "Invalid request payload."
 	}
 
-	fieldErr := verrs[0]
-	label := validationFieldLabel(payload, fieldErr.StructField())
+	var verrs validator.ValidationErrors
+	if errors.As(err, &verrs) && len(verrs) > 0 {
+		fieldErr := verrs[0]
+		label := validationFieldLabel(payload, fieldErr.StructField())
 
-	switch fieldErr.Tag() {
-	case "required":
-		return fmt.Sprintf("%s is required.", label)
-	case "email":
-		return fmt.Sprintf("%s must be a valid email address.", label)
-	case "max":
-		return fmt.Sprintf("%s must not exceed %s characters.", label, fieldErr.Param())
-	case "min":
-		return fmt.Sprintf("%s must be at least %s characters.", label, fieldErr.Param())
-	case "oneof":
-		return fmt.Sprintf("%s must be one of %s.", label, strings.ReplaceAll(fieldErr.Param(), " ", ", "))
-	default:
-		return fmt.Sprintf("%s is invalid.", label)
+		switch fieldErr.Tag() {
+		case "required":
+			return fmt.Sprintf("%s is required.", label)
+		case "email":
+			return fmt.Sprintf("%s must be a valid email address.", label)
+		case "max":
+			return fmt.Sprintf("%s must not exceed %s characters.", label, fieldErr.Param())
+		case "min":
+			return fmt.Sprintf("%s must be at least %s characters.", label, fieldErr.Param())
+		case "oneof":
+			return fmt.Sprintf("%s must be one of %s.", label, strings.ReplaceAll(fieldErr.Param(), " ", ", "))
+		default:
+			return fmt.Sprintf("%s is invalid.", label)
+		}
 	}
+
+	var typeErr *json.UnmarshalTypeError
+	if errors.As(err, &typeErr) {
+		label := toTitleCase(typeErr.Field)
+		if label == "" || label == "Field" {
+			return fmt.Sprintf("Invalid data type for field '%s'. Expected %s.", typeErr.Field, typeErr.Type.String())
+		}
+		return fmt.Sprintf("Invalid data type for %s. Expected %s.", label, typeErr.Type.String())
+	}
+
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) {
+		return "Invalid JSON request body format."
+	}
+
+	return "Invalid request payload."
 }
 
 func validationFieldLabel(payload any, structFieldName string) string {

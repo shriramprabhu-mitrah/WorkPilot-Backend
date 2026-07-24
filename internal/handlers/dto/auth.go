@@ -36,21 +36,21 @@ type RefreshTokenRequest struct {
 }
 
 type SignUpRequest struct {
-	Email     string `json:"email" validate:"required,email"`
-	Password  string `json:"password" validate:"required"`
-	FullName  string `json:"full_name" validate:"required"`
-	UserName  string `json:"username" validate:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required"`
+	FullName  string `json:"full_name" binding:"required"`
+	UserName  string `json:"username" binding:"required"`
 	AvatarURL string `json:"avatar_url"`
 	Timezone  string `json:"timezone"`
 }
 
 type VerifyEmailRequest struct {
-	Email string `json:"email" validate:"required,email"`
-	OTP   string `json:"otp" validate:"required"`
+	Email string `json:"email" binding:"required,email"`
+	OTP   string `json:"otp" binding:"required"`
 }
 
 type ResendVerificationOTPRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type PasswordResetRequest struct {
@@ -78,8 +78,8 @@ func (r Role) Validate() error {
 
 type ChangePasswordRequest struct {
 	UserID      uuid.UUID `json:"user_id"`
-	OldPassword string    `json:"old_password"`
-	NewPassword string    `json:"new_password"`
+	OldPassword string    `json:"old_password" binding:"required"`
+	NewPassword string    `json:"new_password" binding:"required"`
 }
 
 type UpdateUserRequest struct {

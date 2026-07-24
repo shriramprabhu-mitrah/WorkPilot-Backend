@@ -12,6 +12,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	redisclient "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -148,17 +149,12 @@ func (d *authdatabase) ExistsByUsername(username string) (bool, *response.Error)
 func (d *authdatabase) CreateUser(row models.User) *response.Error {
 
 	if err := d.DB.Create(&row).Error; err != nil {
+		if utils.IsDuplicateKeyError(err) {
+			d.logger.Error("Duplicated Key conflict", zap.Error(err))
+			return utils.ParseUserDuplicateError(err)
+		}
 
 		switch {
-		case errors.Is(err, gorm.ErrDuplicatedKey):
-			d.logger.Error("Duplicated Key conflict",
-				zap.Error(err))
-			return &response.Error{
-				Code:       response.ErrConflict,
-				StatusCode: http.StatusConflict,
-				Message:    "Email already exists",
-			}
-
 		case errors.Is(err, gorm.ErrForeignKeyViolated):
 			d.logger.Error("Foreign Key Violated",
 				zap.Error(err))
@@ -613,6 +609,10 @@ func (d *authdatabase) UpdateUser(userID uuid.UUID, req models.User) *response.E
 		Updates(req)
 
 	if result.Error != nil {
+		if utils.IsDuplicateKeyError(result.Error) {
+			d.logger.Error("Duplicate key error while updating user", zap.Error(result.Error))
+			return utils.ParseUserDuplicateError(result.Error)
+		}
 
 		d.logger.Error("Database error occurred while updating user",
 			zap.Error(result.Error))

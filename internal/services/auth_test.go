@@ -403,3 +403,78 @@ func TestIsUsernameAvailableReturnsFalseWhenUsernameAlreadyExists(t *testing.T) 
 		t.Fatal("expected username to be unavailable")
 	}
 }
+
+func TestSignUpReturnsConflictForDuplicateEmail(t *testing.T) {
+	repo := &stubAuthRepository{emailExists: true}
+	service := InitAuthService(repo, zap.NewNop())
+
+	err := service.SignUp(dto.SignUpRequest{Email: "existing@example.com", Password: "StrongPassword123", FullName: "John", UserName: "johnny"})
+	if err == nil {
+		t.Fatal("expected error for duplicate email signup, got nil")
+	}
+	if err.StatusCode != http.StatusConflict {
+		t.Fatalf("expected 409 Conflict status, got %d", err.StatusCode)
+	}
+	if err.Message != "User with this email already exists" {
+		t.Fatalf("expected 'User with this email already exists', got %q", err.Message)
+	}
+}
+
+func TestSignUpReturnsConflictForDuplicateUsername(t *testing.T) {
+	repo := &stubAuthRepository{emailExists: false, usernameExists: true}
+	service := InitAuthService(repo, zap.NewNop())
+
+	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPassword123", FullName: "John", UserName: "existinguser"})
+	if err == nil {
+		t.Fatal("expected error for duplicate username signup, got nil")
+	}
+	if err.StatusCode != http.StatusConflict {
+		t.Fatalf("expected 409 Conflict status, got %d", err.StatusCode)
+	}
+	if err.Message != "Username is already taken" {
+		t.Fatalf("expected 'Username is already taken', got %q", err.Message)
+	}
+}
+
+func TestSignUpRejectsShortPassword(t *testing.T) {
+	repo := &stubAuthRepository{}
+	service := InitAuthService(repo, zap.NewNop())
+
+	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "short", FullName: "John", UserName: "johnny"})
+	if err == nil {
+		t.Fatal("expected error for short password, got nil")
+	}
+	if err.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request status, got %d", err.StatusCode)
+	}
+	if err.Message != "Password must be at least 8 characters long" {
+		t.Fatalf("expected 'Password must be at least 8 characters long', got %q", err.Message)
+	}
+}
+
+func TestChangePasswordVerifiesOldPassword(t *testing.T) {
+	correctHash, _ := utils.HashPassword("OldPassword123")
+	userUUID := uuid.Must(uuid.NewV7())
+	repo := &stubAuthRepository{
+		user: models.User{ID: userUUID, PasswordHash: correctHash},
+	}
+	service := InitAuthService(repo, zap.NewNop())
+
+	// Test incorrect old password
+	wrongErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "WrongPassword123", NewPassword: "NewPassword123"})
+	if wrongErr == nil {
+		t.Fatal("expected error when old password is incorrect, got nil")
+	}
+	if wrongErr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized status, got %d", wrongErr.StatusCode)
+	}
+	if wrongErr.Message != "Current password is incorrect" {
+		t.Fatalf("expected 'Current password is incorrect', got %q", wrongErr.Message)
+	}
+
+	// Test correct old password
+	validErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "OldPassword123", NewPassword: "NewPassword123"})
+	if validErr != nil {
+		t.Fatalf("expected password change to succeed, got error: %v", validErr)
+	}
+}
