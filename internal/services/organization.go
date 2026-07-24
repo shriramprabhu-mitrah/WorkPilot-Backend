@@ -78,7 +78,7 @@ func (s *Organizationservice) CreateOrganization(row models.Organization) (*dto.
 
 	tokencredentials := dto.JWtcredentials{
 		Role:           user.Role,
-		UserId:         user.ID,
+		UserId:         row.CreatedBy,
 		OrganizationID: &organization.ID,
 	}
 
