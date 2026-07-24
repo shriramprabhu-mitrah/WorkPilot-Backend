@@ -35,7 +35,6 @@ type AuthRepository interface {
 	SaveEmailVerificationOTP(otp models.PasswordResetOTP) *response.Error
 	InvalidateEmailVerificationOTPs(userID uuid.UUID) *response.Error
 	GetEmailVerificationOTP(userID uuid.UUID, otp string) (models.PasswordResetOTP, *response.Error)
-	MarkUserEmailVerified(userID uuid.UUID) *response.Error
 	IsEmailVerificationResendAllowed(email string, interval time.Duration) (bool, *response.Error)
 	RecordEmailVerificationResend(email string, sentAt time.Time) *response.Error
 	CreateOrganization(row models.Organization) *response.Error
@@ -43,6 +42,8 @@ type AuthRepository interface {
 	UpdateUserPassword(userID uuid.UUID, passwordHash string) *response.Error
 	RevokeRefreshTokens(userID uuid.UUID) *response.Error
 	UpdateUser(userID uuid.UUID, req models.User) *response.Error
+	StoreUserTemp(row models.User) *response.Error
+	GetUserFromRedis(email string) (*models.User, *response.Error)
 }
 
 func InitAuthRepository(deps models.Config) AuthRepository {
@@ -57,6 +58,57 @@ type authdatabase struct {
 	DB          *gorm.DB
 	redisClient *redisclient.Client
 	logger      *zap.Logger
+}
+
+func (d *authdatabase) GetUserFromRedis(email string) (*models.User, *response.Error) {
+	ctx := context.Background()
+
+	key := "user:email:" + strings.ToLower(email)
+
+	val, err := d.redisClient.Get(ctx, key).Result()
+	if err != nil {
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
+	}
+
+	var user models.User
+	if err := json.Unmarshal([]byte(val), &user); err != nil {
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
+	}
+
+	return &user, nil
+}
+
+func (d *authdatabase) StoreUserTemp(row models.User) *response.Error {
+	ctx := context.Background()
+
+	key := "user:email:" + strings.ToLower(row.Email)
+
+	data, err := json.Marshal(row)
+	if err != nil {
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
+	}
+
+	if err := d.redisClient.Set(ctx, key, data, 3*time.Minute).Err(); err != nil {
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
+	}
+
+	return nil
 }
 
 func (d *authdatabase) GetByEmail(email string) (models.User, *response.Error) {
@@ -502,18 +554,6 @@ func (d *authdatabase) RecordEmailVerificationResend(email string, sentAt time.T
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Something went wrong",
 		}
-	}
-	return nil
-}
-
-func (d *authdatabase) MarkUserEmailVerified(userID uuid.UUID) *response.Error {
-	result := d.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{"is_verified": true, "is_active": true})
-	if result.Error != nil {
-		d.logger.Error("Database error occurred while updating verification status", zap.Error(result.Error))
-		return &response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Something went wrong"}
-	}
-	if result.RowsAffected == 0 {
-		return &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
 	}
 	return nil
 }

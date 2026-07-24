@@ -176,6 +176,10 @@ func (s *stubAuthRepository) MarkUserEmailVerified(userID uuid.UUID) *response.E
 	return nil
 }
 
+func (s *stubAuthRepository) StoreUserTemp(row models.User) *response.Error {
+	return nil
+}
+
 func (s *stubAuthRepository) IsEmailVerificationResendAllowed(email string, interval time.Duration) (bool, *response.Error) {
 	if s.err != nil {
 		return false, s.err
@@ -190,6 +194,11 @@ func (s *stubAuthRepository) RecordEmailVerificationResend(email string, sentAt 
 func (s *stubAuthRepository) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 	s.revokedRefreshTokens = true
 	return nil
+}
+
+func (s *stubAuthRepository) GetUserFromRedis(email string) (*models.User, *response.Error) {
+
+	return nil, nil
 }
 
 func TestSignInReturnsUnauthorizedForInvalidPassword(t *testing.T) {
