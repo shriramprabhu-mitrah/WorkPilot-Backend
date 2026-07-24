@@ -401,7 +401,7 @@ func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 		IsVerified:   false,
 	}
 
-	if createErr := s.Repo.CreateUser(result); createErr != nil {
+	if createErr := s.Repo.StoreUserTemp(result); createErr != nil {
 		return createErr
 	}
 
@@ -414,18 +414,9 @@ func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 }
 
 func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.AuthTokensResponse, *response.Error) {
-	user, err := s.Repo.GetByEmail(strings.ToLower(strings.TrimSpace(credentials.Email)))
+	user, err := s.Repo.GetUserFromRedis(credentials.Email)
 	if err != nil {
 		return nil, err
-	}
-
-	if user.IsVerified {
-		s.logger.Warn("Email verification requested for already verified account", zap.String("email", credentials.Email))
-		return nil, &response.Error{
-			Code:       response.ErrConflict,
-			StatusCode: http.StatusConflict,
-			Message:    "Email address is already verified",
-		}
 	}
 
 	otpRecord, otpErr := s.Repo.GetEmailVerificationOTP(user.ID, credentials.OTP)
@@ -442,15 +433,18 @@ func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 		}
 	}
 
-	if markErr := s.Repo.MarkUserEmailVerified(user.ID); markErr != nil {
-		return nil, markErr
-	}
-
 	var organizationID uuid.UUID
 	if user.OrganizationID == nil || *user.OrganizationID == uuid.Nil {
 		organizationID = uuid.Nil
 	} else {
 		organizationID = *user.OrganizationID
+	}
+
+	user.IsVerified = true
+
+	err = s.Repo.CreateUser(*user)
+	if err != nil {
+		return nil, err
 	}
 
 	tokencredentials := dto.JWtcredentials{
