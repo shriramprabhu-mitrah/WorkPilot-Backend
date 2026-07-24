@@ -1,8 +1,11 @@
 package services
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -237,16 +240,21 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 	if orgErr != nil {
 		return orgErr
 	}
+	s.logger.Info("Reached here", zap.String("inviter", inviter.ID.String()))
+
+	s.logger.Info("invite items", zap.Any("inviteItems", inviteItems))
 
 	for _, inviteItem := range inviteItems {
 		existingUser, userErr := s.AuthRepo.GetByEmail(inviteItem.Email)
-		if userErr == nil && existingUser.OrganizationID != nil && *existingUser.OrganizationID == organizationID && existingUser.IsActive {
-			return &response.Error{
-				Code:       response.ErrConflict,
-				StatusCode: http.StatusConflict,
-				Message:    "User is already an active member of the organization",
+		if userErr == nil {
+			if existingUser.OrganizationID != nil && *existingUser.OrganizationID == organizationID && existingUser.IsActive {
+				return &response.Error{
+					Code:       response.ErrConflict,
+					StatusCode: http.StatusConflict,
+					Message:    "User is already an active member of the organization",
+				}
 			}
-		} else if userErr != nil && userErr.StatusCode != http.StatusUnauthorized {
+		} else if userErr.StatusCode != http.StatusNotFound && userErr.StatusCode != http.StatusUnauthorized {
 			return userErr
 		}
 
@@ -289,7 +297,17 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 		}
 
 		inviteLink := fmt.Sprintf("%s/invitations/accept?token=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), invitation.Token)
-		if err := email.SendOrganizationInvitation(inviteItem.Email, org.Name, invitation.Role, inviteLink); err != nil {
+		tempPassword := ""
+		if userErr != nil {
+			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteItem.Email, inviteItem.Role)
+			if err != nil {
+				return err
+			}
+			tempPassword = invitationTempPassword
+			s.logger.Info("temp pass generated: ", zap.String("password", tempPassword))
+		}
+
+		if err := email.SendOrganizationInvitation(inviteItem.Email, org.Name, invitation.Role, inviteLink, tempPassword); err != nil {
 			s.logger.Warn("Failed to send organization invitation email", zap.Error(err))
 		}
 
@@ -319,6 +337,95 @@ func (s *Organizationservice) generateInvitationToken() (string, *response.Error
 		}
 	}
 	return newToken.String(), nil
+}
+
+func (s *Organizationservice) generateTemporaryPassword(length int) (string, *response.Error) {
+	if length < 8 {
+		length = 8
+	}
+	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var password strings.Builder
+	for i := 0; i < length; i++ {
+		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			s.logger.Error("Failed to generate temporary password", zap.Error(err))
+			return "", &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Something went wrong. Please try again later.",
+			}
+		}
+		password.WriteByte(chars[idx.Int64()])
+	}
+	return password.String(), nil
+}
+
+func (s *Organizationservice) generateUsernameFromEmail(email string) string {
+	local := strings.Split(strings.ToLower(strings.TrimSpace(email)), "@")[0]
+	username := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
+			return r
+		}
+		return -1
+	}, local)
+	if username == "" {
+		username = "user"
+	}
+	return username
+}
+
+func (s *Organizationservice) generateUniqueUsername(email string) (string, *response.Error) {
+	base := s.generateUsernameFromEmail(email)
+	candidate := base
+	for i := 0; i < 10; i++ {
+		exists, err := s.AuthRepo.ExistsByUsername(candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+		candidate = fmt.Sprintf("%s%d", base, i+1)
+	}
+	return "", &response.Error{
+		Code:       response.ErrConflict,
+		StatusCode: http.StatusConflict,
+		Message:    "Unable to generate unique username for invited user",
+	}
+}
+
+func (s *Organizationservice) inviteUserWithTemporaryCredentials(email, role string) (string, *response.Error) {
+	tempPassword, err := s.generateTemporaryPassword(12)
+	if err != nil {
+		return "", err
+	}
+	passwordHash, hashErr := utils.HashPassword(tempPassword)
+	if hashErr != nil {
+		return "", hashErr
+	}
+	username, usernameErr := s.generateUniqueUsername(email)
+	if usernameErr != nil {
+		return "", usernameErr
+	}
+
+	user := models.User{
+		ID:                 uuid.Must(uuid.NewV7()),
+		Email:              strings.ToLower(strings.TrimSpace(email)),
+		UserName:           username,
+		PasswordHash:       passwordHash,
+		Role:               role,
+		Timezone:           "UTC",
+		IsActive:           true,
+		IsVerified:         true,
+		MustChangePassword: true,
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
+	}
+
+	if err := s.AuthRepo.CreateUser(user); err != nil {
+		return "", err
+	}
+	return tempPassword, nil
 }
 
 func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *response.Error {
@@ -364,6 +471,17 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 	user, userErr := s.AuthRepo.GetByID(userID)
 	if userErr != nil {
 		return userErr
+	}
+
+	if !strings.EqualFold(user.Email, invitation.Email) {
+		s.logger.Error("Invitation email does not match authenticated user",
+			zap.String("user_email", user.Email),
+			zap.String("invitation_email", invitation.Email))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You are not authorized to accept this invitation",
+		}
 	}
 
 	user.OrganizationID = &invitation.OrganizationID

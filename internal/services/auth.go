@@ -54,6 +54,13 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 
 	result, err := s.Repo.GetByEmail(credentials.Email)
 	if err != nil {
+		if err.StatusCode == http.StatusNotFound {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid email or password",
+			}
+		}
 		return nil, err
 	}
 
@@ -96,9 +103,10 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	}
 
 	tokencredentials := dto.JWtcredentials{
-		Role:           result.Role,
-		UserId:         result.ID,
-		OrganizationID: &organizationID,
+		Role:               result.Role,
+		UserId:             result.ID,
+		OrganizationID:     &organizationID,
+		MustChangePassword: result.MustChangePassword,
 	}
 
 	//generating the JWT token
@@ -153,11 +161,12 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	}
 
 	return &dto.AuthTokensResponse{
-		AccessToken:      accessToken,
-		RefreshToken:     refreshTokenValue,
-		TokenType:        "Bearer",
-		ExpiresIn:        expiresIn,
-		RefreshExpiresIn: refreshExpiresIn,
+		AccessToken:        accessToken,
+		RefreshToken:       refreshTokenValue,
+		TokenType:          "Bearer",
+		ExpiresIn:          expiresIn,
+		RefreshExpiresIn:   refreshExpiresIn,
+		MustChangePassword: result.MustChangePassword,
 	}, nil
 }
 
@@ -238,11 +247,12 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 	}
 
 	return &dto.AuthTokensResponse{
-		AccessToken:      accessToken,
-		RefreshToken:     credentials.RefreshToken,
-		TokenType:        "Bearer",
-		ExpiresIn:        expiresIn,
-		RefreshExpiresIn: int(time.Until(oldToken.ExpiresAt).Seconds()),
+		AccessToken:        accessToken,
+		RefreshToken:       credentials.RefreshToken,
+		TokenType:          "Bearer",
+		ExpiresIn:          expiresIn,
+		RefreshExpiresIn:   int(time.Until(oldToken.ExpiresAt).Seconds()),
+		MustChangePassword: user.MustChangePassword,
 	}, nil
 }
 
@@ -465,9 +475,10 @@ func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	}
 
 	tokencredentials := dto.JWtcredentials{
-		Role:           user.Role,
-		UserId:         user.ID,
-		OrganizationID: &organizationID,
+		Role:               user.Role,
+		UserId:             user.ID,
+		OrganizationID:     &organizationID,
+		MustChangePassword: user.MustChangePassword,
 	}
 
 	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
@@ -510,11 +521,12 @@ func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 
 	s.logger.Info("Email verification completed", zap.String("email", credentials.Email))
 	return &dto.AuthTokensResponse{
-		AccessToken:      accessToken,
-		RefreshToken:     refreshTokenValue,
-		TokenType:        "Bearer",
-		ExpiresIn:        expiresIn,
-		RefreshExpiresIn: refreshExpiresIn,
+		AccessToken:        accessToken,
+		RefreshToken:       refreshTokenValue,
+		TokenType:          "Bearer",
+		ExpiresIn:          expiresIn,
+		RefreshExpiresIn:   refreshExpiresIn,
+		MustChangePassword: user.MustChangePassword,
 	}, nil
 }
 
@@ -632,7 +644,6 @@ func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *respons
 			StatusCode: http.StatusBadRequest,
 			Message:    "Password must be at least 8 characters long",
 		}
-
 	}
 
 	passwordhash, errorResponse := utils.HashPassword(payload.NewPassword)
