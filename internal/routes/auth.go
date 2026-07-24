@@ -5,14 +5,14 @@ import (
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
-	"github.com/ms-kanban-server/internal/repository"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
 func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	// initialize repositories
-	AuthRepo := repository.InitAuthRepository(deps)
+	AuthRepo := authrepo.InitAuthRepository(deps)
 
 	// initialize services
 	AuthService := services.InitAuthService(AuthRepo, deps.Logger)

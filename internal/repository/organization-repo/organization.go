@@ -1,4 +1,4 @@
-package repository
+package organizationrepo
 
 import (
 	"errors"
@@ -16,29 +16,6 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
-
-type OrganizationRepository interface {
-	CreateOrganization(row models.Organization) *response.Error
-	GetByName(name string) (models.Organization, *response.Error)
-	GetByID(id uuid.UUID) (models.Organization, *response.Error)
-	UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error
-	DeleteOrganization(id uuid.UUID) *response.Error
-	UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error
-	CreateOrganizationInvitation(invitation models.OrganizationInvitation) *response.Error
-	GetPendingInvitationByEmail(orgID uuid.UUID, email string) (models.OrganizationInvitation, *response.Error)
-	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
-	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
-	CreateAuditLog(log models.AuditLog) *response.Error
-	GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
-}
-
-func InitOrganizationRepository(deps models.Config) OrganizationRepository {
-	return &Organizationdatabase{
-		DB:          deps.Database,
-		redisClient: deps.Redis,
-		logger:      deps.Logger,
-	}
-}
 
 type Organizationdatabase struct {
 	DB          *gorm.DB
@@ -257,74 +234,6 @@ func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.
 		}
 	}
 
-	return nil
-}
-
-func (d *Organizationdatabase) CreateOrganizationInvitation(invitation models.OrganizationInvitation) *response.Error {
-	if err := d.DB.Create(&invitation).Error; err != nil {
-		d.logger.Error("Database error occurred while creating organization invitation", zap.Error(err))
-		return &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
-	return nil
-}
-
-func (d *Organizationdatabase) GetPendingInvitationByEmail(orgID uuid.UUID, email string) (models.OrganizationInvitation, *response.Error) {
-	var row models.OrganizationInvitation
-	err := d.DB.Where("organization_id = ? AND email = ? AND status = ?", orgID, email, models.InvitationStatusPending).Order("created_at desc").First(&row).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.OrganizationInvitation{}, nil
-		}
-		return models.OrganizationInvitation{}, &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
-	return row, nil
-}
-
-func (d *Organizationdatabase) GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error) {
-	var row models.OrganizationInvitation
-	err := d.DB.Where("token = ?", token).First(&row).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.OrganizationInvitation{}, nil
-		}
-		return models.OrganizationInvitation{}, &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
-	return row, nil
-}
-
-func (d *Organizationdatabase) UpdateInvitation(invitation models.OrganizationInvitation) *response.Error {
-	if err := d.DB.Save(&invitation).Error; err != nil {
-		d.logger.Error("Database error occurred while updating invitation", zap.Error(err))
-		return &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
-	return nil
-}
-
-func (d *Organizationdatabase) CreateAuditLog(log models.AuditLog) *response.Error {
-	if err := d.DB.Create(&log).Error; err != nil {
-		d.logger.Error("Database error occurred while creating audit log", zap.Error(err))
-		return &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
 	return nil
 }
 
