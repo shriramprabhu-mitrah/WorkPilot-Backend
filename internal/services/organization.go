@@ -240,9 +240,6 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 	if orgErr != nil {
 		return orgErr
 	}
-	s.logger.Info("Reached here", zap.String("inviter", inviter.ID.String()))
-
-	s.logger.Info("invite items", zap.Any("inviteItems", inviteItems))
 
 	for _, inviteItem := range inviteItems {
 		existingUser, userErr := s.AuthRepo.GetByEmail(inviteItem.Email)
@@ -304,7 +301,19 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 				return err
 			}
 			tempPassword = invitationTempPassword
-			s.logger.Info("temp pass generated: ", zap.String("password", tempPassword))
+		} else if existingUser.MustChangePassword {
+			newTempPassword, err := s.generateTemporaryPassword(12)
+			if err != nil {
+				return err
+			}
+			passwordHash, hashErr := utils.HashPassword(newTempPassword)
+			if hashErr != nil {
+				return hashErr
+			}
+			if err := s.AuthRepo.UpdateUserPassword(existingUser.ID, passwordHash); err != nil {
+				return err
+			}
+			tempPassword = newTempPassword
 		}
 
 		if err := email.SendOrganizationInvitation(inviteItem.Email, org.Name, invitation.Role, inviteLink, tempPassword); err != nil {
