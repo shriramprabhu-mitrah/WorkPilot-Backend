@@ -92,8 +92,6 @@ type AcceptInvitationRequest struct {
 type OrganizationMemberListFilter struct {
 	Page       int    `json:"page,omitempty"`
 	PageSize   int    `json:"page_size,omitempty"`
-	Search     string `json:"search,omitempty"`
-	Status     string `json:"status,omitempty"`
 	FullName   string `json:"full_name,omitempty"`
 	Email      string `json:"email,omitempty"`
 	Username   string `json:"username,omitempty"`

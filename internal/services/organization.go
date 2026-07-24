@@ -403,14 +403,8 @@ func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, filter dto.Org
 	if filter.PageSize < 1 {
 		filter.PageSize = 10
 	}
-	if filter.Status != "" {
-		filter.Status = strings.ToLower(strings.TrimSpace(filter.Status))
-	}
 	if filter.Role != "" {
 		filter.Role = strings.ToLower(strings.TrimSpace(filter.Role))
-	}
-	if filter.Search != "" {
-		filter.Search = strings.TrimSpace(filter.Search)
 	}
 	if filter.FullName != "" {
 		filter.FullName = strings.TrimSpace(filter.FullName)

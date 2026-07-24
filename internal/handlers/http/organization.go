@@ -568,7 +568,6 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 	email := strings.TrimSpace(g.Query("email"))
 	username := strings.TrimSpace(g.Query("username"))
 	role := strings.TrimSpace(g.Query("role"))
-	status := strings.TrimSpace(g.Query("status"))
 	timezone := strings.TrimSpace(g.Query("timezone"))
 
 	isActiveQuery := g.Query("is_active")
@@ -588,12 +587,10 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 	filter := dto.OrganizationMemberListFilter{
 		Page:       page,
 		PageSize:   pageSize,
-		Search:     strings.TrimSpace(g.Query("search")),
 		FullName:   fullName,
 		Email:      email,
 		Username:   username,
 		Role:       role,
-		Status:     status,
 		IsActive:   isActive,
 		IsVerified: isVerified,
 		Timezone:   timezone,

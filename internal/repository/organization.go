@@ -342,10 +342,6 @@ func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	offset := (filter.Page - 1) * filter.PageSize
 	baseQuery := d.DB.Model(&models.User{}).Where("organization_id = ?", organizationID)
 
-	if filter.Search != "" {
-		searchTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Search)) + "%"
-		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ? OR LOWER(email) LIKE ? OR LOWER(username) LIKE ?", searchTerm, searchTerm, searchTerm)
-	}
 	if filter.FullName != "" {
 		fullNameTerm := "%" + strings.ToLower(strings.TrimSpace(filter.FullName)) + "%"
 		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ?", fullNameTerm)
@@ -370,18 +366,6 @@ func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	if filter.Timezone != "" {
 		timezoneTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Timezone)) + "%"
 		baseQuery = baseQuery.Where("LOWER(timezone) LIKE ?", timezoneTerm)
-	}
-	if filter.Status != "" {
-		switch filter.Status {
-		case "active":
-			baseQuery = baseQuery.Where("is_active = ?", true)
-		case "inactive":
-			baseQuery = baseQuery.Where("is_active = ?", false)
-		case "verified":
-			baseQuery = baseQuery.Where("is_verified = ?", true)
-		case "unverified":
-			baseQuery = baseQuery.Where("is_verified = ?", false)
-		}
 	}
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
