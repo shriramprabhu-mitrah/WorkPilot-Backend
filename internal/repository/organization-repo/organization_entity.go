@@ -2,11 +2,9 @@ package organizationrepo
 
 import (
 	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/internal/handlers/dto"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
-	redisclient "github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 type OrganizationRepository interface {
@@ -21,7 +19,7 @@ type OrganizationRepository interface {
 	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
 	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
 	CreateAuditLog(log models.AuditLog) *response.Error
-	GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error)
+	GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	DeleteUser(id uuid.UUID) *response.Error
 }
 
@@ -31,10 +29,4 @@ func InitOrganizationRepository(deps models.Config) OrganizationRepository {
 		redisClient: deps.Redis,
 		logger:      deps.Logger,
 	}
-}
-
-type Organizationdatabase struct {
-	DB          *gorm.DB
-	redisClient *redisclient.Client
-	logger      *zap.Logger
 }
