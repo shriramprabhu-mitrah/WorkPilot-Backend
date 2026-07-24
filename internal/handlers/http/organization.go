@@ -6,7 +6,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/internal/handlers/dto"
+	cookies "github.com/ms-kanban-server/internal/pkg/cookie"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -286,7 +288,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		Country:   payload.Country,
 	}
 
-	err := h.service.CreateOrganization(credentials)
+	tokens, err := h.service.CreateOrganization(credentials)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -295,6 +297,15 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		g.JSON(err.StatusCode, errorResponse)
 		return
 	}
+
+	secure, secureErr := utils.StringToBool(config.GetEnv("COOKIE_SECURE", ""))
+	if secureErr != nil {
+		g.JSON(secureErr.StatusCode, &response.ErrorResponse{Success: false, Error: *secureErr})
+		return
+	}
+
+	cookies.SetAccessToken(g, tokens.AccessToken, tokens.ExpiresIn, secure)
+	cookies.SetRefreshToken(g, tokens.RefreshToken, tokens.RefreshExpiresIn, secure)
 
 	successResponse := &response.SuccessResponse{
 		Message:    "Successfully Created",
