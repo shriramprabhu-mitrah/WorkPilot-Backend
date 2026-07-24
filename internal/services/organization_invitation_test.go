@@ -2,6 +2,7 @@ package services
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ type stubOrganizationRepository struct {
 	invite       models.OrganizationInvitation
 	invites      []models.OrganizationInvitation
 	auditLogs    []models.AuditLog
+	members      []models.User
 	err          *response.Error
 }
 
@@ -79,9 +81,60 @@ func (s *stubOrganizationRepository) UpdateStatusAndRole(userID uuid.UUID, req m
 	return nil
 }
 
-func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
+func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+	items := make([]models.User, 0, len(s.members))
+	for _, member := range s.members {
+		if filter.Search != "" {
+			search := strings.ToLower(strings.TrimSpace(filter.Search))
+			fullName := strings.ToLower(member.FullName)
+			email := strings.ToLower(member.Email)
+			userName := strings.ToLower(member.UserName)
+			if !strings.Contains(fullName, search) && !strings.Contains(email, search) && !strings.Contains(userName, search) {
+				continue
+			}
+		}
+		if filter.Role != "" && member.Role != filter.Role {
+			continue
+		}
+		if filter.Status != "" {
+			status := filter.Status
+			if status == "active" && !member.IsActive {
+				continue
+			}
+			if status == "inactive" && member.IsActive {
+				continue
+			}
+		}
+		items = append(items, member)
+	}
+	return items, response.Pagination{Page: filter.Page, PageSize: filter.PageSize, TotalItems: len(items), TotalPages: 1, HasNext: false, HasPrevious: false}, nil
+}
 
-	return nil, response.Pagination{}, nil
+func TestGetUserInOrganizationSupportsSearchAndStatusFilters(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	repo := &stubOrganizationRepository{
+		organization: models.Organization{ID: orgID},
+		members: []models.User{
+			{ID: uuid.Must(uuid.NewV4()), FullName: "Deepak Sharma", UserName: "deepak", Email: "deepak@example.com", Role: string(dto.RoleDeveloper), OrganizationID: &orgID, IsActive: true, IsVerified: true, Timezone: "Asia/Kolkata"},
+			{ID: uuid.Must(uuid.NewV4()), FullName: "Asha Singh", UserName: "asha", Email: "asha@example.com", Role: string(dto.RoleViewer), OrganizationID: &orgID, IsActive: false, IsVerified: true, Timezone: "UTC"},
+		},
+	}
+	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
+	service := InitOrganizationService(repo, authRepo, zap.NewNop()).(*Organizationservice)
+
+	members, pagination, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{Search: "deepak", Role: string(dto.RoleDeveloper), Status: "active", Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("expected filtered member listing to succeed, got %v", err)
+	}
+	if len(members) != 1 {
+		t.Fatalf("expected 1 filtered member, got %d", len(members))
+	}
+	if members[0].Email != "deepak@example.com" {
+		t.Fatalf("expected deepak@example.com, got %s", members[0].Email)
+	}
+	if pagination.TotalItems != 1 {
+		t.Fatalf("expected total_items to be 1, got %d", pagination.TotalItems)
+	}
 }
 
 func TestInviteOrganizationMemberReturnsConflictForActiveMember(t *testing.T) {

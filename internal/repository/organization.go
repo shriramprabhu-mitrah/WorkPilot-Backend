@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 
 	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/internal/handlers/dto"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -27,7 +29,7 @@ type OrganizationRepository interface {
 	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
 	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
 	CreateAuditLog(log models.AuditLog) *response.Error
-	GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error)
+	GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 }
 
 func InitOrganizationRepository(deps models.Config) OrganizationRepository {
@@ -326,24 +328,63 @@ func (d *Organizationdatabase) CreateAuditLog(log models.AuditLog) *response.Err
 	return nil
 }
 
-func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
-
+func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
 	var users []models.User
 	var totalItems int64
 
-	if page < 1 {
-		page = 1
+	if filter.Page < 1 {
+		filter.Page = 1
 	}
-	if pageSize < 1 {
-		pageSize = 10
+	if filter.PageSize < 1 {
+		filter.PageSize = 10
 	}
 
-	offset := (page - 1) * pageSize
+	offset := (filter.Page - 1) * filter.PageSize
+	baseQuery := d.DB.Model(&models.User{}).Where("organization_id = ?", organizationID)
 
-	if err := d.DB.Model(&models.User{}).
-		Where("organization_id = ?", organizationID).
-		Count(&totalItems).Error; err != nil {
+	if filter.Search != "" {
+		searchTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Search)) + "%"
+		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ? OR LOWER(email) LIKE ? OR LOWER(username) LIKE ?", searchTerm, searchTerm, searchTerm)
+	}
+	if filter.FullName != "" {
+		fullNameTerm := "%" + strings.ToLower(strings.TrimSpace(filter.FullName)) + "%"
+		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ?", fullNameTerm)
+	}
+	if filter.Email != "" {
+		emailTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Email)) + "%"
+		baseQuery = baseQuery.Where("LOWER(email) LIKE ?", emailTerm)
+	}
+	if filter.Username != "" {
+		usernameTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Username)) + "%"
+		baseQuery = baseQuery.Where("LOWER(username) LIKE ?", usernameTerm)
+	}
+	if filter.Role != "" {
+		baseQuery = baseQuery.Where("LOWER(role) = ?", strings.ToLower(strings.TrimSpace(filter.Role)))
+	}
+	if filter.IsActive != nil {
+		baseQuery = baseQuery.Where("is_active = ?", *filter.IsActive)
+	}
+	if filter.IsVerified != nil {
+		baseQuery = baseQuery.Where("is_verified = ?", *filter.IsVerified)
+	}
+	if filter.Timezone != "" {
+		timezoneTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Timezone)) + "%"
+		baseQuery = baseQuery.Where("LOWER(timezone) LIKE ?", timezoneTerm)
+	}
+	if filter.Status != "" {
+		switch filter.Status {
+		case "active":
+			baseQuery = baseQuery.Where("is_active = ?", true)
+		case "inactive":
+			baseQuery = baseQuery.Where("is_active = ?", false)
+		case "verified":
+			baseQuery = baseQuery.Where("is_verified = ?", true)
+		case "unverified":
+			baseQuery = baseQuery.Where("is_verified = ?", false)
+		}
+	}
 
+	if err := baseQuery.Count(&totalItems).Error; err != nil {
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
@@ -351,12 +392,11 @@ func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 		}
 	}
 
-	if err := d.DB.
-		Where("organization_id = ?", organizationID).
-		Limit(pageSize).
+	if err := baseQuery.
+		Order("created_at DESC").
+		Limit(filter.PageSize).
 		Offset(offset).
 		Find(&users).Error; err != nil {
-
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
@@ -364,15 +404,18 @@ func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 		}
 	}
 
-	totalPages := int(math.Ceil(float64(totalItems) / float64(pageSize)))
+	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
 
 	pagination := response.Pagination{
-		Page:        page,
-		PageSize:    pageSize,
+		Page:        filter.Page,
+		PageSize:    filter.PageSize,
 		TotalItems:  int(totalItems),
 		TotalPages:  totalPages,
-		HasNext:     page < totalPages,
-		HasPrevious: page > 1,
+		HasNext:     filter.Page < totalPages,
+		HasPrevious: filter.Page > 1,
 	}
 
 	return users, pagination, nil

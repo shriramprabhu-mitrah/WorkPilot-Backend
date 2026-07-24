@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ms-kanban-server/config"
@@ -563,7 +564,42 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		return
 	}
 
-	users, pagination, respErr := h.service.GetUserInOrganization(id, page, pageSize)
+	fullName := strings.TrimSpace(g.Query("full_name"))
+	email := strings.TrimSpace(g.Query("email"))
+	username := strings.TrimSpace(g.Query("username"))
+	role := strings.TrimSpace(g.Query("role"))
+	status := strings.TrimSpace(g.Query("status"))
+	timezone := strings.TrimSpace(g.Query("timezone"))
+
+	isActiveQuery := g.Query("is_active")
+	var isActive *bool
+	if isActiveQuery != "" {
+		v := strings.EqualFold(isActiveQuery, "true")
+		isActive = &v
+	}
+
+	isVerifiedQuery := g.Query("is_verified")
+	var isVerified *bool
+	if isVerifiedQuery != "" {
+		v := strings.EqualFold(isVerifiedQuery, "true")
+		isVerified = &v
+	}
+
+	filter := dto.OrganizationMemberListFilter{
+		Page:       page,
+		PageSize:   pageSize,
+		Search:     strings.TrimSpace(g.Query("search")),
+		FullName:   fullName,
+		Email:      email,
+		Username:   username,
+		Role:       role,
+		Status:     status,
+		IsActive:   isActive,
+		IsVerified: isVerified,
+		Timezone:   timezone,
+	}
+
+	users, pagination, respErr := h.service.GetUserInOrganization(id, filter)
 	if respErr != nil {
 		g.JSON(respErr.StatusCode, &response.ErrorResponse{
 			Success: false,

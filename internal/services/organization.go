@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -26,7 +27,7 @@ type OrganizationService interface {
 	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
 	InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error
 	AcceptInvitation(userID uuid.UUID, token string) *response.Error
-	GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error)
+	GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	RemoveUser(payload dto.RemoveUser) *response.Error
 }
 
@@ -395,9 +396,36 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 	return nil
 }
 
-func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, page int, pageSize int) ([]models.User, response.Pagination, *response.Error) {
+func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 10
+	}
+	if filter.Status != "" {
+		filter.Status = strings.ToLower(strings.TrimSpace(filter.Status))
+	}
+	if filter.Role != "" {
+		filter.Role = strings.ToLower(strings.TrimSpace(filter.Role))
+	}
+	if filter.Search != "" {
+		filter.Search = strings.TrimSpace(filter.Search)
+	}
+	if filter.FullName != "" {
+		filter.FullName = strings.TrimSpace(filter.FullName)
+	}
+	if filter.Email != "" {
+		filter.Email = strings.TrimSpace(filter.Email)
+	}
+	if filter.Username != "" {
+		filter.Username = strings.TrimSpace(filter.Username)
+	}
+	if filter.Timezone != "" {
+		filter.Timezone = strings.TrimSpace(filter.Timezone)
+	}
 
-	return s.OrganizationRepo.GetUsersByOrganizationID(id, page, pageSize)
+	return s.OrganizationRepo.GetUsersByOrganizationID(id, filter)
 }
 
 func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error {

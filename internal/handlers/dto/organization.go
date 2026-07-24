@@ -88,3 +88,17 @@ type InviteOrganizationMemberRequest struct {
 type AcceptInvitationRequest struct {
 	Token string `json:"token" binding:"required"`
 }
+
+type OrganizationMemberListFilter struct {
+	Page       int    `json:"page,omitempty"`
+	PageSize   int    `json:"page_size,omitempty"`
+	Search     string `json:"search,omitempty"`
+	Status     string `json:"status,omitempty"`
+	FullName   string `json:"full_name,omitempty"`
+	Email      string `json:"email,omitempty"`
+	Username   string `json:"username,omitempty"`
+	Role       string `json:"role,omitempty"`
+	IsActive   *bool  `json:"is_active,omitempty"`
+	IsVerified *bool  `json:"is_verified,omitempty"`
+	Timezone   string `json:"timezone,omitempty"`
+}
