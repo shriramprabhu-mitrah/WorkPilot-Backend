@@ -8,6 +8,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/internal/handlers/dto"
+	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/email"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
@@ -18,7 +19,7 @@ import (
 
 type OrganizationService interface {
 	GetOrganizationByID(id uuid.UUID) (models.Organization, *response.Error)
-	CreateOrganization(row models.Organization) *response.Error
+	CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error)
 	UpdateOrganization(id uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
 	UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error
@@ -48,19 +49,19 @@ func (s *Organizationservice) GetOrganizationByID(id uuid.UUID) (models.Organiza
 	return s.OrganizationRepo.GetByID(id)
 }
 
-func (s *Organizationservice) CreateOrganization(row models.Organization) *response.Error {
+func (s *Organizationservice) CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error) {
 
 	slug := utils.ExtractSlug(row.Domain)
 	row.Slug = slug
 
 	err := s.OrganizationRepo.CreateOrganization(row)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	organization, err := s.OrganizationRepo.GetByName(row.Name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	user := models.User{
@@ -72,10 +73,65 @@ func (s *Organizationservice) CreateOrganization(row models.Organization) *respo
 	err = s.AuthRepo.UpdateUser(row.CreatedBy, user)
 	if err != nil {
 		s.OrganizationRepo.DeleteOrganization(organization.ID)
-		return err
+		return nil, err
 	}
 
-	return nil
+	tokencredentials := dto.JWtcredentials{
+		Role:           user.Role,
+		UserId:         row.CreatedBy,
+		OrganizationID: &organization.ID,
+	}
+
+	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+
+	refreshTokenValue, refreshTokenErr := generateRefreshTokenValue()
+	if refreshTokenErr != nil {
+		s.logger.Error("Failed to create refresh token after email verification",
+			zap.String("email", user.Email))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	hashedRefreshToken, hashErr := utils.HashPassword(refreshTokenValue)
+	if hashErr != nil {
+		s.logger.Error("Failed hashing the refresh token after email verification",
+			zap.String("email", user.Email), zap.Error(fmt.Errorf("%v", hashErr)))
+		return nil, hashErr
+	}
+
+	expiresIn, parseErr := utils.StringToInt(config.GetEnv("JWT_EXPIRY", "900"))
+	if parseErr != nil {
+		s.logger.Error("Failed to set the expire time",
+			zap.Error(fmt.Errorf("%v", parseErr)))
+		return nil, parseErr
+	}
+
+	refreshExpiresIn, refreshParseErr := utils.StringToInt(config.GetEnv("REFRESH_TOKEN_EXPIRY", "604800"))
+	if refreshParseErr != nil {
+		s.logger.Error("Failed to set the expire time",
+			zap.Error(fmt.Errorf("%v", refreshParseErr)))
+		return nil, refreshParseErr
+	}
+
+	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
+	if storeErr := s.AuthRepo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt}); storeErr != nil {
+		return nil, storeErr
+	}
+
+	s.logger.Info("Email verification completed", zap.String("email", user.Email))
+	return &dto.AuthTokensResponse{
+		AccessToken:      accessToken,
+		RefreshToken:     refreshTokenValue,
+		TokenType:        "Bearer",
+		ExpiresIn:        expiresIn,
+		RefreshExpiresIn: refreshExpiresIn,
+	}, nil
 }
 
 func (s *Organizationservice) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
