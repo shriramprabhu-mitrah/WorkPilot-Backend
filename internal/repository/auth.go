@@ -119,8 +119,8 @@ func (d *authdatabase) GetByEmail(email string) (models.User, *response.Error) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid email or password",
 			}
 			d.logger.Error("User not found in database",
