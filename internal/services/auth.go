@@ -18,7 +18,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
-	"github.com/ms-kanban-server/internal/repository"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	"go.uber.org/zap"
 )
 
@@ -38,7 +38,7 @@ type AuthService interface {
 	IsUsernameAvailable(username string) (bool, *response.Error)
 }
 
-func InitAuthService(repo repository.AuthRepository, logger *zap.Logger) AuthService {
+func InitAuthService(repo authrepo.AuthRepository, logger *zap.Logger) AuthService {
 	return &authservice{
 		Repo:   repo,
 		logger: logger,
@@ -46,7 +46,7 @@ func InitAuthService(repo repository.AuthRepository, logger *zap.Logger) AuthSer
 }
 
 type authservice struct {
-	Repo   repository.AuthRepository
+	Repo   authrepo.AuthRepository
 	logger *zap.Logger
 }
 

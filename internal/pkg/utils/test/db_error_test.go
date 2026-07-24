@@ -1,4 +1,4 @@
-package utils
+package utils_test
 
 import (
 	"errors"
@@ -6,32 +6,33 @@ import (
 	"testing"
 
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	"gorm.io/gorm"
 )
 
 func TestIsDuplicateKeyError(t *testing.T) {
-	if !IsDuplicateKeyError(gorm.ErrDuplicatedKey) {
+	if !utils.IsDuplicateKeyError(gorm.ErrDuplicatedKey) {
 		t.Error("expected gorm.ErrDuplicatedKey to be detected as duplicate key error")
 	}
 
 	pgErr := errors.New("ERROR: duplicate key value violates unique constraint \"idx_users_email\" (SQLSTATE 23505)")
-	if !IsDuplicateKeyError(pgErr) {
+	if !utils.IsDuplicateKeyError(pgErr) {
 		t.Error("expected postgres duplicate key error string to be detected")
 	}
 
 	otherErr := errors.New("connection reset by peer")
-	if IsDuplicateKeyError(otherErr) {
+	if utils.IsDuplicateKeyError(otherErr) {
 		t.Error("expected arbitrary error to not be detected as duplicate key error")
 	}
 
-	if IsDuplicateKeyError(nil) {
+	if utils.IsDuplicateKeyError(nil) {
 		t.Error("expected nil error to return false")
 	}
 }
 
 func TestParseUserDuplicateError(t *testing.T) {
 	usernameErr := errors.New("duplicate key value violates unique constraint \"idx_users_username\"")
-	parsedUsername := ParseUserDuplicateError(usernameErr)
+	parsedUsername := utils.ParseUserDuplicateError(usernameErr)
 	if parsedUsername.Code != response.ErrConflict || parsedUsername.StatusCode != http.StatusConflict {
 		t.Fatalf("expected conflict error, got %#v", parsedUsername)
 	}
@@ -40,7 +41,7 @@ func TestParseUserDuplicateError(t *testing.T) {
 	}
 
 	emailErr := errors.New("duplicate key value violates unique constraint \"idx_users_email\"")
-	parsedEmail := ParseUserDuplicateError(emailErr)
+	parsedEmail := utils.ParseUserDuplicateError(emailErr)
 	if parsedEmail.Code != response.ErrConflict || parsedEmail.StatusCode != http.StatusConflict {
 		t.Fatalf("expected conflict error, got %#v", parsedEmail)
 	}
@@ -51,13 +52,13 @@ func TestParseUserDuplicateError(t *testing.T) {
 
 func TestParseOrgDuplicateError(t *testing.T) {
 	nameErr := errors.New("duplicate key value violates unique constraint \"idx_organization_name\"")
-	parsedName := ParseOrgDuplicateError(nameErr)
+	parsedName := utils.ParseOrgDuplicateError(nameErr)
 	if parsedName.Message != "An organization with this name already exists" {
 		t.Errorf("expected 'An organization with this name already exists', got %q", parsedName.Message)
 	}
 
 	slugErr := errors.New("duplicate key value violates unique constraint \"idx_organization_slug\"")
-	parsedSlug := ParseOrgDuplicateError(slugErr)
+	parsedSlug := utils.ParseOrgDuplicateError(slugErr)
 	if parsedSlug.Message != "An organization with this domain or slug already exists" {
 		t.Errorf("expected 'An organization with this domain or slug already exists', got %q", parsedSlug.Message)
 	}

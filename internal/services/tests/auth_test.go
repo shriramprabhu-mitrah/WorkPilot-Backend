@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"net/http"
@@ -10,8 +10,11 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
+	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var InitAuthService = services.InitAuthService
 
 type stubAuthRepository struct {
 	user                    models.User
@@ -177,6 +180,8 @@ func (s *stubAuthRepository) MarkUserEmailVerified(userID uuid.UUID) *response.E
 }
 
 func (s *stubAuthRepository) StoreUserTemp(row models.User) *response.Error {
+	s.createdUser = row
+	s.user = row
 	return nil
 }
 
@@ -300,7 +305,7 @@ func TestSignInReturnsAuthTokensForValidCredentials(t *testing.T) {
 
 func TestSignUpCreatesUnverifiedAccountAndSendsVerificationOTP(t *testing.T) {
 	repo := &stubAuthRepository{}
-	service := InitAuthService(repo, zap.NewNop()).(*authservice)
+	service := InitAuthService(repo, zap.NewNop())
 
 	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPass123!", FullName: "Jane Doe", UserName: "janedoe"})
 	if err != nil {
@@ -319,7 +324,7 @@ func TestSignUpCreatesUnverifiedAccountAndSendsVerificationOTP(t *testing.T) {
 
 func TestSignUpDoesNotCreateOrganizationDuringInitialRegistration(t *testing.T) {
 	repo := &stubAuthRepository{}
-	service := InitAuthService(repo, zap.NewNop()).(*authservice)
+	service := InitAuthService(repo, zap.NewNop())
 
 	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPass123!", FullName: "Jane Doe", UserName: "janedoe"})
 	if err != nil {
@@ -370,7 +375,7 @@ func TestResetPasswordUpdatesHashAndRevokesTokens(t *testing.T) {
 		user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", IsActive: true},
 		otp:  models.PasswordResetOTP{UserID: uuid.Must(uuid.NewV7()), OTPHash: hashedOTP, ExpiresAt: time.Now().Add(15 * time.Minute)},
 	}
-	service := InitAuthService(repo, zap.NewNop()).(*authservice)
+	service := InitAuthService(repo, zap.NewNop())
 
 	resetErr := service.ResetPassword(dto.ResetPasswordRequest{Email: "user@example.com", OTP: "123456", NewPassword: "NewPassword123!"})
 	if resetErr != nil {

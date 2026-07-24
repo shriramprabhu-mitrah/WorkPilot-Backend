@@ -1,4 +1,4 @@
-package utils
+package utils_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 )
 
 type samplePayload struct {
@@ -21,7 +22,7 @@ func TestValidationErrorMessage(t *testing.T) {
 	t.Run("returns required message for missing email", func(t *testing.T) {
 		payload := samplePayload{Name: "John"}
 		err := validate.Struct(payload)
-		msg := ValidationErrorMessage(err, payload)
+		msg := utils.ValidationErrorMessage(err, payload)
 		if msg != "Email is required." {
 			t.Fatalf("expected 'Email is required.', got %q", msg)
 		}
@@ -30,7 +31,7 @@ func TestValidationErrorMessage(t *testing.T) {
 	t.Run("returns email message for invalid email", func(t *testing.T) {
 		payload := samplePayload{Email: "invalid-email", Name: "John"}
 		err := validate.Struct(payload)
-		msg := ValidationErrorMessage(err, payload)
+		msg := utils.ValidationErrorMessage(err, payload)
 		if msg != "Email must be a valid email address." {
 			t.Fatalf("expected 'Email must be a valid email address.', got %q", msg)
 		}
@@ -42,7 +43,7 @@ func TestValidationErrorMessage(t *testing.T) {
 			Type:  reflect.TypeOf(0),
 		}
 		payload := samplePayload{}
-		msg := ValidationErrorMessage(typeErr, payload)
+		msg := utils.ValidationErrorMessage(typeErr, payload)
 		if msg != "Invalid data type for Age. Expected int." {
 			t.Fatalf("expected 'Invalid data type for Age. Expected int.', got %q", msg)
 		}
@@ -50,7 +51,7 @@ func TestValidationErrorMessage(t *testing.T) {
 
 	t.Run("returns json format error message for EOF", func(t *testing.T) {
 		payload := samplePayload{}
-		msg := ValidationErrorMessage(io.EOF, payload)
+		msg := utils.ValidationErrorMessage(io.EOF, payload)
 		if msg != "Invalid JSON request body format." {
 			t.Fatalf("expected 'Invalid JSON request body format.', got %q", msg)
 		}
