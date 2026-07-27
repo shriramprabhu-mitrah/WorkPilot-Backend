@@ -57,7 +57,16 @@ func SendOrganizationInvitation(toEmail, organizationName, role, inviteLink, tem
 		return fmt.Errorf("failed to render organization invitation template: %w", err)
 	}
 
-	return sendViaGmailSMTP(toEmail, fromEmail, "Organization invitation", renderedHTML)
+	subject := "Organization invitation"
+	gmailErr := sendViaGmailSMTP(toEmail, fromEmail, subject, renderedHTML)
+	if gmailErr != nil {
+		brevoErr := sendViaBrevo(toEmail, fromEmail, subject, renderedHTML)
+		if brevoErr != nil {
+			return fmt.Errorf("gmail smtp failed: %w; brevo fallback failed: %v", gmailErr, brevoErr)
+		}
+	}
+
+	return nil
 }
 
 func SendEmailVerificationOTP(toEmail, otp string, expiryMinutes int) error {
@@ -75,7 +84,16 @@ func SendEmailVerificationOTP(toEmail, otp string, expiryMinutes int) error {
 		return fmt.Errorf("failed to render verification email template: %w", err)
 	}
 
-	return sendViaGmailSMTP(toEmail, fromEmail, "Verify your email address", renderedHTML)
+	subject := "Verify your email address"
+	gmailErr := sendViaGmailSMTP(toEmail, fromEmail, subject, renderedHTML)
+	if gmailErr != nil {
+		brevoErr := sendViaBrevo(toEmail, fromEmail, subject, renderedHTML)
+		if brevoErr != nil {
+			return fmt.Errorf("gmail smtp failed: %w; brevo fallback failed: %v", gmailErr, brevoErr)
+		}
+	}
+
+	return nil
 }
 
 func sendViaGmailSMTP(toEmail, fromEmail, subject, htmlContent string) error {
