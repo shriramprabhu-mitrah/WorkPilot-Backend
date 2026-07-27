@@ -44,9 +44,9 @@ type ArchiveProjectRequest struct {
 type ProjectFilterRequest struct {
 	Page      int           `form:"page"`
 	PageSize  int           `form:"page_size"`
-	Key       string        `form:"key"`
+	Key       string        `form:"project_key"`
 	Name      string        `form:"name"`
-	Status    ProjectStatus `form:"status"`
+	Status    ProjectStatus `form:"archive_status"`
 	StartDate string        `form:"start_date"`
 	EndDate   string        `form:"end_date"`
 }
