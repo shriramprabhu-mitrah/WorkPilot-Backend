@@ -7,7 +7,7 @@ import (
 
 type ClaimsJWT struct {
 	Role               string    `json:"role"`
-	UserId             uuid.UUID `json:"user_id"`
+	UserID             uuid.UUID `json:"user_id"`
 	OrganizationID     uuid.UUID `json:"organization_id"`
 	MustChangePassword bool      `json:"must_change_password"`
 	jwt.RegisteredClaims
@@ -15,7 +15,7 @@ type ClaimsJWT struct {
 
 type JWtcredentials struct {
 	Role               string     `json:"role"`
-	UserId             uuid.UUID  `json:"user_id"`
+	UserID             uuid.UUID  `json:"user_id"`
 	OrganizationID     *uuid.UUID `json:"organization_id"`
 	MustChangePassword bool       `json:"must_change_password"`
 }

@@ -58,6 +58,7 @@ type User struct {
 	CreatedAt          time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
 	UpdatedAt          time.Time      `json:"updated_at" gorm:"type:timestamptz"`
 	DeletedAt          gorm.DeletedAt `json:"-" gorm:"index:idx_users_deleted_at"`
+	JoinedAt           time.Time      `json:"joined_at" gorm:"type:timestamptz"`
 }
 
 type RefreshToken struct {

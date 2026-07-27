@@ -75,12 +75,12 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			return
 		}
 
-		role, roleOk := claims["role"].(string)
-		userID, userIDOk := claims["user_id"].(string)
-		organizationID, organizationIDOk := claims["organization_id"].(string)
+		role, hasRole := claims["role"].(string)
+		userID, hasUserID := claims["user_id"].(string)
+		organizationID, hasOrganizationID := claims["organization_id"].(string)
 		mustChangePassword, _ := claims["must_change_password"].(bool)
 
-		if !roleOk || !userIDOk || !organizationIDOk || (role == "" && userID == "") {
+		if !hasRole || !hasUserID || !hasOrganizationID || (role == "" && userID == "") {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,

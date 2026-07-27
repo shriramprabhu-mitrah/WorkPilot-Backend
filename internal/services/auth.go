@@ -104,7 +104,7 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 
 	tokencredentials := dto.JWtcredentials{
 		Role:               result.Role,
-		UserId:             result.ID,
+		UserID:             result.ID,
 		OrganizationID:     &organizationID,
 		MustChangePassword: result.MustChangePassword,
 	}
@@ -228,7 +228,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 	}
 	tokencredentials := dto.JWtcredentials{
 		Role:           user.Role,
-		UserId:         user.ID,
+		UserID:         user.ID,
 		OrganizationID: &organizationID,
 	}
 
@@ -476,7 +476,7 @@ func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 
 	tokencredentials := dto.JWtcredentials{
 		Role:               user.Role,
-		UserId:             user.ID,
+		UserID:             user.ID,
 		OrganizationID:     &organizationID,
 		MustChangePassword: user.MustChangePassword,
 	}

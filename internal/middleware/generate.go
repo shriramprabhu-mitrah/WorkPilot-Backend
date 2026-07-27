@@ -45,7 +45,7 @@ func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger 
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 		Role:               tokencredentials.Role,
-		UserId:             tokencredentials.UserId,
+		UserID:             tokencredentials.UserID,
 		OrganizationID:     organizationID,
 		MustChangePassword: tokencredentials.MustChangePassword,
 	}

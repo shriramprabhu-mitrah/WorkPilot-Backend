@@ -72,6 +72,7 @@ func (s *Organizationservice) CreateOrganization(row models.Organization) (*dto.
 		OrganizationID: &organization.ID,
 		Role:           string(dto.RoleOrgAdmin),
 		IsActive:       true,
+		JoinedAt:       time.Now(),
 	}
 
 	err = s.AuthRepo.UpdateUser(row.CreatedBy, user)
@@ -82,7 +83,7 @@ func (s *Organizationservice) CreateOrganization(row models.Organization) (*dto.
 
 	tokencredentials := dto.JWtcredentials{
 		Role:           user.Role,
-		UserId:         row.CreatedBy,
+		UserID:         row.CreatedBy,
 		OrganizationID: &organization.ID,
 	}
 
@@ -378,7 +379,15 @@ func (s *Organizationservice) generateUsernameFromEmail(email string) string {
 		return -1
 	}, local)
 	if username == "" {
-		username = "user"
+		id, err := uuid.NewV7()
+		if err == nil {
+			username = fmt.Sprintf("user_%s", strings.ReplaceAll(id.String(), "-", "")[:8])
+		} else {
+			username = fmt.Sprintf("user_%d", time.Now().UnixNano()%1000000)
+		}
+	}
+	if len(username) > 25 {
+		username = username[:25]
 	}
 	return username
 }
@@ -496,6 +505,7 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 	user.OrganizationID = &invitation.OrganizationID
 	user.Role = invitation.Role
 	user.IsActive = true
+	user.JoinedAt = time.Now()
 	if err := s.AuthRepo.UpdateUser(userID, user); err != nil {
 		return err
 	}
