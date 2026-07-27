@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -18,7 +17,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (d *authdatabase) GetUserFromRedis(email string) (*models.User, *response.Error) {
+func (d *authDatabase) GetUserFromRedis(email string) (*models.User, *response.Error) {
 	ctx := context.Background()
 
 	key := "user:email:" + strings.ToLower(email)
@@ -44,7 +43,7 @@ func (d *authdatabase) GetUserFromRedis(email string) (*models.User, *response.E
 	return &user, nil
 }
 
-func (d *authdatabase) StoreUserTemp(row models.User) *response.Error {
+func (d *authDatabase) StoreUserTemp(row models.User) *response.Error {
 	ctx := context.Background()
 
 	key := "user:email:" + strings.ToLower(row.Email)
@@ -69,7 +68,7 @@ func (d *authdatabase) StoreUserTemp(row models.User) *response.Error {
 	return nil
 }
 
-func (d *authdatabase) GetByEmail(email string) (models.User, *response.Error) {
+func (d *authDatabase) GetByEmail(email string) (models.User, *response.Error) {
 
 	var row models.User
 
@@ -101,7 +100,7 @@ func (d *authdatabase) GetByEmail(email string) (models.User, *response.Error) {
 	return row, nil
 }
 
-func (d *authdatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
+func (d *authDatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
 
 	var row models.User
 
@@ -128,8 +127,7 @@ func (d *authdatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
 	return row, nil
 }
 
-
-func (d *authdatabase) CreateUser(row models.User) *response.Error {
+func (d *authDatabase) CreateUser(row models.User) *response.Error {
 
 	if err := d.DB.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
@@ -161,7 +159,7 @@ func (d *authdatabase) CreateUser(row models.User) *response.Error {
 	return nil
 }
 
-func (d *authdatabase) StoreRefreshToken(token models.RefreshToken) *response.Error {
+func (d *authDatabase) StoreRefreshToken(token models.RefreshToken) *response.Error {
 
 	err := d.DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{
@@ -193,7 +191,7 @@ func (d *authdatabase) StoreRefreshToken(token models.RefreshToken) *response.Er
 	return nil
 }
 
-func (d *authdatabase) GetRefreshToken(userID string) (models.RefreshToken, *response.Error) {
+func (d *authDatabase) GetRefreshToken(userID string) (models.RefreshToken, *response.Error) {
 
 	var token models.RefreshToken
 
@@ -221,7 +219,7 @@ func (d *authdatabase) GetRefreshToken(userID string) (models.RefreshToken, *res
 	return token, nil
 }
 
-func (d *authdatabase) ChangePassword(password string, userID uuid.UUID) *response.Error {
+func (d *authDatabase) ChangePassword(password string, userID uuid.UUID) *response.Error {
 
 	result := d.DB.
 		Model(&models.User{}).
@@ -243,7 +241,7 @@ func (d *authdatabase) ChangePassword(password string, userID uuid.UUID) *respon
 	if result.RowsAffected == 0 {
 
 		d.logger.Error("User not found while updating Password",
-			zap.String("user_id", fmt.Sprint(userID)))
+			zap.String("user_id", userID.String()))
 
 		return &response.Error{
 			Code:       response.ErrNotFound,
@@ -255,7 +253,7 @@ func (d *authdatabase) ChangePassword(password string, userID uuid.UUID) *respon
 	return nil
 }
 
-func (d *authdatabase) RequestPasswordReset(email string) (models.User, *response.Error) {
+func (d *authDatabase) RequestPasswordReset(email string) (models.User, *response.Error) {
 
 	var row models.User
 
@@ -283,7 +281,7 @@ func (d *authdatabase) RequestPasswordReset(email string) (models.User, *respons
 	return row, nil
 }
 
-func (d *authdatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string) *response.Error {
+func (d *authDatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string) *response.Error {
 
 	result := d.DB.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash)
 
@@ -302,7 +300,7 @@ func (d *authdatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string)
 	if result.RowsAffected == 0 {
 
 		d.logger.Error("The specified user does not exist",
-			zap.String("user_id", fmt.Sprint(userID)))
+			zap.String("user_id", userID.String()))
 
 		return &response.Error{
 			Code:       response.ErrNotFound,
@@ -314,7 +312,7 @@ func (d *authdatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string)
 	return nil
 }
 
-func (d *authdatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
+func (d *authDatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 
 	result := d.DB.Model(&models.RefreshToken{}).Where("user_id = ?", userID).Update("revoked_at", time.Now())
 
@@ -333,7 +331,7 @@ func (d *authdatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 	if result.RowsAffected == 0 {
 
 		d.logger.Error("The specified Token does not exist",
-			zap.String("user_id", fmt.Sprint(userID)))
+			zap.String("user_id", userID.String()))
 
 		return &response.Error{
 			Code:       response.ErrNotFound,
@@ -345,7 +343,7 @@ func (d *authdatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 	return nil
 }
 
-func (d *authdatabase) UpdateUser(userID uuid.UUID, req models.User) *response.Error {
+func (d *authDatabase) UpdateUser(userID uuid.UUID, req models.User) *response.Error {
 
 	result := d.DB.
 		Model(&models.User{}).
@@ -371,7 +369,7 @@ func (d *authdatabase) UpdateUser(userID uuid.UUID, req models.User) *response.E
 	if result.RowsAffected == 0 {
 
 		d.logger.Error("The specified user does not exist",
-			zap.String("user_id", fmt.Sprint(userID)))
+			zap.String("user_id", userID.String()))
 
 		return &response.Error{
 			Code:       response.ErrNotFound,

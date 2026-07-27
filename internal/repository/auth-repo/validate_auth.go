@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (d *authdatabase) ExistsByEmail(email string) (bool, *response.Error) {
+func (d *authDatabase) ExistsByEmail(email string) (bool, *response.Error) {
 	var count int64
 	if err := d.DB.Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err != nil {
 		d.logger.Error("Database error checking email existence",
@@ -30,7 +30,7 @@ func (d *authdatabase) ExistsByEmail(email string) (bool, *response.Error) {
 	return count > 0, nil
 }
 
-func (d *authdatabase) ExistsByUsername(username string) (bool, *response.Error) {
+func (d *authDatabase) ExistsByUsername(username string) (bool, *response.Error) {
 	var count int64
 	if err := d.DB.Model(&models.User{}).Where("username = ?", username).Count(&count).Error; err != nil {
 		d.logger.Error("Database error checking username existence",
@@ -43,18 +43,18 @@ func (d *authdatabase) ExistsByUsername(username string) (bool, *response.Error)
 	}
 	return count > 0, nil
 }
-func (d *authdatabase) SavePasswordResetOTP(otp models.PasswordResetOTP) *response.Error {
+func (d *authDatabase) SavePasswordResetOTP(otp models.PasswordResetOTP) *response.Error {
 	return d.saveOTP(otp, otpRedisKey(otp.UserID))
 }
 
-func (d *authdatabase) SaveEmailVerificationOTP(otp models.PasswordResetOTP) *response.Error {
+func (d *authDatabase) SaveEmailVerificationOTP(otp models.PasswordResetOTP) *response.Error {
 	return d.saveOTP(otp, emailVerificationOTPRedisKey(otp.UserID))
 }
-func (d *authdatabase) InvalidateEmailVerificationOTPs(userID uuid.UUID) *response.Error {
+func (d *authDatabase) InvalidateEmailVerificationOTPs(userID uuid.UUID) *response.Error {
 	return d.invalidateOTP(emailVerificationOTPRedisKey(userID))
 }
 
-func (d *authdatabase) invalidateOTP(key string) *response.Error {
+func (d *authDatabase) invalidateOTP(key string) *response.Error {
 	if d.redisClient == nil {
 		d.logger.Error("Database error occurred in redis")
 		return &response.Error{
@@ -75,7 +75,7 @@ func (d *authdatabase) invalidateOTP(key string) *response.Error {
 	return nil
 }
 
-func (d *authdatabase) saveOTP(otp models.PasswordResetOTP, key string) *response.Error {
+func (d *authDatabase) saveOTP(otp models.PasswordResetOTP, key string) *response.Error {
 	if d.redisClient == nil {
 		d.logger.Error("Database error occurred in redis")
 		return &response.Error{
@@ -111,19 +111,19 @@ func (d *authdatabase) saveOTP(otp models.PasswordResetOTP, key string) *respons
 	return nil
 }
 
-func (d *authdatabase) InvalidatePasswordResetOTPs(userID uuid.UUID) *response.Error {
+func (d *authDatabase) InvalidatePasswordResetOTPs(userID uuid.UUID) *response.Error {
 	return d.invalidateOTP(otpRedisKey(userID))
 }
 
-func (d *authdatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models.PasswordResetOTP, *response.Error) {
+func (d *authDatabase) GetPasswordResetOTP(userID uuid.UUID, otp string) (models.PasswordResetOTP, *response.Error) {
 	return d.getOTP(otpRedisKey(userID))
 }
 
-func (d *authdatabase) GetEmailVerificationOTP(userID uuid.UUID, otp string) (models.PasswordResetOTP, *response.Error) {
+func (d *authDatabase) GetEmailVerificationOTP(userID uuid.UUID, otp string) (models.PasswordResetOTP, *response.Error) {
 	return d.getOTP(emailVerificationOTPRedisKey(userID))
 }
 
-func (d *authdatabase) getOTP(key string) (models.PasswordResetOTP, *response.Error) {
+func (d *authDatabase) getOTP(key string) (models.PasswordResetOTP, *response.Error) {
 	if d.redisClient == nil {
 		d.logger.Error("Database error occurred in redis")
 		return models.PasswordResetOTP{}, &response.Error{
@@ -194,7 +194,7 @@ func emailVerificationResendRedisKey(email string) string {
 	return fmt.Sprintf("email-verification-resend:%s", strings.ToLower(strings.TrimSpace(email)))
 }
 
-func (d *authdatabase) IsEmailVerificationResendAllowed(email string, interval time.Duration) (bool, *response.Error) {
+func (d *authDatabase) IsEmailVerificationResendAllowed(email string, interval time.Duration) (bool, *response.Error) {
 	if d.redisClient == nil {
 		return false, &response.Error{
 			Code:       response.ErrInternalServerError,
@@ -228,7 +228,7 @@ func (d *authdatabase) IsEmailVerificationResendAllowed(email string, interval t
 	return time.Since(lastSentAt) >= interval, nil
 }
 
-func (d *authdatabase) RecordEmailVerificationResend(email string, sentAt time.Time) *response.Error {
+func (d *authDatabase) RecordEmailVerificationResend(email string, sentAt time.Time) *response.Error {
 	if d.redisClient == nil {
 		return &response.Error{
 			Code:       response.ErrInternalServerError,

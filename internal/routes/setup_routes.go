@@ -69,6 +69,7 @@ func SetupRoutes(deps models.Config) {
 	{
 		AuthRoutes(deps, api)
 		OrganizationRoutes(deps, api)
+		ProjectRoutes(deps, api)
 	}
 
 }

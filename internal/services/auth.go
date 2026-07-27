@@ -39,18 +39,18 @@ type AuthService interface {
 }
 
 func InitAuthService(repo authrepo.AuthRepository, logger *zap.Logger) AuthService {
-	return &authservice{
+	return &authService{
 		Repo:   repo,
 		logger: logger,
 	}
 }
 
-type authservice struct {
+type authService struct {
 	Repo   authrepo.AuthRepository
 	logger *zap.Logger
 }
 
-func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResponse, *response.Error) {
+func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResponse, *response.Error) {
 
 	result, err := s.Repo.GetByEmail(credentials.Email)
 	if err != nil {
@@ -69,8 +69,8 @@ func (s *authservice) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		s.logger.Error("Login failed due to incorrect password",
 			zap.String("email", credentials.Email))
 		return nil, &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
 			Message:    "Invalid email or password",
 		}
 	}
@@ -169,7 +169,7 @@ func generateRefreshTokenValue() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.AuthTokensResponse, *response.Error) {
+func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.AuthTokensResponse, *response.Error) {
 
 	oldToken, err := s.Repo.GetRefreshToken(credentials.UserID)
 	if err != nil {
@@ -210,7 +210,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 
 	if !user.IsActive {
 		s.logger.Error("The account is deactivated or locked",
-			zap.String("UserID", fmt.Sprint(user.ID)))
+			zap.String("UserID", user.ID.String()))
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -246,7 +246,7 @@ func (s *authservice) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 	}, nil
 }
 
-func (s *authservice) RequestPasswordReset(email string) *response.Error {
+func (s *authService) RequestPasswordReset(email string) *response.Error {
 
 	user, err := s.Repo.RequestPasswordReset(email)
 	if err != nil {
@@ -307,7 +307,7 @@ func generateOTP(length int) string {
 	return string(result)
 }
 
-func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *response.Error {
+func (s *authService) ResetPassword(credentials dto.ResetPasswordRequest) *response.Error {
 
 	if !utils.ValidatePassword(credentials.NewPassword) {
 		s.logger.Error("Validation failure in Password")
@@ -362,7 +362,7 @@ func (s *authservice) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 	return nil
 }
 
-func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
+func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 
 	cleanEmail := strings.ToLower(strings.TrimSpace(credentials.Email))
 	cleanUsername := strings.TrimSpace(credentials.UserName)
@@ -430,7 +430,7 @@ func (s *authservice) SignUp(credentials dto.SignUpRequest) *response.Error {
 	return nil
 }
 
-func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.AuthTokensResponse, *response.Error) {
+func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.AuthTokensResponse, *response.Error) {
 	user, err := s.Repo.GetUserFromRedis(credentials.Email)
 	if err != nil {
 		return nil, err
@@ -518,7 +518,7 @@ func (s *authservice) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	}, nil
 }
 
-func (s *authservice) ResendVerificationOTP(email string) *response.Error {
+func (s *authService) ResendVerificationOTP(email string) *response.Error {
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
 	user, err := s.Repo.GetByEmail(cleanEmail)
 	if err != nil {
@@ -559,7 +559,7 @@ func (s *authservice) ResendVerificationOTP(email string) *response.Error {
 	return nil
 }
 
-func (s *authservice) sendEmailVerificationOTP(userID uuid.UUID, email string) *response.Error {
+func (s *authService) sendEmailVerificationOTP(userID uuid.UUID, email string) *response.Error {
 	otpValue := generateOTP(6)
 	otpExpiryMinutes, parseErr := strconv.Atoi(config.GetEnv("OTP_EXPIRY_MINUTES", "15"))
 	if parseErr != nil || otpExpiryMinutes <= 0 {
@@ -592,7 +592,7 @@ func (s *authservice) sendEmailVerificationOTP(userID uuid.UUID, email string) *
 	return nil
 }
 
-func (s *authservice) Logout(UserID string) *response.Error {
+func (s *authService) Logout(UserID string) *response.Error {
 
 	oldToken, err := s.Repo.GetRefreshToken(UserID)
 	if err != nil {
@@ -609,7 +609,7 @@ func (s *authservice) Logout(UserID string) *response.Error {
 	return nil
 }
 
-func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *response.Error {
+func (s *authService) ChangePassword(payload dto.ChangePasswordRequest) *response.Error {
 
 	result, err := s.Repo.GetByID(payload.UserID)
 	if err != nil {
@@ -645,7 +645,7 @@ func (s *authservice) ChangePassword(payload dto.ChangePasswordRequest) *respons
 
 }
 
-func (s *authservice) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID) *response.Error {
+func (s *authService) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID) *response.Error {
 
 	if len(payload.FullName) > 30 {
 		s.logger.Error("Validation failure in Full Name")
@@ -676,12 +676,12 @@ func (s *authservice) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 
 }
 
-func (s *authservice) GetUser(userID uuid.UUID) (models.User, *response.Error) {
+func (s *authService) GetUser(userID uuid.UUID) (models.User, *response.Error) {
 
 	return s.Repo.GetByID(userID)
 }
 
-func (s *authservice) IsEmailAvailable(email string) (bool, *response.Error) {
+func (s *authService) IsEmailAvailable(email string) (bool, *response.Error) {
 	exists, err := s.Repo.ExistsByEmail(email)
 	if err != nil {
 		return false, err
@@ -689,7 +689,7 @@ func (s *authservice) IsEmailAvailable(email string) (bool, *response.Error) {
 	return !exists, nil
 }
 
-func (s *authservice) IsUsernameAvailable(username string) (bool, *response.Error) {
+func (s *authService) IsUsernameAvailable(username string) (bool, *response.Error) {
 	exists, err := s.Repo.ExistsByUsername(username)
 	if err != nil {
 		return false, err
