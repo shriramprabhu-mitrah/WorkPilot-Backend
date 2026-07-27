@@ -75,11 +75,12 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			return
 		}
 
-		role, roleOk := claims["role"].(string)
-		userID, userIDOk := claims["user_id"].(string)
-		organizationID, organizationIDOk := claims["organization_id"].(string)
+		role, hasRole := claims["role"].(string)
+		userID, hasUserID := claims["user_id"].(string)
+		organizationID, hasOrganizationID := claims["organization_id"].(string)
+		mustChangePassword, _ := claims["must_change_password"].(bool)
 
-		if !roleOk || !userIDOk || !organizationIDOk || (role == "" && userID == "") {
+		if !hasRole || !hasUserID || !hasOrganizationID || (role == "" && userID == "") {
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
@@ -93,10 +94,41 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			return
 		}
 
+		if mustChangePassword && !isAllowedWhenPasswordChangeRequired(c.FullPath()) {
+			errorResponse := response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "Password change is required before accessing this resource",
+			}
+
+			m.Logger.Error("Access denied until password change is completed",
+				zap.Error(fmt.Errorf("%v", errorResponse)))
+
+			c.AbortWithStatusJSON(http.StatusForbidden, errorResponse)
+			return
+		}
+
 		c.Set("role", role)
 		c.Set("user_id", userID)
 		c.Set("organization_id", organizationID)
+		c.Set("must_change_password", mustChangePassword)
 
 		c.Next()
 	}
+}
+
+func isAllowedWhenPasswordChangeRequired(path string) bool {
+	allowed := []string{
+		"/auth/change-password",
+		"/auth/logout",
+		"/auth/refresh",
+		"/organization/invitations/accept",
+	}
+
+	for _, allowedPath := range allowed {
+		if path == allowedPath {
+			return true
+		}
+	}
+	return false
 }

@@ -43,12 +43,12 @@ func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Er
 		if user, ok := s.userByEmail[email]; ok {
 			return user, nil
 		}
-		return models.User{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
+		return models.User{}, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User not found"}
 	}
 	if email == s.user.Email {
 		return s.user, nil
 	}
-	return models.User{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
+	return models.User{}, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User not found"}
 }
 
 func (s *stubAuthRepository) GetByID(id uuid.UUID) (models.User, *response.Error) {
@@ -490,5 +490,50 @@ func TestChangePasswordVerifiesOldPassword(t *testing.T) {
 	validErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "OldPassword123", NewPassword: "NewPassword123"})
 	if validErr != nil {
 		t.Fatalf("expected password change to succeed, got error: %v", validErr)
+	}
+}
+
+func TestSignInReturnsMustChangePasswordFlag(t *testing.T) {
+	hash, err := utils.HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true, IsVerified: true, MustChangePassword: true}}
+	service := InitAuthService(repo, zap.NewNop())
+
+	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
+	if authErr != nil {
+		t.Fatalf("expected successful login, got error: %v", authErr)
+	}
+	if result == nil {
+		t.Fatal("expected auth tokens, got nil")
+	}
+	if !result.MustChangePassword {
+		t.Fatal("expected MustChangePassword to be true")
+	}
+}
+
+func TestRefreshTokenReturnsMustChangePasswordFlag(t *testing.T) {
+	refreshHash, err := utils.HashPassword("valid-refresh")
+	if err != nil {
+		t.Fatalf("failed to hash refresh token: %v", err)
+	}
+
+	repo := &stubAuthRepository{
+		user:         models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", Role: "developer", IsActive: true, IsVerified: true, MustChangePassword: true},
+		refreshToken: models.RefreshToken{UserID: uuid.Must(uuid.NewV7()), TokenHash: refreshHash, ExpiresAt: time.Now().Add(7 * 24 * time.Hour)},
+	}
+	service := InitAuthService(repo, zap.NewNop())
+
+	result, authErr := service.RefreshToken(dto.RefreshTokenRequest{RefreshToken: "valid-refresh"})
+	if authErr != nil {
+		t.Fatalf("expected refresh to succeed, got error: %v", authErr)
+	}
+	if result == nil {
+		t.Fatal("expected auth tokens, got nil")
+	}
+	if !result.MustChangePassword {
+		t.Fatal("expected MustChangePassword to be true")
 	}
 }

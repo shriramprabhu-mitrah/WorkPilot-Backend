@@ -109,6 +109,15 @@
                       </p>
                     </td>
                   </tr>
+                  {{ if .TempPassword }}
+                  <tr>
+                    <td class="fluid-padding" style="padding:20px 48px 0;">
+                      <p style="margin:0; font-size:15px; line-height:1.7; color:#4a4a4a;">
+                        Your temporary password is <strong style="color:#141414;">{{ .TempPassword }}</strong>. Please use it to sign in for the first time, then change your password immediately.
+                      </p>
+                    </td>
+                  </tr>
+                  {{ end }}
 
                   <!-- Divider -->
                   <tr>

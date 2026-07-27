@@ -17,11 +17,12 @@ const (
 )
 
 type AuthTokensResponse struct {
-	AccessToken      string `json:"access_token"`
-	RefreshToken     string `json:"refresh_token"`
-	TokenType        string `json:"token_type"`
-	ExpiresIn        int    `json:"expires_in"`
-	RefreshExpiresIn int    `json:"refresh_expires_in"`
+	AccessToken        string `json:"access_token"`
+	RefreshToken       string `json:"refresh_token"`
+	TokenType          string `json:"token_type"`
+	ExpiresIn          int    `json:"expires_in"`
+	RefreshExpiresIn   int    `json:"refresh_expires_in"`
+	MustChangePassword bool   `json:"must_change_password,omitempty"`
 }
 
 type SignInRequest struct {
