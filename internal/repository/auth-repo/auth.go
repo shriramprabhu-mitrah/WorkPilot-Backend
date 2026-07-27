@@ -77,9 +77,9 @@ func (d *authdatabase) GetByEmail(email string) (models.User, *response.Error) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid email or password",
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "User not found",
 			}
 			d.logger.Error("User not found in database",
 				zap.String("Email", email), zap.Error(err))
@@ -127,7 +127,6 @@ func (d *authdatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
 	}
 	return row, nil
 }
-
 
 func (d *authdatabase) CreateUser(row models.User) *response.Error {
 
@@ -226,7 +225,10 @@ func (d *authdatabase) ChangePassword(password string, userID uuid.UUID) *respon
 	result := d.DB.
 		Model(&models.User{}).
 		Where("id = ?", userID).
-		Update("password_hash", password)
+		Updates(map[string]any{
+			"password_hash":        password,
+			"must_change_password": false,
+		})
 
 	if result.Error != nil {
 

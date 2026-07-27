@@ -37,7 +37,7 @@ func SendPasswordResetOTP(toEmail, otp string) error {
 	return nil
 }
 
-func SendOrganizationInvitation(toEmail, organizationName, role, inviteLink string) error {
+func SendOrganizationInvitation(toEmail, organizationName, role, inviteLink, tempPassword string) error {
 	if _, err := mail.ParseAddress(toEmail); err != nil {
 		return fmt.Errorf("invalid recipient email address: %w", err)
 	}
@@ -51,6 +51,7 @@ func SendOrganizationInvitation(toEmail, organizationName, role, inviteLink stri
 		"OrganizationName": organizationName,
 		"Role":             role,
 		"InviteLink":       inviteLink,
+		"TempPassword":     tempPassword,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to render organization invitation template: %w", err)
