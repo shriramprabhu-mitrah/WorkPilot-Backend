@@ -19,14 +19,14 @@ type ProjectRepository interface {
 
 func InitProjectRepository(deps models.Config) ProjectRepository {
 	return &projectDatabase{
-		DB:          deps.Database,
+		db:          deps.Database,
 		redisClient: deps.Redis,
 		logger:      deps.Logger,
 	}
 }
 
 type projectDatabase struct {
-	DB          *gorm.DB
+	db          *gorm.DB
 	redisClient *redisclient.Client
 	logger      *zap.Logger
 }

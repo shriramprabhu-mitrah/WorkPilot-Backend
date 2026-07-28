@@ -17,20 +17,19 @@ type ProjectService interface {
 	CreateProject(row dto.CreateProjectRequest) *response.Error
 	UpdateProject(req dto.UpdateProjectRequest) *response.Error
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
-	ArchiveProject(payload dto.ArchiveProjectRequest) *response.Error
 }
 
 func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) ProjectService {
 	return &projectService{
-		AuthRepo:    authRepo,
-		ProjectRepo: projectRepo,
+		authRepo:    authRepo,
+		projectRepo: projectRepo,
 		logger:      logger,
 	}
 }
 
 type projectService struct {
-	AuthRepo    authrepo.AuthRepository
-	ProjectRepo projectrepo.ProjectRepository
+	authRepo    authrepo.AuthRepository
+	projectRepo projectrepo.ProjectRepository
 	logger      *zap.Logger
 }
 
@@ -63,12 +62,13 @@ func (s *projectService) CreateProject(row dto.CreateProjectRequest) *response.E
 		Name:           row.Name,
 		Key:            row.Key,
 		Description:    row.Description,
+		Status:         string(dto.ProjectStatusPlanning),
 		StartDate:      startDate,
 		EndDate:        endDate,
 		OrganizationID: row.OrganizationID,
 		CreatedBy:      row.UserID,
 	}
-	err := s.ProjectRepo.CreateProject(payload)
+	err := s.projectRepo.CreateProject(payload)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (s *projectService) CreateProject(row dto.CreateProjectRequest) *response.E
 
 func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.Error {
 
-	result, err := s.AuthRepo.GetByID(req.UserID)
+	result, err := s.authRepo.GetByID(req.UserID)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,19 @@ func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.E
 		payload.EndDate = t
 	}
 
-	return s.ProjectRepo.UpdateProject(req.ProjectID, payload)
+	if req.Status != "" {
+		if err := req.Status.Validate(); err != nil {
+			s.logger.Error("Invalid project status", zap.Error(err))
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid status. Allowed values: active, archived, on_hold, completed, cancelled, planning",
+			}
+		}
+		payload.Status = string(req.Status)
+	}
+
+	return s.projectRepo.UpdateProject(req.ProjectID, payload)
 }
 func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, filterPayload dto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
 
@@ -143,7 +155,7 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 			return nil, response.Pagination{}, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid status. Allowed values: active, archived",
+				Message:    "Invalid status. Allowed values: active, archived, on_hold, completed, cancelled, planning",
 			}
 		}
 	}
@@ -181,47 +193,5 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 		}
 		filter.EndDate = t
 	}
-	return s.ProjectRepo.GetProjectsByOrganizationID(organizationID, filter)
-}
-
-func (s *projectService) ArchiveProject(payload dto.ArchiveProjectRequest) *response.Error {
-
-	result, err := s.ProjectRepo.GetProjectByID(payload.ProjectID)
-	if err != nil {
-		return err
-	}
-
-	if result.OrganizationID == uuid.Nil || payload.OrganizationID == uuid.Nil {
-		return &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to perform this action",
-		}
-	}
-
-	if result.OrganizationID != payload.OrganizationID {
-		s.logger.Error("Unauthorized Access",
-			zap.String("Payload Project Id", payload.ProjectID.String()),
-			zap.String("User Organization Id", result.OrganizationID.String()))
-		return &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to perform this action",
-		}
-	}
-
-	request := result
-
-	if *payload.Archived {
-		request.ArchiveStatus = models.ProjectStatusArchived
-	} else {
-		request.ArchiveStatus = models.ProjectStatusActive
-	}
-
-	err = s.ProjectRepo.UpdateProject(payload.ProjectID, request)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
 }

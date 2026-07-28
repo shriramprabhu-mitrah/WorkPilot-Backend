@@ -13,24 +13,23 @@ import (
 func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	// initialize repositories
-	ProjectRepo := projectrepo.InitProjectRepository(deps)
-	AuthRepo := authrepo.InitAuthRepository(deps)
+	projectRepo := projectrepo.InitProjectRepository(deps)
+	authRepo := authrepo.InitAuthRepository(deps)
 
 	// initialize services
-	ProjectService := services.InitProjectService(ProjectRepo, AuthRepo, deps.Logger)
+	projectService := services.InitProjectService(projectRepo, authRepo, deps.Logger)
 
 	// initialize handlers
-	ProjectHandler := handlers.InitProjectHandler(ProjectService, deps.Logger)
+	projectHandler := handlers.InitProjectHandler(projectService, deps.Logger)
 
 	middleware := middleware.InitMiddleware(deps.Logger)
 
 	prj := api.Group("/project")
 	{
 
-		prj.POST("/create", middleware.ValidateJWT(), middleware.Authorize("org_admin"), ProjectHandler.CreateProject)
-		prj.PATCH("/update/:id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), ProjectHandler.UpdateProject)
-		prj.GET("/get", middleware.ValidateJWT(), ProjectHandler.GetProjects)
-		prj.PATCH("/archive/:id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), ProjectHandler.ArchiveProject)
+		prj.POST("/create", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.CreateProject)
+		prj.PATCH("/update/:id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), projectHandler.UpdateProject)
+		prj.GET("/get", middleware.ValidateJWT(), projectHandler.GetProjects)
 
 	}
 }

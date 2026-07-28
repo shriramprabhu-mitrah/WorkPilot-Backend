@@ -7,13 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type ProjectStatus string
-
-const (
-	ProjectStatusActive   ProjectStatus = "active"
-	ProjectStatusArchived ProjectStatus = "archived"
-)
-
 type Project struct {
 	ID             uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
 	OrganizationID uuid.UUID      `json:"organization_id" gorm:"not null;index;uniqueIndex:idx_org_project_key"`
@@ -21,7 +14,7 @@ type Project struct {
 	Key            string         `json:"key" gorm:"type:varchar(10);not null;uniqueIndex:idx_org_project_key"`
 	Name           string         `json:"name" gorm:"type:varchar(150);not null"`
 	Description    string         `json:"description,omitempty" gorm:"type:text"`
-	ArchiveStatus  ProjectStatus  `json:"status" gorm:"type:varchar(20);not null;default:'active'"`
+	Status         string         `json:"status" gorm:"type:varchar(20);not null;default:'active'"`
 	StartDate      *time.Time     `json:"start_date,omitempty" gorm:"type:date"`
 	EndDate        *time.Time     `json:"end_date,omitempty" gorm:"type:date"`
 	CreatedBy      uuid.UUID      `json:"created_by" gorm:"not null;index"`

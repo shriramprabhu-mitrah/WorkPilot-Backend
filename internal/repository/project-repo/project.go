@@ -17,7 +17,7 @@ import (
 
 func (d *projectDatabase) CreateProject(row models.Project) *response.Error {
 
-	if err := d.DB.Create(&row).Error; err != nil {
+	if err := d.db.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
 			d.logger.Error("Duplicated Key conflict", zap.Error(err))
 			return utils.ParseProjectDuplicateError(err)
@@ -36,7 +36,7 @@ func (d *projectDatabase) CreateProject(row models.Project) *response.Error {
 
 func (d *projectDatabase) UpdateProject(projectID uuid.UUID, req models.Project) *response.Error {
 
-	result := d.DB.
+	result := d.db.
 		Model(&models.Project{}).
 		Where("id = ?", projectID).
 		Updates(req)
@@ -81,7 +81,7 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 
 	offset := (filter.Page - 1) * filter.PageSize
 
-	baseQuery := d.DB.Model(&models.Project{}).
+	baseQuery := d.db.Model(&models.Project{}).
 		Where("organization_id = ?", organizationID)
 
 	if filter.Key != "" {
@@ -159,7 +159,7 @@ func (d *projectDatabase) GetProjectByID(id uuid.UUID) (models.Project, *respons
 
 	var row models.Project
 
-	err := d.DB.Where("id = ?", id).First(&row).Error
+	err := d.db.Where("id = ?", id).First(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{

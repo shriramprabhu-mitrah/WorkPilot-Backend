@@ -10,8 +10,12 @@ import (
 type ProjectStatus string
 
 const (
-	ProjectStatusActive   ProjectStatus = "active"
-	ProjectStatusArchived ProjectStatus = "archived"
+	ProjectStatusPlanning  ProjectStatus = "planning"
+	ProjectStatusActive    ProjectStatus = "active"
+	ProjectStatusOnHold    ProjectStatus = "on_hold"
+	ProjectStatusCompleted ProjectStatus = "completed"
+	ProjectStatusCancelled ProjectStatus = "cancelled"
+	ProjectStatusArchived  ProjectStatus = "archived"
 )
 
 type CreateProjectRequest struct {
@@ -25,17 +29,11 @@ type CreateProjectRequest struct {
 }
 
 type UpdateProjectRequest struct {
-	Name           string `json:"name" binding:"omitempty,min=3,max=150"`
-	Description    string `json:"description"`
-	StartDate      string `json:"start_date"`
-	EndDate        string `json:"end_date"`
-	UserID         uuid.UUID
-	OrganizationID uuid.UUID
-	ProjectID      uuid.UUID
-}
-
-type ArchiveProjectRequest struct {
-	Archived       *bool `json:"archived" binding:"required"`
+	Name           string        `json:"name" binding:"omitempty,min=3,max=150"`
+	Description    string        `json:"description"`
+	StartDate      string        `json:"start_date"`
+	EndDate        string        `json:"end_date"`
+	Status         ProjectStatus `form:"status"`
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
 	ProjectID      uuid.UUID
@@ -63,7 +61,11 @@ type ProjectFilter struct {
 
 func (r ProjectStatus) Validate() error {
 	switch r {
-	case ProjectStatusActive,
+	case ProjectStatusPlanning,
+		ProjectStatusActive,
+		ProjectStatusOnHold,
+		ProjectStatusCompleted,
+		ProjectStatusCancelled,
 		ProjectStatusArchived:
 		return nil
 	default:
