@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"github.com/gin-gonic/gin"
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	publicrepo "github.com/ms-kanban-server/internal/repository/public-repo"
@@ -10,13 +11,13 @@ import (
 )
 
 // PublicRoutes registers publicly accessible routes (health checks, swagger, etc.)
-func PublicRoutes(deps models.Config) {
+func PublicRoutes(deps models.Config, api *gin.RouterGroup) {
 	publicRepo := publicrepo.InitPublicRepository(deps)
 	publicService := services.InitPublicService(publicRepo, deps.Logger)
 	publicHandler := handlers.InitPublicHandler(deps.Logger, publicService)
 
 	// Register public routes
-	deps.Router.GET("/health", publicHandler.HealthHandler(deps))
-	deps.Router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	deps.Router.GET("/countries", publicHandler.GetAllCountries)
+	api.GET("/health", publicHandler.HealthHandler(deps))
+	api.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	api.GET("/countries", publicHandler.GetAllCountries)
 }
