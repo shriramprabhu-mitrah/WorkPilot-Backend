@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -34,6 +35,7 @@ type stubAuthRepository struct {
 	verifiedUserID          uuid.UUID
 	createdOrganization     models.Organization
 	createOrganizationCalls int
+	redisUser               *models.User
 }
 
 func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Error) {
@@ -206,8 +208,10 @@ func (s *stubAuthRepository) RevokeRefreshTokens(userID uuid.UUID) *response.Err
 }
 
 func (s *stubAuthRepository) GetUserFromRedis(email string) (*models.User, *response.Error) {
-
-	return nil, nil
+	if s.redisUser != nil && strings.EqualFold(s.redisUser.Email, email) {
+		return s.redisUser, nil
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User not found"}
 }
 
 func TestSignInReturnsUnauthorizedForInvalidPassword(t *testing.T) {
@@ -323,6 +327,23 @@ func TestSignUpCreatesUnverifiedAccountAndSendsVerificationOTP(t *testing.T) {
 	}
 	if repo.savedVerificationOTP.UserID != repo.createdUser.ID {
 		t.Fatalf("expected verification OTP for user %s, got %s", repo.createdUser.ID, repo.savedVerificationOTP.UserID)
+	}
+}
+
+func TestResendVerificationOTPFallsBackToRedisForUnverifiedTempUser(t *testing.T) {
+	userID := uuid.Must(uuid.NewV7())
+	repo := &stubAuthRepository{
+		userByEmail: map[string]models.User{},
+		redisUser: &models.User{ID: userID, Email: "temp@example.com", IsVerified: false},
+	}
+	service := InitAuthService(repo, zap.NewNop())
+
+	err := service.ResendVerificationOTP("temp@example.com")
+	if err != nil {
+		t.Fatalf("expected resend to succeed, got error: %v", err)
+	}
+	if repo.savedVerificationOTP.UserID != userID {
+		t.Fatalf("expected verification OTP for user %s, got %s", userID, repo.savedVerificationOTP.UserID)
 	}
 }
 
