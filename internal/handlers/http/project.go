@@ -270,3 +270,166 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		Meta:       &pagination,
 	})
 }
+
+func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
+
+	var payload dto.CreateProjectMemberRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userID, exist := g.Get("user_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
+			},
+		}
+
+		h.logger.Error("User Id Invalid/Missing",
+			zap.String("user id :", fmt.Sprintf("%v", userID)))
+
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, errorResponse := utils.StringToUUID(userID.(string))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		return
+	}
+
+	organizationID, exist := g.Get("organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
+			},
+		}
+
+		h.logger.Error("Organization Id Invalid/Missing ")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	organizationIDStr := organizationID.(string)
+
+	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	payload.OrganizationID = organizationUUID
+	payload.AddedByID = userUUID
+
+	err := h.service.CreateProjectMemeber(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Successfully Added Project Member",
+		StatusCode: http.StatusCreated,
+		Success:    true,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
+	var filter dto.ProjectMemberFilter
+
+	if err := g.ShouldBindQuery(&filter); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid query parameters",
+			},
+		}
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	projectMembers, pagination, serviceErr := h.service.GetProjectsMembersByProjectID(projectID, filter)
+	if serviceErr != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *serviceErr,
+		}
+		g.JSON(serviceErr.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Project members retrieved successfully.",
+		Data:       projectMembers,
+		Meta:       &pagination,
+	})
+}
+
+func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
+	projectID := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	userID := g.Param("user_id")
+	userUUID, errorResponse := utils.StringToUUID(userID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		return
+	}
+
+	if serviceErr := h.service.RemoveProjectMember(projectUUID, userUUID); serviceErr != nil {
+		g.JSON(serviceErr.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *serviceErr,
+		})
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Project member removed successfully.",
+	})
+}

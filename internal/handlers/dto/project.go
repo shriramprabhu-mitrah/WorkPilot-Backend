@@ -47,6 +47,19 @@ type ProjectFilter struct {
 	Status   string `form:"status"`
 }
 
+type CreateProjectMemberRequest struct {
+	ProjectID      uuid.UUID   `json:"project_id" binding:"required"`
+	UserIDs        []uuid.UUID `json:"user_id" binding:"required"`
+	AddedByID      uuid.UUID
+	OrganizationID uuid.UUID
+}
+
+type ProjectMemberFilter struct {
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size"`
+	Name     string `form:"name"`
+}
+
 func (r ProjectStatus) Validate() error {
 	switch r {
 	case ProjectStatusPlanning,

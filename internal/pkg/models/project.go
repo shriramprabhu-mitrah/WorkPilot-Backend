@@ -21,7 +21,28 @@ type Project struct {
 	DeletedAt      gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 }
 
+type ProjectMember struct {
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
+	ProjectID uuid.UUID `json:"project_id" gorm:"type:uuid;not null"`
+	Project   Project   `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
+	UserID    uuid.UUID `json:"user_id" gorm:"type:uuid;not null"`
+	User      User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	JoinedAt  time.Time `json:"joined_at" gorm:"not null"`
+	AddedByID uuid.UUID `json:"added_by_id" gorm:"type:uuid;not null"`
+	AddedBy   User      `json:"added_by,omitempty" gorm:"foreignKey:AddedByID"`
+}
+
 func (p *Project) BeforeCreate(tx *gorm.DB) (err error) {
+	if p.ID == uuid.Nil {
+		p.ID, err = uuid.NewV7()
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func (p *ProjectMember) BeforeCreate(tx *gorm.DB) (err error) {
 	if p.ID == uuid.Nil {
 		p.ID, err = uuid.NewV7()
 		if err != nil {
