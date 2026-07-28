@@ -2,6 +2,7 @@ package services
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/handlers/dto"
@@ -13,9 +14,12 @@ import (
 )
 
 type ProjectService interface {
-	CreateProject(row dto.CreateProjectRequest) *response.Error
+	CreateProject(req dto.CreateProjectRequest) *response.Error
 	UpdateProject(req dto.UpdateProjectRequest) *response.Error
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
+	CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error
+	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
+	RemoveProjectMember(projectID, userID uuid.UUID) *response.Error
 }
 
 func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) ProjectService {
@@ -32,16 +36,23 @@ type projectService struct {
 	logger      *zap.Logger
 }
 
-func (s *projectService) CreateProject(row dto.CreateProjectRequest) *response.Error {
+func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.Error {
 
-	payload := models.Project{
-		Name:           row.Name,
-		Description:    row.Description,
+	projectPayload := models.Project{
+		Name:           req.Name,
+		Description:    req.Description,
 		Status:         string(dto.ProjectStatusPlanning),
-		OrganizationID: row.OrganizationID,
-		CreatedBy:      row.UserID,
+		OrganizationID: req.OrganizationID,
+		CreatedBy:      req.UserID,
 	}
-	err := s.projectRepo.CreateProject(payload)
+
+	projectMemberPayload := models.ProjectMember{
+		UserID:      req.UserID,
+		AddedByID:   req.UserID,
+		JoinedAt:    time.Now(),
+		ProjectRole: req.Role,
+	}
+	err := s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
 	if err != nil {
 		return err
 	}
@@ -115,4 +126,61 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 	}
 
 	return s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
+}
+
+func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error {
+
+	for _, userID := range req.UserID {
+
+		result, err := s.authRepo.GetByID(userID)
+		if err != nil {
+			return err
+		}
+
+		if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+			return &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to perform this action",
+			}
+		}
+
+		if *result.OrganizationID != req.OrganizationID {
+			s.logger.Error("Unauthorized Access",
+				zap.String("Organization ID", req.OrganizationID.String()),
+				zap.String("User Organization ID", result.OrganizationID.String()),
+				zap.String("User ID", userID.String()),
+			)
+
+			return &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to perform this action",
+			}
+		}
+
+		projectMember := models.ProjectMember{
+			ProjectID:   req.ProjectID,
+			UserID:      userID,
+			AddedByID:   req.AddedByID,
+			JoinedAt:    time.Now(),
+			ProjectRole: result.Role,
+		}
+
+		if err := s.projectRepo.CreateProjectMember(projectMember); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *projectService) GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) {
+
+	return s.projectRepo.GetProjectsMembersByProjectID(projectID, filter)
+}
+
+func (s *projectService) RemoveProjectMember(projectID, userID uuid.UUID) *response.Error {
+
+	return s.projectRepo.RemoveProjectMember(projectID, userID)
 }

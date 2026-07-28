@@ -22,6 +22,7 @@ type CreateProjectRequest struct {
 	Description    string `json:"description" `
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
+	Role           string
 }
 
 type UpdateProjectRequest struct {
@@ -45,6 +46,19 @@ type ProjectFilter struct {
 	PageSize int    `form:"page_size"`
 	Name     string `form:"name"`
 	Status   string `form:"status"`
+}
+
+type CreateProjectMemberRequest struct {
+	ProjectID      uuid.UUID   `json:"project_id" binding:"required"`
+	UserID         []uuid.UUID `json:"user_id" binding:"required"`
+	AddedByID      uuid.UUID
+	OrganizationID uuid.UUID
+}
+
+type ProjectMemberFilter struct {
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size"`
+	Name     string `form:"name"`
 }
 
 func (r ProjectStatus) Validate() error {

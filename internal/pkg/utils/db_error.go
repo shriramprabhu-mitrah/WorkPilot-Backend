@@ -111,3 +111,30 @@ func ParseProjectDuplicateError(err error) *response.Error {
 		Message:    "Project already exists",
 	}
 }
+
+// ParseProjectMemberDuplicateError parses a duplicate key error for ProjectMember operations
+// and returns a specific response.Error.
+func ParseProjectMemberDuplicateError(err error) *response.Error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := strings.ToLower(err.Error())
+
+	// User is already a member of the project
+	if strings.Contains(errMsg, "idx_project_member") ||
+		strings.Contains(errMsg, "project_id") && strings.Contains(errMsg, "user_id") {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "User is already a member of this project",
+		}
+	}
+
+	// Fallback
+	return &response.Error{
+		Code:       response.ErrConflict,
+		StatusCode: http.StatusConflict,
+		Message:    "Project member already exists",
+	}
+}

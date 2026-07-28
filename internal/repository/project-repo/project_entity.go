@@ -11,10 +11,13 @@ import (
 )
 
 type ProjectRepository interface {
-	CreateProject(row models.Project) *response.Error
+	CreateProjectWithMember(project models.Project, projectMember models.ProjectMember) *response.Error
 	UpdateProject(projectID uuid.UUID, req models.Project) *response.Error
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error)
 	GetProjectByID(id uuid.UUID) (models.Project, *response.Error)
+	CreateProjectMember(row models.ProjectMember) *response.Error
+	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
+	RemoveProjectMember(projectID, userID uuid.UUID) *response.Error
 }
 
 func InitProjectRepository(deps models.Config) ProjectRepository {

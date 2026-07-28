@@ -15,15 +15,58 @@ import (
 	"gorm.io/gorm"
 )
 
-func (d *projectDatabase) CreateProject(row models.Project) *response.Error {
+func (d *projectDatabase) CreateProjectWithMember(project models.Project, projectMember models.ProjectMember) *response.Error {
 
-	if err := d.db.Create(&row).Error; err != nil {
+	tx := d.db.Begin()
+	if tx.Error != nil {
+		d.logger.Error("Failed to start transaction", zap.Error(tx.Error))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// Create Project
+	if err := tx.Create(&project).Error; err != nil {
+		tx.Rollback()
+
 		if utils.IsDuplicateKeyError(err) {
-			d.logger.Error("Duplicated Key conflict", zap.Error(err))
+			d.logger.Error("Project duplicate key conflict", zap.Error(err))
 			return utils.ParseProjectDuplicateError(err)
 		}
 
-		d.logger.Error("Database error occurred", zap.Error(err))
+		d.logger.Error("Failed to create project", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// Assign generated project ID to project member
+	projectMember.ProjectID = project.ID
+
+	// Create Project Member
+	if err := tx.Create(&projectMember).Error; err != nil {
+		tx.Rollback()
+
+		if utils.IsDuplicateKeyError(err) {
+			d.logger.Error("Project member duplicate key conflict", zap.Error(err))
+			return utils.ParseProjectMemberDuplicateError(err)
+		}
+
+		d.logger.Error("Failed to create project member", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		d.logger.Error("Failed to commit transaction", zap.Error(err))
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
