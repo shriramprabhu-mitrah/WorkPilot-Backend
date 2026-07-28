@@ -103,10 +103,9 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	}
 
 	tokencredentials := dto.JWtcredentials{
-		Role:               result.Role,
-		UserID:             result.ID,
-		OrganizationID:     &organizationID,
-		MustChangePassword: result.MustChangePassword,
+		Role:           result.Role,
+		UserID:         result.ID,
+		OrganizationID: &organizationID,
 	}
 
 	//generating the JWT token
@@ -161,12 +160,11 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	}
 
 	return &dto.AuthTokensResponse{
-		AccessToken:        accessToken,
-		RefreshToken:       refreshTokenValue,
-		TokenType:          "Bearer",
-		ExpiresIn:          expiresIn,
-		RefreshExpiresIn:   refreshExpiresIn,
-		MustChangePassword: result.MustChangePassword,
+		AccessToken:      accessToken,
+		RefreshToken:     refreshTokenValue,
+		TokenType:        "Bearer",
+		ExpiresIn:        expiresIn,
+		RefreshExpiresIn: refreshExpiresIn,
 	}, nil
 }
 
@@ -247,12 +245,11 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 	}
 
 	return &dto.AuthTokensResponse{
-		AccessToken:        accessToken,
-		RefreshToken:       credentials.RefreshToken,
-		TokenType:          "Bearer",
-		ExpiresIn:          expiresIn,
-		RefreshExpiresIn:   int(time.Until(oldToken.ExpiresAt).Seconds()),
-		MustChangePassword: user.MustChangePassword,
+		AccessToken:      accessToken,
+		RefreshToken:     credentials.RefreshToken,
+		TokenType:        "Bearer",
+		ExpiresIn:        expiresIn,
+		RefreshExpiresIn: int(time.Until(oldToken.ExpiresAt).Seconds()),
 	}, nil
 }
 
@@ -475,10 +472,9 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	}
 
 	tokencredentials := dto.JWtcredentials{
-		Role:               user.Role,
-		UserID:             user.ID,
-		OrganizationID:     &organizationID,
-		MustChangePassword: user.MustChangePassword,
+		Role:           user.Role,
+		UserID:         user.ID,
+		OrganizationID: &organizationID,
 	}
 
 	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
@@ -521,12 +517,11 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 
 	s.logger.Info("Email verification completed", zap.String("email", credentials.Email))
 	return &dto.AuthTokensResponse{
-		AccessToken:        accessToken,
-		RefreshToken:       refreshTokenValue,
-		TokenType:          "Bearer",
-		ExpiresIn:          expiresIn,
-		RefreshExpiresIn:   refreshExpiresIn,
-		MustChangePassword: user.MustChangePassword,
+		AccessToken:      accessToken,
+		RefreshToken:     refreshTokenValue,
+		TokenType:        "Bearer",
+		ExpiresIn:        expiresIn,
+		RefreshExpiresIn: refreshExpiresIn,
 	}, nil
 }
 

@@ -6,16 +6,14 @@ import (
 )
 
 type ClaimsJWT struct {
-	Role               string    `json:"role"`
-	UserID             uuid.UUID `json:"user_id"`
-	OrganizationID     uuid.UUID `json:"organization_id"`
-	MustChangePassword bool      `json:"must_change_password"`
+	Role           string    `json:"role"`
+	UserID         uuid.UUID `json:"user_id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
 	jwt.RegisteredClaims
 }
 
 type JWtcredentials struct {
-	Role               string     `json:"role"`
-	UserID             uuid.UUID  `json:"user_id"`
-	OrganizationID     *uuid.UUID `json:"organization_id"`
-	MustChangePassword bool       `json:"must_change_password"`
+	Role           string     `json:"role"`
+	UserID         uuid.UUID  `json:"user_id"`
+	OrganizationID *uuid.UUID `json:"organization_id"`
 }
