@@ -234,8 +234,7 @@ func (d *authDatabase) ChangePassword(password string, userID uuid.UUID) *respon
 		Model(&models.User{}).
 		Where("id = ?", userID).
 		Updates(map[string]any{
-			"password_hash":        password,
-			"must_change_password": false,
+			"password_hash": password,
 		})
 
 	if result.Error != nil {

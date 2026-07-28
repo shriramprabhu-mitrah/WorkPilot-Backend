@@ -303,19 +303,6 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 				return err
 			}
 			tempPassword = invitationTempPassword
-		} else if existingUser.MustChangePassword {
-			newTempPassword, err := s.generateTemporaryPassword(12)
-			if err != nil {
-				return err
-			}
-			passwordHash, hashErr := utils.HashPassword(newTempPassword)
-			if hashErr != nil {
-				return hashErr
-			}
-			if err := s.AuthRepo.UpdateUserPassword(existingUser.ID, passwordHash); err != nil {
-				return err
-			}
-			tempPassword = newTempPassword
 		}
 
 		if err := email.SendOrganizationInvitation(inviteItem.Email, org.Name, invitation.Role, inviteLink, tempPassword); err != nil {
@@ -469,18 +456,17 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email, role str
 	}
 
 	user := models.User{
-		ID:                 uuid.Must(uuid.NewV7()),
-		Email:              strings.ToLower(strings.TrimSpace(email)),
-		FullName:           s.generateFullNameFromEmail(email),
-		UserName:           username,
-		PasswordHash:       passwordHash,
-		Role:               role,
-		Timezone:           "UTC",
-		IsActive:           true,
-		IsVerified:         true,
-		MustChangePassword: true,
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
+		ID:           uuid.Must(uuid.NewV7()),
+		Email:        strings.ToLower(strings.TrimSpace(email)),
+		FullName:     s.generateFullNameFromEmail(email),
+		UserName:     username,
+		PasswordHash: passwordHash,
+		Role:         role,
+		Timezone:     "UTC",
+		IsActive:     true,
+		IsVerified:   true,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	if err := s.AuthRepo.CreateUser(user); err != nil {

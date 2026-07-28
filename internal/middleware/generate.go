@@ -44,10 +44,9 @@ func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger 
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
-		Role:               tokencredentials.Role,
-		UserID:             tokencredentials.UserID,
-		OrganizationID:     organizationID,
-		MustChangePassword: tokencredentials.MustChangePassword,
+		Role:           tokencredentials.Role,
+		UserID:         tokencredentials.UserID,
+		OrganizationID: organizationID,
 	}
 
 	//Generate the jwt token using the HS256

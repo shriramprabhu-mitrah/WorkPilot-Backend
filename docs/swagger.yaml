@@ -13,8 +13,6 @@ definitions:
         type: string
       expires_in:
         type: integer
-      must_change_password:
-        type: boolean
       refresh_expires_in:
         type: integer
       refresh_token:
@@ -290,8 +288,6 @@ definitions:
         type: boolean
       joined_at:
         type: string
-      must_change_password:
-        type: boolean
       name:
         type: string
       organization:

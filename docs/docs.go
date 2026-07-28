@@ -1095,9 +1095,6 @@ const docTemplate = `{
                 "expires_in": {
                     "type": "integer"
                 },
-                "must_change_password": {
-                    "type": "boolean"
-                },
                 "refresh_expires_in": {
                     "type": "integer"
                 },
@@ -1493,9 +1490,6 @@ const docTemplate = `{
                 },
                 "joined_at": {
                     "type": "string"
-                },
-                "must_change_password": {
-                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"

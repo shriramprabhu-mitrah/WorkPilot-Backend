@@ -234,8 +234,8 @@ func TestSignInReturnsUnauthorizedForInvalidPassword(t *testing.T) {
 	if authErr == nil {
 		t.Fatalf("expected auth error, got nil")
 	}
-	if authErr.StatusCode != 401 {
-		t.Fatalf("expected 401 status, got %d", authErr.StatusCode)
+	if authErr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 status, got %d", authErr.StatusCode)
 	}
 	if result != nil {
 		t.Fatalf("expected no auth tokens, got %#v", result)
@@ -334,7 +334,7 @@ func TestResendVerificationOTPFallsBackToRedisForUnverifiedTempUser(t *testing.T
 	userID := uuid.Must(uuid.NewV7())
 	repo := &stubAuthRepository{
 		userByEmail: map[string]models.User{},
-		redisUser: &models.User{ID: userID, Email: "temp@example.com", IsVerified: false},
+		redisUser:   &models.User{ID: userID, Email: "temp@example.com", IsVerified: false},
 	}
 	service := InitAuthService(repo, zap.NewNop())
 
@@ -518,13 +518,13 @@ func TestChangePasswordVerifiesOldPassword(t *testing.T) {
 	}
 }
 
-func TestSignInReturnsMustChangePasswordFlag(t *testing.T) {
+func TestSignInReturnsTokensWithoutPasswordChangeFlag(t *testing.T) {
 	hash, err := utils.HashPassword("correct-password")
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
 
-	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true, IsVerified: true, MustChangePassword: true}}
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true, IsVerified: true}}
 	service := InitAuthService(repo, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
@@ -534,19 +534,19 @@ func TestSignInReturnsMustChangePasswordFlag(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected auth tokens, got nil")
 	}
-	if !result.MustChangePassword {
-		t.Fatal("expected MustChangePassword to be true")
+	if result.AccessToken == "" {
+		t.Fatal("expected an access token to be issued")
 	}
 }
 
-func TestRefreshTokenReturnsMustChangePasswordFlag(t *testing.T) {
+func TestRefreshTokenReturnsTokensWithoutPasswordChangeFlag(t *testing.T) {
 	refreshHash, err := utils.HashPassword("valid-refresh")
 	if err != nil {
 		t.Fatalf("failed to hash refresh token: %v", err)
 	}
 
 	repo := &stubAuthRepository{
-		user:         models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", Role: "developer", IsActive: true, IsVerified: true, MustChangePassword: true},
+		user:         models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", Role: "developer", IsActive: true, IsVerified: true},
 		refreshToken: models.RefreshToken{UserID: uuid.Must(uuid.NewV7()), TokenHash: refreshHash, ExpiresAt: time.Now().Add(7 * 24 * time.Hour)},
 	}
 	service := InitAuthService(repo, zap.NewNop())
@@ -558,7 +558,7 @@ func TestRefreshTokenReturnsMustChangePasswordFlag(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected auth tokens, got nil")
 	}
-	if !result.MustChangePassword {
-		t.Fatal("expected MustChangePassword to be true")
+	if result.AccessToken == "" {
+		t.Fatal("expected an access token to be issued")
 	}
 }
