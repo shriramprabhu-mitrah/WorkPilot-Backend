@@ -13,6 +13,8 @@ definitions:
         type: string
       expires_in:
         type: integer
+      must_change_password:
+        type: boolean
       refresh_expires_in:
         type: integer
       refresh_token:
@@ -28,6 +30,9 @@ definitions:
         type: string
       user_id:
         type: string
+    required:
+    - new_password
+    - old_password
     type: object
   dto.CreateOrganizationRequest:
     properties:
@@ -69,7 +74,6 @@ definitions:
     - country
     - domain
     - industry
-    - logo_url
     - name
     - team_size
     type: object
@@ -281,6 +285,10 @@ definitions:
       is_active:
         type: boolean
       is_verified:
+        type: boolean
+      joined_at:
+        type: string
+      must_change_password:
         type: boolean
       name:
         type: string
@@ -763,6 +771,23 @@ paths:
       summary: Verify email address
       tags:
       - Authentication
+  /countries:
+    get:
+      description: Returns a list of countries (code + name)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get all countries
+      tags:
+      - Lookup
   /organization/create:
     post:
       consumes:
