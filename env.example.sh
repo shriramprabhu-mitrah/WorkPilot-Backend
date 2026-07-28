@@ -4,6 +4,7 @@ export DB_PORT="5432"
 export DB_USERNAME= # Your Username 
 export DB_PASSWORD= # Your Password 
 export DB_NAME=kanban
+export DB_SSL_MODE=require
 export DB_AUTOMIGRATE=false
 
 # HTTP configs
