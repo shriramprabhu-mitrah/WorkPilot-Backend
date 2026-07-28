@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	configs "github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/drivers/migration"
@@ -10,16 +12,23 @@ import (
 )
 
 func InitDB(config *configs.Config) (*gorm.DB, error) {
-	// Initialize the database connection and perform any necessary setup here
-
-	connectionString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", config.Database.Host, config.Database.Port, config.Database.Username, config.Database.Password, config.Database.Name, config.Database.SSLMode)
+	connectionString := buildConnectionString(config)
 
 	dbConn, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to the database: %w", err)
 	}
 
-	// Perform auto-migration for your models here
+	sqlDB, err := dbConn.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to access database connection pool: %w", err)
+	}
+
+	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxIdleTime(30 * time.Minute)
+
 	if config.Database.AutoMigrate == "true" {
 		err = migration.AutoMigrate(dbConn)
 		if err != nil {
@@ -28,4 +37,21 @@ func InitDB(config *configs.Config) (*gorm.DB, error) {
 	}
 
 	return dbConn, nil
+}
+
+func buildConnectionString(config *configs.Config) string {
+	sslMode := strings.TrimSpace(config.Database.SSLMode)
+	if sslMode == "" {
+		sslMode = "require"
+	}
+
+	return fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		config.Database.Host,
+		config.Database.Port,
+		config.Database.Username,
+		config.Database.Password,
+		config.Database.Name,
+		sslMode,
+	)
 }

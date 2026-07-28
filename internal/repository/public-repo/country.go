@@ -1,6 +1,10 @@
 package publicrepo
 
 import (
+	"errors"
+	"net/http"
+
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"go.uber.org/zap"
@@ -9,6 +13,7 @@ import (
 
 type PublicRepository interface {
 	GetCountries(name string) ([]models.Country, *response.Error)
+	GetCountryByID(id uuid.UUID) (models.Country, *response.Error)
 }
 
 func InitPublicRepository(deps models.Config) PublicRepository {
@@ -37,4 +42,23 @@ func (r *publicRepository) GetCountries(name string) ([]models.Country, *respons
 		}
 	}
 	return countries, nil
+}
+
+func (r *publicRepository) GetCountryByID(id uuid.UUID) (models.Country, *response.Error) {
+	var country models.Country
+	if err := r.DB.Table("countries").Where("id = ?", id).First(&country).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.Country{}, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Country not found",
+			}
+		}
+		return models.Country{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve country",
+		}
+	}
+	return country, nil
 }

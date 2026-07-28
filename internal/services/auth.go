@@ -534,7 +534,18 @@ func (s *authService) ResendVerificationOTP(email string) *response.Error {
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
 	user, err := s.Repo.GetByEmail(cleanEmail)
 	if err != nil {
-		return err
+		if err.StatusCode == http.StatusNotFound {
+			redisUser, redisErr := s.Repo.GetUserFromRedis(cleanEmail)
+			if redisErr != nil {
+				if redisErr.StatusCode == http.StatusNotFound {
+					return err
+				}
+				return redisErr
+			}
+			user = *redisUser
+		} else {
+			return err
+		}
 	}
 
 	if user.IsVerified {

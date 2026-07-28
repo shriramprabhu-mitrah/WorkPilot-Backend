@@ -30,19 +30,20 @@ const (
 )
 
 type UpdateOrganizationRequest struct {
-	Name    string `json:"name"`
-	Domain  string `json:"domain"`
-	LogoURL string `json:"logo_url"`
+	Name      string `json:"name"`
+	Domain    string `json:"domain"`
+	LogoURL   string `json:"logo_url"`
+	CountryID string `json:"country_id,omitempty" binding:"omitempty,uuid"`
 }
 
 type CreateOrganizationRequest struct {
-	Name     string   `json:"name" binding:"required"`
-	Slug     string   `json:"slug"`
-	Domain   string   `json:"domain" binding:"required"`
-	LogoURL  string   `json:"logo_url"`
-	Industry Industry `json:"industry" binding:"required,oneof=Information_Technology Finance Healthcare Education Manufacturing Retail 'Real Estate' Logistics Hospitality Other"`
-	TeamSize TeamSize `json:"team_size" binding:"required,oneof=1-10 11-50 51-200 201-500 501-1000 1000+"`
-	Country  string   `json:"country" binding:"required"`
+	Name      string   `json:"name" binding:"required"`
+	Slug      string   `json:"slug"`
+	Domain    string   `json:"domain" binding:"required"`
+	LogoURL   string   `json:"logo_url"`
+	Industry  Industry `json:"industry" binding:"required,oneof=Information_Technology Finance Healthcare Education Manufacturing Retail 'Real Estate' Logistics Hospitality Other"`
+	TeamSize  TeamSize `json:"team_size" binding:"required,oneof=1-10 11-50 51-200 201-500 501-1000 1000+"`
+	CountryID string   `json:"country_id" binding:"required,uuid"`
 }
 
 type UserStatusRequest struct {
