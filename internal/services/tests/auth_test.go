@@ -28,6 +28,7 @@ type stubAuthRepository struct {
 	storedOTPs              []models.PasswordResetOTP
 	emailExists             bool
 	usernameExists          bool
+	existingUsernames       map[string]bool
 	createdUser             models.User
 	savedVerificationOTP    models.PasswordResetOTP
 	verifiedUserID          uuid.UUID
@@ -101,6 +102,9 @@ func (s *stubAuthRepository) ExistsByEmail(email string) (bool, *response.Error)
 func (s *stubAuthRepository) ExistsByUsername(username string) (bool, *response.Error) {
 	if s.err != nil {
 		return false, s.err
+	}
+	if s.existingUsernames != nil {
+		return s.existingUsernames[username], nil
 	}
 	return s.usernameExists, nil
 }
