@@ -44,7 +44,7 @@ type ProjectFilterRequest struct {
 	PageSize  int           `form:"page_size"`
 	Key       string        `form:"project_key"`
 	Name      string        `form:"name"`
-	Status    ProjectStatus `form:"archive_status"`
+	Status    ProjectStatus `form:"status"`
 	StartDate string        `form:"start_date"`
 	EndDate   string        `form:"end_date"`
 }
