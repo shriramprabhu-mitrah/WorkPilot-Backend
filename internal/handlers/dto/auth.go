@@ -73,7 +73,7 @@ func (r Role) Validate() error {
 		RoleViewer:
 		return nil
 	default:
-		return fmt.Errorf("invalid role: %s", r)
+		return fmt.Errorf("Invalid role: %s", r)
 	}
 }
 

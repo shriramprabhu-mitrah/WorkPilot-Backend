@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid"
@@ -16,12 +18,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var projectKeyRegex = regexp.MustCompile(`^[A-Z0-9]{2,10}$`)
+
+const dateLayout = "2006-01-02"
+
 func IsValidPassword(storedHash, enteredPassword string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(enteredPassword)) == nil
 }
 
 func ValidatePassword(password string) bool {
 	return len(password) >= 8
+}
+
+func ValidateKey(projectKey string) bool {
+	return projectKeyRegex.MatchString(projectKey)
 }
 
 func HashPassword(password string) (string, *response.Error) {
@@ -181,4 +191,13 @@ func ExtractSlug(input string) string {
 
 	parts := strings.Split(input, "/")
 	return parts[len(parts)-1]
+}
+
+func StringToTime(str string) (*time.Time, error) {
+	t, err := time.Parse(dateLayout, str)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid time,Error %e. Expected format: YYYY-MM-DD ", err)
+	}
+	return &t, nil
+
 }

@@ -2,7 +2,6 @@ package organizationrepo
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"net/http"
 	"strings"
@@ -12,18 +11,11 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
-	redisclient "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-type Organizationdatabase struct {
-	DB          *gorm.DB
-	redisClient *redisclient.Client
-	logger      *zap.Logger
-}
-
-func (d *Organizationdatabase) CreateOrganization(row models.Organization) *response.Error {
+func (d *organizationDatabase) CreateOrganization(row models.Organization) *response.Error {
 
 	if err := d.DB.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
@@ -42,7 +34,7 @@ func (d *Organizationdatabase) CreateOrganization(row models.Organization) *resp
 	return nil
 }
 
-func (d *Organizationdatabase) GetByName(name string) (models.Organization, *response.Error) {
+func (d *organizationDatabase) GetByName(name string) (models.Organization, *response.Error) {
 
 	var row models.Organization
 
@@ -75,7 +67,7 @@ func (d *Organizationdatabase) GetByName(name string) (models.Organization, *res
 	return row, nil
 }
 
-func (d *Organizationdatabase) GetByID(id uuid.UUID) (models.Organization, *response.Error) {
+func (d *organizationDatabase) GetByID(id uuid.UUID) (models.Organization, *response.Error) {
 
 	var row models.Organization
 
@@ -88,7 +80,7 @@ func (d *Organizationdatabase) GetByID(id uuid.UUID) (models.Organization, *resp
 				Message:    "Organization not found",
 			}
 			d.logger.Error("Organization not found in database",
-				zap.String("Id", fmt.Sprint(id)),
+				zap.String("Id", id.String()),
 				zap.Error(err))
 			return models.Organization{}, &errorResponse
 		}
@@ -100,14 +92,14 @@ func (d *Organizationdatabase) GetByID(id uuid.UUID) (models.Organization, *resp
 		}
 
 		d.logger.Error("Database error occurred",
-			zap.String("Id", fmt.Sprint(id)),
+			zap.String("Id", id.String()),
 			zap.Error(err))
 		return models.Organization{}, &errorResponse
 	}
 	return row, nil
 }
 
-func (d *Organizationdatabase) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
+func (d *organizationDatabase) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
 
 	result := d.DB.
 		Model(&models.Organization{}).
@@ -133,7 +125,7 @@ func (d *Organizationdatabase) UpdateOrganization(OrganizationID uuid.UUID, req 
 	if result.RowsAffected == 0 {
 
 		d.logger.Error("Organization not found while updating Organization",
-			zap.String("Organization_id", fmt.Sprint(OrganizationID)))
+			zap.String("Organization_id", OrganizationID.String()))
 
 		return &response.Error{
 			Code:       response.ErrNotFound,
@@ -145,7 +137,7 @@ func (d *Organizationdatabase) UpdateOrganization(OrganizationID uuid.UUID, req 
 	return nil
 }
 
-func (d *Organizationdatabase) DeleteOrganization(id uuid.UUID) *response.Error {
+func (d *organizationDatabase) DeleteOrganization(id uuid.UUID) *response.Error {
 
 	result := d.DB.Where("id = ?", id).Delete(&models.Organization{})
 
@@ -174,7 +166,7 @@ func (d *Organizationdatabase) DeleteOrganization(id uuid.UUID) *response.Error 
 	return nil
 }
 
-func (d *Organizationdatabase) DeleteUser(id uuid.UUID) *response.Error {
+func (d *organizationDatabase) DeleteUser(id uuid.UUID) *response.Error {
 
 	result := d.DB.Where("id = ?", id).Delete(&models.User{})
 
@@ -203,7 +195,7 @@ func (d *Organizationdatabase) DeleteUser(id uuid.UUID) *response.Error {
 	return nil
 }
 
-func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error {
+func (d *organizationDatabase) UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error {
 
 	result := d.DB.
 		Model(&models.User{}).
@@ -225,7 +217,7 @@ func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.
 	if result.RowsAffected == 0 {
 
 		d.logger.Error("User not found while updating user",
-			zap.String("user_id", fmt.Sprint(userID)))
+			zap.String("user_id", userID.String()))
 
 		return &response.Error{
 			Code:       response.ErrNotFound,
@@ -237,7 +229,7 @@ func (d *Organizationdatabase) UpdateStatusAndRole(userID uuid.UUID, req models.
 	return nil
 }
 
-func (d *Organizationdatabase) GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
 	var users []models.User
 	var totalItems int64
 

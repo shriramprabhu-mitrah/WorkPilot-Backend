@@ -37,14 +37,14 @@ type AuthRepository interface {
 }
 
 func InitAuthRepository(deps models.Config) AuthRepository {
-	return &authdatabase{
+	return &authDatabase{
 		DB:          deps.Database,
 		redisClient: deps.Redis,
 		logger:      deps.Logger,
 	}
 }
 
-type authdatabase struct {
+type authDatabase struct {
 	DB          *gorm.DB
 	redisClient *redisclient.Client
 	logger      *zap.Logger

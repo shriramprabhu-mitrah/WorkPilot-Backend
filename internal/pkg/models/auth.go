@@ -17,30 +17,6 @@ const (
 	RoleViewer         Role = "viewer"
 )
 
-type InvitationStatus string
-
-const (
-	InvitationStatusPending  InvitationStatus = "pending"
-	InvitationStatusAccepted InvitationStatus = "accepted"
-	InvitationStatusExpired  InvitationStatus = "expired"
-)
-
-type Organization struct {
-	ID        uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
-	Name      string         `json:"name" gorm:"size:50;not null;unique;index:idx_organization_name"`
-	CreatedBy uuid.UUID      `json:"created_by" gorm:"not null"`
-	IsActive  bool           `json:"is_active" gorm:"default:true"`
-	Slug      string         `json:"slug" gorm:"size:50;not null;unique;uniqueIndex:idx_organization_slug"`
-	Domain    string         `json:"domain" validate:"required" gorm:"size:150;not null"`
-	Industry  string         `json:"industry" validate:"required" gorm:"size:150;not null"`
-	TeamSize  string         `json:"team_size" validate:"required" gorm:"not null"`
-	Country   string         `json:"country" validate:"required" gorm:"not null"`
-	LogoURL   string         `json:"logo_url" validate:"required" gorm:"size:150;not null"`
-	CreatedAt time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
-	UpdatedAt time.Time      `json:"updated_at" gorm:"type:timestamptz"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index:idx_organization_deleted_at"`
-}
-
 type User struct {
 	ID                 uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
 	OrganizationID     *uuid.UUID     `json:"organization_id,omitempty" gorm:"type:uuid;index:idx_users_organization_id"`
@@ -85,34 +61,6 @@ type PasswordResetOTP struct {
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index:idx_password_reset_otps_deleted_at"`
 }
 
-type OrganizationInvitation struct {
-	ID             uuid.UUID        `json:"id" gorm:"primaryKey;type:uuid"`
-	OrganizationID uuid.UUID        `json:"organization_id" gorm:"type:uuid;index:idx_org_invites_org_id;not null"`
-	Organization   Organization     `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
-	Email          string           `json:"email" gorm:"size:100;not null;index:idx_org_invites_email"`
-	Role           string           `json:"role" gorm:"size:30;not null"`
-	Token          string           `json:"token" gorm:"size:255;not null;unique;index:idx_org_invites_token"`
-	Status         InvitationStatus `json:"status" gorm:"size:20;not null;default:'pending'"`
-	ExpiresAt      time.Time        `json:"expires_at" gorm:"not null;type:timestamptz"`
-	AcceptedAt     *time.Time       `json:"accepted_at,omitempty" gorm:"type:timestamptz"`
-	CreatedBy      uuid.UUID        `json:"created_by" gorm:"not null"`
-	CreatedAt      time.Time        `json:"created_at" gorm:"not null;type:timestamptz"`
-	UpdatedAt      time.Time        `json:"updated_at" gorm:"type:timestamptz"`
-	DeletedAt      gorm.DeletedAt   `json:"-" gorm:"index:idx_org_invites_deleted_at"`
-}
-
-type Country struct {
-	ID        uuid.UUID `json:"id" gorm:"primaryKey;type:uuid"`
-	Name      string    `json:"name" gorm:"size:100;not null"`
-	ISO2      string    `json:"iso2" gorm:"size:2;not null;uniqueIndex"`
-	ISO3      string    `json:"iso3" gorm:"size:3;not null;uniqueIndex"`
-	PhoneCode string    `json:"phone_code" gorm:"size:10"`
-	Timezone  []string  `json:"timezone" gorm:"not null"`
-	FlagEmoji string    `json:"flag_emoji" gorm:"size:10"`
-	CreatedAt time.Time `json:"created_at" gorm:"not null;type:timestamptz"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamptz"`
-}
-
 type AuditLog struct {
 	ID             uuid.UUID  `json:"id" gorm:"primaryKey;type:uuid"`
 	UserID         *uuid.UUID `json:"user_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_user_id"`
@@ -144,31 +92,10 @@ func (r *RefreshToken) BeforeCreate(tx *gorm.DB) (err error) {
 	return
 }
 
-func (r *Organization) BeforeCreate(tx *gorm.DB) (err error) {
-	if r.ID == uuid.Nil {
-		r.ID, err = uuid.NewV7()
-		if err != nil {
-			return err
-		}
-	}
-	return
-}
-
 func (p *PasswordResetOTP) BeforeCreate(tx *gorm.DB) error {
 	if p.ID == uuid.Nil {
 		var err error
 		p.ID, err = uuid.NewV7()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (i *OrganizationInvitation) BeforeCreate(tx *gorm.DB) error {
-	if i.ID == uuid.Nil {
-		var err error
-		i.ID, err = uuid.NewV7()
 		if err != nil {
 			return err
 		}

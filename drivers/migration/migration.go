@@ -14,6 +14,7 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		&models.RefreshToken{},
 		&models.OrganizationInvitation{},
 		&models.AuditLog{},
+		&models.Project{},
 	)
 	if err != nil {
 		return err
