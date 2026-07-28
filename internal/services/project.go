@@ -47,10 +47,9 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 	}
 
 	projectMemberPayload := models.ProjectMember{
-		UserID:      req.UserID,
-		AddedByID:   req.UserID,
-		JoinedAt:    time.Now(),
-		ProjectRole: req.Role,
+		UserID:    req.UserID,
+		AddedByID: req.UserID,
+		JoinedAt:  time.Now(),
 	}
 
 	err := s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
@@ -161,11 +160,10 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		}
 
 		projectMember := models.ProjectMember{
-			ProjectID:   req.ProjectID,
-			UserID:      userID,
-			AddedByID:   req.AddedByID,
-			JoinedAt:    time.Now(),
-			ProjectRole: result.Role,
+			ProjectID: req.ProjectID,
+			UserID:    userID,
+			AddedByID: req.AddedByID,
+			JoinedAt:  time.Now(),
 		}
 
 		if err := s.projectRepo.CreateProjectMember(projectMember); err != nil {
