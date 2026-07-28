@@ -17,16 +17,18 @@ import (
 	"go.uber.org/zap"
 )
 
-func InitOrganizationHandler(service services.OrganizationService, logger *zap.Logger) *OrganizationHandler {
+func InitOrganizationHandler(service services.OrganizationService, publicService services.PublicService, logger *zap.Logger) *OrganizationHandler {
 	return &OrganizationHandler{
-		service: service,
-		logger:  logger,
+		service:       service,
+		publicService: publicService,
+		logger:        logger,
 	}
 }
 
 type OrganizationHandler struct {
-	service services.OrganizationService
-	logger  *zap.Logger
+	service       services.OrganizationService
+	publicService services.PublicService
+	logger        *zap.Logger
 }
 
 // deleteOrganization godoc
@@ -145,6 +147,24 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		Name:    payload.Name,
 		Domain:  payload.Domain,
 		LogoURL: payload.LogoURL,
+	}
+
+	if payload.CountryID != "" {
+		countryUUID, errorResponse := utils.StringToUUID(payload.CountryID)
+		if errorResponse != nil {
+			h.logger.Error("Invalid country id")
+			g.JSON(errorResponse.StatusCode, errorResponse)
+			return
+		}
+
+		country, err := h.publicService.GetCountryByID(countryUUID)
+		if err != nil {
+			h.logger.Error("Failed to resolve country id", zap.String("message", err.Message), zap.Int("status", err.StatusCode))
+			g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
+			return
+		}
+
+		credentials.Country = country.Name
 	}
 	err := h.service.UpdateOrganization(id, credentials)
 	if err != nil {
@@ -279,6 +299,20 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		return
 	}
 
+	countryUUID, errorResponse := utils.StringToUUID(payload.CountryID)
+	if errorResponse != nil {
+		h.logger.Error("Invalid country id")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	country, err := h.publicService.GetCountryByID(countryUUID)
+	if err != nil {
+		h.logger.Error("Failed to resolve country id", zap.String("message", err.Message), zap.Int("status", err.StatusCode))
+		g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
 	credentials := models.Organization{
 		Name:      payload.Name,
 		Domain:    payload.Domain,
@@ -286,7 +320,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		CreatedBy: UserUUID,
 		Industry:  string(payload.Industry),
 		TeamSize:  string(payload.TeamSize),
-		Country:   payload.Country,
+		Country:   country.Name,
 	}
 
 	tokens, err := h.service.CreateOrganization(credentials)
