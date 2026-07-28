@@ -36,7 +36,7 @@ definitions:
     type: object
   dto.CreateOrganizationRequest:
     properties:
-      country:
+      country_id:
         type: string
       domain:
         type: string
@@ -71,7 +71,7 @@ definitions:
         - 501-1000
         - 1000+
     required:
-    - country
+    - country_id
     - domain
     - industry
     - name
@@ -197,6 +197,8 @@ definitions:
     - TeamSize1000Plus
   dto.UpdateOrganizationRequest:
     properties:
+      country_id:
+        type: string
       domain:
         type: string
       logo_url:
