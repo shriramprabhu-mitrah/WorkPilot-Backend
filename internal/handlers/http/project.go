@@ -90,24 +90,7 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
-	role, exist := g.Get("role")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
 
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	roleStr := role.(string)
-
-	payload.Role = roleStr
 	payload.OrganizationID = organizationUUID
 	payload.UserID = userUUID
 

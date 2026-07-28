@@ -22,7 +22,6 @@ type CreateProjectRequest struct {
 	Description    string `json:"description" `
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
-	Role           string
 }
 
 type UpdateProjectRequest struct {
