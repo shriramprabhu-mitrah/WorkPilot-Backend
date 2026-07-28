@@ -43,7 +43,7 @@ type OrganizationHandler struct {
 // @Router       /organization/delete [delete]
 func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("organization_id")
+	organizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -58,9 +58,9 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
-	OrganizationIDStr := OrganizationID.(string)
+	organizationIDStr := organizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	id, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -119,7 +119,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("organization_id")
+	organizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -134,9 +134,9 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
-	OrganizationIDStr := OrganizationID.(string)
+	organizationIDStr := organizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	id, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -181,7 +181,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]any{
-			"OrganizationID": id},
+			"organizationID": id},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
@@ -199,7 +199,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 // @Router       /organization/get [get]
 func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("organization_id")
+	organizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -214,9 +214,9 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
-	OrganizationIDStr := OrganizationID.(string)
+	organizationIDStr := organizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	id, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -293,7 +293,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		return
 	}
 
-	UserUUID, errorResponse := utils.StringToUUID(userID.(string))
+	userUUID, errorResponse := utils.StringToUUID(userID.(string))
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		return
@@ -317,7 +317,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		Name:      payload.Name,
 		Domain:    payload.Domain,
 		LogoURL:   payload.LogoURL,
-		CreatedBy: UserUUID,
+		CreatedBy: userUUID,
 		Industry:  string(payload.Industry),
 		TeamSize:  string(payload.TeamSize),
 		Country:   country.Name,
@@ -384,7 +384,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("organization_id")
+	organizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -399,9 +399,9 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
-	OrganizationIDStr := OrganizationID.(string)
+	organizationIDStr := organizationID.(string)
 
-	organizationUUID, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -474,7 +474,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("organization_id")
+	organizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -489,9 +489,9 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
-	OrganizationIDStr := OrganizationID.(string)
+	organizationIDStr := organizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	id, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -557,7 +557,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 // @Router       /organization/get-user [get]
 func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 
-	OrganizationID, exist := g.Get("organization_id")
+	organizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -572,9 +572,9 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
-	OrganizationIDStr := OrganizationID.(string)
+	organizationIDStr := organizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	id, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -682,7 +682,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		return
 	}
 
-	OrganizationID, exist := g.Get("Organization_id")
+	organizationID, exist := g.Get("Organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -697,9 +697,9 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
-	OrganizationIDStr := OrganizationID.(string)
+	organizationIDStr := organizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(OrganizationIDStr)
+	id, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)

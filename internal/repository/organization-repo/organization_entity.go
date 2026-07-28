@@ -5,6 +5,9 @@ import (
 	"github.com/ms-kanban-server/internal/handlers/dto"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	redisclient "github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type OrganizationRepository interface {
@@ -24,9 +27,15 @@ type OrganizationRepository interface {
 }
 
 func InitOrganizationRepository(deps models.Config) OrganizationRepository {
-	return &Organizationdatabase{
+	return &organizationDatabase{
 		DB:          deps.Database,
 		redisClient: deps.Redis,
 		logger:      deps.Logger,
 	}
+}
+
+type organizationDatabase struct {
+	DB          *gorm.DB
+	redisClient *redisclient.Client
+	logger      *zap.Logger
 }

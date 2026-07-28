@@ -36,25 +36,25 @@ type OrganizationService interface {
 }
 
 func InitOrganizationService(repo organizationrepo.OrganizationRepository, AuthRepo authrepo.AuthRepository, logger *zap.Logger) OrganizationService {
-	return &Organizationservice{
+	return &organizationService{
 		OrganizationRepo: repo,
 		logger:           logger,
 		AuthRepo:         AuthRepo,
 	}
 }
 
-type Organizationservice struct {
+type organizationService struct {
 	AuthRepo         authrepo.AuthRepository
 	OrganizationRepo organizationrepo.OrganizationRepository
 	logger           *zap.Logger
 }
 
-func (s *Organizationservice) GetOrganizationByID(id uuid.UUID) (models.Organization, *response.Error) {
+func (s *organizationService) GetOrganizationByID(id uuid.UUID) (models.Organization, *response.Error) {
 
 	return s.OrganizationRepo.GetByID(id)
 }
 
-func (s *Organizationservice) CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error) {
+func (s *organizationService) CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error) {
 
 	slug := utils.ExtractSlug(row.Domain)
 	row.Slug = slug
@@ -140,17 +140,17 @@ func (s *Organizationservice) CreateOrganization(row models.Organization) (*dto.
 	}, nil
 }
 
-func (s *Organizationservice) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
+func (s *organizationService) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
 
 	return s.OrganizationRepo.UpdateOrganization(OrganizationID, req)
 }
 
-func (s *Organizationservice) DeleteOrganization(id uuid.UUID) *response.Error {
+func (s *organizationService) DeleteOrganization(id uuid.UUID) *response.Error {
 
 	return s.OrganizationRepo.DeleteOrganization(id)
 }
 
-func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error {
+func (s *organizationService) UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error {
 
 	result, err := s.AuthRepo.GetByID(payload.UserID)
 	if err != nil {
@@ -183,7 +183,7 @@ func (s *Organizationservice) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 
 }
 
-func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *response.Error {
+func (s *organizationService) UpdateUserRole(payload dto.UpdateUserRole) *response.Error {
 
 	result, err := s.AuthRepo.GetByID(payload.UserID)
 	if err != nil {
@@ -216,7 +216,7 @@ func (s *Organizationservice) UpdateUserRole(payload dto.UpdateUserRole) *respon
 
 }
 
-func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error {
+func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error {
 	inviter, invErr := s.AuthRepo.GetByID(inviterID)
 	if invErr != nil {
 		return invErr
@@ -338,7 +338,7 @@ func (s *Organizationservice) InviteOrganizationMember(inviterID uuid.UUID, orga
 	return nil
 }
 
-func (s *Organizationservice) generateInvitationToken() (string, *response.Error) {
+func (s *organizationService) generateInvitationToken() (string, *response.Error) {
 	newToken, err := uuid.NewV7()
 	if err != nil {
 		return "", &response.Error{
@@ -350,7 +350,7 @@ func (s *Organizationservice) generateInvitationToken() (string, *response.Error
 	return newToken.String(), nil
 }
 
-func (s *Organizationservice) generateTemporaryPassword(length int) (string, *response.Error) {
+func (s *organizationService) generateTemporaryPassword(length int) (string, *response.Error) {
 	if length < 8 {
 		length = 8
 	}
@@ -371,7 +371,7 @@ func (s *Organizationservice) generateTemporaryPassword(length int) (string, *re
 	return password.String(), nil
 }
 
-func (s *Organizationservice) generateUsernameFromEmail(email string) string {
+func (s *organizationService) generateUsernameFromEmail(email string) string {
 	local := strings.TrimSpace(strings.Split(strings.ToLower(email), "@")[0])
 	if local == "" {
 		id, err := uuid.NewV7()
@@ -398,7 +398,7 @@ func (s *Organizationservice) generateUsernameFromEmail(email string) string {
 	return username
 }
 
-func (s *Organizationservice) generateFullNameFromEmail(email string) string {
+func (s *organizationService) generateFullNameFromEmail(email string) string {
 	local := strings.TrimSpace(strings.Split(strings.ToLower(email), "@")[0])
 	if local == "" {
 		return "User"
@@ -432,7 +432,7 @@ func (s *Organizationservice) generateFullNameFromEmail(email string) string {
 	return strings.Join(words, " ")
 }
 
-func (s *Organizationservice) generateUniqueUsername(email string) (string, *response.Error) {
+func (s *organizationService) generateUniqueUsername(email string) (string, *response.Error) {
 	base := s.generateUsernameFromEmail(email)
 	for attempt := 0; attempt < 5; attempt++ {
 		candidate := base
@@ -454,7 +454,7 @@ func (s *Organizationservice) generateUniqueUsername(email string) (string, *res
 	}
 }
 
-func (s *Organizationservice) inviteUserWithTemporaryCredentials(email, role string) (string, *response.Error) {
+func (s *organizationService) inviteUserWithTemporaryCredentials(email, role string) (string, *response.Error) {
 	tempPassword, err := s.generateTemporaryPassword(12)
 	if err != nil {
 		return "", err
@@ -489,7 +489,7 @@ func (s *Organizationservice) inviteUserWithTemporaryCredentials(email, role str
 	return tempPassword, nil
 }
 
-func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *response.Error {
+func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *response.Error {
 	if token == "" {
 		return &response.Error{
 			Code:       response.ErrValidation,
@@ -576,7 +576,7 @@ func (s *Organizationservice) AcceptInvitation(userID uuid.UUID, token string) *
 	return nil
 }
 
-func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
 	if filter.Page < 1 {
 		filter.Page = 1
 	}
@@ -602,7 +602,7 @@ func (s *Organizationservice) GetUserInOrganization(id uuid.UUID, filter dto.Org
 	return s.OrganizationRepo.GetUsersByOrganizationID(id, filter)
 }
 
-func (s *Organizationservice) RemoveUser(payload dto.RemoveUser) *response.Error {
+func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error {
 
 	result, err := s.AuthRepo.GetByID(payload.UserID)
 	if err != nil {

@@ -83,3 +83,31 @@ func ParseOrgDuplicateError(err error) *response.Error {
 		Message:    "Organization already exists",
 	}
 }
+
+// ParseProjectDuplicateError parses a duplicate key error for Project operations
+// and returns a specific response.Error.
+func ParseProjectDuplicateError(err error) *response.Error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := strings.ToLower(err.Error())
+
+	// Project key already exists within the organization
+	if strings.Contains(errMsg, "idx_org_project_key") ||
+		strings.Contains(errMsg, "project_key") ||
+		strings.Contains(errMsg, "key") {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "Project key already exists in this organization",
+		}
+	}
+
+	// Fallback
+	return &response.Error{
+		Code:       response.ErrConflict,
+		StatusCode: http.StatusConflict,
+		Message:    "Project already exists",
+	}
+}
