@@ -84,11 +84,6 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 	baseQuery := d.db.Model(&models.Project{}).
 		Where("organization_id = ?", organizationID)
 
-	if filter.Key != "" {
-		key := "%" + strings.ToLower(strings.TrimSpace(filter.Key)) + "%"
-		baseQuery = baseQuery.Where("LOWER(key) LIKE ?", key)
-	}
-
 	if filter.Name != "" {
 		name := "%" + strings.ToLower(strings.TrimSpace(filter.Name)) + "%"
 		baseQuery = baseQuery.Where("LOWER(name) LIKE ?", name)
@@ -99,14 +94,6 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 			"LOWER(status) = ?",
 			strings.ToLower(strings.TrimSpace(filter.Status)),
 		)
-	}
-
-	if filter.StartDate != nil {
-		baseQuery = baseQuery.Where("start_date >= ?", filter.StartDate)
-	}
-
-	if filter.EndDate != nil {
-		baseQuery = baseQuery.Where("end_date >= ?", filter.EndDate)
 	}
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
