@@ -183,6 +183,42 @@ func TestInviteOrganizationMemberSupportsBulkMembers(t *testing.T) {
 	}
 }
 
+func TestInviteOrganizationMemberGeneratesReadableDefaultsFromEmail(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}}
+	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
+
+	inviteErr := service.InviteOrganizationMember(uuid.Must(uuid.NewV4()), orgID, dto.InviteOrganizationMemberRequest{Members: []dto.InviteOrganizationMemberItem{{Email: "John.Doe@example.com", Role: string(dto.RoleDeveloper)}}})
+	if inviteErr != nil {
+		t.Fatalf("expected invite to succeed, got %v", inviteErr)
+	}
+	if authRepo.createdUser.UserName != "john_doe" {
+		t.Fatalf("expected generated username john_doe, got %s", authRepo.createdUser.UserName)
+	}
+	if authRepo.createdUser.FullName != "John Doe" {
+		t.Fatalf("expected generated full name John Doe, got %s", authRepo.createdUser.FullName)
+	}
+}
+
+func TestInviteOrganizationMemberAppendsSuffixForDuplicateGeneratedUsername(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}}
+	authRepo := &stubAuthRepository{
+		user:              models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true},
+		existingUsernames: map[string]bool{"john_doe": true},
+	}
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
+
+	inviteErr := service.InviteOrganizationMember(uuid.Must(uuid.NewV4()), orgID, dto.InviteOrganizationMemberRequest{Members: []dto.InviteOrganizationMemberItem{{Email: "john.doe@example.com", Role: string(dto.RoleDeveloper)}}})
+	if inviteErr != nil {
+		t.Fatalf("expected invite to succeed, got %v", inviteErr)
+	}
+	if authRepo.createdUser.UserName != "john_doe1" {
+		t.Fatalf("expected generated username john_doe1, got %s", authRepo.createdUser.UserName)
+	}
+}
+
 func TestAcceptInvitationMarksMembershipAndStatus(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
@@ -371,31 +372,73 @@ func (s *organizationService) generateTemporaryPassword(length int) (string, *re
 }
 
 func (s *organizationService) generateUsernameFromEmail(email string) string {
-	local := strings.Split(strings.ToLower(strings.TrimSpace(email)), "@")[0]
-	username := strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
-			return r
-		}
-		return -1
-	}, local)
-	if username == "" {
+	local := strings.TrimSpace(strings.Split(strings.ToLower(email), "@")[0])
+	if local == "" {
 		id, err := uuid.NewV7()
 		if err == nil {
-			username = fmt.Sprintf("user_%s", strings.ReplaceAll(id.String(), "-", "")[:8])
-		} else {
-			username = fmt.Sprintf("user_%d", time.Now().UnixNano()%1000000)
+			return fmt.Sprintf("user_%s", strings.ReplaceAll(id.String(), "-", "")[:8])
 		}
+		return fmt.Sprintf("user_%d", time.Now().UnixNano()%1000000)
 	}
-	if len(username) > 25 {
-		username = username[:25]
+
+	parts := strings.FieldsFunc(local, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+	})
+	if len(parts) == 0 {
+		return local
+	}
+
+	username := strings.Join(parts, "_")
+	if username == "" {
+		return "user"
+	}
+	if len(username) > 30 {
+		username = username[:30]
 	}
 	return username
 }
 
+func (s *organizationService) generateFullNameFromEmail(email string) string {
+	local := strings.TrimSpace(strings.Split(strings.ToLower(email), "@")[0])
+	if local == "" {
+		return "User"
+	}
+
+	parts := strings.FieldsFunc(local, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+	})
+	if len(parts) == 0 {
+		return "User"
+	}
+
+	words := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		runes := []rune(part)
+		if len(runes) == 0 {
+			continue
+		}
+		runes[0] = unicode.ToUpper(runes[0])
+		for i := 1; i < len(runes); i++ {
+			runes[i] = unicode.ToLower(runes[i])
+		}
+		words = append(words, string(runes))
+	}
+	if len(words) == 0 {
+		return "User"
+	}
+	return strings.Join(words, " ")
+}
+
 func (s *organizationService) generateUniqueUsername(email string) (string, *response.Error) {
 	base := s.generateUsernameFromEmail(email)
-	candidate := base
-	for i := 0; i < 10; i++ {
+	for attempt := 0; attempt < 5; attempt++ {
+		candidate := base
+		if attempt > 0 {
+			candidate = fmt.Sprintf("%s%d", base, attempt)
+		}
 		exists, err := s.AuthRepo.ExistsByUsername(candidate)
 		if err != nil {
 			return "", err
@@ -403,7 +446,6 @@ func (s *organizationService) generateUniqueUsername(email string) (string, *res
 		if !exists {
 			return candidate, nil
 		}
-		candidate = fmt.Sprintf("%s%d", base, i+1)
 	}
 	return "", &response.Error{
 		Code:       response.ErrConflict,
@@ -429,6 +471,7 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email, role str
 	user := models.User{
 		ID:                 uuid.Must(uuid.NewV7()),
 		Email:              strings.ToLower(strings.TrimSpace(email)),
+		FullName:           s.generateFullNameFromEmail(email),
 		UserName:           username,
 		PasswordHash:       passwordHash,
 		Role:               role,
