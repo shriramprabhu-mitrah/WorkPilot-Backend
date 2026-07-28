@@ -1130,14 +1130,14 @@ const docTemplate = `{
         "dto.CreateOrganizationRequest": {
             "type": "object",
             "required": [
-                "country",
+                "country_id",
                 "domain",
                 "industry",
                 "name",
                 "team_size"
             ],
             "properties": {
-                "country": {
+                "country_id": {
                     "type": "string"
                 },
                 "domain": {
@@ -1350,6 +1350,9 @@ const docTemplate = `{
         "dto.UpdateOrganizationRequest": {
             "type": "object",
             "properties": {
+                "country_id": {
+                    "type": "string"
+                },
                 "domain": {
                     "type": "string"
                 },

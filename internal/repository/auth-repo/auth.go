@@ -12,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
+	redisclient "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -24,6 +25,14 @@ func (d *authDatabase) GetUserFromRedis(email string) (*models.User, *response.E
 
 	val, err := d.redisClient.Get(ctx, key).Result()
 	if err != nil {
+		if errors.Is(err, redisclient.Nil) {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "User not found",
+			}
+		}
+
 		return nil, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
