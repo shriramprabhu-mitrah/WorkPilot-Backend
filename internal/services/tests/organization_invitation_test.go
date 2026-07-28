@@ -109,7 +109,7 @@ func TestGetUserInOrganizationSupportsSearchAndStatusFilters(t *testing.T) {
 		},
 	}
 	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
-	service := InitOrganizationService(repo, authRepo, zap.NewNop()).(*Organizationservice)
+	service := InitOrganizationService(repo, authRepo, zap.NewNop()).(*services.Organizationservice)
 
 	members, pagination, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{Role: string(dto.RoleDeveloper), Page: 1, PageSize: 10})
 	if err != nil {

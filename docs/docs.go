@@ -609,6 +609,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/countries": {
+            "get": {
+                "description": "Returns a list of countries (code + name)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Lookup"
+                ],
+                "summary": "Get all countries",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/organization/create": {
             "post": {
                 "description": "Creates a new Organization account.",
@@ -1069,6 +1095,9 @@ const docTemplate = `{
                 "expires_in": {
                     "type": "integer"
                 },
+                "must_change_password": {
+                    "type": "boolean"
+                },
                 "refresh_expires_in": {
                     "type": "integer"
                 },
@@ -1082,6 +1111,10 @@ const docTemplate = `{
         },
         "dto.ChangePasswordRequest": {
             "type": "object",
+            "required": [
+                "new_password",
+                "old_password"
+            ],
             "properties": {
                 "new_password": {
                     "type": "string"
@@ -1100,7 +1133,6 @@ const docTemplate = `{
                 "country",
                 "domain",
                 "industry",
-                "logo_url",
                 "name",
                 "team_size"
             ],
@@ -1454,6 +1486,12 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "is_verified": {
+                    "type": "boolean"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "must_change_password": {
                     "type": "boolean"
                 },
                 "name": {
