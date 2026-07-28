@@ -52,6 +52,7 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 		JoinedAt:    time.Now(),
 		ProjectRole: req.Role,
 	}
+
 	err := s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
 	if err != nil {
 		return err
@@ -130,7 +131,7 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 
 func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error {
 
-	for _, userID := range req.UserID {
+	for _, userID := range req.UserIDs {
 
 		result, err := s.authRepo.GetByID(userID)
 		if err != nil {

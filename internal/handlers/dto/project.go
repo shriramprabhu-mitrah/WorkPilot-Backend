@@ -50,7 +50,7 @@ type ProjectFilter struct {
 
 type CreateProjectMemberRequest struct {
 	ProjectID      uuid.UUID   `json:"project_id" binding:"required"`
-	UserID         []uuid.UUID `json:"user_id" binding:"required"`
+	UserIDs        []uuid.UUID `json:"user_id" binding:"required"`
 	AddedByID      uuid.UUID
 	OrganizationID uuid.UUID
 }
