@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,12 +16,15 @@ import (
 )
 
 func InitPublicHandler(logger *zap.Logger, countryService services.PublicService) *PublicHandler {
-	return &PublicHandler{logger: logger, countryService: countryService}
+	return &PublicHandler{
+		logger:        logger,
+		publicService: countryService,
+	}
 }
 
 type PublicHandler struct {
-	logger         *zap.Logger
-	countryService services.PublicService
+	logger        *zap.Logger
+	publicService services.PublicService
 
 	countriesCache []models.Country
 	cacheMux       sync.RWMutex
@@ -97,9 +101,17 @@ func (h *PublicHandler) GetAllCountries(c *gin.Context) {
 	} else {
 		h.cacheMux.RUnlock()
 
-		data, err := h.countryService.GetCountries("")
+		data, err := h.publicService.GetCountries("")
 		if err != nil {
-			// handle error
+			c.JSON(http.StatusInternalServerError, &response.ErrorResponse{
+				Success: false,
+				Error: response.Error{
+					Code:       response.ErrInternalServerError,
+					StatusCode: http.StatusInternalServerError,
+					Message:    fmt.Sprintf("Failed to retrieve countries: %s", err.Message),
+				},
+			})
+			return
 		}
 
 		h.cacheMux.Lock()
