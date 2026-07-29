@@ -138,3 +138,30 @@ func ParseProjectMemberDuplicateError(err error) *response.Error {
 		Message:    "Project member already exists",
 	}
 }
+
+// ParseSprintDuplicateError parses a duplicate key error for Sprint operations
+// and returns a specific response.Error.
+func ParseSprintDuplicateError(err error) *response.Error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := strings.ToLower(err.Error())
+
+	// Sprint name already exists within the project
+	if strings.Contains(errMsg, "idx_project_sprint_name") ||
+		(strings.Contains(errMsg, "project_id") && strings.Contains(errMsg, "name")) {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "Sprint name already exists in this project",
+		}
+	}
+
+	// Fallback
+	return &response.Error{
+		Code:       response.ErrConflict,
+		StatusCode: http.StatusConflict,
+		Message:    "Sprint already exists",
+	}
+}
