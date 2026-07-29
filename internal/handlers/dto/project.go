@@ -94,7 +94,7 @@ type ProjectActivityFilter struct {
 	EndDate      string
 }
 
-type UserSummaryDTO struct {
+type UserSummary struct {
 	ID        uuid.UUID `json:"id"`
 	FullName  string    `json:"name"`
 	Email     string    `json:"email"`
@@ -102,15 +102,14 @@ type UserSummaryDTO struct {
 	Role      string    `json:"role,omitempty"`
 }
 
-type ProjectActivityResponseDTO struct {
-	ID             uuid.UUID       `json:"id"`
-	ProjectID      *uuid.UUID      `json:"project_id,omitempty"`
-	OrganizationID *uuid.UUID      `json:"organization_id,omitempty"`
-	User           *UserSummaryDTO `json:"user,omitempty"`
-	Action         string          `json:"action"`
-	ResourceType   string          `json:"resource_type"`
-	ResourceID     string          `json:"resource_id,omitempty"`
-	Details        string          `json:"details,omitempty"`
-	CreatedAt      string          `json:"timestamp"`
+type ProjectActivityResponse struct {
+	ID             uuid.UUID    `json:"id"`
+	ProjectID      *uuid.UUID   `json:"project_id,omitempty"`
+	OrganizationID *uuid.UUID   `json:"organization_id,omitempty"`
+	User           *UserSummary `json:"user,omitempty"`
+	Action         string       `json:"action"`
+	ResourceType   string       `json:"resource_type"`
+	ResourceID     string       `json:"resource_id,omitempty"`
+	Details        string       `json:"details,omitempty"`
+	CreatedAt      string       `json:"timestamp"`
 }
-

@@ -21,7 +21,7 @@ type ProjectService interface {
 	CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
 	RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error
-	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponseDTO, response.Pagination, *response.Error)
+	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error)
 }
 
 func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) ProjectService {
@@ -65,8 +65,6 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 		return err
 	}
 
-	fmt.Println("=====================project", project.ID.String())
-
 	// Log project creation audit event
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
@@ -78,7 +76,12 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 		Details:        fmt.Sprintf("Project '%s' created", req.Name),
 		CreatedAt:      time.Now(),
 	}
-	_ = s.projectRepo.CreateAuditLog(auditLog)
+
+	// if error occurred just warn it do not return error
+	err = s.projectRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
 
 	return nil
 }
@@ -142,7 +145,10 @@ func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.E
 		Details:        fmt.Sprintf("Project updated: %s", req.Name),
 		CreatedAt:      time.Now(),
 	}
-	_ = s.projectRepo.CreateAuditLog(auditLog)
+	err = s.projectRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
 
 	return nil
 }
@@ -222,7 +228,10 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			Details:        fmt.Sprintf("User %s added to project", userID.String()),
 			CreatedAt:      time.Now(),
 		}
-		_ = s.projectRepo.CreateAuditLog(auditLog)
+		err = s.projectRepo.CreateAuditLog(auditLog)
+		if err != nil {
+			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		}
 	}
 
 	return nil
@@ -251,12 +260,15 @@ func (s *projectService) RemoveProjectMember(projectID, userID, performingUserID
 		Details:        fmt.Sprintf("User %s removed from project", userID.String()),
 		CreatedAt:      time.Now(),
 	}
-	_ = s.projectRepo.CreateAuditLog(auditLog)
+	err = s.projectRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
 
 	return nil
 }
 
-func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, filterReq dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponseDTO, response.Pagination, *response.Error) {
+func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, filterReq dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error) {
 
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
@@ -316,9 +328,9 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		return nil, response.Pagination{}, repoErr
 	}
 
-	var responseDTOs []dto.ProjectActivityResponseDTO
+	var responseDTOs []dto.ProjectActivityResponse
 	for _, item := range logs {
-		dtoItem := dto.ProjectActivityResponseDTO{
+		dtoItem := dto.ProjectActivityResponse{
 			ID:             item.ID,
 			ProjectID:      item.ProjectID,
 			OrganizationID: item.OrganizationID,
@@ -330,7 +342,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		}
 
 		if item.User.ID != uuid.Nil {
-			dtoItem.User = &dto.UserSummaryDTO{
+			dtoItem.User = &dto.UserSummary{
 				ID:        item.User.ID,
 				FullName:  item.User.FullName,
 				Email:     item.User.Email,
