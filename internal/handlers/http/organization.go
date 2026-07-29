@@ -144,9 +144,10 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 	}
 
 	credentials := models.Organization{
-		Name:    payload.Name,
-		Domain:  payload.Domain,
-		LogoURL: payload.LogoURL,
+		Name:     payload.Name,
+		Domain:   payload.Domain,
+		LogoURL:  payload.LogoURL,
+		TeamSize: string(payload.TeamSize),
 	}
 
 	if payload.CountryID != "" {
@@ -159,7 +160,9 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 
 		country, err := h.publicService.GetCountryByID(countryUUID)
 		if err != nil {
-			h.logger.Error("Failed to resolve country id", zap.String("message", err.Message), zap.Int("status", err.StatusCode))
+			h.logger.Error("Failed to resolve country id",
+				zap.String("message", err.Message),
+				zap.Int("status", err.StatusCode))
 			g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
 			return
 		}

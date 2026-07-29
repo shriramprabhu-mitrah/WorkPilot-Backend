@@ -30,10 +30,11 @@ const (
 )
 
 type UpdateOrganizationRequest struct {
-	Name      string `json:"name"`
-	Domain    string `json:"domain"`
-	LogoURL   string `json:"logo_url"`
-	CountryID string `json:"country_id,omitempty" binding:"omitempty,uuid"`
+	Name      string   `json:"name"`
+	Domain    string   `json:"domain"`
+	LogoURL   string   `json:"logo_url"`
+	TeamSize  TeamSize `json:"team_size" binding:"required,oneof=1-10 11-50 51-200 201-500 501-1000 1000+"`
+	CountryID string   `json:"country_id,omitempty" binding:"omitempty,uuid"`
 }
 
 type CreateOrganizationRequest struct {
