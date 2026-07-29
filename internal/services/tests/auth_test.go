@@ -83,8 +83,23 @@ func (s *stubAuthRepository) GetOrganizationByName(name string) (models.Organiza
 	return models.Organization{Name: name}, nil
 }
 
-func (s *stubAuthRepository) StoreRefreshToken(token models.RefreshToken) *response.Error {
-	return nil
+func (s *stubAuthRepository) StoreRefreshToken(token models.RefreshToken) (models.RefreshToken, *response.Error) {
+	// simulate storing by returning the token with an ID
+	if token.ID == uuid.Nil {
+		token.ID = uuid.Must(uuid.NewV7())
+	}
+	s.refreshToken = token
+	return token, nil
+}
+
+func (s *stubAuthRepository) GetRefreshTokenByID(id uuid.UUID) (models.RefreshToken, *response.Error) {
+	if s.err != nil {
+		return models.RefreshToken{}, s.err
+	}
+	if id == s.refreshToken.ID {
+		return s.refreshToken, nil
+	}
+	return models.RefreshToken{}, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "Refresh token not found"}
 }
 
 func (s *stubAuthRepository) GetRefreshToken(userID string) (models.RefreshToken, *response.Error) {
