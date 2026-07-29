@@ -611,19 +611,14 @@ func (s *authService) sendEmailVerificationOTP(userID uuid.UUID, email string) *
 }
 
 func (s *authService) Logout(UserID string) *response.Error {
-
-	oldToken, err := s.Repo.GetRefreshToken(UserID)
-	if err != nil {
+	userID, parseErr := uuid.FromString(UserID)
+	if parseErr != nil {
+		s.logger.Error("Invalid user ID for logout", zap.String("UserID", UserID), zap.Error(parseErr))
+		return &response.Error{Code: response.ErrBadRequest, StatusCode: http.StatusBadRequest, Message: "Invalid user ID"}
+	}
+	if err := s.Repo.RevokeRefreshTokens(userID); err != nil {
 		return err
 	}
-
-	expiresAt := time.Now()
-
-	s.Repo.StoreRefreshToken(models.RefreshToken{
-		UserID:    oldToken.ID,
-		ExpiresAt: expiresAt,
-	})
-
 	return nil
 }
 

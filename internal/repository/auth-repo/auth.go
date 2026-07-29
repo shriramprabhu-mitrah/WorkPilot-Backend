@@ -170,6 +170,14 @@ func (d *authDatabase) CreateUser(row models.User) *response.Error {
 
 func (d *authDatabase) StoreRefreshToken(token models.RefreshToken) *response.Error {
 
+	if token.TokenHash == "" {
+		return &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Refresh token hash cannot be empty",
+		}
+	}
+
 	err := d.DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{
 			{Name: "user_id"}, // Conflict target

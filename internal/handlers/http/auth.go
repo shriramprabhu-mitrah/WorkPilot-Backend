@@ -451,7 +451,7 @@ func (h *AuthHandler) Logout(g *gin.Context) {
 	cookies.Clear(g, secure)
 
 	successResponse := &response.SuccessResponse{
-		Message:    "Logedout successfully",
+		Message:    "Logged out successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
 	}
