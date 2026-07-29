@@ -9,7 +9,7 @@ import (
 
 type Project struct {
 	ID             uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
-	OrganizationID uuid.UUID      `json:"organization_id" gorm:"not null;index;uniqueIndex:idx_org_project_key"`
+	OrganizationID uuid.UUID      `json:"organization_id" gorm:"not null"`
 	Organization   Organization   `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
 	Name           string         `json:"name" gorm:"type:varchar(150);not null"`
 	Description    string         `json:"description,omitempty" gorm:"type:text"`
