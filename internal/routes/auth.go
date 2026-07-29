@@ -26,7 +26,7 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 	auth := api.Group("/auth")
 	{
 		auth.POST("/signin", AuthHandler.SignIn)
-		auth.POST("/refresh", middleware.ValidateJWT(), AuthHandler.RefreshToken)
+		auth.POST("/refresh", AuthHandler.RefreshToken)
 		auth.POST("/logout", middleware.ValidateJWT(), AuthHandler.Logout)
 		auth.POST("/signup", AuthHandler.SignUp)
 		auth.POST("/verify-email", AuthHandler.VerifyEmail)
