@@ -303,7 +303,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		inviteLink := fmt.Sprintf("%s/invitations/accept?token=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), invitation.Token)
 		tempPassword := ""
 		if userErr != nil {
-			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteItem.Email, inviteItem.Role)
+			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteItem.Email, inviteItem.Role, organizationID)
 			if err != nil {
 				return err
 			}
@@ -446,7 +446,7 @@ func (s *organizationService) generateUniqueUsername(email string) (string, *res
 	}
 }
 
-func (s *organizationService) inviteUserWithTemporaryCredentials(email, role string) (string, *response.Error) {
+func (s *organizationService) inviteUserWithTemporaryCredentials(email, role string, organizationID uuid.UUID) (string, *response.Error) {
 	tempPassword, err := s.generateTemporaryPassword(12)
 	if err != nil {
 		return "", err
@@ -461,17 +461,18 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email, role str
 	}
 
 	user := models.User{
-		ID:           uuid.Must(uuid.NewV7()),
-		Email:        strings.ToLower(strings.TrimSpace(email)),
-		FullName:     s.generateFullNameFromEmail(email),
-		UserName:     username,
-		PasswordHash: passwordHash,
-		Role:         role,
-		Timezone:     "UTC",
-		IsActive:     true,
-		IsVerified:   true,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:             uuid.Must(uuid.NewV7()),
+		Email:          strings.ToLower(strings.TrimSpace(email)),
+		FullName:       s.generateFullNameFromEmail(email),
+		UserName:       username,
+		PasswordHash:   passwordHash,
+		OrganizationID: &organizationID,
+		Role:           role,
+		Timezone:       "UTC",
+		IsActive:       true,
+		IsVerified:     true,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	if err := s.AuthRepo.CreateUser(user); err != nil {
