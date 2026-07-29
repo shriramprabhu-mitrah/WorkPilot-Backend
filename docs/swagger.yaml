@@ -203,6 +203,18 @@ definitions:
         type: string
       name:
         type: string
+      team_size:
+        allOf:
+        - $ref: '#/definitions/dto.TeamSize'
+        enum:
+        - 1-10
+        - 11-50
+        - 51-200
+        - 201-500
+        - 501-1000
+        - 1000+
+    required:
+    - team_size
     type: object
   dto.UpdateUserRequest:
     properties:

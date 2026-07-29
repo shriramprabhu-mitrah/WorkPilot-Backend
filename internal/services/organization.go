@@ -142,6 +142,11 @@ func (s *organizationService) CreateOrganization(row models.Organization) (*dto.
 
 func (s *organizationService) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
 
+	if req.Domain != "" {
+		slug := utils.ExtractSlug(req.Domain)
+		req.Slug = slug
+	}
+
 	return s.OrganizationRepo.UpdateOrganization(OrganizationID, req)
 }
 

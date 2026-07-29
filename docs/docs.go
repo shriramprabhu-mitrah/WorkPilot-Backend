@@ -1346,6 +1346,9 @@ const docTemplate = `{
         },
         "dto.UpdateOrganizationRequest": {
             "type": "object",
+            "required": [
+                "team_size"
+            ],
             "properties": {
                 "country_id": {
                     "type": "string"
@@ -1358,6 +1361,21 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "team_size": {
+                    "enum": [
+                        "1-10",
+                        "11-50",
+                        "51-200",
+                        "201-500",
+                        "501-1000",
+                        "1000+"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.TeamSize"
+                        }
+                    ]
                 }
             }
         },
