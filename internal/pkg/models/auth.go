@@ -63,9 +63,11 @@ type PasswordResetOTP struct {
 type AuditLog struct {
 	ID             uuid.UUID  `json:"id" gorm:"primaryKey;type:uuid"`
 	UserID         *uuid.UUID `json:"user_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_user_id"`
+	User           User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
 	OrganizationID *uuid.UUID `json:"organization_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_org_id"`
+	ProjectID      *uuid.UUID `json:"project_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_project_id"`
 	Action         string     `json:"action" gorm:"size:100;not null;index:idx_audit_logs_action"`
-	ResourceType   string     `json:"resource_type" gorm:"size:50;not null"`
+	ResourceType   string     `json:"resource_type" gorm:"size:50;not null;index:idx_audit_logs_resource_type"`
 	ResourceID     string     `json:"resource_id" gorm:"size:255"`
 	Details        string     `json:"details" gorm:"type:text"`
 	CreatedAt      time.Time  `json:"created_at" gorm:"not null;type:timestamptz"`
