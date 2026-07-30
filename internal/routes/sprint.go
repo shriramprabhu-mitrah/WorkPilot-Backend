@@ -28,8 +28,8 @@ func SprintRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	spr := api.Group("/projects/:project_id/sprint")
 	{
-		spr.POST("/create", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), sprintHandler.CreateSprint)
-		spr.GET("get-sprints", middleware.ValidateJWT(), sprintHandler.GetSprints)
+		spr.POST("/", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), sprintHandler.CreateSprint)
+		spr.GET("/", middleware.ValidateJWT(), sprintHandler.GetSprints)
 		spr.GET("/:sprint_id", middleware.ValidateJWT(), sprintHandler.GetSprintByID)
 		spr.PATCH("/:sprint_id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), sprintHandler.UpdateSprint)
 		spr.DELETE("/:sprint_id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), sprintHandler.DeleteSprint)
