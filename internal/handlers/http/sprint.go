@@ -25,6 +25,21 @@ type sprintHandler struct {
 	logger  *zap.Logger
 }
 
+// CreateSprint godoc
+// @Summary Create Sprint
+// @Description Create a new sprint under a project
+// @Tags Sprint
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param request body dto.CreateSprintRequest true "Sprint Details"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/ [post]
 func (h *sprintHandler) CreateSprint(g *gin.Context) {
 
 	var payload dto.CreateSprintRequest
@@ -123,6 +138,20 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// DeleteSprint godoc
+// @Summary Delete Sprint
+// @Description Delete a sprint from a project
+// @Tags Sprint
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param sprint_id path string true "Sprint ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/{sprint_id} [delete]
 func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 
 	var payload dto.DeleteSprint
@@ -208,6 +237,23 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 
 }
 
+// UpdateSprint godoc
+// @Summary Update Sprint
+// @Description Update sprint details
+// @Tags Sprint
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param sprint_id path string true "Sprint ID"
+// @Param request body dto.UpdateSprintRequest true "Sprint Update Details"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/{sprint_id} [patch]
 func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 
 	var payload dto.UpdateSprintRequest
@@ -317,6 +363,22 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 
 }
 
+// GetSprints godoc
+// @Summary Get Sprints
+// @Description Retrieve all sprints for a project with pagination, search and status filter
+// @Tags Sprint
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Param status query string false "Sprint Status" Enums(planning,active,on_hold,completed,cancelled,archived)
+// @Param search query string false "Search sprint by name"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint [get]
 func (h *sprintHandler) GetSprints(g *gin.Context) {
 
 	var filter dto.SprintFilter
@@ -414,6 +476,20 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 	})
 }
 
+// GetSprintByID godoc
+// @Summary Get Sprint By ID
+// @Description Retrieve a sprint by project ID and sprint ID
+// @Tags Sprint
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param sprint_id path string true "Sprint ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/{sprint_id} [get]
 func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 
 	organizationID, exist := g.Get("organization_id")
