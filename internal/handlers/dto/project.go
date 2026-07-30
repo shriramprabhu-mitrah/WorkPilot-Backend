@@ -2,6 +2,7 @@ package dto
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gofrs/uuid"
 )
@@ -112,4 +113,38 @@ type ProjectActivityResponse struct {
 	ResourceID     string       `json:"resource_id,omitempty"`
 	Details        string       `json:"details,omitempty"`
 	CreatedAt      string       `json:"timestamp"`
+}
+
+type ProjectResponse struct {
+	ProjectID      uuid.UUID               `json:"id"`
+	OrganizationID uuid.UUID               `json:"organization_id"`
+	Name           string                  `json:"name"`
+	Description    string                  `json:"description,omitempty"`
+	Status         string                  `json:"status"`
+	CreatedBy      uuid.UUID               `json:"created_by"`
+	Creator        string                  `json:"creator"`
+	CreatedAt      time.Time               `json:"created_at"`
+	Members        []ProjectMemberResponse `json:"members"`
+	Sprints        []SprintResponse        `json:"sprints"`
+}
+
+type ProjectMemberResponse struct {
+	ID       uuid.UUID `json:"id"`
+	UserID   uuid.UUID `json:"user_id"`
+	Username string    `json:"username"`
+}
+
+type SprintResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Goal      string    `json:"goal,omitempty"`
+	Status    string    `json:"status"`
+	StartDate time.Time `json:"start_date"`
+	EndDate   time.Time `json:"end_date"`
+}
+
+type GetProjectDetails struct {
+	ProjectID      uuid.UUID
+	UserID         uuid.UUID
+	OrganizationID uuid.UUID
 }

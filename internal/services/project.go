@@ -11,6 +11,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
+	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
 	"go.uber.org/zap"
 )
 
@@ -22,12 +23,14 @@ type ProjectService interface {
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
 	RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error
 	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error)
+	GetProjectDetails(req dto.GetProjectDetails) (*dto.ProjectResponse, *response.Error)
 }
 
-func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) ProjectService {
+func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, logger *zap.Logger) ProjectService {
 	return &projectService{
 		authRepo:    authRepo,
 		projectRepo: projectRepo,
+		sprintRepo:  sprintRepo,
 		logger:      logger,
 	}
 }
@@ -35,10 +38,39 @@ func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo auth
 type projectService struct {
 	authRepo    authrepo.AuthRepository
 	projectRepo projectrepo.ProjectRepository
+	sprintRepo  sprintrepo.SprintRepository
 	logger      *zap.Logger
 }
 
 func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.Error {
+
+	result, err := s.authRepo.GetByID(req.UserID)
+	if err != nil {
+		return err
+	}
+
+	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", req.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
 
 	projectPayload := &models.Project{
 		Name:           req.Name,
@@ -54,7 +86,7 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 		JoinedAt:  time.Now(),
 	}
 
-	err := s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
+	err = s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
 	if err != nil {
 		return err
 	}
@@ -94,6 +126,10 @@ func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.E
 	}
 
 	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -185,6 +221,9 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		}
 
 		if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+			s.logger.Error("Unauthorized Access",
+				zap.String("Organization ID", req.OrganizationID.String()),
+				zap.String("User Organization ID", result.OrganizationID.String()))
 			return &response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
@@ -361,4 +400,97 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 	}
 
 	return responseDTOs, pagination, nil
+}
+
+func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.ProjectResponse, *response.Error) {
+
+	result, err := s.authRepo.GetByID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	project, err := s.projectRepo.GetProjectByID(req.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	memberFilter := dto.ProjectMemberFilter{
+		Page:     1,
+		PageSize: 1000,
+	}
+
+	projectMembers, _, err := s.projectRepo.GetProjectsMembersByProjectID(req.ProjectID, memberFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	sprintFilter := dto.SprintFilter{
+		Page:     1,
+		PageSize: 1000,
+	}
+
+	sprints, _, err := s.sprintRepo.GetSprints(req.ProjectID, sprintFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := dto.ProjectResponse{
+		ProjectID:      project.ID,
+		OrganizationID: project.OrganizationID,
+		Name:           project.Name,
+		Description:    project.Description,
+		Status:         project.Status,
+		CreatedBy:      project.CreatedBy,
+		Creator:        project.Creator.UserName,
+		CreatedAt:      project.CreatedAt,
+	}
+
+	// Map members
+	payload.Members = make([]dto.ProjectMemberResponse, 0, len(projectMembers))
+	for _, member := range projectMembers {
+		payload.Members = append(payload.Members, dto.ProjectMemberResponse{
+			ID:       member.ID,
+			UserID:   member.UserID,
+			Username: member.User.UserName,
+		})
+	}
+
+	// Map sprints
+	payload.Sprints = make([]dto.SprintResponse, 0, len(sprints))
+	for _, sprint := range sprints {
+		payload.Sprints = append(payload.Sprints, dto.SprintResponse{
+			ID:        sprint.ID,
+			Name:      sprint.Name,
+			Goal:      sprint.Goal,
+			Status:    string(sprint.Status),
+			StartDate: sprint.StartDate,
+			EndDate:   sprint.EndDate,
+		})
+	}
+
+	return &payload, nil
 }

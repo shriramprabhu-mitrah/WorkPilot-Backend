@@ -627,3 +627,99 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 	})
 }
 
+// GetProjectDetails godoc
+//
+//	@Summary		Get project details
+//	@Description	Retrieve a project's details along with its members and sprints.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Param			project_id	path		string	true	"Project ID (UUID)"
+//	@Success		200	{object}	response.SuccessResponse{data=dto.ProjectResponse}	"Project retrieved successfully"
+//	@Failure		400	{object}	response.ErrorResponse	"Invalid project ID"
+//	@Failure		401	{object}	response.ErrorResponse	"Unauthorized"
+//	@Failure		403	{object}	response.ErrorResponse	"Forbidden"
+//	@Failure		404	{object}	response.ErrorResponse	"Project not found"
+//	@Failure		500	{object}	response.ErrorResponse	"Internal server error"
+//	@Router			/api/v1/project/{project_id}/detail [get]
+func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
+
+	var payload dto.GetProjectDetails
+
+	organizationID, exist := g.Get("organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
+			},
+		}
+
+		h.logger.Error("Organization Id Invalid/Missing ")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	organizationIDStr := organizationID.(string)
+
+	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	userID, exist := g.Get("user_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
+			},
+		}
+
+		h.logger.Error("User Id Invalid/Missing",
+			zap.String("user id :", fmt.Sprintf("%v", userID)))
+
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, errorResponse := utils.StringToUUID(userID.(string))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		return
+	}
+
+	payload.OrganizationID = organizationUUID
+	payload.ProjectID = projectUUID
+	payload.UserID = userUUID
+
+	project, err := h.service.GetProjectDetails(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Project retrieved successfully.",
+		Data:       project,
+	})
+}
