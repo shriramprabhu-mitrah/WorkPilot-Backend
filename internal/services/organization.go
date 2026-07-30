@@ -126,9 +126,13 @@ func (s *organizationService) CreateOrganization(row models.Organization) (*dto.
 	}
 
 	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
-	if storeErr := s.AuthRepo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt}); storeErr != nil {
+	storedToken, storeErr := s.AuthRepo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt})
+	if storeErr != nil {
 		return nil, storeErr
 	}
+
+	// Prefix refresh token with stored token ID
+	refreshTokenValue = fmt.Sprintf("%s.%s", storedToken.ID.String(), refreshTokenValue)
 
 	s.logger.Info("Email verification completed", zap.String("email", user.Email))
 	return &dto.AuthTokensResponse{

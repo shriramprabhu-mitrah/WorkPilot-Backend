@@ -345,39 +345,31 @@ func (h *AuthHandler) ResendVerificationOTP(g *gin.Context) {
 func (h *AuthHandler) RefreshToken(g *gin.Context) {
 
 	var payload dto.RefreshTokenRequest
-
-	userID, exist := g.Get("user_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
+	// allow client to send refresh token in body or cookie
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		message := utils.ValidationErrorMessage(err, payload)
+		g.JSON(http.StatusBadRequest, &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			},
-		}
-
-		h.logger.Error("User Id Invalid/Missing ")
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			}})
 		return
 	}
-	payload.UserID = userID.(string)
 
-	token, cookieError := g.Cookie("refresh_token")
-	if cookieError != nil {
-		errorResponse := &response.ErrorResponse{
+	if payload.RefreshToken == "" {
+		g.JSON(http.StatusUnauthorized, &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
 				Message:    "Authentication required",
 			},
-		}
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		})
 		return
 	}
-	payload.RefreshToken = token
 
 	tokens, err := h.service.RefreshToken(payload)
 	if err != nil {
@@ -388,6 +380,19 @@ func (h *AuthHandler) RefreshToken(g *gin.Context) {
 		g.JSON(err.StatusCode, errorResponse)
 		return
 	}
+
+	secure, secureErr := utils.StringToBool(config.GetEnv("COOKIE_SECURE", ""))
+	if secureErr != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *secureErr,
+		}
+		g.JSON(secureErr.StatusCode, errorResponse)
+		return
+	}
+
+	cookies.SetAccessToken(g, tokens.AccessToken, tokens.ExpiresIn, secure)
+	cookies.SetRefreshToken(g, tokens.RefreshToken, tokens.RefreshExpiresIn, secure)
 
 	successResponse := &response.SuccessResponse{
 		Message:    "Token refreshed successfully",

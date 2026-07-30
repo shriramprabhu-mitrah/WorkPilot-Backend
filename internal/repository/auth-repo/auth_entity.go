@@ -17,8 +17,9 @@ type AuthRepository interface {
 	ExistsByEmail(email string) (bool, *response.Error)
 	ExistsByUsername(username string) (bool, *response.Error)
 	CreateUser(row models.User) *response.Error
-	StoreRefreshToken(token models.RefreshToken) *response.Error
+	StoreRefreshToken(token models.RefreshToken) (models.RefreshToken, *response.Error)
 	GetRefreshToken(userID string) (models.RefreshToken, *response.Error)
+	GetRefreshTokenByID(id uuid.UUID) (models.RefreshToken, *response.Error)
 	ChangePassword(password string, userID uuid.UUID) *response.Error
 	RequestPasswordReset(email string) (models.User, *response.Error)
 	SavePasswordResetOTP(otp models.PasswordResetOTP) *response.Error

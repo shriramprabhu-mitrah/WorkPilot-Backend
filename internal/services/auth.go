@@ -150,7 +150,7 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 
 	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
 
-	storeErr := s.Repo.StoreRefreshToken(models.RefreshToken{
+	storedToken, storeErr := s.Repo.StoreRefreshToken(models.RefreshToken{
 		UserID:    result.ID,
 		TokenHash: hashedRefreshToken,
 		ExpiresAt: expiresAt,
@@ -158,6 +158,9 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	if storeErr != nil {
 		return nil, storeErr
 	}
+
+	// Build token value as <token_id>.<secret>
+	refreshTokenValue = fmt.Sprintf("%s.%s", storedToken.ID.String(), refreshTokenValue)
 
 	return &dto.AuthTokensResponse{
 		AccessToken:      accessToken,
@@ -177,15 +180,43 @@ func generateRefreshTokenValue() (string, error) {
 }
 
 func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.AuthTokensResponse, *response.Error) {
+	// Expect token format: <id>.<secret>
+	parts := strings.Split(credentials.RefreshToken, ".")
+	if len(parts) != 2 {
+		return nil, &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Authentication required",
+		}
+	}
 
-	oldToken, err := s.Repo.GetRefreshToken(credentials.UserID)
+	tokenIDStr := parts[0]
+	secret := parts[1]
+
+	tokenID, parseErr := uuid.FromString(tokenIDStr)
+	if parseErr != nil {
+		return nil, &response.Error{
+			Code:       response.ErrUnauthorized,
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Authentication required",
+		}
+	}
+
+	oldToken, err := s.Repo.GetRefreshTokenByID(tokenID)
 	if err != nil {
 		return nil, err
 	}
 
-	if !utils.IsValidPassword(oldToken.TokenHash, credentials.RefreshToken) {
+	if !utils.IsValidPassword(oldToken.TokenHash, secret) {
 		s.logger.Error("The given refresh token is wrong",
-			zap.String("UserID", credentials.UserID))
+			zap.String("token_id", tokenIDStr),
+			zap.String("token_hash_prefix", func() string {
+				if len(oldToken.TokenHash) > 20 {
+					return oldToken.TokenHash[:20]
+				}
+				return oldToken.TokenHash
+			}()),
+			zap.Int("secret_len", len(secret)))
 		return nil, &response.Error{
 			Code:       response.ErrUnauthorized,
 			StatusCode: http.StatusUnauthorized,
@@ -236,6 +267,40 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		return nil, tokenErr
 	}
 
+	// Generate new Refresh Token
+	newRefreshTokenValue, refreshTokenErr := generateRefreshTokenValue()
+	if refreshTokenErr != nil {
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
+	}
+
+	hashedRefreshToken, hashErr := utils.HashPassword(newRefreshTokenValue)
+	if hashErr != nil {
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong",
+		}
+	}
+
+	refreshExpiresIn, _ := utils.StringToInt(config.GetEnv("REFRESH_TOKEN_EXPIRY", "604800"))
+	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
+
+	storedToken, err := s.Repo.StoreRefreshToken(models.RefreshToken{
+		UserID:    user.ID,
+		TokenHash: hashedRefreshToken,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Build token value as <token_id>.<secret>
+	newRefreshTokenValue = fmt.Sprintf("%s.%s", storedToken.ID.String(), newRefreshTokenValue)
+
 	expiresIn, err := utils.StringToInt(config.GetEnv("JWT_EXPIRY", "900"))
 	if err != nil {
 
@@ -246,10 +311,10 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 
 	return &dto.AuthTokensResponse{
 		AccessToken:      accessToken,
-		RefreshToken:     credentials.RefreshToken,
+		RefreshToken:     newRefreshTokenValue,
 		TokenType:        "Bearer",
 		ExpiresIn:        expiresIn,
-		RefreshExpiresIn: int(time.Until(oldToken.ExpiresAt).Seconds()),
+		RefreshExpiresIn: refreshExpiresIn,
 	}, nil
 }
 
@@ -511,9 +576,13 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	}
 
 	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
-	if storeErr := s.Repo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt}); storeErr != nil {
+	storedToken, storeErr := s.Repo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt})
+	if storeErr != nil {
 		return nil, storeErr
 	}
+
+	// Prefix the returned token value with the stored token ID
+	refreshTokenValue = fmt.Sprintf("%s.%s", storedToken.ID.String(), refreshTokenValue)
 
 	s.logger.Info("Email verification completed", zap.String("email", credentials.Email))
 	return &dto.AuthTokensResponse{

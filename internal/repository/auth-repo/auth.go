@@ -168,10 +168,10 @@ func (d *authDatabase) CreateUser(row models.User) *response.Error {
 	return nil
 }
 
-func (d *authDatabase) StoreRefreshToken(token models.RefreshToken) *response.Error {
+func (d *authDatabase) StoreRefreshToken(token models.RefreshToken) (models.RefreshToken, *response.Error) {
 
 	if token.TokenHash == "" {
-		return &response.Error{
+		return models.RefreshToken{}, &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Refresh token hash cannot be empty",
@@ -202,10 +202,22 @@ func (d *authDatabase) StoreRefreshToken(token models.RefreshToken) *response.Er
 		d.logger.Error("Database error occurred while storing refresh token",
 			zap.Error(err))
 
-		return &errorResponse
+		return models.RefreshToken{}, &errorResponse
 	}
 
-	return nil
+	// Reload the stored token row to ensure we return the DB row (important when ON CONFLICT does an update)
+	var stored models.RefreshToken
+	if err := d.DB.Where("user_id = ?", token.UserID).First(&stored).Error; err != nil {
+		d.logger.Error("Failed to reload stored refresh token",
+			zap.Error(err))
+		return models.RefreshToken{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	return stored, nil
 }
 
 func (d *authDatabase) GetRefreshToken(userID string) (models.RefreshToken, *response.Error) {
@@ -225,6 +237,32 @@ func (d *authDatabase) GetRefreshToken(userID string) (models.RefreshToken, *res
 		}
 
 		d.logger.Error("Database error occurred while storing refresh token",
+			zap.Error(err))
+		return models.RefreshToken{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	return token, nil
+}
+
+func (d *authDatabase) GetRefreshTokenByID(id uuid.UUID) (models.RefreshToken, *response.Error) {
+	var token models.RefreshToken
+
+	if err := d.DB.Where("id = ?", id).First(&token).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			d.logger.Error("Refresh token not found",
+				zap.Error(err))
+			return models.RefreshToken{}, &response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
+			}
+		}
+
+		d.logger.Error("Database error occurred while retrieving refresh token",
 			zap.Error(err))
 		return models.RefreshToken{}, &response.Error{
 			Code:       response.ErrInternalServerError,
