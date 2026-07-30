@@ -199,7 +199,7 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 	}
 
 	if req.EndDate != "" {
-		d, err := utils.StringToTime(req.StartDate)
+		d, err := utils.StringToTime(req.EndDate)
 		startDate = d
 		if err != nil {
 			return &response.Error{
