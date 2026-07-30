@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/handlers/dto"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -517,13 +518,27 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	}
 
 	userID := g.Param("user_id")
-	userUUID, errorResponse := utils.StringToUUID(userID)
+	targetUserUUID, errorResponse := utils.StringToUUID(userID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		return
 	}
 
-	if serviceErr := h.service.RemoveProjectMember(projectUUID, userUUID); serviceErr != nil {
+	var performingUserUUID uuid.UUID
+	if performingUserID, exist := g.Get("user_id"); exist {
+		if pUUID, errResp := utils.StringToUUID(performingUserID.(string)); errResp == nil {
+			performingUserUUID = pUUID
+		}
+	}
+
+	var organizationUUID uuid.UUID
+	if orgID, exist := g.Get("organization_id"); exist {
+		if oUUID, errResp := utils.StringToUUID(orgID.(string)); errResp == nil {
+			organizationUUID = oUUID
+		}
+	}
+
+	if serviceErr := h.service.RemoveProjectMember(projectUUID, targetUserUUID, performingUserUUID, organizationUUID); serviceErr != nil {
 		g.JSON(serviceErr.StatusCode, response.ErrorResponse{
 			Success: false,
 			Error:   *serviceErr,
@@ -537,3 +552,78 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 		Message:    "Project member removed successfully.",
 	})
 }
+
+func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
+	var filter dto.ProjectActivityFilterRequest
+
+	if err := g.ShouldBindQuery(&filter); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid query parameters",
+			},
+		}
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert project_id string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	userIDVal, exist := g.Get("user_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusUnauthorized,
+				Message:    "Authentication required",
+			},
+		}
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	userUUID, errorResponse := utils.StringToUUID(userIDVal.(string))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert user_id string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	roleVal, _ := g.Get("role")
+	userRole, _ := roleVal.(string)
+
+	var userOrgUUID uuid.UUID
+	orgIDVal, exist := g.Get("organization_id")
+	if exist {
+		if orgUUID, errResp := utils.StringToUUID(orgIDVal.(string)); errResp == nil {
+			userOrgUUID = orgUUID
+		}
+	}
+
+	activities, pagination, serviceErr := h.service.GetProjectActivity(userUUID, userRole, userOrgUUID, projectID, filter)
+	if serviceErr != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *serviceErr,
+		}
+		g.JSON(serviceErr.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Project activity history retrieved successfully.",
+		Data:       activities,
+		Meta:       &pagination,
+	})
+}
+

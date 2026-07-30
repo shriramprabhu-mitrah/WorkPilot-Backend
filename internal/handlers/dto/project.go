@@ -73,3 +73,43 @@ func (r ProjectStatus) Validate() error {
 		return fmt.Errorf("Invalid role: %s", r)
 	}
 }
+
+type ProjectActivityFilterRequest struct {
+	Page         int    `form:"page"`
+	PageSize     int    `form:"page_size"`
+	Action       string `form:"action"`
+	UserID       string `form:"user_id"`
+	ResourceType string `form:"resource_type"`
+	StartDate    string `form:"start_date"`
+	EndDate      string `form:"end_date"`
+}
+
+type ProjectActivityFilter struct {
+	Page         int
+	PageSize     int
+	Action       string
+	UserID       *uuid.UUID
+	ResourceType string
+	StartDate    string
+	EndDate      string
+}
+
+type UserSummary struct {
+	ID        uuid.UUID `json:"id"`
+	FullName  string    `json:"name"`
+	Email     string    `json:"email"`
+	AvatarURL string    `json:"avatar_url,omitempty"`
+	Role      string    `json:"role,omitempty"`
+}
+
+type ProjectActivityResponse struct {
+	ID             uuid.UUID    `json:"id"`
+	ProjectID      *uuid.UUID   `json:"project_id,omitempty"`
+	OrganizationID *uuid.UUID   `json:"organization_id,omitempty"`
+	User           *UserSummary `json:"user,omitempty"`
+	Action         string       `json:"action"`
+	ResourceType   string       `json:"resource_type"`
+	ResourceID     string       `json:"resource_id,omitempty"`
+	Details        string       `json:"details,omitempty"`
+	CreatedAt      string       `json:"timestamp"`
+}
