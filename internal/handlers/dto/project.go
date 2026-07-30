@@ -129,9 +129,9 @@ type ProjectResponse struct {
 }
 
 type ProjectMemberResponse struct {
-	ID       uuid.UUID `json:"id"`
 	UserID   uuid.UUID `json:"user_id"`
 	Username string    `json:"username"`
+	Role     string    `json:"role"`
 }
 
 type SprintResponse struct {

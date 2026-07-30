@@ -473,9 +473,9 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 	payload.Members = make([]dto.ProjectMemberResponse, 0, len(projectMembers))
 	for _, member := range projectMembers {
 		payload.Members = append(payload.Members, dto.ProjectMemberResponse{
-			ID:       member.ID,
 			UserID:   member.UserID,
 			Username: member.User.UserName,
+			Role:     member.User.Role,
 		})
 	}
 
