@@ -131,6 +131,7 @@ type ProjectResponse struct {
 type ProjectMemberResponse struct {
 	UserID   uuid.UUID `json:"user_id"`
 	Username string    `json:"username"`
+	FullName string    `json:"full_name"`
 	Role     string    `json:"role"`
 }
 

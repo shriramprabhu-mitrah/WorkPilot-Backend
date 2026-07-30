@@ -475,6 +475,7 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 		payload.Members = append(payload.Members, dto.ProjectMemberResponse{
 			UserID:   member.UserID,
 			Username: member.User.UserName,
+			FullName: member.User.FullName,
 			Role:     member.User.Role,
 		})
 	}
