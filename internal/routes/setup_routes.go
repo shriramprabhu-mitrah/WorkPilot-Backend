@@ -13,6 +13,7 @@ func SetupRoutes(deps models.Config) {
 		OrganizationRoutes(deps, api)
 		ProjectRoutes(deps, api)
 		PublicRoutes(deps, api)
+		SprintRoutes(deps, api)
 	}
 
 }
