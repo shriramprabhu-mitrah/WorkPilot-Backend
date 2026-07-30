@@ -308,9 +308,15 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 	var parsedUserID *uuid.UUID
 	if filterReq.UserID != "" {
 		uid, parseErr := uuid.FromString(filterReq.UserID)
-		if parseErr == nil && uid != uuid.Nil {
-			parsedUserID = &uid
+		if parseErr != nil || uid == uuid.Nil {
+			s.logger.Error("Invalid user ID in project activity filter", zap.String("user_id", filterReq.UserID))
+			return nil, response.Pagination{}, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid UserID filter format",
+			}
 		}
+		parsedUserID = &uid
 	}
 
 	filter := dto.ProjectActivityFilter{
