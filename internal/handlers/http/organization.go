@@ -685,7 +685,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("Organization_id")
+	organizationID, exist := g.Get("organization_id")
 	if !exist {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
