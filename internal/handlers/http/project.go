@@ -24,6 +24,21 @@ type ProjectHandler struct {
 	logger  *zap.Logger
 }
 
+// CreateProject godoc
+//
+//	@Summary		Create a new project
+//	@Description	Create a new project in the authenticated user's organization.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		dto.CreateProjectRequest	true	"Create Project Request"
+//	@Success		201		{object}	response.SuccessResponse	"Project created successfully"
+//	@Failure		400		{object}	response.ErrorResponse		"Validation error"
+//	@Failure		401		{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		403		{object}	response.ErrorResponse		"Forbidden"
+//	@Failure		409		{object}	response.ErrorResponse		"Duplicate project"
+//	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
+//	@Router			/projects/create [post]
 func (h *ProjectHandler) CreateProject(g *gin.Context) {
 
 	var payload dto.CreateProjectRequest
@@ -113,6 +128,22 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// UpdateProject godoc
+//
+//	@Summary		Update project
+//	@Description	Update project details such as name, description, and status.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string						true	"Project ID"
+//	@Param			request	body		dto.UpdateProjectRequest	true	"Update Project Request"
+//	@Success		200		{object}	response.SuccessResponse	"Project updated successfully"
+//	@Failure		400		{object}	response.ErrorResponse		"Validation error"
+//	@Failure		401		{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		403		{object}	response.ErrorResponse		"Forbidden"
+//	@Failure		404		{object}	response.ErrorResponse		"Project not found"
+//	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
+//	@Router			/projects/{id} [put]
 func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 
 	var payload dto.UpdateProjectRequest
@@ -213,6 +244,22 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 
 }
 
+// GetProjects godoc
+//
+//	@Summary		Get all projects
+//	@Description	Get paginated list of projects in the authenticated organization.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Param			page		query		int		false	"Page Number"		default(1)
+//	@Param			page_size	query		int		false	"Page Size"			default(10)
+//	@Param			name		query		string	false	"Project Name"
+//	@Param			status		query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
+//	@Success		200			{object}	response.SuccessResponse	"Projects retrieved successfully"
+//	@Failure		400			{object}	response.ErrorResponse		"Invalid query parameters"
+//	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
+//	@Router			/projects [get]
 func (h *ProjectHandler) GetProjects(g *gin.Context) {
 	var filter dto.ProjectFilterRequest
 
@@ -271,6 +318,21 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 	})
 }
 
+// CreateProjectMember godoc
+//
+//	@Summary		Add project members
+//	@Description	Add one or more users to a project.
+//	@Tags			Project Members
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		dto.CreateProjectMemberRequest	true	"Project Member Request"
+//	@Success		201		{object}	response.SuccessResponse	"Project members added successfully"
+//	@Failure		400		{object}	response.ErrorResponse		"Validation error"
+//	@Failure		401		{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		403		{object}	response.ErrorResponse		"Forbidden"
+//	@Failure		409		{object}	response.ErrorResponse		"Duplicate member"
+//	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
+//	@Router			/projects/members [post]
 func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 
 	var payload dto.CreateProjectMemberRequest
@@ -360,6 +422,24 @@ func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// GetProjectMembers godoc
+//
+//	@Summary		Get project members
+//	@Description	Get paginated list of project members.
+//	@Tags			Project Members
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			project_id	path		string	true	"Project ID"
+//	@Param			page		query		int		false	"Page Number"	default(1)
+//	@Param			page_size	query		int		false	"Page Size"		default(10)
+//	@Param			name		query		string	false	"Member Name"
+//	@Success		200			{object}	response.SuccessResponse	"Project members retrieved successfully"
+//	@Failure		400			{object}	response.ErrorResponse		"Invalid request"
+//	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		404			{object}	response.ErrorResponse		"Project not found"
+//	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
+//	@Router			/projects/{project_id}/members [get]
 func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 	var filter dto.ProjectMemberFilter
 
@@ -403,6 +483,21 @@ func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 	})
 }
 
+// RemoveProjectMember godoc
+//
+//	@Summary		Remove project member
+//	@Description	Remove a user from a project.
+//	@Tags			Project Members
+//	@Accept			json
+//	@Produce		json
+//	@Param			project_id	path		string	true	"Project ID"
+//	@Param			user_id		path		string	true	"User ID"
+//	@Success		200			{object}	response.SuccessResponse	"Project member removed successfully"
+//	@Failure		400			{object}	response.ErrorResponse		"Invalid request"
+//	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		404			{object}	response.ErrorResponse		"Project member not found"
+//	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
+//	@Router			/projects/{project_id}/members/{user_id} [delete]
 func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	projectID := g.Param("project_id")
 	projectUUID, errorResponse := utils.StringToUUID(projectID)
