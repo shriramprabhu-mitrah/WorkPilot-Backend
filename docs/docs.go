@@ -969,7 +969,135 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects": {
+        "/project/add-members": {
+            "post": {
+                "description": "Add one or more users to a project.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Project Members"
+                ],
+                "summary": "Add project members",
+                "parameters": [
+                    {
+                        "description": "Project Member Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateProjectMemberRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Project members added successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Duplicate member",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/project/create": {
+            "post": {
+                "description": "Create a new project in the authenticated user's organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Create a new project",
+                "parameters": [
+                    {
+                        "description": "Create Project Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateProjectRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Project created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Duplicate project",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/project/get": {
             "get": {
                 "description": "Get paginated list of projects in the authenticated organization.",
                 "consumes": [
@@ -1046,73 +1174,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects/create": {
-            "post": {
-                "description": "Create a new project in the authenticated user's organization.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Projects"
-                ],
-                "summary": "Create a new project",
-                "parameters": [
+        "/project/members/{project_id}": {
+            "get": {
+                "security": [
                     {
-                        "description": "Create Project Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateProjectRequest"
-                        }
+                        "BearerAuth": []
                     }
                 ],
-                "responses": {
-                    "201": {
-                        "description": "Project created successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Validation error",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Duplicate project",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/projects/members": {
-            "post": {
-                "description": "Add one or more users to a project.",
+                "description": "Get paginated list of project members.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1122,27 +1191,52 @@ const docTemplate = `{
                 "tags": [
                     "Project Members"
                 ],
-                "summary": "Add project members",
+                "summary": "Get project members",
                 "parameters": [
                     {
-                        "description": "Project Member Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateProjectMemberRequest"
-                        }
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page Number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Page Size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member Name",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Project members added successfully",
+                    "200": {
+                        "description": "Project members retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/response.SuccessResponse"
                         }
                     },
                     "400": {
-                        "description": "Validation error",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1153,14 +1247,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
                     },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Duplicate member",
+                    "404": {
+                        "description": "Project not found",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1174,67 +1262,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects/sprint/{sprint_id}": {
-            "delete": {
-                "description": "Delete a sprint",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Sprint"
-                ],
-                "summary": "Delete Sprint",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Sprint ID",
-                        "name": "sprint_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Sprint deleted successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid Sprint ID",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Sprint Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/projects/{id}": {
-            "put": {
+        "/project/update/{id}": {
+            "patch": {
                 "description": "Update project details such as name, description, and status.",
                 "consumes": [
                     "application/json"
@@ -1304,88 +1333,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects/{project_id}/members": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get paginated list of project members.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Project Members"
-                ],
-                "summary": "Get project members",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Project ID",
-                        "name": "project_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "default": 1,
-                        "description": "Page Number",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "Page Size",
-                        "name": "page_size",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Member Name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Project members retrieved successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.SuccessResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Project not found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/projects/{project_id}/members/{user_id}": {
+        "/project/{project_id}/member/{user_id}": {
             "delete": {
                 "description": "Remove a user from a project.",
                 "consumes": [
@@ -1399,6 +1347,20 @@ const docTemplate = `{
                 ],
                 "summary": "Remove project member",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "Project ID",
@@ -1448,21 +1410,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects/{project_id}/sprint/": {
+        "/projects/{project_id}/sprint": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get paginated list of sprints for a project",
+                "description": "Retrieve all sprints for a project with pagination, search and status filter",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Sprint"
                 ],
-                "summary": "List Sprints",
+                "summary": "Get Sprints",
                 "parameters": [
                     {
                         "type": "string",
@@ -1474,14 +1431,14 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "default": 1,
-                        "description": "Page Number",
+                        "description": "Page number",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
                         "default": 10,
-                        "description": "Items Per Page",
+                        "description": "Page size",
                         "name": "page_size",
                         "in": "query"
                     },
@@ -1501,7 +1458,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Search by Sprint Name",
+                        "description": "Search sprint by name",
                         "name": "search",
                         "in": "query"
                     }
@@ -1538,9 +1495,11 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
+            }
+        },
+        "/projects/{project_id}/sprint/": {
             "post": {
-                "description": "Create a new sprint for a project",
+                "description": "Create a new sprint under a project",
                 "consumes": [
                     "application/json"
                 ],
@@ -1571,13 +1530,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Sprint created successfully",
+                        "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/response.SuccessResponse"
                         }
                     },
                     "400": {
-                        "description": "Validation Error",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1595,7 +1554,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Duplicate Sprint",
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1611,14 +1570,14 @@ const docTemplate = `{
         },
         "/projects/{project_id}/sprint/{sprint_id}": {
             "get": {
-                "description": "Get sprint details by project ID and sprint ID",
+                "description": "Retrieve a sprint by project ID and sprint ID",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Sprint"
                 ],
-                "summary": "Get Sprint",
+                "summary": "Get Sprint By ID",
                 "parameters": [
                     {
                         "type": "string",
@@ -1674,7 +1633,71 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
+            "delete": {
+                "description": "Delete a sprint from a project",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sprint"
+                ],
+                "summary": "Delete Sprint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sprint ID",
+                        "name": "sprint_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
                 "description": "Update sprint details",
                 "consumes": [
                     "application/json"
@@ -1713,13 +1736,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Sprint updated successfully",
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.SuccessResponse"
                         }
                     },
                     "400": {
-                        "description": "Validation Error",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1737,13 +1760,13 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Sprint Not Found",
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
                     },
                     "409": {
-                        "description": "Duplicate Sprint",
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }

@@ -1143,7 +1143,143 @@ paths:
       summary: Update User Status
       tags:
       - Organizations
-  /projects:
+  /project/{project_id}/member/{user_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a user from a project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Project member removed successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Project member not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Remove project member
+      tags:
+      - Project Members
+  /project/add-members:
+    post:
+      consumes:
+      - application/json
+      description: Add one or more users to a project.
+      parameters:
+      - description: Project Member Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateProjectMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Project members added successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Duplicate member
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Add project members
+      tags:
+      - Project Members
+  /project/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a new project in the authenticated user's organization.
+      parameters:
+      - description: Create Project Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Project created successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Duplicate project
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Create a new project
+      tags:
+      - Projects
+  /project/get:
     get:
       consumes:
       - application/json
@@ -1196,8 +1332,66 @@ paths:
       summary: Get all projects
       tags:
       - Projects
-  /projects/{id}:
-    put:
+  /project/members/{project_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of project members.
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - default: 1
+        description: Page Number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page Size
+        in: query
+        name: page_size
+        type: integer
+      - description: Member Name
+        in: query
+        name: name
+        type: string
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Project members retrieved successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Project not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get project members
+      tags:
+      - Project Members
+  /project/update/{id}:
+    patch:
       consumes:
       - application/json
       description: Update project details such as name, description, and status.
@@ -1243,11 +1437,10 @@ paths:
       summary: Update project
       tags:
       - Projects
-  /projects/{project_id}/members:
+  /projects/{project_id}/sprint:
     get:
-      consumes:
-      - application/json
-      description: Get paginated list of project members.
+      description: Retrieve all sprints for a project with pagination, search and
+        status filter
       parameters:
       - description: Project ID
         in: path
@@ -1255,105 +1448,12 @@ paths:
         required: true
         type: string
       - default: 1
-        description: Page Number
+        description: Page number
         in: query
         name: page
         type: integer
       - default: 10
-        description: Page Size
-        in: query
-        name: page_size
-        type: integer
-      - description: Member Name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Project members retrieved successfully
-          schema:
-            $ref: '#/definitions/response.SuccessResponse'
-        "400":
-          description: Invalid request
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "404":
-          description: Project not found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get project members
-      tags:
-      - Project Members
-  /projects/{project_id}/members/{user_id}:
-    delete:
-      consumes:
-      - application/json
-      description: Remove a user from a project.
-      parameters:
-      - description: Project ID
-        in: path
-        name: project_id
-        required: true
-        type: string
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Project member removed successfully
-          schema:
-            $ref: '#/definitions/response.SuccessResponse'
-        "400":
-          description: Invalid request
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "404":
-          description: Project member not found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      summary: Remove project member
-      tags:
-      - Project Members
-  /projects/{project_id}/sprint/:
-    get:
-      description: Get paginated list of sprints for a project
-      parameters:
-      - description: Project ID
-        in: path
-        name: project_id
-        required: true
-        type: string
-      - default: 1
-        description: Page Number
-        in: query
-        name: page
-        type: integer
-      - default: 10
-        description: Items Per Page
+        description: Page size
         in: query
         name: page_size
         type: integer
@@ -1368,7 +1468,7 @@ paths:
         in: query
         name: status
         type: string
-      - description: Search by Sprint Name
+      - description: Search sprint by name
         in: query
         name: search
         type: string
@@ -1395,15 +1495,14 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: List Sprints
+      summary: Get Sprints
       tags:
       - Sprint
+  /projects/{project_id}/sprint/:
     post:
       consumes:
       - application/json
-      description: Create a new sprint for a project
+      description: Create a new sprint under a project
       parameters:
       - description: Project ID
         in: path
@@ -1420,11 +1519,11 @@ paths:
       - application/json
       responses:
         "201":
-          description: Sprint created successfully
+          description: Created
           schema:
             $ref: '#/definitions/response.SuccessResponse'
         "400":
-          description: Validation Error
+          description: Bad Request
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "401":
@@ -1436,7 +1535,7 @@ paths:
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "409":
-          description: Duplicate Sprint
+          description: Conflict
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "500":
@@ -1447,8 +1546,8 @@ paths:
       tags:
       - Sprint
   /projects/{project_id}/sprint/{sprint_id}:
-    get:
-      description: Get sprint details by project ID and sprint ID
+    delete:
+      description: Delete a sprint from a project
       parameters:
       - description: Project ID
         in: path
@@ -1487,10 +1586,53 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-      summary: Get Sprint
+      summary: Delete Sprint
       tags:
       - Sprint
-    put:
+    get:
+      description: Retrieve a sprint by project ID and sprint ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Sprint ID
+        in: path
+        name: sprint_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get Sprint By ID
+      tags:
+      - Sprint
+    patch:
       consumes:
       - application/json
       description: Update sprint details
@@ -1515,11 +1657,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: Sprint updated successfully
+          description: OK
           schema:
             $ref: '#/definitions/response.SuccessResponse'
         "400":
-          description: Validation Error
+          description: Bad Request
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "401":
@@ -1531,11 +1673,11 @@ paths:
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "404":
-          description: Sprint Not Found
+          description: Not Found
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "409":
-          description: Duplicate Sprint
+          description: Conflict
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "500":
@@ -1543,129 +1685,6 @@ paths:
           schema:
             $ref: '#/definitions/response.ErrorResponse'
       summary: Update Sprint
-      tags:
-      - Sprint
-  /projects/create:
-    post:
-      consumes:
-      - application/json
-      description: Create a new project in the authenticated user's organization.
-      parameters:
-      - description: Create Project Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateProjectRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Project created successfully
-          schema:
-            $ref: '#/definitions/response.SuccessResponse'
-        "400":
-          description: Validation error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "409":
-          description: Duplicate project
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      summary: Create a new project
-      tags:
-      - Projects
-  /projects/members:
-    post:
-      consumes:
-      - application/json
-      description: Add one or more users to a project.
-      parameters:
-      - description: Project Member Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateProjectMemberRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Project members added successfully
-          schema:
-            $ref: '#/definitions/response.SuccessResponse'
-        "400":
-          description: Validation error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "409":
-          description: Duplicate member
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      summary: Add project members
-      tags:
-      - Project Members
-  /projects/sprint/{sprint_id}:
-    delete:
-      description: Delete a sprint
-      parameters:
-      - description: Sprint ID
-        in: path
-        name: sprint_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Sprint deleted successfully
-          schema:
-            $ref: '#/definitions/response.SuccessResponse'
-        "400":
-          description: Invalid Sprint ID
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "404":
-          description: Sprint Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      summary: Delete Sprint
       tags:
       - Sprint
   /remove-user/:

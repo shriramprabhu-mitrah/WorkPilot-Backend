@@ -38,7 +38,8 @@ type ProjectHandler struct {
 //	@Failure		403		{object}	response.ErrorResponse		"Forbidden"
 //	@Failure		409		{object}	response.ErrorResponse		"Duplicate project"
 //	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
-//	@Router			/projects/create [post]
+//
+// @Router /project/create [post]
 func (h *ProjectHandler) CreateProject(g *gin.Context) {
 
 	var payload dto.CreateProjectRequest
@@ -143,7 +144,8 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 //	@Failure		403		{object}	response.ErrorResponse		"Forbidden"
 //	@Failure		404		{object}	response.ErrorResponse		"Project not found"
 //	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
-//	@Router			/projects/{id} [put]
+//
+// @Router /project/update/{id} [patch]
 func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 
 	var payload dto.UpdateProjectRequest
@@ -259,7 +261,8 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //	@Failure		400			{object}	response.ErrorResponse		"Invalid query parameters"
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
 //	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
-//	@Router			/projects [get]
+//
+// @Router /project/get [get]
 func (h *ProjectHandler) GetProjects(g *gin.Context) {
 	var filter dto.ProjectFilterRequest
 
@@ -332,7 +335,8 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 //	@Failure		403		{object}	response.ErrorResponse		"Forbidden"
 //	@Failure		409		{object}	response.ErrorResponse		"Duplicate member"
 //	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
-//	@Router			/projects/members [post]
+//
+// @Router /project/add-members [post]
 func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 
 	var payload dto.CreateProjectMemberRequest
@@ -439,7 +443,9 @@ func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
 //	@Failure		404			{object}	response.ErrorResponse		"Project not found"
 //	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
-//	@Router			/projects/{project_id}/members [get]
+//
+// @Param           project_id path string true "Project ID"
+// @Router          /project/members/{project_id} [get]
 func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 	var filter dto.ProjectMemberFilter
 
@@ -497,7 +503,10 @@ func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
 //	@Failure		404			{object}	response.ErrorResponse		"Project member not found"
 //	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
-//	@Router			/projects/{project_id}/members/{user_id} [delete]
+//
+// @Param project_id path string true "Project ID"
+// @Param user_id path string true "User ID"
+// @Router /project/{project_id}/member/{user_id} [delete]
 func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	projectID := g.Param("project_id")
 	projectUUID, errorResponse := utils.StringToUUID(projectID)

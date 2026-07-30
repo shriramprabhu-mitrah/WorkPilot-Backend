@@ -27,18 +27,18 @@ type sprintHandler struct {
 
 // CreateSprint godoc
 // @Summary Create Sprint
-// @Description Create a new sprint for a project
+// @Description Create a new sprint under a project
 // @Tags Sprint
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param request body dto.CreateSprintRequest true "Sprint Details"
-// @Success 201 {object} response.SuccessResponse "Sprint created successfully"
-// @Failure 400 {object} response.ErrorResponse "Validation Error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Failure 403 {object} response.ErrorResponse "Forbidden"
-// @Failure 409 {object} response.ErrorResponse "Duplicate Sprint"
-// @Failure 500 {object} response.ErrorResponse "Internal Server Error"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
 // @Router /projects/{project_id}/sprint/ [post]
 func (h *sprintHandler) CreateSprint(g *gin.Context) {
 
@@ -140,17 +140,18 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 
 // DeleteSprint godoc
 // @Summary Delete Sprint
-// @Description Delete a sprint
+// @Description Delete a sprint from a project
 // @Tags Sprint
 // @Produce json
+// @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"
-// @Success 200 {object} response.SuccessResponse "Sprint deleted successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid Sprint ID"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Failure 403 {object} response.ErrorResponse "Forbidden"
-// @Failure 404 {object} response.ErrorResponse "Sprint Not Found"
-// @Failure 500 {object} response.ErrorResponse "Internal Server Error"
-// @Router /projects/sprint/{sprint_id} [delete]
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/{sprint_id} [delete]
 func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 
 	var payload dto.DeleteSprint
@@ -245,14 +246,14 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 // @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"
 // @Param request body dto.UpdateSprintRequest true "Sprint Update Details"
-// @Success 200 {object} response.SuccessResponse "Sprint updated successfully"
-// @Failure 400 {object} response.ErrorResponse "Validation Error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Failure 403 {object} response.ErrorResponse "Forbidden"
-// @Failure 404 {object} response.ErrorResponse "Sprint Not Found"
-// @Failure 409 {object} response.ErrorResponse "Duplicate Sprint"
-// @Failure 500 {object} response.ErrorResponse "Internal Server Error"
-// @Router /projects/{project_id}/sprint/{sprint_id} [put]
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/{sprint_id} [patch]
 func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 
 	var payload dto.UpdateSprintRequest
@@ -363,22 +364,21 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 }
 
 // GetSprints godoc
-// @Summary List Sprints
-// @Description Get paginated list of sprints for a project
+// @Summary Get Sprints
+// @Description Retrieve all sprints for a project with pagination, search and status filter
 // @Tags Sprint
 // @Produce json
-// @Security BearerAuth
 // @Param project_id path string true "Project ID"
-// @Param page query int false "Page Number" default(1)
-// @Param page_size query int false "Items Per Page" default(10)
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
 // @Param status query string false "Sprint Status" Enums(planning,active,on_hold,completed,cancelled,archived)
-// @Param search query string false "Search by Sprint Name"
+// @Param search query string false "Search sprint by name"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/sprint/ [get]
+// @Router /projects/{project_id}/sprint [get]
 func (h *sprintHandler) GetSprints(g *gin.Context) {
 
 	var filter dto.SprintFilter
@@ -477,8 +477,8 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 }
 
 // GetSprintByID godoc
-// @Summary Get Sprint
-// @Description Get sprint details by project ID and sprint ID
+// @Summary Get Sprint By ID
+// @Description Retrieve a sprint by project ID and sprint ID
 // @Tags Sprint
 // @Produce json
 // @Param project_id path string true "Project ID"
