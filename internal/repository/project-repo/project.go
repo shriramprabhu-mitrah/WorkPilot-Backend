@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (d *projectDatabase) CreateProjectWithMember(project models.Project, projectMember models.ProjectMember) *response.Error {
+func (d *projectDatabase) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
 
 	tx := d.db.Begin()
 	if tx.Error != nil {
@@ -215,4 +215,105 @@ func (d *projectDatabase) GetProjectByID(id uuid.UUID) (models.Project, *respons
 		return models.Project{}, &errorResponse
 	}
 	return row, nil
+}
+
+func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
+	var logs []models.AuditLog
+	var totalItems int64
+
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 10
+	}
+	if filter.PageSize > 100 {
+		filter.PageSize = 100
+	}
+	offset := (filter.Page - 1) * filter.PageSize
+
+	baseQuery := d.db.Model(&models.AuditLog{}).Where("project_id = ?", projectID)
+
+	if filter.Action != "" {
+		baseQuery = baseQuery.Where("LOWER(action) = ?", strings.ToLower(strings.TrimSpace(filter.Action)))
+	}
+	if filter.UserID != nil && *filter.UserID != uuid.Nil {
+		baseQuery = baseQuery.Where("user_id = ?", *filter.UserID)
+	}
+	if filter.ResourceType != "" {
+		baseQuery = baseQuery.Where("LOWER(resource_type) = ?", strings.ToLower(strings.TrimSpace(filter.ResourceType)))
+	}
+	if filter.StartDate != "" {
+		baseQuery = baseQuery.Where("created_at >= ?", filter.StartDate)
+	}
+	if filter.EndDate != "" {
+		baseQuery = baseQuery.Where("created_at <= ?", filter.EndDate)
+	}
+
+	if err := baseQuery.Count(&totalItems).Error; err != nil {
+		d.logger.Error("Database error counting project activity logs", zap.String("project_id", projectID.String()), zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if err := baseQuery.
+		Preload("User").
+		Order("created_at DESC").
+		Limit(filter.PageSize).
+		Offset(offset).
+		Find(&logs).Error; err != nil {
+		d.logger.Error("Database error finding project activity logs", zap.String("project_id", projectID.String()), zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := response.Pagination{
+		Page:        filter.Page,
+		PageSize:    filter.PageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     filter.Page < totalPages,
+		HasPrevious: filter.Page > 1,
+	}
+
+	return logs, pagination, nil
+}
+
+func (d *projectDatabase) IsUserProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
+	var count int64
+	err := d.db.Model(&models.ProjectMember{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&count).Error
+	if err != nil {
+		d.logger.Error("Database error checking project membership", zap.Error(err))
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+	return count > 0, nil
+}
+
+func (d *projectDatabase) CreateAuditLog(log models.AuditLog) *response.Error {
+	if err := d.db.Create(&log).Error; err != nil {
+		d.logger.Error("Database error creating audit log", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+	return nil
 }

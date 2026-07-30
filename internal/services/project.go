@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -19,7 +20,8 @@ type ProjectService interface {
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
 	CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
-	RemoveProjectMember(projectID, userID uuid.UUID) *response.Error
+	RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error
+	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error)
 }
 
 func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) ProjectService {
@@ -38,7 +40,7 @@ type projectService struct {
 
 func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.Error {
 
-	projectPayload := models.Project{
+	projectPayload := &models.Project{
 		Name:           req.Name,
 		Description:    req.Description,
 		Status:         string(dto.ProjectStatusPlanning),
@@ -46,7 +48,7 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 		CreatedBy:      req.UserID,
 	}
 
-	projectMemberPayload := models.ProjectMember{
+	projectMemberPayload := &models.ProjectMember{
 		UserID:    req.UserID,
 		AddedByID: req.UserID,
 		JoinedAt:  time.Now(),
@@ -55,6 +57,30 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 	err := s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
 	if err != nil {
 		return err
+	}
+
+	// get the project details
+	project, err := s.projectRepo.GetProjectByID(projectPayload.ID)
+	if err != nil {
+		return err
+	}
+
+	// Log project creation audit event
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &project.ID,
+		Action:         "project_created",
+		ResourceType:   "project",
+		ResourceID:     project.ID.String(),
+		Details:        fmt.Sprintf("Project '%s' created", req.Name),
+		CreatedAt:      time.Now(),
+	}
+
+	// if error occurred just warn it do not return error
+	err = s.projectRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return nil
@@ -103,7 +129,28 @@ func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.E
 		payload.Status = string(req.Status)
 	}
 
-	return s.projectRepo.UpdateProject(req.ProjectID, payload)
+	updateErr := s.projectRepo.UpdateProject(req.ProjectID, payload)
+	if updateErr != nil {
+		return updateErr
+	}
+
+	// Log project update audit event
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "project_updated",
+		ResourceType:   "project",
+		ResourceID:     req.ProjectID.String(),
+		Details:        fmt.Sprintf("Project updated: %s", req.Name),
+		CreatedAt:      time.Now(),
+	}
+	err = s.projectRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return nil
 }
 func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, filterPayload dto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
 
@@ -169,6 +216,22 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		if err := s.projectRepo.CreateProjectMember(projectMember); err != nil {
 			return err
 		}
+
+		// Log member added audit event
+		auditLog := models.AuditLog{
+			UserID:         &req.AddedByID,
+			OrganizationID: &req.OrganizationID,
+			ProjectID:      &req.ProjectID,
+			Action:         "member_added",
+			ResourceType:   "project_member",
+			ResourceID:     userID.String(),
+			Details:        fmt.Sprintf("User %s added to project", userID.String()),
+			CreatedAt:      time.Now(),
+		}
+		err = s.projectRepo.CreateAuditLog(auditLog)
+		if err != nil {
+			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		}
 	}
 
 	return nil
@@ -179,7 +242,123 @@ func (s *projectService) GetProjectsMembersByProjectID(projectID uuid.UUID, filt
 	return s.projectRepo.GetProjectsMembersByProjectID(projectID, filter)
 }
 
-func (s *projectService) RemoveProjectMember(projectID, userID uuid.UUID) *response.Error {
+func (s *projectService) RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error {
 
-	return s.projectRepo.RemoveProjectMember(projectID, userID)
+	err := s.projectRepo.RemoveProjectMember(projectID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Log member removed audit event
+	auditLog := models.AuditLog{
+		UserID:         &performingUserID,
+		OrganizationID: &organizationID,
+		ProjectID:      &projectID,
+		Action:         "member_removed",
+		ResourceType:   "project_member",
+		ResourceID:     userID.String(),
+		Details:        fmt.Sprintf("User %s removed from project", userID.String()),
+		CreatedAt:      time.Now(),
+	}
+	err = s.projectRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return nil
+}
+
+func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, filterReq dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error) {
+
+	project, err := s.projectRepo.GetProjectByID(projectID)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	// Authorization check: super_admin, org_admin of project's org, or project member
+	isAuthorized := false
+
+	if userRole == string(models.RoleSuperAdmin) {
+		isAuthorized = true
+	} else if userRole == string(models.RoleOrgAdmin) && userOrgID != uuid.Nil && userOrgID == project.OrganizationID {
+		isAuthorized = true
+	} else {
+		isMember, memberErr := s.projectRepo.IsUserProjectMember(projectID, userID)
+		if memberErr != nil {
+			return nil, response.Pagination{}, memberErr
+		}
+		if isMember {
+			isAuthorized = true
+		}
+	}
+
+	if !isAuthorized {
+		s.logger.Error("Unauthorized access to project activity log",
+			zap.String("user_id", userID.String()),
+			zap.String("project_id", projectID.String()),
+			zap.String("user_role", userRole),
+		)
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	var parsedUserID *uuid.UUID
+	if filterReq.UserID != "" {
+		uid, parseErr := uuid.FromString(filterReq.UserID)
+		if parseErr != nil || uid == uuid.Nil {
+			s.logger.Error("Invalid user ID in project activity filter", zap.String("user_id", filterReq.UserID))
+			return nil, response.Pagination{}, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid UserID filter format",
+			}
+		}
+		parsedUserID = &uid
+	}
+
+	filter := dto.ProjectActivityFilter{
+		Page:         filterReq.Page,
+		PageSize:     filterReq.PageSize,
+		Action:       filterReq.Action,
+		UserID:       parsedUserID,
+		ResourceType: filterReq.ResourceType,
+		StartDate:    filterReq.StartDate,
+		EndDate:      filterReq.EndDate,
+	}
+
+	logs, pagination, repoErr := s.projectRepo.GetProjectActivity(projectID, filter)
+	if repoErr != nil {
+		return nil, response.Pagination{}, repoErr
+	}
+
+	var responseDTOs []dto.ProjectActivityResponse
+	for _, item := range logs {
+		dtoItem := dto.ProjectActivityResponse{
+			ID:             item.ID,
+			ProjectID:      item.ProjectID,
+			OrganizationID: item.OrganizationID,
+			Action:         item.Action,
+			ResourceType:   item.ResourceType,
+			ResourceID:     item.ResourceID,
+			Details:        item.Details,
+			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
+		}
+
+		if item.User.ID != uuid.Nil {
+			dtoItem.User = &dto.UserSummary{
+				ID:        item.User.ID,
+				FullName:  item.User.FullName,
+				Email:     item.User.Email,
+				AvatarURL: item.User.AvatarURL,
+				Role:      item.User.Role,
+			}
+		}
+
+		responseDTOs = append(responseDTOs, dtoItem)
+	}
+
+	return responseDTOs, pagination, nil
 }
