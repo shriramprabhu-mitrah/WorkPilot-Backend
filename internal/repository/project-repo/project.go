@@ -189,7 +189,11 @@ func (d *projectDatabase) GetProjectByID(id uuid.UUID) (models.Project, *respons
 
 	var row models.Project
 
-	err := d.db.Where("id = ?", id).First(&row).Error
+	err := d.db.
+		Where("id = ?", id).
+		Preload("Organization").
+		Preload("Creator").
+		First(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
