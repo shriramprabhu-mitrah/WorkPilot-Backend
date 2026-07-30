@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/handlers/dto"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -174,14 +175,14 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 		return
 	}
 
-	id := g.Param("id")
-	sprintID, errorResponse := utils.StringToUUID(id)
+	sprintID := g.Param("sprint_id")
+	sprintUUID, errorResponse := utils.StringToUUID(sprintID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		return
 	}
 
-	payload.SprintID = sprintID
+	payload.SprintID = sprintUUID
 	payload.UserID = userUUID
 	payload.OrganizationID = organizationUUID
 
@@ -199,6 +200,9 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 		Message:    "Sprint deleted successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
+		Data: map[string]uuid.UUID{
+			"Sprint ID": sprintUUID,
+		},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
@@ -280,14 +284,14 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 	}
 
 	sprintParam := g.Param("sprint_id")
-	sprintID, errorResponse := utils.StringToUUID(sprintParam)
+	sprintUUID, errorResponse := utils.StringToUUID(sprintParam)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		return
 	}
 
 	payload.ProjectID = projectID
-	payload.SprintID = sprintID
+	payload.SprintID = sprintUUID
 	payload.UserID = userUUID
 	payload.OrganizationID = organizationUUID
 
@@ -305,6 +309,9 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 		Message:    "Sprint Updated successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
+		Data: map[string]uuid.UUID{
+			"Sprint ID": sprintUUID,
+		},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 

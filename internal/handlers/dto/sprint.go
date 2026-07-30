@@ -1,8 +1,6 @@
 package dto
 
 import (
-	"time"
-
 	"github.com/gofrs/uuid"
 )
 
@@ -30,8 +28,8 @@ type CreateSprintRequest struct {
 type UpdateSprintRequest struct {
 	Name           string       `json:"name" binding:"omitempty,min=2,max=100"`
 	Goal           string       `json:"goal" binding:"omitempty,max=500"`
-	StartDate      *time.Time   `json:"start_date"`
-	EndDate        *time.Time   `json:"end_date"`
+	StartDate      string       `json:"start_date"`
+	EndDate        string       `json:"end_date"`
 	Status         SprintStatus `json:"status" binding:"omitempty,oneof=planning active on_hold completed cancelled archived"`
 	ProjectID      uuid.UUID
 	UserID         uuid.UUID

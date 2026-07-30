@@ -23,10 +23,11 @@ type SprintService interface {
 	GetSprintByID(req dto.GetSprint) (*models.Sprint, *response.Error)
 }
 
-func InitSprintService(repo sprintrepo.SprintRepository, projectRepo projectrepo.ProjectRepository, logger *zap.Logger) SprintService {
+func InitSprintService(sprintRepo sprintrepo.SprintRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) SprintService {
 	return &sprintService{
-		sprintRepo:  repo,
+		sprintRepo:  sprintRepo,
 		projectRepo: projectRepo,
+		authRepo:    authRepo,
 		logger:      logger,
 	}
 }
@@ -185,15 +186,31 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 	startDate = &existingSprint.StartDate
 	endDate = &existingSprint.EndDate
 
-	if req.StartDate != nil {
-		startDate = req.StartDate
+	if req.StartDate != "" {
+		d, err := utils.StringToTime(req.StartDate)
+		startDate = d
+		if err != nil {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
+			}
+		}
 	}
 
-	if req.EndDate != nil {
-		endDate = req.EndDate
+	if req.EndDate != "" {
+		d, err := utils.StringToTime(req.StartDate)
+		startDate = d
+		if err != nil {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
+			}
+		}
 	}
 
-	if startDate != nil && endDate != nil && startDate.After(*endDate) {
+	if startDate.After(*endDate) {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
@@ -204,8 +221,8 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 	payload := models.Sprint{
 		Name:      req.Name,
 		Goal:      req.Goal,
-		StartDate: *req.StartDate,
-		EndDate:   *req.EndDate,
+		StartDate: *startDate,
+		EndDate:   *endDate,
 		Status:    string(req.Status),
 	}
 

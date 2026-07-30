@@ -202,11 +202,15 @@ func (d *sprintDatabase) GetSprints(projectID uuid.UUID, filter dto.SprintFilter
 		}
 	}
 
+	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
+
 	pagination := response.Pagination{
-		Page:       filter.Page,
-		PageSize:   filter.PageSize,
-		TotalItems: int(totalItems),
-		TotalPages: int(math.Ceil(float64(totalItems) / float64(filter.PageSize))),
+		Page:        filter.Page,
+		PageSize:    filter.PageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     filter.Page < totalPages,
+		HasPrevious: filter.Page > 1,
 	}
 
 	return sprints, pagination, nil

@@ -5,6 +5,7 @@ import (
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
 	"github.com/ms-kanban-server/internal/services"
@@ -15,9 +16,10 @@ func SprintRoutes(deps models.Config, api *gin.RouterGroup) {
 	// initialize repositories
 	sprintRepo := sprintrepo.InitSprintRepository(deps)
 	projectRepo := projectrepo.InitProjectRepository(deps)
+	authRepo := authrepo.InitAuthRepository(deps)
 
 	// initialize services
-	sprintService := services.InitSprintService(sprintRepo, projectRepo, deps.Logger)
+	sprintService := services.InitSprintService(sprintRepo, projectRepo, authRepo, deps.Logger)
 
 	// initialize handlers
 	sprintHandler := handlers.InitSprintHandler(sprintService, deps.Logger)

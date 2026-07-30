@@ -22,3 +22,13 @@ type Sprint struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
 }
+
+func (s *Sprint) BeforeCreate(tx *gorm.DB) (err error) {
+	if s.ID == uuid.Nil {
+		s.ID, err = uuid.NewV7()
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
