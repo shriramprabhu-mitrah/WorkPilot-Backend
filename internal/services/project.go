@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -214,6 +215,8 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 
 func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error {
 
+	var existingUsers []string
+
 	for _, userID := range req.UserIDs {
 
 		result, err := s.authRepo.GetUserByID(userID)
@@ -225,6 +228,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			s.logger.Error("Unauthorized Access",
 				zap.String("Organization ID", req.OrganizationID.String()),
 				zap.String("User Organization ID", result.OrganizationID.String()))
+
 			return &response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
@@ -252,11 +256,8 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		}
 
 		if isMember {
-			return &response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "User Already Exist in Project",
-			}
+			existingUsers = append(existingUsers, result.UserName)
+			continue
 		}
 
 		projectMember := models.ProjectMember{
@@ -270,7 +271,6 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			return err
 		}
 
-		// Log member added audit event
 		auditLog := models.AuditLog{
 			UserID:         &req.AddedByID,
 			OrganizationID: &req.OrganizationID,
@@ -281,9 +281,17 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			Details:        fmt.Sprintf("User %s added to project", userID.String()),
 			CreatedAt:      time.Now(),
 		}
-		err = s.projectRepo.CreateAuditLog(auditLog)
-		if err != nil {
+
+		if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
 			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		}
+	}
+
+	if len(existingUsers) > 0 {
+		return &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    fmt.Sprintf("The following users are already members of the project: %s", strings.Join(existingUsers, ", ")),
 		}
 	}
 
