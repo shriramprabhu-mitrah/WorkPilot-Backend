@@ -16,13 +16,17 @@ const (
 )
 
 type CreateSprintRequest struct {
-	Name           string `json:"name" binding:"required,min=2,max=100"`
-	Goal           string `json:"goal" `
-	StartDate      string `json:"start_date" binding:"required"`
-	EndDate        string `json:"end_date" binding:"required"`
+	Sprints        []CreateSprint `json:"sprints"`
 	ProjectID      uuid.UUID
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
+}
+
+type CreateSprint struct {
+	Name      string `json:"name" binding:"required,min=2,max=100"`
+	Goal      string `json:"goal" `
+	StartDate string `json:"start_date" binding:"required"`
+	EndDate   string `json:"end_date" binding:"required"`
 }
 
 type UpdateSprintRequest struct {

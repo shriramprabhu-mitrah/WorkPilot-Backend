@@ -106,7 +106,7 @@ definitions:
     required:
     - name
     type: object
-  dto.CreateSprintRequest:
+  dto.CreateSprint:
     properties:
       end_date:
         type: string
@@ -116,18 +116,25 @@ definitions:
         maxLength: 100
         minLength: 2
         type: string
-      organizationID:
-        type: string
-      projectID:
-        type: string
       start_date:
-        type: string
-      userID:
         type: string
     required:
     - end_date
     - name
     - start_date
+    type: object
+  dto.CreateSprintRequest:
+    properties:
+      organizationID:
+        type: string
+      projectID:
+        type: string
+      sprints:
+        items:
+          $ref: '#/definitions/dto.CreateSprint'
+        type: array
+      userID:
+        type: string
     type: object
   dto.Industry:
     enum:
@@ -162,7 +169,9 @@ definitions:
     type: object
   dto.ProjectMemberResponse:
     properties:
-      id:
+      full_name:
+        type: string
+      role:
         type: string
       user_id:
         type: string
@@ -492,8 +501,6 @@ definitions:
         $ref: '#/definitions/models.Organization'
       organization_id:
         type: string
-      password_hash:
-        type: string
       role:
         type: string
       timezone:
@@ -504,7 +511,6 @@ definitions:
         type: string
     required:
     - email
-    - password_hash
     type: object
   response.Error:
     properties:
@@ -1595,53 +1601,6 @@ paths:
       summary: Get Sprints
       tags:
       - Sprint
-  /projects/{project_id}/sprint/:
-    post:
-      consumes:
-      - application/json
-      description: Create a new sprint under a project
-      parameters:
-      - description: Project ID
-        in: path
-        name: project_id
-        required: true
-        type: string
-      - description: Sprint Details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateSprintRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/response.SuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      summary: Create Sprint
-      tags:
-      - Sprint
   /projects/{project_id}/sprint/{sprint_id}:
     delete:
       description: Delete a sprint from a project
@@ -1782,6 +1741,53 @@ paths:
           schema:
             $ref: '#/definitions/response.ErrorResponse'
       summary: Update Sprint
+      tags:
+      - Sprint
+  /projects/{project_id}/sprint/create:
+    post:
+      consumes:
+      - application/json
+      description: Create one or more sprints under a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: List of sprints to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateSprintRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Sprint(s) created successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Invalid request payload
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Create Sprints
       tags:
       - Sprint
   /remove-user/:
