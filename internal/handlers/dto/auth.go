@@ -27,12 +27,12 @@ type AuthTokensResponse struct {
 type SignInRequest struct {
 	Email          string `json:"email" binding:"required,email"`
 	Password       string `json:"password" binding:"required"`
-	OrganizationID string `json:"organization_id,omitempty"`
+	OrganizationID string `json:"-" swaggerignore:"true"`
 }
 
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
-	UserID       string `json:"user_id"`
+	UserID       string `json:"-" swaggerignore:"true"`
 }
 
 type SignUpRequest struct {
@@ -77,9 +77,9 @@ func (r Role) Validate() error {
 }
 
 type ChangePasswordRequest struct {
-	UserID      uuid.UUID `json:"user_id"`
-	OldPassword string    `json:"old_password" binding:"required"`
-	NewPassword string    `json:"new_password" binding:"required"`
+	UserID      uuid.UUID
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
 }
 
 type UpdateUserRequest struct {

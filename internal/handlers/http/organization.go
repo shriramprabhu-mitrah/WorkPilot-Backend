@@ -702,14 +702,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 	}
 	organizationIDStr := organizationID.(string)
 
-	id, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
-	userID, errorResponse := utils.StringToUUID(payload.UserID)
+	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -717,8 +710,8 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 	}
 
 	credentials := dto.RemoveUser{
-		OrganizationID: &id,
-		UserID:         userID,
+		OrganizationID: &organizationUUID,
+		UserID:         payload.UserID,
 	}
 	err := h.service.RemoveUser(credentials)
 	if err != nil {
@@ -735,7 +728,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]any{
-			"OrganizationID": id,
+			"OrganizationID": organizationUUID,
 			"user_id":        payload.UserID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)

@@ -728,7 +728,7 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 //
 //	@Summary		Delete Project
 //	@Description	Delete an existing project
-//	@Tags			Project
+//	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
@@ -755,7 +755,7 @@ func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 			},
 		}
 
-		h.logger.Error("Sprint Id Invalid/Missing ")
+		h.logger.Error("Internal server error: missing organization context")
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}

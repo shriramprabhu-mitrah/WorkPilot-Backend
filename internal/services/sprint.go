@@ -41,7 +41,7 @@ type sprintService struct {
 
 func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Error {
 
-	result, errResp := s.authRepo.GetByID(req.UserID)
+	result, errResp := s.authRepo.GetUserByID(req.UserID)
 	if errResp != nil {
 		return errResp
 	}
@@ -115,7 +115,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 
 func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 
-	result, errorResponse := s.authRepo.GetByID(req.UserID)
+	result, errorResponse := s.authRepo.GetUserByID(req.UserID)
 	if errorResponse != nil {
 		return errorResponse
 	}
@@ -154,7 +154,7 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 
 	var startDate, endDate *time.Time
 
-	result, errorResponse := s.authRepo.GetByID(req.UserID)
+	result, errorResponse := s.authRepo.GetUserByID(req.UserID)
 	if errorResponse != nil {
 		return errorResponse
 	}
@@ -239,7 +239,7 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 
 func (s *sprintService) GetSprints(req dto.GetSprint, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
 
-	result, errorResponse := s.authRepo.GetByID(req.UserID)
+	result, errorResponse := s.authRepo.GetUserByID(req.UserID)
 	if errorResponse != nil {
 		return nil, response.Pagination{}, errorResponse
 	}
@@ -276,7 +276,7 @@ func (s *sprintService) GetSprints(req dto.GetSprint, filter dto.SprintFilter) (
 
 func (s *sprintService) GetSprintByID(req dto.GetSprint) (*models.Sprint, *response.Error) {
 
-	result, errorResponse := s.authRepo.GetByID(req.UserID)
+	result, errorResponse := s.authRepo.GetUserByID(req.UserID)
 	if errorResponse != nil {
 		return nil, errorResponse
 	}

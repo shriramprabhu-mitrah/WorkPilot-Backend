@@ -18,7 +18,7 @@ import (
 
 func (d *authDatabase) ExistsByEmail(email string) (bool, *response.Error) {
 	var count int64
-	if err := d.DB.Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err != nil {
+	if err := d.db.Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err != nil {
 		d.logger.Error("Database error checking email existence",
 			zap.String("Email", email), zap.Error(err))
 		return false, &response.Error{
@@ -32,7 +32,7 @@ func (d *authDatabase) ExistsByEmail(email string) (bool, *response.Error) {
 
 func (d *authDatabase) ExistsByUsername(username string) (bool, *response.Error) {
 	var count int64
-	if err := d.DB.Model(&models.User{}).Where("username = ?", username).Count(&count).Error; err != nil {
+	if err := d.db.Model(&models.User{}).Where("username = ?", username).Count(&count).Error; err != nil {
 		d.logger.Error("Database error checking username existence",
 			zap.String("Username", username), zap.Error(err))
 		return false, &response.Error{

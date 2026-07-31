@@ -167,7 +167,7 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 			},
 		}
 
-		h.logger.Error("Sprint Id Invalid/Missing ")
+		h.logger.Error("Internal server error: missing organization context")
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
@@ -284,7 +284,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 			},
 		}
 
-		h.logger.Error("Sprint Id Invalid/Missing ")
+		h.logger.Error("Internal server error: missing organization context")
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}

@@ -17,9 +17,9 @@ const (
 
 type CreateSprintRequest struct {
 	Sprints        []CreateSprint `json:"sprints" binding:"required"`
-	ProjectID      uuid.UUID
-	UserID         uuid.UUID
-	OrganizationID uuid.UUID
+	ProjectID      uuid.UUID      `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID      `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID      `json:"-" swaggerignore:"true"`
 }
 
 type CreateSprint struct {
@@ -35,10 +35,10 @@ type UpdateSprintRequest struct {
 	StartDate      string       `json:"start_date"`
 	EndDate        string       `json:"end_date"`
 	Status         SprintStatus `json:"status" binding:"omitempty,oneof=planning active on_hold completed cancelled archived"`
-	ProjectID      uuid.UUID
-	UserID         uuid.UUID
-	OrganizationID uuid.UUID
-	SprintID       uuid.UUID
+	ProjectID      uuid.UUID    `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID    `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID    `json:"-" swaggerignore:"true"`
+	SprintID       uuid.UUID    `json:"-" swaggerignore:"true"`
 }
 
 type SprintFilter struct {

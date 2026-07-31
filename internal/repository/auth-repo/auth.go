@@ -81,7 +81,7 @@ func (d *authDatabase) GetByEmail(email string) (models.User, *response.Error) {
 
 	var row models.User
 
-	err := d.DB.Where("email = ?", email).Preload("Organization").First(&row).Error
+	err := d.db.Where("email = ?", email).Preload("Organization").First(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
@@ -109,11 +109,11 @@ func (d *authDatabase) GetByEmail(email string) (models.User, *response.Error) {
 	return row, nil
 }
 
-func (d *authDatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
+func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
 
 	var row models.User
 
-	if err := d.DB.Where("id = ?", id).Preload("Organization").First(&row).Error; err != nil {
+	if err := d.db.Where("id = ?", id).Preload("Organization").First(&row).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 
 			d.logger.Error("The user associated with the refresh token could not be found",
@@ -138,7 +138,7 @@ func (d *authDatabase) GetByID(id uuid.UUID) (models.User, *response.Error) {
 
 func (d *authDatabase) CreateUser(row models.User) *response.Error {
 
-	if err := d.DB.Create(&row).Error; err != nil {
+	if err := d.db.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
 			d.logger.Error("Duplicated Key conflict", zap.Error(err))
 			return utils.ParseUserDuplicateError(err)
@@ -178,7 +178,7 @@ func (d *authDatabase) StoreRefreshToken(token models.RefreshToken) (models.Refr
 		}
 	}
 
-	err := d.DB.Clauses(clause.OnConflict{
+	err := d.db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{
 			{Name: "user_id"}, // Conflict target
 		},
@@ -207,7 +207,7 @@ func (d *authDatabase) StoreRefreshToken(token models.RefreshToken) (models.Refr
 
 	// Reload the stored token row to ensure we return the DB row (important when ON CONFLICT does an update)
 	var stored models.RefreshToken
-	if err := d.DB.Where("user_id = ?", token.UserID).First(&stored).Error; err != nil {
+	if err := d.db.Where("user_id = ?", token.UserID).First(&stored).Error; err != nil {
 		d.logger.Error("Failed to reload stored refresh token",
 			zap.Error(err))
 		return models.RefreshToken{}, &response.Error{
@@ -224,7 +224,7 @@ func (d *authDatabase) GetRefreshToken(userID string) (models.RefreshToken, *res
 
 	var token models.RefreshToken
 
-	if err := d.DB.Where("user_id = ?", userID).First(&token).Error; err != nil {
+	if err := d.db.Where("user_id = ?", userID).First(&token).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 
 			d.logger.Error("Database error occurred while storing refresh token",
@@ -251,7 +251,7 @@ func (d *authDatabase) GetRefreshToken(userID string) (models.RefreshToken, *res
 func (d *authDatabase) GetRefreshTokenByID(id uuid.UUID) (models.RefreshToken, *response.Error) {
 	var token models.RefreshToken
 
-	if err := d.DB.Where("id = ?", id).First(&token).Error; err != nil {
+	if err := d.db.Where("id = ?", id).First(&token).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			d.logger.Error("Refresh token not found",
 				zap.Error(err))
@@ -276,7 +276,7 @@ func (d *authDatabase) GetRefreshTokenByID(id uuid.UUID) (models.RefreshToken, *
 
 func (d *authDatabase) ChangePassword(password string, userID uuid.UUID) *response.Error {
 
-	result := d.DB.
+	result := d.db.
 		Model(&models.User{}).
 		Where("id = ?", userID).
 		Updates(map[string]any{
@@ -314,7 +314,7 @@ func (d *authDatabase) RequestPasswordReset(email string) (models.User, *respons
 
 	var row models.User
 
-	if err := d.DB.Where("email = ?", email).First(&row).Error; err != nil {
+	if err := d.db.Where("email = ?", email).First(&row).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
@@ -340,7 +340,7 @@ func (d *authDatabase) RequestPasswordReset(email string) (models.User, *respons
 
 func (d *authDatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string) *response.Error {
 
-	result := d.DB.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash)
+	result := d.db.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash)
 
 	if result.Error != nil {
 
@@ -371,7 +371,7 @@ func (d *authDatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string)
 
 func (d *authDatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 
-	result := d.DB.Model(&models.RefreshToken{}).Where("user_id = ?", userID).Update("revoked_at", time.Now())
+	result := d.db.Model(&models.RefreshToken{}).Where("user_id = ?", userID).Update("revoked_at", time.Now())
 
 	if result.Error != nil {
 
@@ -402,7 +402,7 @@ func (d *authDatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 
 func (d *authDatabase) UpdateUser(userID uuid.UUID, req models.User) *response.Error {
 
-	result := d.DB.
+	result := d.db.
 		Model(&models.User{}).
 		Where("id = ?", userID).
 		Updates(req)
