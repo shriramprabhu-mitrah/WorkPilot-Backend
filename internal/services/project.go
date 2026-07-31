@@ -258,7 +258,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		}
 
 		if isMember {
-			existingUsers = append(existingUsers, result.FullName)
+			existingUsers = append(existingUsers, result.UserName)
 			continue
 		}
 
