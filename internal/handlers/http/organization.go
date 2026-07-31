@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,28 +41,8 @@ type OrganizationHandler struct {
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/delete [delete]
 func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
-
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	id, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	id, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -119,27 +98,8 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	id, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	id, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -202,27 +162,8 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 // @Router       /organization/get [get]
 func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	id, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	id, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -278,27 +219,8 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		return
 	}
 
-	userID, exist := g.Get("user_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			},
-		}
-
-		h.logger.Error("User Id Invalid/Missing",
-			zap.String("user id :", fmt.Sprintf("%v", userID)))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	userUUID, errorResponse := utils.StringToUUID(userID.(string))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 
@@ -387,27 +309,8 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -477,27 +380,8 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	id, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -522,7 +406,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 	}
 
 	credentials := dto.UpdateUserRole{
-		OrganizationID: &id,
+		OrganizationID: &organizationUUID,
 		UserID:         userID,
 		Role:           string(payload.Role),
 	}
@@ -541,7 +425,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]any{
-			"OrganizationID": id,
+			"OrganizationID": organizationUUID,
 			"user_id":        payload.UserID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
@@ -560,27 +444,8 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 // @Router       /organization/get-user [get]
 func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	id, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -622,8 +487,10 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 	}
 
 	filter := dto.OrganizationMemberListFilter{
-		Page:       page,
-		PageSize:   pageSize,
+		PaginationQuery: response.PaginationQuery{
+			Page:     page,
+			PageSize: pageSize,
+		},
 		FullName:   fullName,
 		Email:      email,
 		Username:   username,
@@ -633,7 +500,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		Timezone:   timezone,
 	}
 
-	users, pagination, respErr := h.service.GetUserInOrganization(id, filter)
+	users, pagination, respErr := h.service.GetUserInOrganization(organizationUUID, filter)
 	if respErr != nil {
 		g.JSON(respErr.StatusCode, &response.ErrorResponse{
 			Success: false,
@@ -685,27 +552,8 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -751,39 +599,13 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 		return
 	}
 
-	organizationIDVal, exist := g.Get("organization_id")
-	if !exist {
-		g.JSON(http.StatusInternalServerError, response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			}},
-		)
-		return
-	}
-	organizationID, convErr := utils.StringToUUID(organizationIDVal.(string))
-	if convErr != nil {
-		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+	organizationID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
-	inviterIDVal, exist := g.Get("user_id")
-	if !exist {
-		g.JSON(http.StatusInternalServerError, response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			}},
-		)
-		return
-	}
-	inviterID, convErr := utils.StringToUUID(inviterIDVal.(string))
-	if convErr != nil {
-		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+	inviterID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 
@@ -825,21 +647,8 @@ func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 		return
 	}
 
-	userIDVal, exist := g.Get("user_id")
-	if !exist {
-		g.JSON(http.StatusInternalServerError, response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			}},
-		)
-		return
-	}
-	userID, convErr := utils.StringToUUID(userIDVal.(string))
-	if convErr != nil {
-		g.JSON(convErr.StatusCode, response.ErrorResponse{Success: false, Error: *convErr})
+	userID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 

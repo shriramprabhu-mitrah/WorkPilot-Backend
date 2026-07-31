@@ -111,7 +111,7 @@ func TestGetUserInOrganizationSupportsSearchAndStatusFilters(t *testing.T) {
 	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
 	service := InitOrganizationService(repo, authRepo, zap.NewNop())
 
-	members, pagination, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{Role: string(dto.RoleDeveloper), Page: 1, PageSize: 10})
+	members, pagination, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 10}, Role: string(dto.RoleDeveloper)})
 	if err != nil {
 		t.Fatalf("expected filtered member listing to succeed, got %v", err)
 	}

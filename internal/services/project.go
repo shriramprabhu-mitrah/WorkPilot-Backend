@@ -204,12 +204,10 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 	}
 
 	filter := dto.ProjectFilter{
-		Page:      filterPayload.Page,
-		PageSize:  filterPayload.PageSize,
-		Name:      filterPayload.Name,
-		Status:    string(filterPayload.Status),
-		SortBy:    filterPayload.SortBy,
-		SortOrder: filterPayload.SortOrder,
+		PaginationQuery: filterPayload.PaginationQuery,
+		SortQuery:       filterPayload.SortQuery,
+		Name:            filterPayload.Name,
+		Status:          string(filterPayload.Status),
 	}
 
 	return s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
@@ -383,13 +381,12 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 	}
 
 	filter := dto.ProjectActivityFilter{
-		Page:         filterReq.Page,
-		PageSize:     filterReq.PageSize,
-		Action:       filterReq.Action,
-		UserID:       parsedUserID,
-		ResourceType: filterReq.ResourceType,
-		StartDate:    filterReq.StartDate,
-		EndDate:      filterReq.EndDate,
+		PaginationQuery: filterReq.PaginationQuery,
+		Action:          filterReq.Action,
+		UserID:          parsedUserID,
+		ResourceType:    filterReq.ResourceType,
+		StartDate:       filterReq.StartDate,
+		EndDate:         filterReq.EndDate,
 	}
 
 	logs, pagination, repoErr := s.projectRepo.GetProjectActivity(projectID, filter)
@@ -463,8 +460,7 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 	}
 
 	memberFilter := dto.ProjectMemberFilter{
-		Page:     1,
-		PageSize: 1000,
+		PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 1000},
 	}
 
 	projectMembers, _, err := s.projectRepo.GetProjectsMembersByProjectID(req.ProjectID, memberFilter)
@@ -473,8 +469,7 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 	}
 
 	sprintFilter := dto.SprintFilter{
-		Page:     1,
-		PageSize: 1000,
+		PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 1000},
 	}
 
 	sprints, _, err := s.sprintRepo.GetSprints(req.ProjectID, sprintFilter)

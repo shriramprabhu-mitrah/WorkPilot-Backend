@@ -233,27 +233,19 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	var users []models.User
 	var totalItems int64
 
-	if filter.Page < 1 {
-		filter.Page = 1
-	}
-	if filter.PageSize < 1 {
-		filter.PageSize = 10
-	}
+	filter.PaginationQuery.Normalize(10)
 
 	offset := (filter.Page - 1) * filter.PageSize
 	baseQuery := d.DB.Model(&models.User{}).Where("organization_id = ?", organizationID)
 
 	if filter.FullName != "" {
-		fullNameTerm := "%" + strings.ToLower(strings.TrimSpace(filter.FullName)) + "%"
-		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ?", fullNameTerm)
+		baseQuery = baseQuery.Where("full_name ILIKE ?", "%"+strings.TrimSpace(filter.FullName)+"%")
 	}
 	if filter.Email != "" {
-		emailTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Email)) + "%"
-		baseQuery = baseQuery.Where("LOWER(email) LIKE ?", emailTerm)
+		baseQuery = baseQuery.Where("email ILIKE ?", "%"+strings.TrimSpace(filter.Email)+"%")
 	}
 	if filter.Username != "" {
-		usernameTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Username)) + "%"
-		baseQuery = baseQuery.Where("LOWER(username) LIKE ?", usernameTerm)
+		baseQuery = baseQuery.Where("username ILIKE ?", "%"+strings.TrimSpace(filter.Username)+"%")
 	}
 	if filter.Role != "" {
 		baseQuery = baseQuery.Where("LOWER(role) = ?", strings.ToLower(strings.TrimSpace(filter.Role)))
@@ -265,8 +257,7 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 		baseQuery = baseQuery.Where("is_verified = ?", *filter.IsVerified)
 	}
 	if filter.Timezone != "" {
-		timezoneTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Timezone)) + "%"
-		baseQuery = baseQuery.Where("LOWER(timezone) LIKE ?", timezoneTerm)
+		baseQuery = baseQuery.Where("timezone ILIKE ?", "%"+strings.TrimSpace(filter.Timezone)+"%")
 	}
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {

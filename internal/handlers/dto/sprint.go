@@ -2,6 +2,7 @@ package dto
 
 import (
 	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/internal/pkg/response"
 )
 
 type SprintStatus string
@@ -42,10 +43,9 @@ type UpdateSprintRequest struct {
 }
 
 type SprintFilter struct {
-	Page     int          `form:"page"`
-	PageSize int          `form:"page_size"`
-	Status   SprintStatus `form:"status"`
-	Search   string       `form:"search"`
+	response.PaginationQuery
+	Status SprintStatus `form:"status"`
+	Search string       `form:"search"`
 }
 
 type DeleteSprint struct {

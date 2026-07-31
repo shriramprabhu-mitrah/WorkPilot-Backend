@@ -115,13 +115,8 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 	var projects []models.Project
 	var totalItems int64
 
-	if filter.Page < 1 {
-		filter.Page = 1
-	}
-
-	if filter.PageSize < 1 {
-		filter.PageSize = 10
-	}
+	filter.PaginationQuery.Normalize(10)
+	filter.SortQuery.Normalize("created_at", "DESC")
 
 	offset := (filter.Page - 1) * filter.PageSize
 
@@ -242,12 +237,7 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 	var logs []models.AuditLog
 	var totalItems int64
 
-	if filter.Page < 1 {
-		filter.Page = 1
-	}
-	if filter.PageSize < 1 {
-		filter.PageSize = 10
-	}
+	filter.PaginationQuery.Normalize(10)
 	if filter.PageSize > 100 {
 		filter.PageSize = 100
 	}
