@@ -1571,9 +1571,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects/{project_id}/sprint/": {
+        "/projects/{project_id}/sprint/create": {
             "post": {
-                "description": "Create a new sprint under a project",
+                "description": "Create one or more sprints under a project",
                 "consumes": [
                     "application/json"
                 ],
@@ -1583,7 +1583,7 @@ const docTemplate = `{
                 "tags": [
                     "Sprint"
                 ],
-                "summary": "Create Sprint",
+                "summary": "Create Sprints",
                 "parameters": [
                     {
                         "type": "string",
@@ -1593,7 +1593,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Sprint Details",
+                        "description": "List of sprints to create",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1604,13 +1604,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Sprint(s) created successfully",
                         "schema": {
                             "$ref": "#/definitions/response.SuccessResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request payload",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1634,7 +1634,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -2116,7 +2116,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CreateSprintRequest": {
+        "dto.CreateSprint": {
             "type": "object",
             "required": [
                 "end_date",
@@ -2135,14 +2135,25 @@ const docTemplate = `{
                     "maxLength": 100,
                     "minLength": 2
                 },
+                "start_date": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateSprintRequest": {
+            "type": "object",
+            "properties": {
                 "organizationID": {
                     "type": "string"
                 },
                 "projectID": {
                     "type": "string"
                 },
-                "start_date": {
-                    "type": "string"
+                "sprints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.CreateSprint"
+                    }
                 },
                 "userID": {
                     "type": "string"
@@ -2190,7 +2201,10 @@ const docTemplate = `{
         "dto.ProjectMemberResponse": {
             "type": "object",
             "properties": {
-                "id": {
+                "full_name": {
+                    "type": "string"
+                },
+                "role": {
                     "type": "string"
                 },
                 "user_id": {
@@ -2636,8 +2650,7 @@ const docTemplate = `{
         "models.User": {
             "type": "object",
             "required": [
-                "email",
-                "password_hash"
+                "email"
             ],
             "properties": {
                 "avatar_url": {
@@ -2668,9 +2681,6 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.Organization"
                 },
                 "organization_id": {
-                    "type": "string"
-                },
-                "password_hash": {
                     "type": "string"
                 },
                 "role": {

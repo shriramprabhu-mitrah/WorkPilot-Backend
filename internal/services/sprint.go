@@ -41,9 +41,9 @@ type sprintService struct {
 
 func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Error {
 
-	result, errorResponse := s.authRepo.GetByID(req.UserID)
-	if errorResponse != nil {
-		return errorResponse
+	result, errResp := s.authRepo.GetByID(req.UserID)
+	if errResp != nil {
+		return errResp
 	}
 
 	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
@@ -58,6 +58,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		s.logger.Error("Unauthorized Access",
 			zap.String("Organization Id", req.OrganizationID.String()),
 			zap.String("User Organization Id", result.OrganizationID.String()))
+
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -65,44 +66,51 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		}
 	}
 
-	startDate, err := utils.StringToTime(req.StartDate)
-	if err != nil {
-		s.logger.Error("Invalid start_date", zap.Error(err))
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
+	for _, spr := range req.Sprints {
+
+		startDate, err := utils.StringToTime(spr.StartDate)
+		if err != nil {
+			s.logger.Error("Invalid start_date", zap.Error(err))
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
+			}
+		}
+
+		endDate, err := utils.StringToTime(spr.EndDate)
+		if err != nil {
+			s.logger.Error("Invalid end_date", zap.Error(err))
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid end_date. Expected format: YYYY-MM-DD",
+			}
+		}
+
+		if endDate.Before(*startDate) {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "end_date cannot be before start_date",
+			}
+		}
+
+		sprint := models.Sprint{
+			Name:        spr.Name,
+			Goal:        spr.Goal,
+			StartDate:   *startDate,
+			EndDate:     *endDate,
+			ProjectID:   req.ProjectID,
+			CreatedByID: req.UserID,
+		}
+
+		if err := s.sprintRepo.CreateSprint(sprint); err != nil {
+			return err
 		}
 	}
 
-	endDate, err := utils.StringToTime(req.EndDate)
-	if err != nil {
-		s.logger.Error("Invalid start_date", zap.Error(err))
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Invalid end_date. Expected format: YYYY-MM-DD",
-		}
-	}
-
-	if endDate.Before(*startDate) {
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "end_date cannot be before start_date",
-		}
-	}
-
-	sprint := models.Sprint{
-		Name:        req.Name,
-		Goal:        req.Goal,
-		StartDate:   *startDate,
-		EndDate:     *endDate,
-		ProjectID:   req.ProjectID,
-		CreatedByID: req.UserID,
-	}
-
-	return s.sprintRepo.CreateSprint(sprint)
+	return nil
 }
 
 func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
