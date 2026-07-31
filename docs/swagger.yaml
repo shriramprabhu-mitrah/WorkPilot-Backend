@@ -135,6 +135,8 @@ definitions:
         type: array
       userID:
         type: string
+    required:
+    - sprints
     type: object
   dto.Industry:
     enum:

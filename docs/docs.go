@@ -2142,6 +2142,9 @@ const docTemplate = `{
         },
         "dto.CreateSprintRequest": {
             "type": "object",
+            "required": [
+                "sprints"
+            ],
             "properties": {
                 "organizationID": {
                     "type": "string"
