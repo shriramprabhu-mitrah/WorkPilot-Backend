@@ -26,20 +26,20 @@ type sprintHandler struct {
 }
 
 // CreateSprint godoc
-// @Summary Create Sprint
-// @Description Create a new sprint under a project
+// @Summary Create Sprints
+// @Description Create one or more sprints under a project
 // @Tags Sprint
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
-// @Param request body dto.CreateSprintRequest true "Sprint Details"
-// @Success 201 {object} response.SuccessResponse
-// @Failure 400 {object} response.ErrorResponse
-// @Failure 401 {object} response.ErrorResponse
-// @Failure 403 {object} response.ErrorResponse
-// @Failure 409 {object} response.ErrorResponse
-// @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/sprint/ [post]
+// @Param request body dto.CreateSprintRequest true "List of sprints to create"
+// @Success 201 {object} response.SuccessResponse "Sprint(s) created successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Failure 403 {object} response.ErrorResponse "Forbidden"
+// @Failure 409 {object} response.ErrorResponse "Conflict"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /projects/{project_id}/sprint/create [post]
 func (h *sprintHandler) CreateSprint(g *gin.Context) {
 
 	var payload dto.CreateSprintRequest

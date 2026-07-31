@@ -253,20 +253,35 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 	}
 
 	for _, inviteItem := range inviteItems {
-		existingUser, userErr := s.AuthRepo.GetByEmail(inviteItem.Email)
+		inviteEmail := strings.ToLower(strings.TrimSpace(inviteItem.Email))
+		existingUser, userErr := s.AuthRepo.GetByEmail(inviteEmail)
 		if userErr == nil {
-			if existingUser.OrganizationID != nil && *existingUser.OrganizationID == organizationID && existingUser.IsActive {
+			if existingUser.OrganizationID != nil && *existingUser.OrganizationID != uuid.Nil {
+				if *existingUser.OrganizationID == organizationID && existingUser.IsActive {
+					return &response.Error{
+						Code:       response.ErrConflict,
+						StatusCode: http.StatusConflict,
+						Message:    "User is already an active member of the organization",
+					}
+				}
 				return &response.Error{
 					Code:       response.ErrConflict,
 					StatusCode: http.StatusConflict,
-					Message:    "User is already an active member of the organization",
+					Message:    "User is already assigned to an organization",
 				}
+			}
+			existingUser.IsActive = true
+			existingUser.OrganizationID = &organizationID
+			existingUser.Role = inviteItem.Role
+			existingUser.JoinedAt = time.Now()
+			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
+				return err
 			}
 		} else if userErr.StatusCode != http.StatusNotFound && userErr.StatusCode != http.StatusUnauthorized {
 			return userErr
 		}
 
-		existingPending, pendingErr := s.OrganizationRepo.GetPendingInvitationByEmail(organizationID, inviteItem.Email)
+		existingPending, pendingErr := s.OrganizationRepo.GetPendingInvitationByEmail(organizationID, inviteEmail)
 		if pendingErr != nil {
 			return pendingErr
 		}
@@ -274,7 +289,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		expiresAt := time.Now().Add(1 * 24 * time.Hour)
 		invitation := models.OrganizationInvitation{
 			OrganizationID: organizationID,
-			Email:          inviteItem.Email,
+			Email:          inviteEmail,
 			Role:           inviteItem.Role,
 			Status:         models.InvitationStatusPending,
 			ExpiresAt:      expiresAt,
@@ -304,17 +319,17 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 			}
 		}
 
-		inviteLink := fmt.Sprintf("%s/invitations/accept?token=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), invitation.Token)
+		inviteLink := fmt.Sprintf("%s?token=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), invitation.Token)
 		tempPassword := ""
 		if userErr != nil {
-			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteItem.Email, inviteItem.Role, organizationID)
+			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteEmail, inviteItem.Role, organizationID)
 			if err != nil {
 				return err
 			}
 			tempPassword = invitationTempPassword
 		}
 
-		if err := email.SendOrganizationInvitation(inviteItem.Email, org.Name, invitation.Role, inviteLink, tempPassword); err != nil {
+		if err := email.SendOrganizationInvitation(inviteEmail, org.Name, invitation.Role, inviteLink, tempPassword); err != nil {
 			s.logger.Warn("Failed to send organization invitation email", zap.Error(err))
 		}
 
@@ -541,6 +556,14 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 		}
 	}
 
+	if user.OrganizationID != nil && *user.OrganizationID != uuid.Nil && *user.OrganizationID != invitation.OrganizationID {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "User is already assigned to another organization",
+		}
+	}
+
 	user.OrganizationID = &invitation.OrganizationID
 	user.Role = invitation.Role
 	user.IsActive = true
@@ -624,6 +647,36 @@ func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error
 		}
 	}
 
-	return s.OrganizationRepo.DeleteUser(payload.UserID)
+	// Instead of deleting the user record (soft-delete), detach the user
+	// from the organization so their account can be reused or they can be
+	// invited to other organizations later.
+
+	// Clear organization-related fields and mark as inactive
+	request := result
+	request.OrganizationID = nil
+	request.Role = ""
+	request.IsActive = false
+	request.JoinedAt = time.Time{}
+
+	// Use OrganizationRepo.UpdateStatusAndRole which calls Save and persists zero-values
+	if err := s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request); err != nil {
+		return err
+	}
+
+	// create an audit log for the removal
+	auditErr := s.OrganizationRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &payload.UserID,
+		OrganizationID: payload.OrganizationID,
+		Action:         "organization_user_removed",
+		ResourceType:   "user",
+		ResourceID:     payload.UserID.String(),
+		Details:        "Removed user from organization",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
 
 }
