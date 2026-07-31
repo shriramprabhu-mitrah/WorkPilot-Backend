@@ -2,6 +2,7 @@ package projectrepo
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"strings"
@@ -139,6 +140,24 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 		)
 	}
 
+	// Determine order clause based on sorting parameters
+	orderClause := "created_at DESC"
+	if filter.SortBy != "" {
+		direction := "ASC"
+		if strings.ToUpper(filter.SortOrder) == "DESC" {
+			direction = "DESC"
+		}
+		allowed := map[string]string{
+			"name":       "name",
+			"created_at": "created_at",
+			"updated_at": "updated_at",
+			"status":     "status",
+		}
+		if col, ok := allowed[filter.SortBy]; ok {
+			orderClause = fmt.Sprintf("%s %s", col, direction)
+		}
+	}
+
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
 		d.logger.Error("Database error occurred",
 			zap.String("Organization Id", organizationID.String()),
@@ -151,9 +170,7 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 	}
 
 	if err := baseQuery.
-		Preload("Organization").
-		Preload("Creator").
-		Order("created_at DESC").
+		Order(orderClause).
 		Limit(filter.PageSize).
 		Offset(offset).
 		Find(&projects).Error; err != nil {

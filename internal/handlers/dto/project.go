@@ -35,17 +35,21 @@ type UpdateProjectRequest struct {
 }
 
 type ProjectFilterRequest struct {
-	Page     int           `form:"page"`
-	PageSize int           `form:"page_size"`
-	Name     string        `form:"name"`
-	Status   ProjectStatus `form:"status"`
+	Page      int           `form:"page"`
+	PageSize  int           `form:"page_size"`
+	Name      string        `form:"name"`
+	Status    ProjectStatus `form:"status"`
+	SortBy    string        `form:"sort_by"`
+	SortOrder string        `form:"sort_order"`
 }
 
 type ProjectFilter struct {
-	Page     int    `form:"page"`
-	PageSize int    `form:"page_size"`
-	Name     string `form:"name"`
-	Status   string `form:"status"`
+	Page      int    `form:"page"`
+	PageSize  int    `form:"page_size"`
+	Name      string `form:"name"`
+	Status    string `form:"status"`
+	SortBy    string `form:"sort_by"`
+	SortOrder string `form:"sort_order"`
 }
 
 type CreateProjectMemberRequest struct {
