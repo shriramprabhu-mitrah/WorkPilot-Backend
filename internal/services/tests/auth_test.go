@@ -54,7 +54,7 @@ func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Er
 	return models.User{}, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User not found"}
 }
 
-func (s *stubAuthRepository) GetByID(id uuid.UUID) (models.User, *response.Error) {
+func (s *stubAuthRepository) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
 	if s.err != nil {
 		return models.User{}, s.err
 	}

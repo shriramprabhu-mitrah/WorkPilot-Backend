@@ -161,7 +161,7 @@ func (s *organizationService) DeleteOrganization(id uuid.UUID) *response.Error {
 
 func (s *organizationService) UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error {
 
-	result, err := s.AuthRepo.GetByID(payload.UserID)
+	result, err := s.AuthRepo.GetUserByID(payload.UserID)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (s *organizationService) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 
 func (s *organizationService) UpdateUserRole(payload dto.UpdateUserRole) *response.Error {
 
-	result, err := s.AuthRepo.GetByID(payload.UserID)
+	result, err := s.AuthRepo.GetUserByID(payload.UserID)
 	if err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func (s *organizationService) UpdateUserRole(payload dto.UpdateUserRole) *respon
 }
 
 func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error {
-	inviter, invErr := s.AuthRepo.GetByID(inviterID)
+	inviter, invErr := s.AuthRepo.GetUserByID(inviterID)
 	if invErr != nil {
 		return invErr
 	}
@@ -540,7 +540,7 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 		}
 	}
 
-	user, userErr := s.AuthRepo.GetByID(userID)
+	user, userErr := s.AuthRepo.GetUserByID(userID)
 	if userErr != nil {
 		return userErr
 	}
@@ -623,7 +623,7 @@ func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.Org
 
 func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error {
 
-	result, err := s.AuthRepo.GetByID(payload.UserID)
+	result, err := s.AuthRepo.GetUserByID(payload.UserID)
 	if err != nil {
 		return err
 	}

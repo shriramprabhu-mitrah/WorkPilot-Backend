@@ -15,14 +15,14 @@ import (
 	"go.uber.org/zap"
 )
 
-func InitAuthHandler(service services.AuthService, logger *zap.Logger) *AuthHandler {
-	return &AuthHandler{
+func InitAuthHandler(service services.AuthService, logger *zap.Logger) *authHandler {
+	return &authHandler{
 		service: service,
 		logger:  logger,
 	}
 }
 
-type AuthHandler struct {
+type authHandler struct {
 	service services.AuthService
 	logger  *zap.Logger
 }
@@ -40,7 +40,7 @@ type AuthHandler struct {
 // @Failure      409 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/signup [post]
-func (h *AuthHandler) SignUp(g *gin.Context) {
+func (h *authHandler) SignUp(g *gin.Context) {
 
 	var payload dto.SignUpRequest
 
@@ -91,7 +91,7 @@ func (h *AuthHandler) SignUp(g *gin.Context) {
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/signin [post]
-func (h *AuthHandler) SignIn(g *gin.Context) {
+func (h *authHandler) SignIn(g *gin.Context) {
 
 	var loginCredentials dto.SignInRequest
 
@@ -166,7 +166,7 @@ func (h *AuthHandler) SignIn(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/password-reset/request [post]
-func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
+func (h *authHandler) RequestPasswordReset(g *gin.Context) {
 
 	var payload dto.PasswordResetRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
@@ -210,7 +210,7 @@ func (h *AuthHandler) RequestPasswordReset(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/password-reset/confirm [post]
-func (h *AuthHandler) ResetPassword(g *gin.Context) {
+func (h *authHandler) ResetPassword(g *gin.Context) {
 
 	var payload dto.ResetPasswordRequest
 
@@ -256,7 +256,7 @@ func (h *AuthHandler) ResetPassword(g *gin.Context) {
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
 // @Router       /auth/verify-email [post]
-func (h *AuthHandler) VerifyEmail(g *gin.Context) {
+func (h *authHandler) VerifyEmail(g *gin.Context) {
 	var payload dto.VerifyEmailRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
@@ -305,7 +305,7 @@ func (h *AuthHandler) VerifyEmail(g *gin.Context) {
 // @Failure      409 {object} response.ErrorResponse
 // @Failure      429 {object} response.ErrorResponse
 // @Router       /auth/resend-verification-otp [post]
-func (h *AuthHandler) ResendVerificationOTP(g *gin.Context) {
+func (h *authHandler) ResendVerificationOTP(g *gin.Context) {
 	var payload dto.ResendVerificationOTPRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
@@ -342,7 +342,7 @@ func (h *AuthHandler) ResendVerificationOTP(g *gin.Context) {
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/refresh [post]
-func (h *AuthHandler) RefreshToken(g *gin.Context) {
+func (h *authHandler) RefreshToken(g *gin.Context) {
 
 	var payload dto.RefreshTokenRequest
 	// allow client to send refresh token in body or cookie
@@ -413,7 +413,7 @@ func (h *AuthHandler) RefreshToken(g *gin.Context) {
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/logout [post]
-func (h *AuthHandler) Logout(g *gin.Context) {
+func (h *authHandler) Logout(g *gin.Context) {
 
 	userID, exist := g.Get("user_id")
 	if !exist {
@@ -476,7 +476,7 @@ func (h *AuthHandler) Logout(g *gin.Context) {
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/change-password [post]
-func (h *AuthHandler) ChangePassword(g *gin.Context) {
+func (h *authHandler) ChangePassword(g *gin.Context) {
 
 	var payload dto.ChangePasswordRequest
 
@@ -551,7 +551,7 @@ func (h *AuthHandler) ChangePassword(g *gin.Context) {
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/update [patch]
-func (h *AuthHandler) UpdateUser(g *gin.Context) {
+func (h *authHandler) UpdateUser(g *gin.Context) {
 
 	var payload dto.UpdateUserRequest
 
@@ -625,7 +625,7 @@ func (h *AuthHandler) UpdateUser(g *gin.Context) {
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/me [get]
-func (h *AuthHandler) GetUser(g *gin.Context) {
+func (h *authHandler) GetUser(g *gin.Context) {
 
 	userID, exist := g.Get("user_id")
 	if !exist {
@@ -683,7 +683,7 @@ func (h *AuthHandler) GetUser(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/validate [get]
-func (h *AuthHandler) Validate(g *gin.Context) {
+func (h *authHandler) Validate(g *gin.Context) {
 	validationType := strings.ToLower(g.Query("type"))
 	value := g.Query("value")
 
@@ -754,4 +754,80 @@ func (h *AuthHandler) Validate(g *gin.Context) {
 		},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// GetUserByID godoc
+//
+//	@Summary		Get User by ID
+//	@Description	Get user details by user ID within the authenticated user's organization
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			user_id	path		string	true	"User ID (UUID)"
+//	@Success		200		{object}	response.SuccessResponse{data=models.User}	"User retrieved successfully"
+//	@Failure		400		{object}	response.ErrorResponse	"Invalid user ID"
+//	@Failure		401		{object}	response.ErrorResponse	"Unauthorized"
+//	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
+//	@Failure		404		{object}	response.ErrorResponse	"User not found"
+//	@Failure		500		{object}	response.ErrorResponse	"Internal server error"
+//	@Router			/auth/{user_id} [get]
+func (h *authHandler) GetUserByID(g *gin.Context) {
+
+	organizationID, exist := g.Get("organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
+			},
+		}
+
+		h.logger.Error("Internal server error: missing organization context")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	organizationIDStr := organizationID.(string)
+
+	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
+
+	userID := g.Param("user_id")
+	userUUID, errorResponse := utils.StringToUUID(userID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
+
+	result, err := h.service.GetUserByID(userUUID, organizationUUID)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "User detail received successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       result,
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+
 }

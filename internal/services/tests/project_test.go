@@ -39,7 +39,7 @@ func (d *dummySprintRepo) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, 
 func (d *dummyAuthRepo) GetByEmail(email string) (models.User, *response.Error) {
 	return models.User{}, nil
 }
-func (d *dummyAuthRepo) GetByID(id uuid.UUID) (models.User, *response.Error) {
+func (d *dummyAuthRepo) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
 	return models.User{}, nil
 }
 func (d *dummyAuthRepo) ExistsByEmail(email string) (bool, *response.Error) {

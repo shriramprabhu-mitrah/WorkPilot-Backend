@@ -13,7 +13,7 @@ import (
 
 type AuthRepository interface {
 	GetByEmail(email string) (models.User, *response.Error)
-	GetByID(id uuid.UUID) (models.User, *response.Error)
+	GetUserByID(id uuid.UUID) (models.User, *response.Error)
 	ExistsByEmail(email string) (bool, *response.Error)
 	ExistsByUsername(username string) (bool, *response.Error)
 	CreateUser(row models.User) *response.Error
@@ -39,14 +39,14 @@ type AuthRepository interface {
 
 func InitAuthRepository(deps models.Config) AuthRepository {
 	return &authDatabase{
-		DB:          deps.Database,
+		db:          deps.Database,
 		redisClient: deps.Redis,
 		logger:      deps.Logger,
 	}
 }
 
 type authDatabase struct {
-	DB          *gorm.DB
+	db          *gorm.DB
 	redisClient *redisclient.Client
 	logger      *zap.Logger
 }

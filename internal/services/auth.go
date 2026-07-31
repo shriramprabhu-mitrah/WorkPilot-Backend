@@ -36,23 +36,24 @@ type AuthService interface {
 	GetUser(userID uuid.UUID) (models.User, *response.Error)
 	IsEmailAvailable(email string) (bool, *response.Error)
 	IsUsernameAvailable(username string) (bool, *response.Error)
+	GetUserByID(userID, organizationID uuid.UUID) (*models.User, *response.Error)
 }
 
-func InitAuthService(repo authrepo.AuthRepository, logger *zap.Logger) AuthService {
+func InitAuthService(authRepo authrepo.AuthRepository, logger *zap.Logger) AuthService {
 	return &authService{
-		Repo:   repo,
-		logger: logger,
+		authRepo: authRepo,
+		logger:   logger,
 	}
 }
 
 type authService struct {
-	Repo   authrepo.AuthRepository
-	logger *zap.Logger
+	authRepo authrepo.AuthRepository
+	logger   *zap.Logger
 }
 
 func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResponse, *response.Error) {
 
-	result, err := s.Repo.GetByEmail(credentials.Email)
+	result, err := s.authRepo.GetByEmail(credentials.Email)
 	if err != nil {
 		if err.StatusCode == http.StatusNotFound {
 			return nil, &response.Error{
@@ -150,7 +151,7 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 
 	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
 
-	storedToken, storeErr := s.Repo.StoreRefreshToken(models.RefreshToken{
+	storedToken, storeErr := s.authRepo.StoreRefreshToken(models.RefreshToken{
 		UserID:    result.ID,
 		TokenHash: hashedRefreshToken,
 		ExpiresAt: expiresAt,
@@ -202,7 +203,7 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		}
 	}
 
-	oldToken, err := s.Repo.GetRefreshTokenByID(tokenID)
+	oldToken, err := s.authRepo.GetRefreshTokenByID(tokenID)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +235,7 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		}
 	}
 
-	user, userErr := s.Repo.GetByID(oldToken.UserID)
+	user, userErr := s.authRepo.GetUserByID(oldToken.UserID)
 	if userErr != nil {
 		return nil, userErr
 	}
@@ -289,7 +290,7 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 	refreshExpiresIn, _ := utils.StringToInt(config.GetEnv("REFRESH_TOKEN_EXPIRY", "604800"))
 	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
 
-	storedToken, err := s.Repo.StoreRefreshToken(models.RefreshToken{
+	storedToken, err := s.authRepo.StoreRefreshToken(models.RefreshToken{
 		UserID:    user.ID,
 		TokenHash: hashedRefreshToken,
 		ExpiresAt: expiresAt,
@@ -320,7 +321,7 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 
 func (s *authService) RequestPasswordReset(email string) *response.Error {
 
-	user, err := s.Repo.RequestPasswordReset(email)
+	user, err := s.authRepo.RequestPasswordReset(email)
 	if err != nil {
 		return err
 	}
@@ -345,11 +346,11 @@ func (s *authService) RequestPasswordReset(email string) *response.Error {
 		ExpiresAt: expiresAt,
 	}
 
-	if invalidateErr := s.Repo.InvalidatePasswordResetOTPs(user.ID); invalidateErr != nil {
+	if invalidateErr := s.authRepo.InvalidatePasswordResetOTPs(user.ID); invalidateErr != nil {
 		return invalidateErr
 	}
 
-	if saveErr := s.Repo.SavePasswordResetOTP(otpRecord); saveErr != nil {
+	if saveErr := s.authRepo.SavePasswordResetOTP(otpRecord); saveErr != nil {
 		return saveErr
 	}
 
@@ -390,12 +391,12 @@ func (s *authService) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 		}
 	}
 
-	user, err := s.Repo.RequestPasswordReset(credentials.Email)
+	user, err := s.authRepo.RequestPasswordReset(credentials.Email)
 	if err != nil {
 		return err
 	}
 
-	otpRecord, otpErr := s.Repo.GetPasswordResetOTP(user.ID, credentials.OTP)
+	otpRecord, otpErr := s.authRepo.GetPasswordResetOTP(user.ID, credentials.OTP)
 	if otpErr != nil {
 		return otpErr
 	}
@@ -415,17 +416,17 @@ func (s *authService) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 		return hashErr
 	}
 
-	if updateErr := s.Repo.UpdateUserPassword(user.ID, passwordHash); updateErr != nil {
+	if updateErr := s.authRepo.UpdateUserPassword(user.ID, passwordHash); updateErr != nil {
 		return updateErr
 	}
 
-	if revokeErr := s.Repo.RevokeRefreshTokens(user.ID); revokeErr != nil {
+	if revokeErr := s.authRepo.RevokeRefreshTokens(user.ID); revokeErr != nil {
 		return revokeErr
 	}
 
 	usedAt := time.Now()
 	otpRecord.UsedAt = &usedAt
-	if saveErr := s.Repo.SavePasswordResetOTP(otpRecord); saveErr != nil {
+	if saveErr := s.authRepo.SavePasswordResetOTP(otpRecord); saveErr != nil {
 		return saveErr
 	}
 
@@ -448,7 +449,7 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 		}
 	}
 
-	emailExists, emailErr := s.Repo.ExistsByEmail(cleanEmail)
+	emailExists, emailErr := s.authRepo.ExistsByEmail(cleanEmail)
 	if emailErr != nil {
 		return emailErr
 	}
@@ -460,7 +461,7 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 		}
 	}
 
-	usernameExists, usernameErr := s.Repo.ExistsByUsername(cleanUsername)
+	usernameExists, usernameErr := s.authRepo.ExistsByUsername(cleanUsername)
 	if usernameErr != nil {
 		return usernameErr
 	}
@@ -490,7 +491,7 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 		IsVerified:   false,
 	}
 
-	if createErr := s.Repo.StoreUserTemp(result); createErr != nil {
+	if createErr := s.authRepo.StoreUserTemp(result); createErr != nil {
 		return createErr
 	}
 
@@ -503,12 +504,12 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 }
 
 func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.AuthTokensResponse, *response.Error) {
-	user, err := s.Repo.GetUserFromRedis(credentials.Email)
+	user, err := s.authRepo.GetUserFromRedis(credentials.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	otpRecord, otpErr := s.Repo.GetEmailVerificationOTP(user.ID, credentials.OTP)
+	otpRecord, otpErr := s.authRepo.GetEmailVerificationOTP(user.ID, credentials.OTP)
 	if otpErr != nil {
 		return nil, otpErr
 	}
@@ -531,7 +532,7 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 
 	user.IsVerified = true
 
-	err = s.Repo.CreateUser(*user)
+	err = s.authRepo.CreateUser(*user)
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +577,7 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	}
 
 	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
-	storedToken, storeErr := s.Repo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt})
+	storedToken, storeErr := s.authRepo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt})
 	if storeErr != nil {
 		return nil, storeErr
 	}
@@ -596,10 +597,10 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 
 func (s *authService) ResendVerificationOTP(email string) *response.Error {
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
-	user, err := s.Repo.GetByEmail(cleanEmail)
+	user, err := s.authRepo.GetByEmail(cleanEmail)
 	if err != nil {
 		if err.StatusCode == http.StatusNotFound {
-			redisUser, redisErr := s.Repo.GetUserFromRedis(cleanEmail)
+			redisUser, redisErr := s.authRepo.GetUserFromRedis(cleanEmail)
 			if redisErr != nil {
 				if redisErr.StatusCode == http.StatusNotFound {
 					return err
@@ -621,7 +622,7 @@ func (s *authService) ResendVerificationOTP(email string) *response.Error {
 		}
 	}
 
-	allowed, rateLimitErr := s.Repo.IsEmailVerificationResendAllowed(cleanEmail, time.Minute)
+	allowed, rateLimitErr := s.authRepo.IsEmailVerificationResendAllowed(cleanEmail, time.Minute)
 	if rateLimitErr != nil {
 		return rateLimitErr
 	}
@@ -634,7 +635,7 @@ func (s *authService) ResendVerificationOTP(email string) *response.Error {
 		}
 	}
 
-	if recordErr := s.Repo.RecordEmailVerificationResend(cleanEmail, time.Now()); recordErr != nil {
+	if recordErr := s.authRepo.RecordEmailVerificationResend(cleanEmail, time.Now()); recordErr != nil {
 		return recordErr
 	}
 
@@ -662,11 +663,11 @@ func (s *authService) sendEmailVerificationOTP(userID uuid.UUID, email string) *
 
 	otpRecord := models.PasswordResetOTP{UserID: userID, OTPHash: hashedOTP, ExpiresAt: expiresAt}
 
-	if invalidateErr := s.Repo.InvalidateEmailVerificationOTPs(userID); invalidateErr != nil {
+	if invalidateErr := s.authRepo.InvalidateEmailVerificationOTPs(userID); invalidateErr != nil {
 		return invalidateErr
 	}
 
-	if saveErr := s.Repo.SaveEmailVerificationOTP(otpRecord); saveErr != nil {
+	if saveErr := s.authRepo.SaveEmailVerificationOTP(otpRecord); saveErr != nil {
 		return saveErr
 	}
 
@@ -685,7 +686,7 @@ func (s *authService) Logout(UserID string) *response.Error {
 		s.logger.Error("Invalid user ID for logout", zap.String("UserID", UserID), zap.Error(parseErr))
 		return &response.Error{Code: response.ErrBadRequest, StatusCode: http.StatusBadRequest, Message: "Invalid user ID"}
 	}
-	if err := s.Repo.RevokeRefreshTokens(userID); err != nil {
+	if err := s.authRepo.RevokeRefreshTokens(userID); err != nil {
 		return err
 	}
 	return nil
@@ -693,7 +694,7 @@ func (s *authService) Logout(UserID string) *response.Error {
 
 func (s *authService) ChangePassword(payload dto.ChangePasswordRequest) *response.Error {
 
-	result, err := s.Repo.GetByID(payload.UserID)
+	result, err := s.authRepo.GetUserByID(payload.UserID)
 	if err != nil {
 		return err
 	}
@@ -722,7 +723,7 @@ func (s *authService) ChangePassword(payload dto.ChangePasswordRequest) *respons
 		return errorResponse
 	}
 
-	return s.Repo.ChangePassword(passwordhash, payload.UserID)
+	return s.authRepo.ChangePassword(passwordhash, payload.UserID)
 
 }
 
@@ -753,17 +754,17 @@ func (s *authService) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 		Timezone:  payload.Timezone,
 	}
 
-	return s.Repo.UpdateUser(userID, req)
+	return s.authRepo.UpdateUser(userID, req)
 
 }
 
 func (s *authService) GetUser(userID uuid.UUID) (models.User, *response.Error) {
 
-	return s.Repo.GetByID(userID)
+	return s.authRepo.GetUserByID(userID)
 }
 
 func (s *authService) IsEmailAvailable(email string) (bool, *response.Error) {
-	exists, err := s.Repo.ExistsByEmail(email)
+	exists, err := s.authRepo.ExistsByEmail(email)
 	if err != nil {
 		return false, err
 	}
@@ -771,9 +772,47 @@ func (s *authService) IsEmailAvailable(email string) (bool, *response.Error) {
 }
 
 func (s *authService) IsUsernameAvailable(username string) (bool, *response.Error) {
-	exists, err := s.Repo.ExistsByUsername(username)
+	exists, err := s.authRepo.ExistsByUsername(username)
 	if err != nil {
 		return false, err
 	}
 	return !exists, nil
+}
+
+func (s *authService) GetUserByID(userID, organizationID uuid.UUID) (*models.User, *response.Error) {
+
+	if userID == uuid.Nil {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Invalid user ID",
+		}
+	}
+
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user.OrganizationID == nil || organizationID == uuid.Nil {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *user.OrganizationID != organizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", organizationID.String()),
+			zap.String("User Organization Id", user.OrganizationID.String()))
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	return &user, nil
 }

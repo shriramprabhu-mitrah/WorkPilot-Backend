@@ -12,30 +12,31 @@ import (
 func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	// initialize repositories
-	AuthRepo := authrepo.InitAuthRepository(deps)
+	authRepo := authrepo.InitAuthRepository(deps)
 
 	// initialize services
-	AuthService := services.InitAuthService(AuthRepo, deps.Logger)
+	authService := services.InitAuthService(authRepo, deps.Logger)
 
 	// initialize handlers
-	AuthHandler := handlers.InitAuthHandler(AuthService, deps.Logger)
+	authHandler := handlers.InitAuthHandler(authService, deps.Logger)
 
 	// initialize middleware
 	middleware := middleware.InitMiddleware(deps.Logger)
 
 	auth := api.Group("/auth")
 	{
-		auth.POST("/signin", AuthHandler.SignIn)
-		auth.POST("/refresh", AuthHandler.RefreshToken)
-		auth.POST("/logout", middleware.ValidateJWT(), AuthHandler.Logout)
-		auth.POST("/signup", AuthHandler.SignUp)
-		auth.POST("/verify-email", AuthHandler.VerifyEmail)
-		auth.POST("/resend-verification-otp", AuthHandler.ResendVerificationOTP)
-		auth.POST("/change-password", middleware.ValidateJWT(), AuthHandler.ChangePassword)
-		auth.POST("/password-reset/request", AuthHandler.RequestPasswordReset)
-		auth.POST("/password-reset/confirm", AuthHandler.ResetPassword)
-		auth.PATCH("/update", middleware.ValidateJWT(), AuthHandler.UpdateUser)
-		auth.GET("/me", middleware.ValidateJWT(), AuthHandler.GetUser)
-		auth.GET("/validate", AuthHandler.Validate)
+		auth.POST("/signin", authHandler.SignIn)
+		auth.POST("/refresh", authHandler.RefreshToken)
+		auth.POST("/logout", middleware.ValidateJWT(), authHandler.Logout)
+		auth.POST("/signup", authHandler.SignUp)
+		auth.POST("/verify-email", authHandler.VerifyEmail)
+		auth.POST("/resend-verification-otp", authHandler.ResendVerificationOTP)
+		auth.POST("/change-password", middleware.ValidateJWT(), authHandler.ChangePassword)
+		auth.POST("/password-reset/request", authHandler.RequestPasswordReset)
+		auth.POST("/password-reset/confirm", authHandler.ResetPassword)
+		auth.PATCH("/update", middleware.ValidateJWT(), authHandler.UpdateUser)
+		auth.GET("/me", middleware.ValidateJWT(), authHandler.GetUser)
+		auth.GET("/validate", authHandler.Validate)
+		auth.GET("/:user_id", middleware.ValidateJWT(), authHandler.GetUserByID)
 	}
 }

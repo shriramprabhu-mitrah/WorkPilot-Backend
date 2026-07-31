@@ -45,7 +45,7 @@ type projectService struct {
 
 func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.Error {
 
-	result, err := s.authRepo.GetByID(req.UserID)
+	result, err := s.authRepo.GetUserByID(req.UserID)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 
 func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.Error {
 
-	result, err := s.authRepo.GetByID(req.UserID)
+	result, err := s.authRepo.GetUserByID(req.UserID)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 
 	for _, userID := range req.UserIDs {
 
-		result, err := s.authRepo.GetByID(userID)
+		result, err := s.authRepo.GetUserByID(userID)
 		if err != nil {
 			return err
 		}
@@ -418,7 +418,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 
 func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.ProjectResponse, *response.Error) {
 
-	result, err := s.authRepo.GetByID(req.UserID)
+	result, err := s.authRepo.GetUserByID(req.UserID)
 	if err != nil {
 		return nil, err
 	}
