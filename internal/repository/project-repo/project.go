@@ -305,3 +305,34 @@ func (d *projectDatabase) CreateAuditLog(log models.AuditLog) *response.Error {
 	}
 	return nil
 }
+
+func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
+
+	result := d.db.
+		Where("id = ? AND organization_id = ?", projectID, organizationID).
+		Delete(&models.Project{})
+
+	if result.Error != nil {
+		d.logger.Error("Failed to delete project",
+			zap.Error(result.Error))
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if result.RowsAffected == 0 {
+		d.logger.Error("Project could not be found for deletion",
+			zap.String("project_id", projectID.String()))
+
+		return &response.Error{
+			Code:       response.ErrNotFound,
+			StatusCode: http.StatusNotFound,
+			Message:    "Project not found",
+		}
+	}
+
+	return nil
+}

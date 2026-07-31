@@ -21,6 +21,7 @@ type ProjectRepository interface {
 	GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
 	IsUserProjectMember(projectID, userID uuid.UUID) (bool, *response.Error)
 	CreateAuditLog(log models.AuditLog) *response.Error
+	DeleteProject(projectID, organizationID uuid.UUID) *response.Error
 }
 
 func InitProjectRepository(deps models.Config) ProjectRepository {
