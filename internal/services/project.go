@@ -202,10 +202,12 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 	}
 
 	filter := dto.ProjectFilter{
-		Page:     filterPayload.Page,
-		PageSize: filterPayload.PageSize,
-		Name:     filterPayload.Name,
-		Status:   string(filterPayload.Status),
+		Page:      filterPayload.Page,
+		PageSize:  filterPayload.PageSize,
+		Name:      filterPayload.Name,
+		Status:    string(filterPayload.Status),
+		SortBy:    filterPayload.SortBy,
+		SortOrder: filterPayload.SortOrder,
 	}
 
 	return s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
