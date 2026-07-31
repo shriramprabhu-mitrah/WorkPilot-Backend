@@ -170,8 +170,6 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 	}
 
 	if err := baseQuery.
-		Preload("Organization").
-		Preload("Creator").
 		Order(orderClause).
 		Limit(filter.PageSize).
 		Offset(offset).
