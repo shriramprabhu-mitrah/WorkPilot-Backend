@@ -247,6 +247,19 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			}
 		}
 
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, userID)
+		if err != nil {
+			return err
+		}
+
+		if isMember {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadGateway,
+				Message:    "User Already Exist in Project",
+			}
+		}
+
 		projectMember := models.ProjectMember{
 			ProjectID: req.ProjectID,
 			UserID:    userID,

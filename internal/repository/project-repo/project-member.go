@@ -137,3 +137,19 @@ func (d *projectDatabase) RemoveProjectMember(projectID, userID uuid.UUID) *resp
 
 	return nil
 }
+
+func (d *projectDatabase) IsUserProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
+	var count int64
+	err := d.db.Model(&models.ProjectMember{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&count).Error
+	if err != nil {
+		d.logger.Error("Database error checking project membership", zap.Error(err))
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+	return count > 0, nil
+}
