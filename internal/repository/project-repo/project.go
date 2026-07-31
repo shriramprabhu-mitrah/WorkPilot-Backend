@@ -294,22 +294,6 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 	return logs, pagination, nil
 }
 
-func (d *projectDatabase) IsUserProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
-	var count int64
-	err := d.db.Model(&models.ProjectMember{}).
-		Where("project_id = ? AND user_id = ?", projectID, userID).
-		Count(&count).Error
-	if err != nil {
-		d.logger.Error("Database error checking project membership", zap.Error(err))
-		return false, &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
-	return count > 0, nil
-}
-
 func (d *projectDatabase) CreateAuditLog(log models.AuditLog) *response.Error {
 	if err := d.db.Create(&log).Error; err != nil {
 		d.logger.Error("Database error creating audit log", zap.Error(err))
