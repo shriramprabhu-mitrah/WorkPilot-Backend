@@ -137,6 +137,14 @@ func (s *stubAuthRepository) UpdateUser(userID uuid.UUID, req models.User) *resp
 		return s.err
 	}
 	s.user = req
+	if s.userByEmail != nil {
+		for email, existing := range s.userByEmail {
+			if existing.ID == req.ID {
+				s.userByEmail[email] = req
+				break
+			}
+		}
+	}
 	return nil
 }
 
