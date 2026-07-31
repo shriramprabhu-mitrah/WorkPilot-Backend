@@ -14,6 +14,27 @@ import (
 )
 
 type dummyAuthRepo struct{}
+type dummySprintRepo struct{}
+
+func (d *dummySprintRepo) CreateSprint(sprint models.Sprint) *response.Error {
+	return nil
+}
+
+func (d *dummySprintRepo) DeleteSprint(id uuid.UUID) *response.Error {
+	return nil
+}
+
+func (d *dummySprintRepo) GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
+	return nil, response.Pagination{}, nil
+}
+
+func (d *dummySprintRepo) GetSprintByID(projectID uuid.UUID, sprintID uuid.UUID) (*models.Sprint, *response.Error) {
+	return &models.Sprint{}, nil
+}
+
+func (d *dummySprintRepo) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, sprint models.Sprint) *response.Error {
+	return nil
+}
 
 func (d *dummyAuthRepo) GetByEmail(email string) (models.User, *response.Error) {
 	return models.User{}, nil
@@ -86,9 +107,9 @@ func (d *dummyAuthRepo) GetUserFromRedis(email string) (*models.User, *response.
 }
 
 type stubProjectRepo struct {
-	project             models.Project
-	isMember            bool
-	getProjectActivity  func(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
+	project            models.Project
+	isMember           bool
+	getProjectActivity func(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
 }
 
 func (s *stubProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
@@ -128,11 +149,12 @@ func (s *stubProjectRepo) CreateAuditLog(log models.AuditLog) *response.Error {
 func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 	logger := zap.NewNop()
 	authRepo := &dummyAuthRepo{}
-	
+	sprintRepo := &dummySprintRepo{}
+
 	projectID := uuid.Must(uuid.NewV4())
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())
-	
+
 	projectRepo := &stubProjectRepo{
 		project: models.Project{
 			ID:             projectID,
@@ -140,33 +162,33 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 		},
 		isMember: true,
 	}
-	
-	service := services.InitProjectService(projectRepo, authRepo, logger)
-	
+
+	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, logger)
+
 	t.Run("Valid UserID Filter", func(t *testing.T) {
 		filterUserID := uuid.Must(uuid.NewV4())
 		filterReq := dto.ProjectActivityFilterRequest{
 			UserID: filterUserID.String(),
 		}
-		
+
 		projectRepo.getProjectActivity = func(pID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
 			if filter.UserID == nil || *filter.UserID != filterUserID {
 				t.Errorf("expected filter.UserID to be %v, got %v", filterUserID, filter.UserID)
 			}
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
-		
+
 		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
-	
+
 	t.Run("Invalid UserID Filter Format", func(t *testing.T) {
 		filterReq := dto.ProjectActivityFilterRequest{
 			UserID: "invalid-uuid",
 		}
-		
+
 		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error, got nil")
@@ -178,12 +200,12 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			t.Errorf("expected HTTP 400 Bad Request, got %v", err.StatusCode)
 		}
 	})
-	
+
 	t.Run("Nil UserID Filter", func(t *testing.T) {
 		filterReq := dto.ProjectActivityFilterRequest{
 			UserID: uuid.Nil.String(),
 		}
-		
+
 		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error for nil UUID, got nil")
@@ -192,19 +214,19 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			t.Errorf("expected ErrBadRequest, got %v", err.Code)
 		}
 	})
-	
+
 	t.Run("Empty UserID Filter", func(t *testing.T) {
 		filterReq := dto.ProjectActivityFilterRequest{
 			UserID: "",
 		}
-		
+
 		projectRepo.getProjectActivity = func(pID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
 			if filter.UserID != nil {
 				t.Errorf("expected filter.UserID to be nil for empty input, got %v", filter.UserID)
 			}
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
-		
+
 		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

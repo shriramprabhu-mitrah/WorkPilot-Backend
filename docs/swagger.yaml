@@ -160,6 +160,42 @@ definitions:
     required:
     - email
     type: object
+  dto.ProjectMemberResponse:
+    properties:
+      id:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  dto.ProjectResponse:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      creator:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/dto.ProjectMemberResponse'
+        type: array
+      name:
+        type: string
+      organization_id:
+        type: string
+      sprints:
+        items:
+          $ref: '#/definitions/dto.SprintResponse'
+        type: array
+      status:
+        type: string
+    type: object
   dto.ProjectStatus:
     enum:
     - planning
@@ -246,6 +282,21 @@ definitions:
     - full_name
     - password
     - username
+    type: object
+  dto.SprintResponse:
+    properties:
+      end_date:
+        type: string
+      goal:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      start_date:
+        type: string
+      status:
+        type: string
     type: object
   dto.SprintStatus:
     enum:
@@ -540,6 +591,52 @@ info:
   title: PMT API
   version: "1.0"
 paths:
+  /api/v1/project/{project_id}/detail:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a project's details along with its members and sprints.
+      parameters:
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Project retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ProjectResponse'
+              type: object
+        "400":
+          description: Invalid project ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Project not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get project details
+      tags:
+      - Projects
   /auth/change-password:
     post:
       consumes:
