@@ -19,19 +19,19 @@ const (
 )
 
 type CreateProjectRequest struct {
-	Name           string `json:"name" binding:"required,min=3,max=150"`
-	Description    string `json:"description" `
-	UserID         uuid.UUID
-	OrganizationID uuid.UUID
+	Name           string    `json:"name" binding:"required,min=3,max=150"`
+	Description    string    `json:"description" `
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 type UpdateProjectRequest struct {
 	Name           string        `json:"name" binding:"omitempty,min=3,max=150"`
 	Description    string        `json:"description"`
 	Status         ProjectStatus `form:"status"`
-	UserID         uuid.UUID
-	OrganizationID uuid.UUID
-	ProjectID      uuid.UUID
+	UserID         uuid.UUID     `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID     `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID     `json:"-" swaggerignore:"true"`
 }
 
 type ProjectFilterRequest struct {
@@ -51,8 +51,8 @@ type ProjectFilter struct {
 type CreateProjectMemberRequest struct {
 	ProjectID      uuid.UUID   `json:"project_id" binding:"required"`
 	UserIDs        []uuid.UUID `json:"user_id" binding:"required"`
-	AddedByID      uuid.UUID
-	OrganizationID uuid.UUID
+	AddedByID      uuid.UUID   `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
 }
 
 type ProjectMemberFilter struct {

@@ -26,7 +26,7 @@ definitions:
         type: string
       old_password:
         type: string
-      user_id:
+      userID:
         type: string
     required:
     - new_password
@@ -77,10 +77,6 @@ definitions:
     type: object
   dto.CreateProjectMemberRequest:
     properties:
-      addedByID:
-        type: string
-      organizationID:
-        type: string
       project_id:
         type: string
       user_id:
@@ -98,10 +94,6 @@ definitions:
       name:
         maxLength: 150
         minLength: 3
-        type: string
-      organizationID:
-        type: string
-      userID:
         type: string
     required:
     - name
@@ -125,16 +117,10 @@ definitions:
     type: object
   dto.CreateSprintRequest:
     properties:
-      organizationID:
-        type: string
-      projectID:
-        type: string
       sprints:
         items:
           $ref: '#/definitions/dto.CreateSprint'
         type: array
-      userID:
-        type: string
     required:
     - sprints
     type: object
@@ -266,8 +252,6 @@ definitions:
     properties:
       email:
         type: string
-      organization_id:
-        type: string
       password:
         type: string
     required:
@@ -372,14 +356,8 @@ definitions:
         maxLength: 150
         minLength: 3
         type: string
-      organizationID:
-        type: string
-      projectID:
-        type: string
       status:
         $ref: '#/definitions/dto.ProjectStatus'
-      userID:
-        type: string
     type: object
   dto.UpdateSprintRequest:
     properties:
@@ -391,12 +369,6 @@ definitions:
       name:
         maxLength: 100
         minLength: 2
-        type: string
-      organizationID:
-        type: string
-      projectID:
-        type: string
-      sprintID:
         type: string
       start_date:
         type: string
@@ -410,8 +382,6 @@ definitions:
         - completed
         - cancelled
         - archived
-      userID:
-        type: string
     type: object
   dto.UpdateUserRequest:
     properties:
@@ -688,11 +658,9 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
       summary: Get User by ID
       tags:
-      - Authentication
+      - Users
   /auth/change-password:
     post:
       consumes:
@@ -1338,7 +1306,7 @@ paths:
       - BearerAuth: []
       summary: Delete Project
       tags:
-      - Project
+      - Projects
   /project/{project_id}/member/{user_id}:
     delete:
       consumes:

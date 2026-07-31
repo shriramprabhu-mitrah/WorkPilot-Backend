@@ -760,10 +760,9 @@ func (h *authHandler) Validate(g *gin.Context) {
 //
 //	@Summary		Get User by ID
 //	@Description	Get user details by user ID within the authenticated user's organization
-//	@Tags			Authentication
+//	@Tags			Users
 //	@Accept			json
 //	@Produce		json
-//	@Security		BearerAuth
 //	@Param			user_id	path		string	true	"User ID (UUID)"
 //	@Success		200		{object}	response.SuccessResponse{data=models.User}	"User retrieved successfully"
 //	@Failure		400		{object}	response.ErrorResponse	"Invalid user ID"

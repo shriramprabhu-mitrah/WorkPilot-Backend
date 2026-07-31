@@ -728,7 +728,7 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 //
 //	@Summary		Delete Project
 //	@Description	Delete an existing project
-//	@Tags			Project
+//	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth

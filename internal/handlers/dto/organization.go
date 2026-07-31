@@ -66,7 +66,7 @@ type UserRoleRequest struct {
 type UpdateUserRole struct {
 	Role           string     `json:"role"`
 	UserID         uuid.UUID  `json:"user_id"`
-	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
+	OrganizationID *uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 type RemoveUser struct {
@@ -75,7 +75,7 @@ type RemoveUser struct {
 }
 
 type RemoveUserRequest struct {
-	UserID string `json:"user_id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 type InviteOrganizationMemberItem struct {

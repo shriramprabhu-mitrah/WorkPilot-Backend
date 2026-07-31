@@ -685,11 +685,6 @@ const docTemplate = `{
         },
         "/auth/{user_id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Get user details by user ID within the authenticated user's organization",
                 "consumes": [
                     "application/json"
@@ -698,7 +693,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authentication"
+                    "Users"
                 ],
                 "summary": "Get User by ID",
                 "parameters": [
@@ -1501,7 +1496,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Project"
+                    "Projects"
                 ],
                 "summary": "Delete Project",
                 "parameters": [
@@ -2150,7 +2145,7 @@ const docTemplate = `{
                 "old_password": {
                     "type": "string"
                 },
-                "user_id": {
+                "userID": {
                     "type": "string"
                 }
             }
@@ -2223,12 +2218,6 @@ const docTemplate = `{
                 "user_id"
             ],
             "properties": {
-                "addedByID": {
-                    "type": "string"
-                },
-                "organizationID": {
-                    "type": "string"
-                },
                 "project_id": {
                     "type": "string"
                 },
@@ -2253,12 +2242,6 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 150,
                     "minLength": 3
-                },
-                "organizationID": {
-                    "type": "string"
-                },
-                "userID": {
-                    "type": "string"
                 }
             }
         },
@@ -2292,20 +2275,11 @@ const docTemplate = `{
                 "sprints"
             ],
             "properties": {
-                "organizationID": {
-                    "type": "string"
-                },
-                "projectID": {
-                    "type": "string"
-                },
                 "sprints": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/dto.CreateSprint"
                     }
-                },
-                "userID": {
-                    "type": "string"
                 }
             }
         },
@@ -2489,9 +2463,6 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "organization_id": {
-                    "type": "string"
-                },
                 "password": {
                     "type": "string"
                 }
@@ -2633,17 +2604,8 @@ const docTemplate = `{
                     "maxLength": 150,
                     "minLength": 3
                 },
-                "organizationID": {
-                    "type": "string"
-                },
-                "projectID": {
-                    "type": "string"
-                },
                 "status": {
                     "$ref": "#/definitions/dto.ProjectStatus"
-                },
-                "userID": {
-                    "type": "string"
                 }
             }
         },
@@ -2662,15 +2624,6 @@ const docTemplate = `{
                     "maxLength": 100,
                     "minLength": 2
                 },
-                "organizationID": {
-                    "type": "string"
-                },
-                "projectID": {
-                    "type": "string"
-                },
-                "sprintID": {
-                    "type": "string"
-                },
                 "start_date": {
                     "type": "string"
                 },
@@ -2688,9 +2641,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/dto.SprintStatus"
                         }
                     ]
-                },
-                "userID": {
-                    "type": "string"
                 }
             }
         },
