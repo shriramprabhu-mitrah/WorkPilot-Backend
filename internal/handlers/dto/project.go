@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/internal/pkg/response"
 )
 
 type ProjectStatus string
@@ -35,21 +36,17 @@ type UpdateProjectRequest struct {
 }
 
 type ProjectFilterRequest struct {
-	Page      int           `form:"page"`
-	PageSize  int           `form:"page_size"`
-	Name      string        `form:"name"`
-	Status    ProjectStatus `form:"status"`
-	SortBy    string        `form:"sort_by"`
-	SortOrder string        `form:"sort_order"`
+	response.PaginationQuery
+	response.SortQuery
+	Name   string        `form:"name"`
+	Status ProjectStatus `form:"status"`
 }
 
 type ProjectFilter struct {
-	Page      int    `form:"page"`
-	PageSize  int    `form:"page_size"`
-	Name      string `form:"name"`
-	Status    string `form:"status"`
-	SortBy    string `form:"sort_by"`
-	SortOrder string `form:"sort_order"`
+	response.PaginationQuery
+	response.SortQuery
+	Name   string `form:"name"`
+	Status string `form:"status"`
 }
 
 type CreateProjectMemberRequest struct {
@@ -60,9 +57,8 @@ type CreateProjectMemberRequest struct {
 }
 
 type ProjectMemberFilter struct {
-	Page     int    `form:"page"`
-	PageSize int    `form:"page_size"`
-	Name     string `form:"name"`
+	response.PaginationQuery
+	Name string `form:"name"`
 }
 
 func (r ProjectStatus) Validate() error {
@@ -80,8 +76,7 @@ func (r ProjectStatus) Validate() error {
 }
 
 type ProjectActivityFilterRequest struct {
-	Page         int    `form:"page"`
-	PageSize     int    `form:"page_size"`
+	response.PaginationQuery
 	Action       string `form:"action"`
 	UserID       string `form:"user_id"`
 	ResourceType string `form:"resource_type"`
@@ -90,8 +85,7 @@ type ProjectActivityFilterRequest struct {
 }
 
 type ProjectActivityFilter struct {
-	Page         int
-	PageSize     int
+	response.PaginationQuery
 	Action       string
 	UserID       *uuid.UUID
 	ResourceType string

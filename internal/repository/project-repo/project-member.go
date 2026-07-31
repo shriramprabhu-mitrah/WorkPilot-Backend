@@ -38,13 +38,7 @@ func (d *projectDatabase) GetProjectsMembersByProjectID(projectID uuid.UUID, fil
 	var projectMembers []models.ProjectMember
 	var totalItems int64
 
-	if filter.Page < 1 {
-		filter.Page = 1
-	}
-
-	if filter.PageSize < 1 {
-		filter.PageSize = 10
-	}
+	filter.PaginationQuery.Normalize(10)
 
 	offset := (filter.Page - 1) * filter.PageSize
 

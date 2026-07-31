@@ -596,12 +596,7 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 }
 
 func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
-	if filter.Page < 1 {
-		filter.Page = 1
-	}
-	if filter.PageSize < 1 {
-		filter.PageSize = 10
-	}
+	filter.PaginationQuery.Normalize(10)
 	if filter.Role != "" {
 		filter.Role = strings.ToLower(strings.TrimSpace(filter.Role))
 	}

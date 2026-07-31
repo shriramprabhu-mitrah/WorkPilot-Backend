@@ -149,13 +149,7 @@ func (d *sprintDatabase) GetSprints(projectID uuid.UUID, filter dto.SprintFilter
 	var sprints []models.Sprint
 	var totalItems int64
 
-	if filter.Page < 1 {
-		filter.Page = 1
-	}
-
-	if filter.PageSize < 1 {
-		filter.PageSize = 10
-	}
+	filter.PaginationQuery.Normalize(10)
 
 	offset := (filter.Page - 1) * filter.PageSize
 

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -59,27 +58,8 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 		return
 	}
 
-	userID, exist := g.Get("user_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			},
-		}
-
-		h.logger.Error("User Id Invalid/Missing",
-			zap.String("user id :", fmt.Sprintf("%v", userID)))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	userUUID, errorResponse := utils.StringToUUID(userID.(string))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 
@@ -91,27 +71,8 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -180,27 +141,8 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 		return
 	}
 
-	userID, exist := g.Get("user_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			},
-		}
-
-		h.logger.Error("User Id Invalid/Missing",
-			zap.String("user id :", fmt.Sprintf("%v", userID)))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	userUUID, errorResponse := utils.StringToUUID(userID.(string))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 
@@ -297,27 +239,8 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 		return
 	}
 
-	userID, exist := g.Get("user_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			},
-		}
-
-		h.logger.Error("User Id Invalid/Missing",
-			zap.String("user id :", fmt.Sprintf("%v", userID)))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	userUUID, errorResponse := utils.StringToUUID(userID.(string))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 
@@ -427,27 +350,8 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 		return
 	}
 
-	userID, exist := g.Get("user_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			},
-		}
-
-		h.logger.Error("User Id Invalid/Missing",
-			zap.String("user id :", fmt.Sprintf("%v", userID)))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	userUUID, errorResponse := utils.StringToUUID(userID.(string))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 
@@ -524,27 +428,8 @@ func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 		return
 	}
 
-	userID, exist := g.Get("user_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing user context",
-			},
-		}
-
-		h.logger.Error("User Id Invalid/Missing",
-			zap.String("user id :", fmt.Sprintf("%v", userID)))
-
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-
-	userUUID, errorResponse := utils.StringToUUID(userID.(string))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 	sprintParam := g.Param("sprint_id")

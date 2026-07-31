@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/gofrs/uuid"
+import (
+	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/internal/pkg/response"
+)
 
 type Industry string
 
@@ -92,8 +95,7 @@ type AcceptInvitationRequest struct {
 }
 
 type OrganizationMemberListFilter struct {
-	Page       int    `json:"page,omitempty"`
-	PageSize   int    `json:"page_size,omitempty"`
+	response.PaginationQuery
 	FullName   string `json:"full_name,omitempty"`
 	Email      string `json:"email,omitempty"`
 	Username   string `json:"username,omitempty"`
