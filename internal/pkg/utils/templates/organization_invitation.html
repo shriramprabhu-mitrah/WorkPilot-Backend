@@ -73,9 +73,15 @@
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                   <tr>
                     <td class="fluid-padding" style="padding:28px 48px 0;">
+                      {{ if .TempPassword }}
                       <p style="margin:0; font-size:15px; line-height:1.7; color:#4a4a4a;">
                         You've been invited to join <strong style="color:#141414;">{{ .OrganizationName }}</strong>. Accept below to create your account and get access as <strong style="color:#141414;">{{ .Role }}</strong>.
                       </p>
+                      {{ else }}
+                      <p style="margin:0; font-size:15px; line-height:1.7; color:#4a4a4a;">
+                        You've been invited to join <strong style="color:#141414;">{{ .OrganizationName }}</strong>. Click below to accept the invitation and view your team on the Workpilot dashboard.
+                      </p>
+                      {{ end }}
                     </td>
                   </tr>
 
