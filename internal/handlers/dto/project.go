@@ -153,3 +153,8 @@ type GetProjectDetails struct {
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
 }
+
+type DeleteProject struct {
+	ProjectID      uuid.UUID
+	OrganizationID uuid.UUID
+}

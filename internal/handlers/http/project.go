@@ -723,3 +723,86 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 		Data:       project,
 	})
 }
+
+// DeleteProject godoc
+//
+//	@Summary		Delete Project
+//	@Description	Delete an existing project
+//	@Tags			Project
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			project_id	path		string	true	"Project ID (UUID)"
+//	@Success		200	{object}	response.SuccessResponse	"Project deleted successfully"
+//	@Failure		400	{object}	response.ErrorResponse		"Invalid project ID"
+//	@Failure		401	{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		403	{object}	response.ErrorResponse		"Forbidden"
+//	@Failure		404	{object}	response.ErrorResponse		"Project not found"
+//	@Failure		500	{object}	response.ErrorResponse		"Internal Server Error"
+//	@Router			/project/{project_id} [delete]
+func (h *ProjectHandler) Deleteproject(g *gin.Context) {
+
+	var payload dto.DeleteProject
+
+	organizationID, exist := g.Get("organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
+			},
+		}
+
+		h.logger.Error("Sprint Id Invalid/Missing ")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	organizationIDStr := organizationID.(string)
+
+	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
+
+	projectID := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
+
+	payload.ProjectID = projectUUID
+	payload.OrganizationID = organizationUUID
+
+	err := h.service.DeleteProject(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Project deleted successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data: map[string]uuid.UUID{
+			"project_id": projectUUID,
+		},
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+
+}

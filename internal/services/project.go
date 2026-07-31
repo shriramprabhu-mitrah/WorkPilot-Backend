@@ -24,6 +24,7 @@ type ProjectService interface {
 	RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error
 	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error)
 	GetProjectDetails(req dto.GetProjectDetails) (*dto.ProjectResponse, *response.Error)
+	DeleteProject(req dto.DeleteProject) *response.Error
 }
 
 func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, logger *zap.Logger) ProjectService {
@@ -255,7 +256,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		if isMember {
 			return &response.Error{
 				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadGateway,
+				StatusCode: http.StatusBadRequest,
 				Message:    "User Already Exist in Project",
 			}
 		}
@@ -509,4 +510,17 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 	}
 
 	return &payload, nil
+}
+
+func (s *projectService) DeleteProject(req dto.DeleteProject) *response.Error {
+
+	if req.ProjectID == uuid.Nil {
+		return &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Invalid project id",
+		}
+	}
+
+	return s.projectRepo.DeleteProject(req.ProjectID, req.OrganizationID)
 }

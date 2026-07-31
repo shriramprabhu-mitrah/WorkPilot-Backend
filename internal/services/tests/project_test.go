@@ -124,6 +124,9 @@ func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 func (s *stubProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *response.Error) {
 	return s.project, nil
 }
+func (s *stubProjectRepo) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
+	return nil
+}
 func (s *stubProjectRepo) CreateProjectMember(row models.ProjectMember) *response.Error {
 	return nil
 }
