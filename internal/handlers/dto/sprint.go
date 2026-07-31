@@ -16,7 +16,7 @@ const (
 )
 
 type CreateSprintRequest struct {
-	Sprints        []CreateSprint `json:"sprints"`
+	Sprints        []CreateSprint `json:"sprints" binding:"required"`
 	ProjectID      uuid.UUID
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
