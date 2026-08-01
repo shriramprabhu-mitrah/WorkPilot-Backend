@@ -1,0 +1,318 @@
+package services_test
+
+import (
+	"testing"
+	"time"
+
+	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/internal/handlers/dto"
+	"github.com/ms-kanban-server/internal/pkg/models"
+	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/services"
+	"go.uber.org/zap"
+)
+
+type sprintAuthRepoStub struct {
+	dummyAuthRepo
+	user models.User
+	err  *response.Error
+}
+
+func (s *sprintAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
+	return s.user, s.err
+}
+
+type sprintRepoStub struct {
+	dummySprintRepo
+	createErr         *response.Error
+	deleteErr         *response.Error
+	getSprintsRes     []models.Sprint
+	getSprintsPage    response.Pagination
+	getSprintsErr     *response.Error
+	getSprintByIDRes  *models.Sprint
+	getSprintByIDErr  *response.Error
+	updateErr         *response.Error
+	lastCreateSprint  models.Sprint
+	lastDeleteSprint  uuid.UUID
+	lastUpdateProject uuid.UUID
+	lastUpdateSprint  uuid.UUID
+	lastUpdatePayload models.Sprint
+}
+
+func (s *sprintRepoStub) CreateSprint(row models.Sprint) *response.Error {
+	s.lastCreateSprint = row
+	return s.createErr
+}
+
+func (s *sprintRepoStub) DeleteSprint(id uuid.UUID) *response.Error {
+	s.lastDeleteSprint = id
+	return s.deleteErr
+}
+
+func (s *sprintRepoStub) GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
+	return s.getSprintsRes, s.getSprintsPage, s.getSprintsErr
+}
+
+func (s *sprintRepoStub) GetSprintByID(projectID uuid.UUID, sprintID uuid.UUID) (*models.Sprint, *response.Error) {
+	return s.getSprintByIDRes, s.getSprintByIDErr
+}
+
+func (s *sprintRepoStub) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, sprint models.Sprint) *response.Error {
+	s.lastUpdateProject = projectID
+	s.lastUpdateSprint = sprintID
+	s.lastUpdatePayload = sprint
+	return s.updateErr
+}
+
+func TestSprintService_CreateSprint_RejectsUnauthorizedUserOrganization(t *testing.T) {
+	logger := zap.NewNop()
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: nil}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.CreateSprint(dto.CreateSprintRequest{
+		ProjectID:      uuid.Must(uuid.NewV4()),
+		UserID:         uuid.Must(uuid.NewV4()),
+		OrganizationID: uuid.Must(uuid.NewV4()),
+	})
+	if err == nil {
+		t.Fatal("expected forbidden error, got nil")
+	}
+	if err.Code != response.ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %s", err.Code)
+	}
+}
+
+func TestSprintService_CreateSprint_ReturnsBadRequestForInvalidDateRange(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.CreateSprint(dto.CreateSprintRequest{
+		ProjectID:      uuid.Must(uuid.NewV4()),
+		UserID:         userID,
+		OrganizationID: orgID,
+		Sprints: []dto.CreateSprint{{
+			Name:      "Sprint 1",
+			StartDate: "2026-07-12",
+			EndDate:   "2026-07-10",
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+	if err.Message != "end_date cannot be before start_date" {
+		t.Fatalf("unexpected message: %s", err.Message)
+	}
+}
+
+func TestSprintService_CreateSprint_SuccessfullyPersistsSprints(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	createReq := dto.CreateSprintRequest{
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		Sprints: []dto.CreateSprint{{
+			Name:      "Sprint 1",
+			Goal:      "Ship MVP",
+			StartDate: "2026-07-12",
+			EndDate:   "2026-07-18",
+		}},
+	}
+
+	err := service.CreateSprint(createReq)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if sprintRepo.lastCreateSprint.Name != "Sprint 1" {
+		t.Fatalf("expected created sprint name Sprint 1, got %s", sprintRepo.lastCreateSprint.Name)
+	}
+	if sprintRepo.lastCreateSprint.ProjectID != projectID {
+		t.Fatalf("expected project id %s, got %s", projectID, sprintRepo.lastCreateSprint.ProjectID)
+	}
+	if sprintRepo.lastCreateSprint.CreatedByID != userID {
+		t.Fatalf("expected created by user id %s, got %s", userID, sprintRepo.lastCreateSprint.CreatedByID)
+	}
+}
+
+func TestSprintService_DeleteSprint_RejectsInvalidSprintID(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.DeleteSprint(dto.DeleteSprint{
+		UserID:         userID,
+		OrganizationID: orgID,
+		SprintID:       uuid.Nil,
+	})
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_DeleteSprint_DelegatesToRepository(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.DeleteSprint(dto.DeleteSprint{UserID: userID, OrganizationID: orgID, SprintID: sprintID})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if sprintRepo.lastDeleteSprint != sprintID {
+		t.Fatalf("expected delete call for sprint %s, got %s", sprintID, sprintRepo.lastDeleteSprint)
+	}
+}
+
+func TestSprintService_UpdateSprint_RejectsInvalidDateFormat(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC), EndDate: time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)}}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.UpdateSprint(dto.UpdateSprintRequest{
+		UserID:         userID,
+		OrganizationID: orgID,
+		ProjectID:      projectID,
+		SprintID:       sprintID,
+		StartDate:      "not-a-date",
+	})
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_UpdateSprint_DelegatesToRepository(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC), EndDate: time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)}}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.UpdateSprint(dto.UpdateSprintRequest{
+		Name:           "Updated sprint",
+		Goal:           "Refined goal",
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		SprintID:       sprintID,
+		Status:         dto.SprintStatusActive,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if sprintRepo.lastUpdateProject != projectID {
+		t.Fatalf("expected project id %s, got %s", projectID, sprintRepo.lastUpdateProject)
+	}
+	if sprintRepo.lastUpdateSprint != sprintID {
+		t.Fatalf("expected sprint id %s, got %s", sprintID, sprintRepo.lastUpdateSprint)
+	}
+}
+
+func TestSprintService_GetSprints_RejectsOrganizationMismatch(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	_, _, err := service.GetSprints(dto.GetSprint{UserID: userID, OrganizationID: uuid.Must(uuid.NewV4()), ProjectID: uuid.Must(uuid.NewV4())}, dto.SprintFilter{})
+	if err == nil {
+		t.Fatal("expected forbidden error, got nil")
+	}
+	if err.Code != response.ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %s", err.Code)
+	}
+}
+
+func TestSprintService_GetSprints_DelegatesToRepository(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{getSprintsRes: []models.Sprint{{Name: "Sprint A"}}, getSprintsPage: response.Pagination{Page: 1, PageSize: 10, TotalItems: 1, TotalPages: 1}}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	sprints, pagination, err := service.GetSprints(dto.GetSprint{UserID: userID, OrganizationID: orgID, ProjectID: projectID}, dto.SprintFilter{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(sprints) != 1 {
+		t.Fatalf("expected 1 sprint, got %d", len(sprints))
+	}
+	if pagination.TotalItems != 1 {
+		t.Fatalf("expected total items 1, got %d", pagination.TotalItems)
+	}
+}
+
+func TestSprintService_GetSprintByID_RejectsInvalidProjectID(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	_, err := service.GetSprintByID(dto.GetSprint{UserID: userID, OrganizationID: orgID, ProjectID: uuid.Nil, SprintID: uuid.Must(uuid.NewV4())})
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_GetSprintByID_DelegatesToRepository(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+	want := &models.Sprint{Name: "Sprint B"}
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{getSprintByIDRes: want}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	got, err := service.GetSprintByID(dto.GetSprint{UserID: userID, OrganizationID: orgID, ProjectID: projectID, SprintID: sprintID})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if got == nil || got.Name != "Sprint B" {
+		t.Fatalf("expected sprint name Sprint B, got %+v", got)
+	}
+}

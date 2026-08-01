@@ -63,3 +63,36 @@ func TestParseOrgDuplicateError(t *testing.T) {
 		t.Errorf("expected 'An organization with this domain or slug already exists', got %q", parsedSlug.Message)
 	}
 }
+
+func TestParseProjectDuplicateError(t *testing.T) {
+	projectErr := errors.New("duplicate key value violates unique constraint \"idx_org_project_key\"")
+	projectParsed := utils.ParseProjectDuplicateError(projectErr)
+	if projectParsed == nil || projectParsed.Code != response.ErrConflict {
+		t.Fatalf("expected conflict error, got %#v", projectParsed)
+	}
+	if projectParsed.Message != "Project key already exists in this organization" {
+		t.Fatalf("expected project key conflict message, got %q", projectParsed.Message)
+	}
+}
+
+func TestParseProjectMemberDuplicateError(t *testing.T) {
+	memberErr := errors.New("duplicate key value violates unique constraint \"idx_project_member\"")
+	memberParsed := utils.ParseProjectMemberDuplicateError(memberErr)
+	if memberParsed == nil || memberParsed.Code != response.ErrConflict {
+		t.Fatalf("expected conflict error, got %#v", memberParsed)
+	}
+	if memberParsed.Message != "User is already a member of this project" {
+		t.Fatalf("expected project member conflict message, got %q", memberParsed.Message)
+	}
+}
+
+func TestParseSprintDuplicateError(t *testing.T) {
+	sprintErr := errors.New("duplicate key value violates unique constraint \"idx_project_sprint_name\"")
+	sprintParsed := utils.ParseSprintDuplicateError(sprintErr)
+	if sprintParsed == nil || sprintParsed.Code != response.ErrConflict {
+		t.Fatalf("expected conflict error, got %#v", sprintParsed)
+	}
+	if sprintParsed.Message != "Sprint name already exists in this project" {
+		t.Fatalf("expected sprint conflict message, got %q", sprintParsed.Message)
+	}
+}

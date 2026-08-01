@@ -1,9 +1,8 @@
 package utils_test
 
 import (
-	"encoding/json"
-	"io"
-	"reflect"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/go-playground/validator/v10"
@@ -12,55 +11,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/utils"
 )
 
-type samplePayload struct {
-	Email string `json:"email" validate:"required,email"`
-	Name  string `json:"full_name" validate:"required"`
-	Age   int    `json:"age"`
-}
-
-func TestValidationErrorMessage(t *testing.T) {
-	validate := validator.New()
-
-	t.Run("returns required message for missing email", func(t *testing.T) {
-		payload := samplePayload{Name: "John"}
-		err := validate.Struct(payload)
-		msg := utils.ValidationErrorMessage(err, payload)
-		if msg != "Email is required." {
-			t.Fatalf("expected 'Email is required.', got %q", msg)
-		}
-	})
-
-	t.Run("returns email message for invalid email", func(t *testing.T) {
-		payload := samplePayload{Email: "invalid-email", Name: "John"}
-		err := validate.Struct(payload)
-		msg := utils.ValidationErrorMessage(err, payload)
-		if msg != "Email must be a valid email address." {
-			t.Fatalf("expected 'Email must be a valid email address.', got %q", msg)
-		}
-	})
-
-	t.Run("returns json type error message", func(t *testing.T) {
-		typeErr := &json.UnmarshalTypeError{
-			Field: "age",
-			Type:  reflect.TypeOf(0),
-		}
-		payload := samplePayload{}
-		msg := utils.ValidationErrorMessage(typeErr, payload)
-		if msg != "Invalid data type for Age. Expected int." {
-			t.Fatalf("expected 'Invalid data type for Age. Expected int.', got %q", msg)
-		}
-	})
-
-	t.Run("returns json format error message for EOF", func(t *testing.T) {
-		payload := samplePayload{}
-		msg := utils.ValidationErrorMessage(io.EOF, payload)
-		if msg != "Invalid JSON request body format." {
-			t.Fatalf("expected 'Invalid JSON request body format.', got %q", msg)
-		}
-	})
-}
-
-func TestUtilityHelpersAndParsers(t *testing.T) {
+func TestUtilityHelpersAndParsersAdditionalCoverage(t *testing.T) {
 	t.Run("password helpers", func(t *testing.T) {
 		hash, err := utils.HashPassword("super-secret")
 		if err != nil {
@@ -168,7 +119,62 @@ func TestUtilityHelpersAndParsers(t *testing.T) {
 	})
 }
 
-func TestValidationErrorMessageHandlesMoreBranches(t *testing.T) {
+func TestRenderEmbeddedTemplateErrorBranchesAdditionalCoverage(t *testing.T) {
+	t.Run("rejects empty template name", func(t *testing.T) {
+		_, err := utils.RenderEmbeddedTemplate("", map[string]string{"OTP": "123456"})
+		if err == nil {
+			t.Fatal("expected empty template name to return an error")
+		}
+	})
+
+	t.Run("renders known template", func(t *testing.T) {
+		rendered, err := utils.RenderEmbeddedTemplate("password_reset.html", map[string]any{"OTP": "123456", "ExpiryMinutes": 15})
+		if err != nil {
+			t.Fatalf("expected embedded template to render, got %v", err)
+		}
+		if !strings.Contains(rendered, "123456") {
+			t.Fatalf("expected rendered template to include OTP, got %s", rendered)
+		}
+	})
+
+	t.Run("returns error for missing template", func(t *testing.T) {
+		_, err := utils.RenderEmbeddedTemplate("does_not_exist.html", nil)
+		if err == nil {
+			t.Fatal("expected missing template to return an error")
+		}
+	})
+}
+
+func TestParseDuplicateErrorHelpers(t *testing.T) {
+	projectErr := errors.New("duplicate key value violates unique constraint \"idx_org_project_key\"")
+	projectParsed := utils.ParseProjectDuplicateError(projectErr)
+	if projectParsed == nil || projectParsed.Code != response.ErrConflict {
+		t.Fatalf("expected conflict error, got %#v", projectParsed)
+	}
+	if projectParsed.Message != "Project key already exists in this organization" {
+		t.Fatalf("expected project key conflict message, got %q", projectParsed.Message)
+	}
+
+	memberErr := errors.New("duplicate key value violates unique constraint \"idx_project_member\"")
+	memberParsed := utils.ParseProjectMemberDuplicateError(memberErr)
+	if memberParsed == nil || memberParsed.Code != response.ErrConflict {
+		t.Fatalf("expected conflict error, got %#v", memberParsed)
+	}
+	if memberParsed.Message != "User is already a member of this project" {
+		t.Fatalf("expected project member conflict message, got %q", memberParsed.Message)
+	}
+
+	sprintErr := errors.New("duplicate key value violates unique constraint \"idx_project_sprint_name\"")
+	sprintParsed := utils.ParseSprintDuplicateError(sprintErr)
+	if sprintParsed == nil || sprintParsed.Code != response.ErrConflict {
+		t.Fatalf("expected conflict error, got %#v", sprintParsed)
+	}
+	if sprintParsed.Message != "Sprint name already exists in this project" {
+		t.Fatalf("expected sprint conflict message, got %q", sprintParsed.Message)
+	}
+}
+
+func TestValidationErrorMessageHandlesMoreBranchesAdditionalCoverage(t *testing.T) {
 	validate := validator.New()
 
 	t.Run("max branch", func(t *testing.T) {
