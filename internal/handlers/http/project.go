@@ -5,7 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
@@ -31,7 +32,7 @@ type ProjectHandler struct {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			request	body		dto.CreateProjectRequest	true	"Create Project Request"
+//	@Param			request	body		requestdto.CreateProjectRequest	true	"Create Project Request"
 //	@Success		201		{object}	response.SuccessResponse	"Project created successfully"
 //	@Failure		400		{object}	response.ErrorResponse		"Validation error"
 //	@Failure		401		{object}	response.ErrorResponse		"Unauthorized"
@@ -42,7 +43,7 @@ type ProjectHandler struct {
 // @Router /project/create [post]
 func (h *ProjectHandler) CreateProject(g *gin.Context) {
 
-	var payload dto.CreateProjectRequest
+	var payload requestdto.CreateProjectRequest
 
 	if err := g.Bind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -99,7 +100,7 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string						true	"Project ID"
-//	@Param			request	body		dto.UpdateProjectRequest	true	"Update Project Request"
+//	@Param			request	body		requestdto.UpdateProjectRequest	true	"Update Project Request"
 //	@Success		200		{object}	response.SuccessResponse	"Project updated successfully"
 //	@Failure		400		{object}	response.ErrorResponse		"Validation error"
 //	@Failure		401		{object}	response.ErrorResponse		"Unauthorized"
@@ -110,7 +111,7 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 // @Router /project/update/{id} [patch]
 func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 
-	var payload dto.UpdateProjectRequest
+	var payload requestdto.UpdateProjectRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -188,7 +189,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //
 // @Router /project/get [get]
 func (h *ProjectHandler) GetProjects(g *gin.Context) {
-	var filter dto.ProjectFilterRequest
+	var filter requestdto.ProjectFilterRequest
 
 	if err := g.ShouldBindQuery(&filter); err != nil {
 		errorResponse := &response.ErrorResponse{
@@ -236,11 +237,16 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		return
 	}
 
+	projectResponses := make([]responsedto.ProjectSummary, 0, len(projects))
+	for _, project := range projects {
+		projectResponses = append(projectResponses, responsedto.ProjectSummaryFromModel(project))
+	}
+
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Projects retrieved successfully.",
-		Data:       projects,
+		Data:       projectResponses,
 		Meta:       &pagination,
 	})
 }
@@ -252,7 +258,7 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 //	@Tags			Project Members
 //	@Accept			json
 //	@Produce		json
-//	@Param			request	body		dto.CreateProjectMemberRequest	true	"Project Member Request"
+//	@Param			request	body		requestdto.CreateProjectMemberRequest	true	"Project Member Request"
 //	@Success		201		{object}	response.SuccessResponse	"Project members added successfully"
 //	@Failure		400		{object}	response.ErrorResponse		"Validation error"
 //	@Failure		401		{object}	response.ErrorResponse		"Unauthorized"
@@ -263,7 +269,7 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 // @Router /project/add-members [post]
 func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 
-	var payload dto.CreateProjectMemberRequest
+	var payload requestdto.CreateProjectMemberRequest
 
 	if err := g.Bind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -352,7 +358,7 @@ func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 // @Param           project_id path string true "Project ID"
 // @Router          /project/members/{project_id} [get]
 func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
-	var filter dto.ProjectMemberFilter
+	var filter requestdto.ProjectMemberFilter
 
 	if err := g.ShouldBindQuery(&filter); err != nil {
 		errorResponse := &response.ErrorResponse{
@@ -385,11 +391,16 @@ func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 		return
 	}
 
+	memberResponses := make([]responsedto.ProjectMember, 0, len(projectMembers))
+	for _, member := range projectMembers {
+		memberResponses = append(memberResponses, responsedto.ProjectMemberFromModel(member))
+	}
+
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Project members retrieved successfully.",
-		Data:       projectMembers,
+		Data:       memberResponses,
 		Meta:       &pagination,
 	})
 }
@@ -458,7 +469,7 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 }
 
 func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
-	var filter dto.ProjectActivityFilterRequest
+	var filter requestdto.ProjectActivityFilterRequest
 
 	if err := g.ShouldBindQuery(&filter); err != nil {
 		errorResponse := &response.ErrorResponse{
@@ -524,7 +535,7 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			project_id	path		string	true	"Project ID (UUID)"
-//	@Success		200	{object}	response.SuccessResponse{data=dto.ProjectResponse}	"Project retrieved successfully"
+//	@Success		200	{object}	response.SuccessResponse{data=responsedto.ProjectDetail}	"Project retrieved successfully"
 //	@Failure		400	{object}	response.ErrorResponse	"Invalid project ID"
 //	@Failure		401	{object}	response.ErrorResponse	"Unauthorized"
 //	@Failure		403	{object}	response.ErrorResponse	"Forbidden"
@@ -533,7 +544,7 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 //	@Router			/api/v1/project/{project_id}/detail [get]
 func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 
-	var payload dto.GetProjectDetails
+	var payload requestdto.GetProjectDetails
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
@@ -593,7 +604,7 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 //	@Router			/project/{project_id} [delete]
 func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 
-	var payload dto.DeleteProject
+	var payload requestdto.DeleteProject
 
 	organizationID, exist := g.Get("organization_id")
 	if !exist {
