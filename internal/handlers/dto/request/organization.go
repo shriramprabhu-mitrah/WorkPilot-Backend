@@ -1,4 +1,4 @@
-package dto
+package request
 
 import (
 	"github.com/gofrs/uuid"
@@ -20,7 +20,6 @@ const (
 	IndustryOther                 Industry = "Other"
 )
 
-// TeamSize enum
 type TeamSize string
 
 const (

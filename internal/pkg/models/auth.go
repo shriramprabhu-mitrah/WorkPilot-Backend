@@ -24,7 +24,7 @@ type User struct {
 	FullName       string         `json:"name" gorm:"size:100;not null"`
 	UserName       string         `json:"username" gorm:"column:username;size:30;not null;unique;index:idx_users_username"`
 	Email          string         `json:"email" validate:"required,email" gorm:"size:100;not null;unique;index:idx_users_email"`
-	PasswordHash   string         `json:"-" validate:"required"`
+	PasswordHash   string         `json:"password_hash" validate:"required"`
 	Role           string         `json:"role" gorm:"size:30;index:idx_users_role"`
 	AvatarURL      string         `json:"avatar_url" gorm:"size:255"`
 	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
@@ -63,7 +63,7 @@ type PasswordResetOTP struct {
 type AuditLog struct {
 	ID             uuid.UUID  `json:"id" gorm:"primaryKey;type:uuid"`
 	UserID         *uuid.UUID `json:"user_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_user_id"`
-	User           User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	User           User       `json:"user,omitzero" gorm:"foreignKey:UserID"`
 	OrganizationID *uuid.UUID `json:"organization_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_org_id"`
 	ProjectID      *uuid.UUID `json:"project_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_project_id"`
 	Action         string     `json:"action" gorm:"size:100;not null;index:idx_audit_logs_action"`

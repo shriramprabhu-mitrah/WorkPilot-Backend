@@ -5,7 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
@@ -31,7 +32,7 @@ type sprintHandler struct {
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
-// @Param request body dto.CreateSprintRequest true "List of sprints to create"
+// @Param request body requestdto.CreateSprintRequest true "List of sprints to create"
 // @Success 201 {object} response.SuccessResponse "Sprint(s) created successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -41,7 +42,7 @@ type sprintHandler struct {
 // @Router /projects/{project_id}/sprint/create [post]
 func (h *sprintHandler) CreateSprint(g *gin.Context) {
 
-	var payload dto.CreateSprintRequest
+	var payload requestdto.CreateSprintRequest
 
 	if err := g.Bind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -115,7 +116,7 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 // @Router /projects/{project_id}/sprint/{sprint_id} [delete]
 func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 
-	var payload dto.DeleteSprint
+	var payload requestdto.DeleteSprint
 
 	organizationID, exist := g.Get("organization_id")
 	if !exist {
@@ -187,7 +188,7 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"
-// @Param request body dto.UpdateSprintRequest true "Sprint Update Details"
+// @Param request body requestdto.UpdateSprintRequest true "Sprint Update Details"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -198,7 +199,7 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 // @Router /projects/{project_id}/sprint/{sprint_id} [patch]
 func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 
-	var payload dto.UpdateSprintRequest
+	var payload requestdto.UpdateSprintRequest
 
 	if err := g.Bind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -304,7 +305,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Router /projects/{project_id}/sprint [get]
 func (h *sprintHandler) GetSprints(g *gin.Context) {
 
-	var filter dto.SprintFilter
+	var filter requestdto.SprintFilter
 
 	if err := g.ShouldBindQuery(&filter); err != nil {
 		errorResponse := &response.ErrorResponse{
@@ -355,7 +356,7 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 		return
 	}
 
-	payload := dto.GetSprint{
+	payload := requestdto.GetSprint{
 		ProjectID:      projectID,
 		OrganizationID: organizationUUID,
 		UserID:         userUUID,
@@ -371,11 +372,16 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 		return
 	}
 
+	sprintResponses := make([]responsedto.Sprint, 0, len(projects))
+	for _, sprint := range projects {
+		sprintResponses = append(sprintResponses, responsedto.SprintFromModel(sprint))
+	}
+
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Sprints retrieved successfully.",
-		Data:       projects,
+		Data:       sprintResponses,
 		Meta:       &pagination,
 	})
 }
@@ -439,7 +445,7 @@ func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 		return
 	}
 
-	payload := dto.GetSprint{
+	payload := requestdto.GetSprint{
 		ProjectID:      projectUUID,
 		OrganizationID: organizationUUID,
 		UserID:         userUUID,
@@ -456,10 +462,12 @@ func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 		return
 	}
 
+	sprintResponse := responsedto.SprintFromModel(*project)
+
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Sprint retrieved successfully.",
-		Data:       project,
+		Data:       sprintResponse,
 	})
 }
