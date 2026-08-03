@@ -9,9 +9,9 @@ import (
 
 type Sprint struct {
 	ID          uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
-	ProjectID   uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;index"`
+	ProjectID   uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;uniqueIndex:idx_project_sprint_name"`
 	Project     Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
-	Name        string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_project_sprint_name"`
+	Name        string         `json:"name" gorm:"type:varchar(100);not null;uniqueIndex:idx_project_sprint_name"`
 	Goal        string         `json:"goal,omitempty" gorm:"type:varchar(500)"`
 	Status      string         `json:"status" gorm:"type:varchar(20);default:'planning'"`
 	StartDate   time.Time      `json:"start_date" gorm:"type:date;not null"`

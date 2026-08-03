@@ -16,6 +16,7 @@ type SprintRepository interface {
 	DeleteSprint(id uuid.UUID) *response.Error
 	GetSprintByID(sprintID, projectID uuid.UUID) (*models.Sprint, *response.Error)
 	GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
+	IsSprintExists(projectID uuid.UUID, name string) (bool, *response.Error)
 }
 
 func InitSprintRepository(deps models.Config) SprintRepository {

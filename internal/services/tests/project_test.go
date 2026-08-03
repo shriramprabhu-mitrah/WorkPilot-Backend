@@ -24,6 +24,10 @@ func (d *dummySprintRepo) DeleteSprint(id uuid.UUID) *response.Error {
 	return nil
 }
 
+func (d *dummySprintRepo) IsSprintExists(projectID uuid.UUID, name string) (bool, *response.Error) {
+	return false, nil
+}
+
 func (d *dummySprintRepo) GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
