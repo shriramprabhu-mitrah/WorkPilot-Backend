@@ -463,3 +463,81 @@ func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 		Data:       project,
 	})
 }
+
+func (h *sprintHandler) GetSprintBurndown(g *gin.Context) {
+	organizationID, exist := g.Get("organization_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing organization context",
+			},
+		}
+		h.logger.Error("Organization Id Invalid/Missing")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	organizationIDStr := organizationID.(string)
+
+	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	sprintParam := g.Param("sprint_id")
+	sprintUUID, errorResponse := utils.StringToUUID(sprintParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	burndown, err := h.service.GetSprintBurndown(sprintUUID, projectUUID, userUUID, organizationUUID)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Sprint burndown data retrieved successfully.",
+		Data:       burndown,
+	})
+}
+
+func (h *sprintHandler) TriggerSnapshot(g *gin.Context) {
+	err := h.service.TriggerDailySnapshots()
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Sprint snapshots triggered successfully.",
+	})
+}

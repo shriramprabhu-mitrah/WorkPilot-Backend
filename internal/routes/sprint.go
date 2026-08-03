@@ -33,5 +33,7 @@ func SprintRoutes(deps models.Config, api *gin.RouterGroup) {
 		spr.GET("/:sprint_id", middleware.ValidateJWT(), sprintHandler.GetSprintByID)
 		spr.PATCH("/:sprint_id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), sprintHandler.UpdateSprint)
 		spr.DELETE("/:sprint_id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), sprintHandler.DeleteSprint)
+		spr.GET("/:sprint_id/burndown", middleware.ValidateJWT(), sprintHandler.GetSprintBurndown)
+		spr.POST("/:sprint_id/snapshot", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), sprintHandler.TriggerSnapshot)
 	}
 }

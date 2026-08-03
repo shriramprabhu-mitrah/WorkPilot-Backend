@@ -60,3 +60,16 @@ type GetSprint struct {
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
 }
+
+type BurndownDataPoint struct {
+	Date            string   `json:"date"`
+	RemainingPoints *int     `json:"remaining_points"`
+	IdealValue      float64  `json:"ideal_value"`
+}
+
+type SprintBurndownResponse struct {
+	SprintID         string              `json:"sprint_id"`
+	SprintName       string              `json:"sprint_name"`
+	TotalStoryPoints int                 `json:"total_story_points"`
+	BurndownData     []BurndownDataPoint `json:"burndown_data"`
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func (d *sprintDatabase) CreateSprint(row models.Sprint) *response.Error {
@@ -41,6 +42,7 @@ func (d *sprintDatabase) UpdateSprint(projectID, sprintID uuid.UUID, req models.
 	result := d.db.
 		Model(&models.Sprint{}).
 		Where("id = ? AND project_id = ?", sprintID, projectID).
+		Select("name", "goal", "start_date", "end_date", "status", "velocity").
 		Updates(req)
 
 	if result.Error != nil {
@@ -208,4 +210,89 @@ func (d *sprintDatabase) GetSprints(projectID uuid.UUID, filter dto.SprintFilter
 	}
 
 	return sprints, pagination, nil
+}
+
+func (d *sprintDatabase) CreateSprintSnapshot(snapshot models.SprintSnapshot) *response.Error {
+	if err := d.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "sprint_id"}, {Name: "date"}},
+		DoUpdates: clause.AssignmentColumns([]string{"total_story_points", "remaining_story_points"}),
+	}).Create(&snapshot).Error; err != nil {
+		d.logger.Error("Database error occurred while creating/updating sprint snapshot", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to save snapshot.",
+		}
+	}
+	return nil
+}
+
+func (d *sprintDatabase) GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error) {
+	var snapshots []models.SprintSnapshot
+	err := d.db.Where("sprint_id = ?", sprintID).Order("date ASC").Find(&snapshots).Error
+	if err != nil {
+		d.logger.Error("Failed to fetch sprint snapshots", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch sprint snapshots.",
+		}
+	}
+	return snapshots, nil
+}
+
+func (d *sprintDatabase) GetTotalStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	var total int64
+	err := d.db.Model(&models.Task{}).Where("sprint_id = ? AND deleted_at IS NULL", sprintID).Select("COALESCE(SUM(story_points), 0)").Scan(&total).Error
+	if err != nil {
+		d.logger.Error("Failed to sum total story points", zap.Error(err))
+		return 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to calculate total story points.",
+		}
+	}
+	return int(total), nil
+}
+
+func (d *sprintDatabase) GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	var remaining int64
+	err := d.db.Model(&models.Task{}).Where("sprint_id = ? AND status != 'completed' AND deleted_at IS NULL", sprintID).Select("COALESCE(SUM(story_points), 0)").Scan(&remaining).Error
+	if err != nil {
+		d.logger.Error("Failed to sum remaining story points", zap.Error(err))
+		return 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to calculate remaining story points.",
+		}
+	}
+	return int(remaining), nil
+}
+
+func (d *sprintDatabase) GetActiveSprints() ([]models.Sprint, *response.Error) {
+	var sprints []models.Sprint
+	err := d.db.Where("status = ?", "active").Find(&sprints).Error
+	if err != nil {
+		d.logger.Error("Failed to fetch active sprints", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch active sprints.",
+		}
+	}
+	return sprints, nil
+}
+
+func (d *sprintDatabase) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	var completed int64
+	err := d.db.Model(&models.Task{}).Where("sprint_id = ? AND status = 'completed' AND deleted_at IS NULL", sprintID).Select("COALESCE(SUM(story_points), 0)").Scan(&completed).Error
+	if err != nil {
+		d.logger.Error("Failed to sum completed tasks story points", zap.Error(err))
+		return 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to calculate completed story points.",
+		}
+	}
+	return int(completed), nil
 }

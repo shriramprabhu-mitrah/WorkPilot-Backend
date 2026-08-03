@@ -24,19 +24,31 @@ func (s *sprintAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *response.E
 
 type sprintRepoStub struct {
 	dummySprintRepo
-	createErr         *response.Error
-	deleteErr         *response.Error
-	getSprintsRes     []models.Sprint
-	getSprintsPage    response.Pagination
-	getSprintsErr     *response.Error
-	getSprintByIDRes  *models.Sprint
-	getSprintByIDErr  *response.Error
-	updateErr         *response.Error
-	lastCreateSprint  models.Sprint
-	lastDeleteSprint  uuid.UUID
-	lastUpdateProject uuid.UUID
-	lastUpdateSprint  uuid.UUID
-	lastUpdatePayload models.Sprint
+	createErr               *response.Error
+	deleteErr               *response.Error
+	getSprintsRes           []models.Sprint
+	getSprintsPage          response.Pagination
+	getSprintsErr           *response.Error
+	getSprintByIDRes        *models.Sprint
+	getSprintByIDErr        *response.Error
+	updateErr               *response.Error
+	lastCreateSprint        models.Sprint
+	lastDeleteSprint        uuid.UUID
+	lastUpdateProject       uuid.UUID
+	lastUpdateSprint        uuid.UUID
+	lastUpdatePayload       models.Sprint
+	totalStoryPoints        int
+	totalStoryPointsErr     *response.Error
+	remainingStoryPoints    int
+	remainingStoryPointsErr *response.Error
+	completedStoryPoints    int
+	completedStoryPointsErr *response.Error
+	activeSprints           []models.Sprint
+	activeSprintsErr        *response.Error
+	snapshots               []models.SprintSnapshot
+	snapshotsErr            *response.Error
+	createSnapshotErr       *response.Error
+	lastSnapshotCreated     models.SprintSnapshot
 }
 
 func (s *sprintRepoStub) CreateSprint(row models.Sprint) *response.Error {
@@ -62,6 +74,31 @@ func (s *sprintRepoStub) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, s
 	s.lastUpdateSprint = sprintID
 	s.lastUpdatePayload = sprint
 	return s.updateErr
+}
+
+func (s *sprintRepoStub) CreateSprintSnapshot(snapshot models.SprintSnapshot) *response.Error {
+	s.lastSnapshotCreated = snapshot
+	return s.createSnapshotErr
+}
+
+func (s *sprintRepoStub) GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error) {
+	return s.snapshots, s.snapshotsErr
+}
+
+func (s *sprintRepoStub) GetTotalStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return s.totalStoryPoints, s.totalStoryPointsErr
+}
+
+func (s *sprintRepoStub) GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return s.remainingStoryPoints, s.remainingStoryPointsErr
+}
+
+func (s *sprintRepoStub) GetActiveSprints() ([]models.Sprint, *response.Error) {
+	return s.activeSprints, s.activeSprintsErr
+}
+
+func (s *sprintRepoStub) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return s.completedStoryPoints, s.completedStoryPointsErr
 }
 
 func TestSprintService_CreateSprint_RejectsUnauthorizedUserOrganization(t *testing.T) {
@@ -314,5 +351,146 @@ func TestSprintService_GetSprintByID_DelegatesToRepository(t *testing.T) {
 	}
 	if got == nil || got.Name != "Sprint B" {
 		t.Fatalf("expected sprint name Sprint B, got %+v", got)
+	}
+}
+
+func TestSprintService_UpdateSprint_CalculatesVelocityUponCompletion(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	existingSprint := &models.Sprint{
+		ID:        sprintID,
+		ProjectID: projectID,
+		Name:      "Sprint 1",
+		Goal:      "Test Goal",
+		Status:    "active",
+		StartDate: time.Now(),
+		EndDate:   time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes:     existingSprint,
+		completedStoryPoints: 15,
+	}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.UpdateSprint(dto.UpdateSprintRequest{
+		SprintID:       sprintID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		Status:         dto.SprintStatusCompleted,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if sprintRepo.lastUpdatePayload.Status != "completed" {
+		t.Fatalf("expected status completed, got %s", sprintRepo.lastUpdatePayload.Status)
+	}
+
+	if sprintRepo.lastUpdatePayload.Velocity == nil || *sprintRepo.lastUpdatePayload.Velocity != 15 {
+		t.Fatalf("expected velocity 15, got %v", sprintRepo.lastUpdatePayload.Velocity)
+	}
+}
+
+func TestSprintService_GetSprintBurndown_GeneratesCorrectMetrics(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	sprintStart := time.Now().Add(-2 * 24 * time.Hour)
+	sprintEnd := time.Now().Add(2 * 24 * time.Hour)
+
+	existingSprint := &models.Sprint{
+		ID:        sprintID,
+		ProjectID: projectID,
+		Name:      "Sprint 1",
+		StartDate: sprintStart,
+		EndDate:   sprintEnd,
+		Status:    "active",
+	}
+
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes:     existingSprint,
+		totalStoryPoints:     20,
+		remainingStoryPoints: 12,
+		snapshots: []models.SprintSnapshot{
+			{SprintID: sprintID, Date: sprintStart, TotalStoryPoints: 20, RemainingStoryPoints: 20},
+			{SprintID: sprintID, Date: sprintStart.Add(24 * time.Hour), TotalStoryPoints: 20, RemainingStoryPoints: 16},
+		},
+	}
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	resp, err := service.GetSprintBurndown(sprintID, projectID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if resp.TotalStoryPoints != 20 {
+		t.Fatalf("expected total points 20, got %d", resp.TotalStoryPoints)
+	}
+
+	if len(resp.BurndownData) < 4 {
+		t.Fatalf("expected at least 4 data points, got %d", len(resp.BurndownData))
+	}
+
+	if resp.BurndownData[0].RemainingPoints == nil || *resp.BurndownData[0].RemainingPoints != 20 {
+		t.Fatalf("expected day 0 remaining points 20, got %v", resp.BurndownData[0].RemainingPoints)
+	}
+
+	if resp.BurndownData[1].RemainingPoints == nil || *resp.BurndownData[1].RemainingPoints != 16 {
+		t.Fatalf("expected day 1 remaining points 16, got %v", resp.BurndownData[1].RemainingPoints)
+	}
+
+	if resp.BurndownData[2].RemainingPoints == nil || *resp.BurndownData[2].RemainingPoints != 12 {
+		t.Fatalf("expected day 2 remaining points 12, got %v", resp.BurndownData[2].RemainingPoints)
+	}
+
+	if resp.BurndownData[3].RemainingPoints != nil {
+		t.Fatalf("expected day 3 remaining points nil, got %v", resp.BurndownData[3].RemainingPoints)
+	}
+}
+
+func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+
+	sprintID := uuid.Must(uuid.NewV4())
+	activeSprints := []models.Sprint{
+		{ID: sprintID, Status: "active"},
+	}
+
+	sprintRepo := &sprintRepoStub{
+		activeSprints:        activeSprints,
+		totalStoryPoints:     30,
+		remainingStoryPoints: 18,
+	}
+
+	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
+
+	err := service.TriggerDailySnapshots()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if sprintRepo.lastSnapshotCreated.SprintID != sprintID {
+		t.Fatalf("expected snapshot sprint ID %s, got %s", sprintID, sprintRepo.lastSnapshotCreated.SprintID)
+	}
+
+	if sprintRepo.lastSnapshotCreated.TotalStoryPoints != 30 {
+		t.Fatalf("expected total story points 30, got %d", sprintRepo.lastSnapshotCreated.TotalStoryPoints)
+	}
+
+	if sprintRepo.lastSnapshotCreated.RemainingStoryPoints != 18 {
+		t.Fatalf("expected remaining story points 18, got %d", sprintRepo.lastSnapshotCreated.RemainingStoryPoints)
 	}
 }
