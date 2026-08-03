@@ -217,9 +217,9 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 
 	var existingUsers []string
 
-	for _, userID := range req.UserIDs {
+	for _, member := range req.Members {
 
-		result, err := s.authRepo.GetUserByID(userID)
+		result, err := s.authRepo.GetUserByID(member.UserID)
 		if err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			s.logger.Error("Unauthorized Access",
 				zap.String("Organization ID", req.OrganizationID.String()),
 				zap.String("User Organization ID", result.OrganizationID.String()),
-				zap.String("User ID", userID.String()),
+				zap.String("User ID", member.UserID.String()),
 			)
 
 			return &response.Error{
@@ -250,7 +250,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			}
 		}
 
-		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, userID)
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, member.UserID)
 		if err != nil {
 			return err
 		}
@@ -261,10 +261,11 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		}
 
 		projectMember := models.ProjectMember{
-			ProjectID: req.ProjectID,
-			UserID:    userID,
-			AddedByID: req.AddedByID,
-			JoinedAt:  time.Now(),
+			ProjectID:   req.ProjectID,
+			UserID:      member.UserID,
+			ProjectRole: string(member.ProjectRole),
+			AddedByID:   req.AddedByID,
+			JoinedAt:    time.Now(),
 		}
 
 		if err := s.projectRepo.CreateProjectMember(projectMember); err != nil {
@@ -277,8 +278,8 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			ProjectID:      &req.ProjectID,
 			Action:         "member_added",
 			ResourceType:   "project_member",
-			ResourceID:     userID.String(),
-			Details:        fmt.Sprintf("User %s added to project", userID.String()),
+			ResourceID:     member.UserID.String(),
+			Details:        fmt.Sprintf("User %s added to project", member.UserID.String()),
 			CreatedAt:      time.Now(),
 		}
 

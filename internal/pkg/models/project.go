@@ -22,14 +22,15 @@ type Project struct {
 }
 
 type ProjectMember struct {
-	ID        uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
-	ProjectID uuid.UUID `json:"project_id" gorm:"type:uuid;not null"`
-	Project   Project   `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
-	UserID    uuid.UUID `json:"user_id" gorm:"type:uuid;not null"`
-	User      User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	JoinedAt  time.Time `json:"joined_at" gorm:"not null"`
-	AddedByID uuid.UUID `json:"added_by_id" gorm:"type:uuid;not null"`
-	AddedBy   User      `json:"added_by,omitempty" gorm:"foreignKey:AddedByID"`
+	ID          uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
+	ProjectRole string    `json:"project_role" gorm:"type:varchar(50);not null"`
+	ProjectID   uuid.UUID `json:"project_id" gorm:"type:uuid;not null"`
+	Project     Project   `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
+	UserID      uuid.UUID `json:"user_id" gorm:"type:uuid;not null"`
+	User        User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	JoinedAt    time.Time `json:"joined_at" gorm:"not null"`
+	AddedByID   uuid.UUID `json:"added_by_id" gorm:"type:uuid;not null"`
+	AddedBy     User      `json:"added_by,omitempty" gorm:"foreignKey:AddedByID"`
 }
 
 func (p *Project) BeforeCreate(tx *gorm.DB) (err error) {

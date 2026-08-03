@@ -9,6 +9,7 @@ import (
 )
 
 type ProjectStatus string
+type ProjectRole string
 
 const (
 	ProjectStatusPlanning  ProjectStatus = "planning"
@@ -17,6 +18,13 @@ const (
 	ProjectStatusCompleted ProjectStatus = "completed"
 	ProjectStatusCancelled ProjectStatus = "cancelled"
 	ProjectStatusArchived  ProjectStatus = "archived"
+)
+
+const (
+	ProjectRoleManager   ProjectRole = "project_manager"
+	ProjectRoleDeveloper ProjectRole = "developer"
+	ProjectRoleTester    ProjectRole = "tester"
+	ProjectRoleViewer    ProjectRole = "viewer"
 )
 
 type CreateProjectRequest struct {
@@ -49,11 +57,16 @@ type ProjectFilter struct {
 	Status string `form:"status"`
 }
 
+type ProjectMemberRequest struct {
+	UserID      uuid.UUID   `json:"user_id" binding:"required"`
+	ProjectRole ProjectRole `json:"project_role" binding:"required,oneof=project_manager developer tester viewer"`
+}
+
 type CreateProjectMemberRequest struct {
-	ProjectID      uuid.UUID   `json:"project_id" binding:"required"`
-	UserIDs        []uuid.UUID `json:"user_id" binding:"required"`
-	AddedByID      uuid.UUID   `json:"-" swaggerignore:"true"`
-	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID              `json:"project_id" binding:"required"`
+	Members        []ProjectMemberRequest `json:"members" binding:"required,min=1"`
+	AddedByID      uuid.UUID              `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID              `json:"-" swaggerignore:"true"`
 }
 
 type ProjectMemberFilter struct {
