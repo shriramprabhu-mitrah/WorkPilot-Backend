@@ -557,7 +557,6 @@ definitions:
       success:
         type: boolean
     type: object
-host: localhost:6369
 info:
   contact:
     email: olivergot26@gmail.com
