@@ -1,4 +1,4 @@
-package dto
+package request
 
 import (
 	"fmt"
@@ -15,6 +15,19 @@ const (
 	RoleDeveloper      Role = "developer"
 	RoleViewer         Role = "viewer"
 )
+
+func (r Role) Validate() error {
+	switch r {
+	case RoleSuperAdmin,
+		RoleOrgAdmin,
+		RoleProjectManager,
+		RoleDeveloper,
+		RoleViewer:
+		return nil
+	default:
+		return fmt.Errorf("Invalid role: %s", r)
+	}
+}
 
 type AuthTokensResponse struct {
 	AccessToken      string `json:"access_token"`
@@ -61,19 +74,6 @@ type ResetPasswordRequest struct {
 	Email       string `json:"email" binding:"required,email"`
 	OTP         string `json:"otp" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required"`
-}
-
-func (r Role) Validate() error {
-	switch r {
-	case RoleSuperAdmin,
-		RoleOrgAdmin,
-		RoleProjectManager,
-		RoleDeveloper,
-		RoleViewer:
-		return nil
-	default:
-		return fmt.Errorf("Invalid role: %s", r)
-	}
 }
 
 type ChangePasswordRequest struct {

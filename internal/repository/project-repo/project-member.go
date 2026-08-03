@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofrs/uuid"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"

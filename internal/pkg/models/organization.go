@@ -34,7 +34,7 @@ type Organization struct {
 type OrganizationInvitation struct {
 	ID             uuid.UUID        `json:"id" gorm:"primaryKey;type:uuid"`
 	OrganizationID uuid.UUID        `json:"organization_id" gorm:"type:uuid;index:idx_org_invites_org_id;not null"`
-	Organization   Organization     `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	Organization   Organization     `json:"organization,omitzero" gorm:"foreignKey:OrganizationID"`
 	Email          string           `json:"email" gorm:"size:100;not null;index:idx_org_invites_email"`
 	Role           string           `json:"role" gorm:"size:30;not null"`
 	Token          string           `json:"token" gorm:"size:255;not null;unique;index:idx_org_invites_token"`
