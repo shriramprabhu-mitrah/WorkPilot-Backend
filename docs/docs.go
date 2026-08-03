@@ -1713,9 +1713,7 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/projects/{project_id}/sprint/create": {
+            },
             "post": {
                 "description": "Create one or more sprints under a project",
                 "consumes": [
