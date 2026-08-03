@@ -83,7 +83,6 @@ type RemoveUserRequest struct {
 
 type InviteOrganizationMemberItem struct {
 	Email string `json:"email" binding:"required,email"`
-	Role  string `json:"role" binding:"required,oneof=org_admin project_manager developer viewer guest"`
 }
 
 type InviteOrganizationMemberRequest struct {

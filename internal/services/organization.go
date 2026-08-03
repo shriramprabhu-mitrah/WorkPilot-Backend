@@ -272,7 +272,6 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 			}
 			existingUser.IsActive = true
 			existingUser.OrganizationID = &organizationID
-			existingUser.Role = inviteItem.Role
 			existingUser.JoinedAt = time.Now()
 			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
 				return err
@@ -290,7 +289,6 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		invitation := models.OrganizationInvitation{
 			OrganizationID: organizationID,
 			Email:          inviteEmail,
-			Role:           inviteItem.Role,
 			Status:         models.InvitationStatusPending,
 			ExpiresAt:      expiresAt,
 			CreatedBy:      inviterID,
@@ -322,7 +320,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		inviteLink := fmt.Sprintf("%s?token=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), invitation.Token)
 		tempPassword := ""
 		if userErr != nil {
-			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteEmail, inviteItem.Role, organizationID)
+			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteEmail, organizationID)
 			if err != nil {
 				return err
 			}
@@ -339,7 +337,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 			Action:         "organization_invitation_created",
 			ResourceType:   "organization_invitation",
 			ResourceID:     invitation.Token,
-			Details:        fmt.Sprintf("Invited %s to %s as %s", inviteItem.Email, org.Name, inviteItem.Role),
+			Details:        fmt.Sprintf("Invited %s to %s", inviteItem.Email, org.Name),
 			CreatedAt:      time.Now(),
 		})
 		if auditErr != nil {
@@ -465,7 +463,7 @@ func (s *organizationService) generateUniqueUsername(email string) (string, *res
 	}
 }
 
-func (s *organizationService) inviteUserWithTemporaryCredentials(email, role string, organizationID uuid.UUID) (string, *response.Error) {
+func (s *organizationService) inviteUserWithTemporaryCredentials(email string, organizationID uuid.UUID) (string, *response.Error) {
 	tempPassword, err := s.generateTemporaryPassword(12)
 	if err != nil {
 		return "", err
@@ -486,7 +484,6 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email, role str
 		UserName:       username,
 		PasswordHash:   passwordHash,
 		OrganizationID: &organizationID,
-		Role:           role,
 		Timezone:       "UTC",
 		IsActive:       true,
 		IsVerified:     true,
