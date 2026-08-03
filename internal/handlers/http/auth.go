@@ -7,7 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ms-kanban-server/config"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	cookies "github.com/ms-kanban-server/internal/pkg/cookie"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -34,7 +35,7 @@ type authHandler struct {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.SignUpRequest true "Sign Up Request"
+// @Param        request body requestdto.SignUpRequest true "Sign Up Request"
 // @Success      201 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
@@ -42,7 +43,7 @@ type authHandler struct {
 // @Router       /auth/signup [post]
 func (h *authHandler) SignUp(g *gin.Context) {
 
-	var payload dto.SignUpRequest
+	var payload requestdto.SignUpRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -85,15 +86,15 @@ func (h *authHandler) SignUp(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.SignInRequest true "Sign In Request"
-// @Success      200 {object} response.SuccessResponse{data=dto.AuthTokensResponse}
+// @Param        request body requestdto.SignInRequest true "Sign In Request"
+// @Success      200 {object} response.SuccessResponse{data=requestdto.AuthTokensResponse}
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/signin [post]
 func (h *authHandler) SignIn(g *gin.Context) {
 
-	var loginCredentials dto.SignInRequest
+	var loginCredentials requestdto.SignInRequest
 
 	if err := g.ShouldBindJSON(&loginCredentials); err != nil {
 		message := utils.ValidationErrorMessage(err, loginCredentials)
@@ -161,14 +162,14 @@ func (h *authHandler) SignIn(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.PasswordResetRequest true "Password reset request"
+// @Param        request body requestdto.PasswordResetRequest true "Password reset request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/password-reset/request [post]
 func (h *authHandler) RequestPasswordReset(g *gin.Context) {
 
-	var payload dto.PasswordResetRequest
+	var payload requestdto.PasswordResetRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
@@ -205,14 +206,14 @@ func (h *authHandler) RequestPasswordReset(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.ResetPasswordRequest true "Password reset confirmation"
+// @Param        request body requestdto.ResetPasswordRequest true "Password reset confirmation"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/password-reset/confirm [post]
 func (h *authHandler) ResetPassword(g *gin.Context) {
 
-	var payload dto.ResetPasswordRequest
+	var payload requestdto.ResetPasswordRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
@@ -250,14 +251,14 @@ func (h *authHandler) ResetPassword(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.VerifyEmailRequest true "Email verification request"
+// @Param        request body requestdto.VerifyEmailRequest true "Email verification request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
 // @Router       /auth/verify-email [post]
 func (h *authHandler) VerifyEmail(g *gin.Context) {
-	var payload dto.VerifyEmailRequest
+	var payload requestdto.VerifyEmailRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
@@ -299,14 +300,14 @@ func (h *authHandler) VerifyEmail(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.ResendVerificationOTPRequest true "Resend verification OTP request"
+// @Param        request body requestdto.ResendVerificationOTPRequest true "Resend verification OTP request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
 // @Failure      429 {object} response.ErrorResponse
 // @Router       /auth/resend-verification-otp [post]
 func (h *authHandler) ResendVerificationOTP(g *gin.Context) {
-	var payload dto.ResendVerificationOTPRequest
+	var payload requestdto.ResendVerificationOTPRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
@@ -338,13 +339,13 @@ func (h *authHandler) ResendVerificationOTP(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Success      200 {object} response.SuccessResponse{data=dto.AuthTokensResponse}
+// @Success      200 {object} response.SuccessResponse{data=requestdto.AuthTokensResponse}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/refresh [post]
 func (h *authHandler) RefreshToken(g *gin.Context) {
 
-	var payload dto.RefreshTokenRequest
+	var payload requestdto.RefreshTokenRequest
 	// allow client to send refresh token in body or cookie
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid request payload", zap.Error(err))
@@ -470,7 +471,7 @@ func (h *authHandler) Logout(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.ChangePasswordRequest true "Change Password Request"
+// @Param        request body requestdto.ChangePasswordRequest true "Change Password Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      401 {object} response.ErrorResponse
@@ -478,7 +479,7 @@ func (h *authHandler) Logout(g *gin.Context) {
 // @Router       /auth/change-password [post]
 func (h *authHandler) ChangePassword(g *gin.Context) {
 
-	var payload dto.ChangePasswordRequest
+	var payload requestdto.ChangePasswordRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -545,7 +546,7 @@ func (h *authHandler) ChangePassword(g *gin.Context) {
 // @Tags         Users
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.UpdateUserRequest true "Update User Request"
+// @Param        request body requestdto.UpdateUserRequest true "Update User Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
@@ -553,7 +554,7 @@ func (h *authHandler) ChangePassword(g *gin.Context) {
 // @Router       /auth/update [patch]
 func (h *authHandler) UpdateUser(g *gin.Context) {
 
-	var payload dto.UpdateUserRequest
+	var payload requestdto.UpdateUserRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -621,7 +622,7 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 // @Description  Returns the profile of the authenticated user.
 // @Tags         Users
 // @Produce      json
-// @Success      200 {object} response.SuccessResponse{data=models.User}
+// @Success      200 {object} response.SuccessResponse{data=responsedto.UserProfile}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/me [get]
@@ -661,11 +662,13 @@ func (h *authHandler) GetUser(g *gin.Context) {
 		return
 	}
 
+	userResponse := responsedto.UserProfileFromModel(result)
+
 	successResponse := &response.SuccessResponse{
 		Message:    "User detail received successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data:       result,
+		Data:       userResponse,
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
@@ -764,7 +767,7 @@ func (h *authHandler) Validate(g *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			user_id	path		string	true	"User ID (UUID)"
-//	@Success		200		{object}	response.SuccessResponse{data=models.User}	"User retrieved successfully"
+//	@Success		200		{object}	response.SuccessResponse{data=responsedto.UserProfile}	"User retrieved successfully"
 //	@Failure		400		{object}	response.ErrorResponse	"Invalid user ID"
 //	@Failure		401		{object}	response.ErrorResponse	"Unauthorized"
 //	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
@@ -821,11 +824,13 @@ func (h *authHandler) GetUserByID(g *gin.Context) {
 		return
 	}
 
+	userResponse := responsedto.UserProfileFromModel(*result)
+
 	successResponse := &response.SuccessResponse{
 		Message:    "User detail received successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data:       result,
+		Data:       userResponse,
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
