@@ -17,6 +17,12 @@ type SprintRepository interface {
 	GetSprintByID(sprintID, projectID uuid.UUID) (*models.Sprint, *response.Error)
 	GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
 	IsSprintExists(projectID uuid.UUID, name string) (bool, *response.Error)
+	CreateSprintSnapshot(snapshot models.SprintSnapshot) *response.Error
+	GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error)
+	GetTotalStoryPoints(sprintID uuid.UUID) (int, *response.Error)
+	GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error)
+	GetActiveSprints() ([]models.Sprint, *response.Error)
+	GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error)
 }
 
 func InitSprintRepository(deps models.Config) SprintRepository {
