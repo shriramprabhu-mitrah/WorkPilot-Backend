@@ -483,8 +483,8 @@ func TestSignUpRejectsShortPassword(t *testing.T) {
 	if err.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected 400 Bad Request status, got %d", err.StatusCode)
 	}
-	if err.Message != "Password must be at least 8 characters long" {
-		t.Fatalf("expected 'Password must be at least 8 characters long', got %q", err.Message)
+	if err.Message != "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character with no spaces." {
+		t.Fatalf("expected 'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character with no spaces.', got %q", err.Message)
 	}
 }
 
