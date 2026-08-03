@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
@@ -23,8 +24,8 @@ type ProjectService interface {
 	CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
 	RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error
-	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error)
-	GetProjectDetails(req dto.GetProjectDetails) (*dto.ProjectResponse, *response.Error)
+	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]responsedto.ProjectActivityResponse, response.Pagination, *response.Error)
+	GetProjectDetails(req dto.GetProjectDetails) (*responsedto.ProjectDetail, *response.Error)
 	DeleteProject(req dto.DeleteProject) *response.Error
 }
 
@@ -329,7 +330,7 @@ func (s *projectService) RemoveProjectMember(projectID, userID, performingUserID
 	return nil
 }
 
-func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, filterReq dto.ProjectActivityFilterRequest) ([]dto.ProjectActivityResponse, response.Pagination, *response.Error) {
+func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, filterReq dto.ProjectActivityFilterRequest) ([]responsedto.ProjectActivityResponse, response.Pagination, *response.Error) {
 
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
@@ -394,9 +395,9 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		return nil, response.Pagination{}, repoErr
 	}
 
-	var responseDTOs []dto.ProjectActivityResponse
+	var responseDTOs []responsedto.ProjectActivityResponse
 	for _, item := range logs {
-		dtoItem := dto.ProjectActivityResponse{
+		dtoItem := responsedto.ProjectActivityResponse{
 			ID:             item.ID,
 			ProjectID:      item.ProjectID,
 			OrganizationID: item.OrganizationID,
@@ -408,7 +409,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		}
 
 		if item.User.ID != uuid.Nil {
-			dtoItem.User = &dto.UserSummary{
+			dtoItem.User = &responsedto.UserSummary{
 				ID:        item.User.ID,
 				FullName:  item.User.FullName,
 				Email:     item.User.Email,
@@ -423,7 +424,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 	return responseDTOs, pagination, nil
 }
 
-func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.ProjectResponse, *response.Error) {
+func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*responsedto.ProjectDetail, *response.Error) {
 
 	result, err := s.authRepo.GetUserByID(req.UserID)
 	if err != nil {
@@ -477,7 +478,7 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 		return nil, err
 	}
 
-	payload := dto.ProjectResponse{
+	payload := responsedto.ProjectDetail{
 		ProjectID:      project.ID,
 		OrganizationID: project.OrganizationID,
 		Name:           project.Name,
@@ -489,9 +490,9 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 	}
 
 	// Map members
-	payload.Members = make([]dto.ProjectMemberResponse, 0, len(projectMembers))
+	payload.Members = make([]responsedto.ProjectMember, 0, len(projectMembers))
 	for _, member := range projectMembers {
-		payload.Members = append(payload.Members, dto.ProjectMemberResponse{
+		payload.Members = append(payload.Members, responsedto.ProjectMember{
 			UserID:   member.UserID,
 			Username: member.User.UserName,
 			FullName: member.User.FullName,
@@ -500,9 +501,9 @@ func (s *projectService) GetProjectDetails(req dto.GetProjectDetails) (*dto.Proj
 	}
 
 	// Map sprints
-	payload.Sprints = make([]dto.SprintResponse, 0, len(sprints))
+	payload.Sprints = make([]responsedto.Sprint, 0, len(sprints))
 	for _, sprint := range sprints {
-		payload.Sprints = append(payload.Sprints, dto.SprintResponse{
+		payload.Sprints = append(payload.Sprints, responsedto.Sprint{
 			ID:        sprint.ID,
 			Name:      sprint.Name,
 			Goal:      sprint.Goal,

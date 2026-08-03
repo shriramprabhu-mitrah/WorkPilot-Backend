@@ -8,7 +8,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ms-kanban-server/config"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"go.uber.org/zap"

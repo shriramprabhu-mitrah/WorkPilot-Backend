@@ -7,7 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ms-kanban-server/config"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	cookies "github.com/ms-kanban-server/internal/pkg/cookie"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
@@ -36,7 +37,7 @@ type OrganizationHandler struct {
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
 // @Produce      json
-// @Success      200 {object} response.SuccessResponse{data=models.Organization}
+// @Success      200 {object} response.SuccessResponse{data=responsedto.OrganizationSummary}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/delete [delete]
@@ -72,7 +73,7 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.UpdateOrganizationRequest true "Update Organization Request"
+// @Param        request body requestdto.UpdateOrganizationRequest true "Update Organization Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
@@ -80,7 +81,7 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 // @Router       /organization/update [patch]
 func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 
-	var payload dto.UpdateOrganizationRequest
+	var payload requestdto.UpdateOrganizationRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -156,7 +157,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
 // @Produce      json
-// @Success      200 {object} response.SuccessResponse{data=models.Organization}
+// @Success      200 {object} response.SuccessResponse{data=responsedto.OrganizationSummary}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/get [get]
@@ -177,11 +178,13 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 		return
 	}
 
+	organizationResponse := responsedto.OrganizationFromModel(result)
+
 	successResponse := &response.SuccessResponse{
 		Message:    "Organization detail received successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data:       result,
+		Data:       organizationResponse,
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
@@ -194,7 +197,7 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.CreateOrganizationRequest true "Creates new Organization"
+// @Param        request body requestdto.CreateOrganizationRequest true "Creates new Organization"
 // @Success      201 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
@@ -202,7 +205,7 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 // @Router       /organization/create [post]
 func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 
-	var payload dto.CreateOrganizationRequest
+	var payload requestdto.CreateOrganizationRequest
 
 	if err := g.Bind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -284,7 +287,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.UserStatusRequest true "Update User Status Request"
+// @Param        request body requestdto.UserStatusRequest true "Update User Status Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
@@ -292,7 +295,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 // @Router      /organization/user-status/ [patch]
 func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 
-	var payload dto.UserStatusRequest
+	var payload requestdto.UserStatusRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -321,7 +324,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 		return
 	}
 
-	credentials := dto.UpdateUserStatus{
+	credentials := requestdto.UpdateUserStatus{
 		OrganizationID: &organizationUUID,
 		UserID:         userID,
 		IsActive:       payload.IsActive,
@@ -355,7 +358,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.UserRoleRequest true "Update User Role Request"
+// @Param        request body requestdto.UserRoleRequest true "Update User Role Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
@@ -363,7 +366,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 // @Router       /user-role/ [patch]
 func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 
-	var payload dto.UserRoleRequest
+	var payload requestdto.UserRoleRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -405,7 +408,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		return
 	}
 
-	credentials := dto.UpdateUserRole{
+	credentials := requestdto.UpdateUserRole{
 		OrganizationID: &organizationUUID,
 		UserID:         userID,
 		Role:           string(payload.Role),
@@ -438,7 +441,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
 // @Produce      json
-// @Success      200 {object} response.SuccessResponse{data=models.Organization}
+// @Success      200 {object} response.SuccessResponse{data=[]responsedto.UserProfile}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/get-user [get]
@@ -486,7 +489,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		isVerified = &v
 	}
 
-	filter := dto.OrganizationMemberListFilter{
+	filter := requestdto.OrganizationMemberListFilter{
 		PaginationQuery: response.PaginationQuery{
 			Page:     page,
 			PageSize: pageSize,
@@ -509,11 +512,16 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		return
 	}
 
+	usersResponse := make([]responsedto.UserProfile, 0, len(users))
+	for _, user := range users {
+		usersResponse = append(usersResponse, responsedto.UserProfileFromModel(user))
+	}
+
 	successResponse := &response.SuccessResponse{
 		Message:    "Organization detail received successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data:       users,
+		Data:       usersResponse,
 		Meta:       &pagination,
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
@@ -527,7 +535,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.RemoveUserRequest true "RemoveUser Request"
+// @Param        request body requestdto.RemoveUserRequest true "RemoveUser Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
@@ -535,7 +543,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 // @Router       /remove-user/ [delete]
 func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 
-	var payload dto.RemoveUserRequest
+	var payload requestdto.RemoveUserRequest
 
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
@@ -557,7 +565,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		return
 	}
 
-	credentials := dto.RemoveUser{
+	credentials := requestdto.RemoveUser{
 		OrganizationID: &organizationUUID,
 		UserID:         payload.UserID,
 	}
@@ -584,7 +592,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 }
 
 func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
-	var payload dto.InviteOrganizationMemberRequest
+	var payload requestdto.InviteOrganizationMemberRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Invalid invite payload", zap.Error(err))
 		message := utils.ValidationErrorMessage(err, payload)
@@ -627,13 +635,13 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.AcceptInvitationRequest true "Accept invitation"
+// @Param        request body requestdto.AcceptInvitationRequest true "Accept invitation"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/invitations/accept [post]
 func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
-	var payload dto.AcceptInvitationRequest
+	var payload requestdto.AcceptInvitationRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		g.JSON(http.StatusBadRequest, response.ErrorResponse{

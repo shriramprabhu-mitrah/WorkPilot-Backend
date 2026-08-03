@@ -2,7 +2,7 @@ package projectrepo
 
 import (
 	"github.com/gofrs/uuid"
-	"github.com/ms-kanban-server/internal/handlers/dto"
+	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	redisclient "github.com/redis/go-redis/v9"
