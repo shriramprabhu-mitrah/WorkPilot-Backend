@@ -1,7 +1,9 @@
 package services
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -49,6 +51,10 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 	}
 
 	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()))
+
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -58,8 +64,8 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 
 	if *result.OrganizationID != req.OrganizationID {
 		s.logger.Error("Unauthorized Access",
-			zap.String("Organization Id", req.OrganizationID.String()),
-			zap.String("User Organization Id", result.OrganizationID.String()))
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()))
 
 		return &response.Error{
 			Code:       response.ErrForbidden,
@@ -68,11 +74,24 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		}
 	}
 
+	var existingSprints []string
+
 	for _, spr := range req.Sprints {
 
-		startDate, err := utils.StringToTime(spr.StartDate)
+		exists, err := s.sprintRepo.IsSprintExists(req.ProjectID, spr.Name)
 		if err != nil {
-			s.logger.Error("Invalid start_date", zap.Error(err))
+			return err
+		}
+
+		if exists {
+			existingSprints = append(existingSprints, spr.Name)
+			continue
+		}
+
+		startDate, startErr := utils.StringToTime(spr.StartDate)
+		if startErr != nil {
+			s.logger.Error("Invalid start_date",
+				zap.Error(startErr))
 			return &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
@@ -80,9 +99,10 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 			}
 		}
 
-		endDate, err := utils.StringToTime(spr.EndDate)
-		if err != nil {
-			s.logger.Error("Invalid end_date", zap.Error(err))
+		endDate, endErr := utils.StringToTime(spr.EndDate)
+		if endErr != nil {
+			s.logger.Error("Invalid end_date",
+				zap.Error(endErr))
 			return &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
@@ -109,6 +129,17 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 
 		if err := s.sprintRepo.CreateSprint(sprint); err != nil {
 			return err
+		}
+	}
+
+	if len(existingSprints) > 0 {
+		return &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message: fmt.Sprintf(
+				"The following sprints already exist in the project: %s",
+				strings.Join(existingSprints, ", "),
+			),
 		}
 	}
 
