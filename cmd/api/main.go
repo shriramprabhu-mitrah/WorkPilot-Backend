@@ -67,7 +67,6 @@ func main() {
 
 	//Initialize the Gin router and set up routes
 	router := gin.Default()
-	router.RedirectTrailingSlash = false
 
 	//Getting dependences in config
 	deps := models.Config{
