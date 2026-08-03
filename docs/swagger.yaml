@@ -1647,6 +1647,52 @@ paths:
       summary: Get Sprints
       tags:
       - Sprint
+    post:
+      consumes:
+      - application/json
+      description: Create one or more sprints under a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: List of sprints to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateSprintRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Sprint(s) created successfully
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Invalid request payload
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Create Sprints
+      tags:
+      - Sprint
   /projects/{project_id}/sprint/{sprint_id}:
     delete:
       description: Delete a sprint from a project
@@ -1787,53 +1833,6 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update Sprint
-      tags:
-      - Sprint
-  /projects/{project_id}/sprint/create:
-    post:
-      consumes:
-      - application/json
-      description: Create one or more sprints under a project
-      parameters:
-      - description: Project ID
-        in: path
-        name: project_id
-        required: true
-        type: string
-      - description: List of sprints to create
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateSprintRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Sprint(s) created successfully
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
-        "400":
-          description: Invalid request payload
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Create Sprints
       tags:
       - Sprint
   /remove-user/:
