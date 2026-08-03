@@ -26,7 +26,6 @@ import (
 
 // @license.name MIT
 
-// @host localhost:6369
 // @BasePath /api/v1
 
 // @securityDefinitions.apikey BearerAuth
