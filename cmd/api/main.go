@@ -12,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/drivers/redis"
 	"github.com/ms-kanban-server/internal/pkg/logger"
 	"github.com/ms-kanban-server/internal/pkg/models"
+	"github.com/ms-kanban-server/internal/pkg/scheduler"
 	"github.com/ms-kanban-server/internal/routes"
 	"go.uber.org/zap"
 )
@@ -77,6 +78,9 @@ func main() {
 
 	// Set up routes
 	routes.SetupRoutes(deps)
+
+	// Start background scheduler
+	go scheduler.Start(dbConn, Logger)
 
 	// Start the server
 	Logger.Info("Server is running",
