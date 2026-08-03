@@ -387,7 +387,7 @@ func (s *authService) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must be at least 8 characters long",
+			Message:    "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character with no spaces.",
 		}
 	}
 
@@ -445,7 +445,7 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must be at least 8 characters long",
+			Message:    "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character with no spaces.",
 		}
 	}
 
@@ -713,7 +713,7 @@ func (s *authService) ChangePassword(payload dto.ChangePasswordRequest) *respons
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Password must be at least 8 characters long",
+			Message:    "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character with no spaces.",
 		}
 	}
 

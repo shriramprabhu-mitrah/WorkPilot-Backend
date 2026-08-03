@@ -21,3 +21,19 @@ func TestRenderEmbeddedTemplateRendersPasswordResetTemplate(t *testing.T) {
 		t.Fatalf("expected rendered template to include expiry minutes, got %s", rendered)
 	}
 }
+
+func TestRenderEmbeddedTemplateErrorBranches(t *testing.T) {
+	t.Run("rejects empty template name", func(t *testing.T) {
+		_, err := utils.RenderEmbeddedTemplate("", map[string]string{"OTP": "123456"})
+		if err == nil {
+			t.Fatal("expected empty template name to return an error")
+		}
+	})
+
+	t.Run("returns error for missing template", func(t *testing.T) {
+		_, err := utils.RenderEmbeddedTemplate("does_not_exist.html", nil)
+		if err == nil {
+			t.Fatal("expected missing template to return an error")
+		}
+	})
+}

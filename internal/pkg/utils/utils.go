@@ -27,7 +27,29 @@ func IsValidPassword(storedHash, enteredPassword string) bool {
 }
 
 func ValidatePassword(password string) bool {
-	return len(password) >= 8
+	// Minimum length of 8
+	if len(password) < 8 {
+		return false
+	}
+
+	// No spaces allowed
+	if regexp.MustCompile(`\s`).MatchString(password) {
+		return false
+	}
+
+	// At least one uppercase letter
+	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
+
+	// At least one lowercase letter
+	hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
+
+	// At least one digit
+	hasDigit := regexp.MustCompile(`[0-9]`).MatchString(password)
+
+	// At least one special character
+	hasSpecial := regexp.MustCompile("[!@#$%^&*()_\\-+=\\[\\]{}|\\\\:;\"'<>,.?/~`]").MatchString(password)
+
+	return hasUpper && hasLower && hasDigit && hasSpecial
 }
 
 func ValidateKey(projectKey string) bool {
