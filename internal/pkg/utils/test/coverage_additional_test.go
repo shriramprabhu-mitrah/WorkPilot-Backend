@@ -192,7 +192,7 @@ func TestValidationErrorMessageHandlesMoreBranchesAdditionalCoverage(t *testing.
 		type payload struct {
 			Status string `json:"status" validate:"oneof=active archived"`
 		}
-		err := validate.Struct(payload{Status: "pending"})
+		err := validate.Struct(payload{Status: "pending"}) 
 		msg := utils.ValidationErrorMessage(err, payload{})
 		if msg != "Status must be one of active, archived." {
 			t.Fatalf("expected oneof validation message, got %q", msg)
