@@ -114,7 +114,7 @@ type GetProjectDetails struct {
 }
 
 type GetProjectByUserID struct {
-	UserID         uuid.UUID `json:"user_id" binding:"required"`
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
 

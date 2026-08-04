@@ -38,6 +38,6 @@ func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 		prj.GET("/:project_id/activity", middleware.ValidateJWT(), projectHandler.GetProjectActivity)
 		prj.GET("/:project_id/detail", middleware.ValidateJWT(), projectHandler.GetProjectDetails)
 		prj.DELETE("/:project_id", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.Deleteproject)
-		prj.GET("/user", middleware.ValidateJWT(), projectHandler.GetProjectByUser)
+		prj.GET("/user/:user_id", middleware.ValidateJWT(), projectHandler.GetProjectByUser)
 	}
 }

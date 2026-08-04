@@ -692,26 +692,23 @@ func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 
 	var payload requestdto.GetProjectByUserID
-	if err := g.ShouldBindJSON(&payload); err != nil {
-		message := utils.ValidationErrorMessage(err, payload)
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    message,
-			},
-		}
-		h.logger.Error("Invalid request payload", zap.Error(err))
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
 		return
 	}
+	userID := g.Param("user_id")
+	userUUID, errorResponse := utils.StringToUUID(userID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
 
+	payload.UserID = userUUID
 	payload.OrganizationID = organizationUUID
 
 	project, err := h.service.GetProjectsByUserID(payload)
