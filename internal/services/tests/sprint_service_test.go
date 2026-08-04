@@ -477,7 +477,7 @@ func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testi
 
 	service := services.InitSprintService(sprintRepo, nil, authRepo, logger)
 
-	err := service.TriggerDailySnapshots()
+	err := service.TriggerDailySnapshots(uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

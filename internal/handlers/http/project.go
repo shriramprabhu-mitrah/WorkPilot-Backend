@@ -45,7 +45,7 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 
 	var payload requestdto.CreateProjectRequest
 
-	if err := g.Bind(&payload); err != nil {
+	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -271,7 +271,7 @@ func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 
 	var payload requestdto.CreateProjectMemberRequest
 
-	if err := g.Bind(&payload); err != nil {
+	if err := g.ShouldBindJSON(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -667,4 +667,61 @@ func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
+}
+
+// GetProjectByUser godoc
+//
+//	@Summary		Get projects by user
+//	@Description	Retrieve all projects associated with a specific user within the authenticated organization.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Param			user_id	query		string	true	"User ID"	format(uuid)
+//	@Success		200		{object}	response.SuccessResponse{data=[]models.Project}
+//	@Failure		400		{object}	response.ErrorResponse	"Validation Error"
+//	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
+//	@Failure		500		{object}	response.ErrorResponse	"Internal Server Error"
+//	@Security		BearerAuth
+//	@Router			/api/v1/project/user [get]
+func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
+
+	var payload requestdto.GetProjectByUserID
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	payload.OrganizationID = organizationUUID
+
+	project, err := h.service.GetProjectsByUserID(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Project retrieved successfully.",
+		Data:       project,
+	})
 }

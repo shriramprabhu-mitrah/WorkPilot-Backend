@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -24,7 +25,7 @@ type SprintService interface {
 	GetSprints(req dto.GetSprint, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
 	GetSprintByID(req dto.GetSprint) (*models.Sprint, *response.Error)
 	GetSprintBurndown(sprintID, projectID, userID, orgID uuid.UUID) (*dto.SprintBurndownResponse, *response.Error)
-	TriggerDailySnapshots() *response.Error
+	TriggerDailySnapshots(projectUUID, userUUID uuid.UUID) *response.Error
 }
 
 func InitSprintService(sprintRepo sprintrepo.SprintRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) SprintService {
@@ -71,6 +72,26 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
+
+		s.logger.Error("Unauthorized project update attempt",
+			zap.String("User ID", req.UserID.String()),
+			zap.String("Project ID", req.ProjectID.String()),
+			zap.String("Project Role", string(member.ProjectRole)))
+
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update this project",
 		}
 	}
 
@@ -172,6 +193,26 @@ func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 		}
 	}
 
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
+
+		s.logger.Error("Unauthorized project update attempt",
+			zap.String("User ID", req.UserID.String()),
+			zap.String("Project ID", req.ProjectID.String()),
+			zap.String("Project Role", string(member.ProjectRole)))
+
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update this project",
+		}
+	}
+
 	if req.SprintID == uuid.Nil {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
@@ -208,6 +249,26 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
+
+		s.logger.Error("Unauthorized project update attempt",
+			zap.String("User ID", req.UserID.String()),
+			zap.String("Project ID", req.ProjectID.String()),
+			zap.String("Project Role", string(member.ProjectRole)))
+
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update this project",
 		}
 	}
 
@@ -491,7 +552,28 @@ func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uui
 	}, nil
 }
 
-func (s *sprintService) TriggerDailySnapshots() *response.Error {
+func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID uuid.UUID) *response.Error {
+
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userUUID, projectUUID)
+	if err != nil {
+		return err
+	}
+
+	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
+
+		s.logger.Error("Unauthorized project update attempt",
+			zap.String("User ID", userUUID.String()),
+			zap.String("Project ID", projectUUID.String()),
+			zap.String("Project Role", string(member.ProjectRole)))
+
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update this project",
+		}
+	}
+
 	sprints, err := s.sprintRepo.GetActiveSprints()
 	if err != nil {
 		s.logger.Error("Failed to fetch active sprints for manual snapshot", zap.Any("error", err))

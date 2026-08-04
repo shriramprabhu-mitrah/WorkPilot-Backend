@@ -49,6 +49,7 @@ type SprintFilter struct {
 }
 
 type DeleteSprint struct {
+	ProjectID      uuid.UUID
 	SprintID       uuid.UUID
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
@@ -62,9 +63,9 @@ type GetSprint struct {
 }
 
 type BurndownDataPoint struct {
-	Date            string   `json:"date"`
-	RemainingPoints *int     `json:"remaining_points"`
-	IdealValue      float64  `json:"ideal_value"`
+	Date            string  `json:"date"`
+	RemainingPoints *int    `json:"remaining_points"`
+	IdealValue      float64 `json:"ideal_value"`
 }
 
 type SprintBurndownResponse struct {

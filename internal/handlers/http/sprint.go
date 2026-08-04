@@ -39,7 +39,7 @@ type sprintHandler struct {
 // @Failure 403 {object} response.ErrorResponse "Forbidden"
 // @Failure 409 {object} response.ErrorResponse "Conflict"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Router /projects/{project_id}/sprint [post]
+// @Router /projects/{project_id}/sprint/ [post]
 func (h *sprintHandler) CreateSprint(g *gin.Context) {
 
 	var payload requestdto.CreateSprintRequest
@@ -65,7 +65,7 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 	}
 
 	projectIDParam := g.Param("project_id")
-	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -78,7 +78,7 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 	}
 
 	payload.UserID = userUUID
-	payload.ProjectID = projectID
+	payload.ProjectID = projectUUID
 	payload.OrganizationID = organizationUUID
 
 	err := h.service.CreateSprint(payload)
@@ -153,7 +153,15 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 		h.logger.Error("Failed to convert the string into UUID")
 		return
 	}
+	projectIDParam := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
 
+	payload.ProjectID = projectUUID
 	payload.SprintID = sprintUUID
 	payload.UserID = userUUID
 	payload.OrganizationID = organizationUUID
@@ -533,7 +541,19 @@ func (h *sprintHandler) GetSprintBurndown(g *gin.Context) {
 }
 
 func (h *sprintHandler) TriggerSnapshot(g *gin.Context) {
-	err := h.service.TriggerDailySnapshots()
+	projectIDParam := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	err := h.service.TriggerDailySnapshots(projectUUID, userUUID)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,

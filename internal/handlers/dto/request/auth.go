@@ -9,20 +9,16 @@ import (
 type Role string
 
 const (
-	RoleSuperAdmin     Role = "super_admin"
-	RoleOrgAdmin       Role = "org_admin"
-	RoleProjectManager Role = "project_manager"
-	RoleDeveloper      Role = "developer"
-	RoleViewer         Role = "viewer"
+	RoleSuperAdmin Role = "super_admin"
+	RoleOrgAdmin   Role = "org_admin"
+	RoleMember     Role = "member"
 )
 
 func (r Role) Validate() error {
 	switch r {
 	case RoleSuperAdmin,
 		RoleOrgAdmin,
-		RoleProjectManager,
-		RoleDeveloper,
-		RoleViewer:
+		RoleMember:
 		return nil
 	default:
 		return fmt.Errorf("Invalid role: %s", r)
@@ -77,9 +73,9 @@ type ResetPasswordRequest struct {
 }
 
 type ChangePasswordRequest struct {
-	UserID      uuid.UUID
-	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required"`
+	UserID      uuid.UUID `json:"-" swaggerignore:"true"`
+	OldPassword string    `json:"old_password" binding:"required"`
+	NewPassword string    `json:"new_password" binding:"required"`
 }
 
 type UpdateUserRequest struct {

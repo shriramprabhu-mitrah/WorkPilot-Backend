@@ -20,6 +20,22 @@ func (d *dummySprintRepo) CreateSprint(sprint models.Sprint) *response.Error {
 	return nil
 }
 
+func (d *dummySprintRepo) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return 0, nil
+}
+
+func (d *dummySprintRepo) GetTotalStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return 0, nil
+}
+
+func (d *dummySprintRepo) GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return 0, nil
+}
+
+func (d *dummySprintRepo) CreateSprintSnapshot(snapshot models.SprintSnapshot) *response.Error {
+	return nil
+}
+
 func (d *dummySprintRepo) DeleteSprint(id uuid.UUID) *response.Error {
 	return nil
 }
@@ -28,10 +44,16 @@ func (d *dummySprintRepo) IsSprintExists(projectID uuid.UUID, name string) (bool
 	return false, nil
 }
 
+func (d *dummySprintRepo) GetActiveSprints() ([]models.Sprint, *response.Error) {
+	return nil, nil
+}
+
 func (d *dummySprintRepo) GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
-
+func (d *dummySprintRepo) GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error) {
+	return nil, nil
+}
 func (d *dummySprintRepo) GetSprintByID(projectID uuid.UUID, sprintID uuid.UUID) (*models.Sprint, *response.Error) {
 	return &models.Sprint{}, nil
 }
@@ -125,6 +147,12 @@ func (s *stubProjectRepo) UpdateProject(projectID uuid.UUID, req models.Project)
 func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
+func (s *stubProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error) {
+	return nil, nil
+}
+func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
+	return nil, nil
+}
 func (s *stubProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *response.Error) {
 	return s.project, nil
 }
@@ -185,7 +213,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, "super_admin", orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -196,7 +224,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			UserID: "invalid-uuid",
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, "super_admin", orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error, got nil")
 		}
@@ -213,7 +241,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			UserID: uuid.Nil.String(),
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, "super_admin", orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error for nil UUID, got nil")
 		}
@@ -234,7 +262,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(models.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, "super_admin", orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

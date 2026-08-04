@@ -30,13 +30,14 @@ func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 	{
 
 		prj.POST("/create", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.CreateProject)
-		prj.PATCH("/update/:id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), projectHandler.UpdateProject)
+		prj.PATCH("/update/:id", middleware.ValidateJWT(), projectHandler.UpdateProject)
 		prj.GET("/get", middleware.ValidateJWT(), projectHandler.GetProjects)
-		prj.POST("/add-members", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), projectHandler.CreateProjectMember)
+		prj.POST("/add-members", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.CreateProjectMember)
 		prj.GET("/members/:project_id", middleware.ValidateJWT(), projectHandler.GetProjectMembers)
-		prj.DELETE("/:project_id/member/:user_id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), projectHandler.RemoveProjectMember)
+		prj.DELETE("/:project_id/member/:user_id", middleware.ValidateJWT(), projectHandler.RemoveProjectMember)
 		prj.GET("/:project_id/activity", middleware.ValidateJWT(), projectHandler.GetProjectActivity)
 		prj.GET("/:project_id/detail", middleware.ValidateJWT(), projectHandler.GetProjectDetails)
-		prj.DELETE("/:project_id", middleware.ValidateJWT(), middleware.Authorize("org_admin", "project_manager"), projectHandler.Deleteproject)
+		prj.DELETE("/:project_id", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.Deleteproject)
+		prj.GET("/user", middleware.ValidateJWT(), projectHandler.GetProjectByUser)
 	}
 }

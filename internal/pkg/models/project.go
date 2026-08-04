@@ -23,7 +23,7 @@ type Project struct {
 
 type ProjectMember struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
-	ProjectRole string    `json:"project_role" gorm:"type:varchar(50);not null"`
+	ProjectRole string    `json:"project_role" gorm:"type:varchar(50)"`
 	ProjectID   uuid.UUID `json:"project_id" gorm:"type:uuid;not null"`
 	Project     Project   `json:"project,omitzero" gorm:"foreignKey:ProjectID"`
 	UserID      uuid.UUID `json:"user_id" gorm:"type:uuid;not null"`

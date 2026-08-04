@@ -77,15 +77,16 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateProjectMemberRequest:
     properties:
+      members:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectMemberRequest'
+        minItems: 1
+        type: array
       project_id:
         type: string
-      user_id:
-        items:
-          type: string
-        type: array
     required:
+    - members
     - project_id
-    - user_id
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateProjectRequest:
     properties:
@@ -155,6 +156,34 @@ definitions:
     required:
     - email
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.ProjectMemberRequest:
+    properties:
+      project_role:
+        allOf:
+        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole'
+        enum:
+        - project_manager
+        - developer
+        - tester
+        - viewer
+      user_id:
+        type: string
+    required:
+    - project_role
+    - user_id
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole:
+    enum:
+    - project_manager
+    - developer
+    - tester
+    - viewer
+    type: string
+    x-enum-varnames:
+    - ProjectRoleManager
+    - ProjectRoleDeveloper
+    - ProjectRoleTester
+    - ProjectRoleViewer
   github_com_ms-kanban-server_internal_handlers_dto_request.ProjectStatus:
     enum:
     - planning
@@ -1647,6 +1676,7 @@ paths:
       summary: Get Sprints
       tags:
       - Sprint
+  /projects/{project_id}/sprint/:
     post:
       consumes:
       - application/json

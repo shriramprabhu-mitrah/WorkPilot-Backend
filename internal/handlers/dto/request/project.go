@@ -35,10 +35,11 @@ func (r ProjectStatus) Validate() error {
 }
 
 const (
-	ProjectRoleManager   ProjectRole = "project_manager"
-	ProjectRoleDeveloper ProjectRole = "developer"
-	ProjectRoleTester    ProjectRole = "tester"
-	ProjectRoleViewer    ProjectRole = "viewer"
+	ProjecRoleOrgAdmin        ProjectRole = "org_admin"
+	ProjectRoleProjectManager ProjectRole = "project_manager"
+	ProjectRoleDeveloper      ProjectRole = "developer"
+	ProjectRoleTester         ProjectRole = "tester"
+	ProjectRoleViewer         ProjectRole = "viewer"
 )
 
 type CreateProjectRequest struct {
@@ -110,6 +111,11 @@ type GetProjectDetails struct {
 	ProjectID      uuid.UUID
 	UserID         uuid.UUID
 	OrganizationID uuid.UUID
+}
+
+type GetProjectByUserID struct {
+	UserID         uuid.UUID `json:"user_id" binding:"required"`
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 type DeleteProject struct {

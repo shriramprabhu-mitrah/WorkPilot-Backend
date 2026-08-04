@@ -46,3 +46,13 @@ type SprintResponse struct {
 	StartDate time.Time `json:"start_date"`
 	EndDate   time.Time `json:"end_date"`
 }
+
+type ProjectResponse struct {
+	ProjectID *uuid.UUID `json:"project_id"`
+	Role      string     `json:"role"`
+}
+
+type GetProjectByUserIDResponse struct {
+	UserID  uuid.UUID         `json:"user_id"`
+	Project []ProjectResponse `json:"project"`
+}

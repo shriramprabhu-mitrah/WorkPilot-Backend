@@ -7,16 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type Role string
-
-const (
-	RoleSuperAdmin     Role = "super_admin"
-	RoleOrgAdmin       Role = "org_admin"
-	RoleProjectManager Role = "project_manager"
-	RoleDeveloper      Role = "developer"
-	RoleViewer         Role = "viewer"
-)
-
 type User struct {
 	ID             uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
 	OrganizationID *uuid.UUID     `json:"organization_id,omitempty" gorm:"type:uuid;index:idx_users_organization_id"`

@@ -401,7 +401,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 		resp := response.Error{
 			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Role must be one of org_admin, project_manager, developer, viewer.",
+			Message:    "Role must be one of org_admin or member.",
 		}
 
 		g.JSON(resp.StatusCode, response.ErrorResponse{Success: false, Error: resp})

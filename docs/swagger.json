@@ -1706,7 +1706,9 @@
                         }
                     }
                 }
-            },
+            }
+        },
+        "/projects/{project_id}/sprint/": {
             "post": {
                 "description": "Create one or more sprints under a project",
                 "consumes": [
@@ -2208,18 +2210,19 @@
         "github_com_ms-kanban-server_internal_handlers_dto_request.CreateProjectMemberRequest": {
             "type": "object",
             "required": [
-                "project_id",
-                "user_id"
+                "members",
+                "project_id"
             ],
             "properties": {
+                "members": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectMemberRequest"
+                    }
+                },
                 "project_id": {
                     "type": "string"
-                },
-                "user_id": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
@@ -2314,6 +2317,46 @@
                     "type": "string"
                 }
             }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectMemberRequest": {
+            "type": "object",
+            "required": [
+                "project_role",
+                "user_id"
+            ],
+            "properties": {
+                "project_role": {
+                    "enum": [
+                        "project_manager",
+                        "developer",
+                        "tester",
+                        "viewer"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole"
+                        }
+                    ]
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole": {
+            "type": "string",
+            "enum": [
+                "project_manager",
+                "developer",
+                "tester",
+                "viewer"
+            ],
+            "x-enum-varnames": [
+                "ProjectRoleManager",
+                "ProjectRoleDeveloper",
+                "ProjectRoleTester",
+                "ProjectRoleViewer"
+            ]
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectStatus": {
             "type": "string",
