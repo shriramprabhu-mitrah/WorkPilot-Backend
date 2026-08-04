@@ -86,9 +86,10 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 	}
 
 	projectMemberPayload := &models.ProjectMember{
-		UserID:    req.UserID,
-		AddedByID: req.UserID,
-		JoinedAt:  time.Now(),
+		UserID:      req.UserID,
+		AddedByID:   req.UserID,
+		ProjectRole: string(dto.ProjectRoleOrgAdmin),
+		JoinedAt:    time.Now(),
 	}
 
 	err = s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
@@ -619,8 +620,10 @@ func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) 
 		projectID := member.ProjectID
 
 		resp.Project = append(resp.Project, responsedto.ProjectResponse{
-			ProjectID: &projectID,
-			Role:      member.ProjectRole,
+			ProjectID:   projectID,
+			Role:        member.ProjectRole,
+			ProjectName: member.Project.Name,
+			Status:      member.Project.Status,
 		})
 	}
 

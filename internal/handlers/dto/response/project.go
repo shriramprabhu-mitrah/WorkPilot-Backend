@@ -48,8 +48,10 @@ type SprintResponse struct {
 }
 
 type ProjectResponse struct {
-	ProjectID *uuid.UUID `json:"project_id"`
-	Role      string     `json:"role"`
+	ProjectID   uuid.UUID `json:"project_id"`
+	Role        string    `json:"role"`
+	ProjectName string    `json:"project_name"`
+	Status      string    `json:"status"`
 }
 
 type GetProjectByUserIDResponse struct {
