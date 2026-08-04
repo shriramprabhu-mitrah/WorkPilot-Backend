@@ -40,6 +40,30 @@ func (d *dummySprintRepo) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, 
 	return nil
 }
 
+func (d *dummySprintRepo) CreateSprintSnapshot(snapshot models.SprintSnapshot) *response.Error {
+	return nil
+}
+
+func (d *dummySprintRepo) GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error) {
+	return nil, nil
+}
+
+func (d *dummySprintRepo) GetTotalStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return 0, nil
+}
+
+func (d *dummySprintRepo) GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return 0, nil
+}
+
+func (d *dummySprintRepo) GetActiveSprints() ([]models.Sprint, *response.Error) {
+	return nil, nil
+}
+
+func (d *dummySprintRepo) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
+	return 0, nil
+}
+
 func (d *dummyAuthRepo) GetByEmail(email string) (models.User, *response.Error) {
 	return models.User{}, nil
 }
