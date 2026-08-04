@@ -1,0 +1,518 @@
+package handlers
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
+	"github.com/ms-kanban-server/internal/services"
+	"go.uber.org/zap"
+)
+
+type taskHandler struct {
+	service services.TaskService
+	logger  *zap.Logger
+}
+
+func InitTaskHandler(service services.TaskService, logger *zap.Logger) *taskHandler {
+	return &taskHandler{
+		service: service,
+		logger:  logger,
+	}
+}
+
+// CreateTask godoc
+// @Summary Create a new task
+// @Description Create a new task in the specified project
+// @Tags Task
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param request body requestdto.CreateTaskRequest true "Create Task Request Body"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/ [post]
+func (h *taskHandler) CreateTask(g *gin.Context) {
+	var payload requestdto.CreateTaskRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the project string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	payload.UserID = userUUID
+	payload.ProjectID = projectID
+	payload.OrganizationID = organizationUUID
+
+	_, err := h.service.CreateTask(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Successfully Created Task",
+		StatusCode: http.StatusCreated,
+		Success:    true,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// GetTaskByID godoc
+// @Summary Get Task By ID
+// @Description Retrieve details of a specific task by ID
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id} [get]
+func (h *taskHandler) GetTaskByID(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	taskRes, err := h.service.GetTaskByID(taskID, projectID, userUUID, organizationUUID)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Task retrieved successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       taskRes,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// UpdateTask godoc
+// @Summary Update Task
+// @Description Update the details of a specific task by ID
+// @Tags Task
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Param request body requestdto.UpdateTaskRequest true "Update Task Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id} [patch]
+func (h *taskHandler) UpdateTask(g *gin.Context) {
+	var payload requestdto.UpdateTaskRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	payload.UserID = userUUID
+	payload.ProjectID = projectID
+	payload.TaskID = taskID
+	payload.OrganizationID = organizationUUID
+
+	taskRes, err := h.service.UpdateTask(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Successfully Updated Task",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data: map[string]any{
+			"task_id": taskRes.ID,
+		},
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// DeleteTask godoc
+// @Summary Delete Task
+// @Description Soft delete a specific task by ID
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id} [delete]
+func (h *taskHandler) DeleteTask(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	err := h.service.DeleteTask(taskID, projectID, userUUID, organizationUUID)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Successfully Deleted Task",
+		StatusCode: http.StatusOK,
+		Success:    true,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// RestoreTask godoc
+// @Summary Restore Task
+// @Description Restore a soft-deleted task by ID (within the retention period)
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id}/restore [post]
+func (h *taskHandler) RestoreTask(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	err := h.service.RestoreTask(taskID, projectID, userUUID, organizationUUID)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Successfully Restored Task",
+		StatusCode: http.StatusOK,
+		Success:    true,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// CloneTask godoc
+// @Summary Clone Task
+// @Description Clone a task to create a copy of it
+// @Tags Task
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Param request body requestdto.CloneTaskRequest true "Clone Task Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id}/clone [post]
+func (h *taskHandler) CloneTask(g *gin.Context) {
+	var payload requestdto.CloneTaskRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	payload.UserID = userUUID
+	payload.ProjectID = projectID
+	payload.TaskID = taskID
+	payload.OrganizationID = organizationUUID
+
+	taskRes, err := h.service.CloneTask(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Successfully Cloned Task",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       taskRes,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// GetTasks godoc
+// @Summary Get Tasks
+// @Description Retrieve tasks for a project with search, filter, sort and pagination options
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Param sort_by query string false "Sort by field" Enums(title,created_at,updated_at,priority,status)
+// @Param sort_order query string false "Sort order" Enums(ASC,DESC)
+// @Param status query string false "Task Status"
+// @Param assignee_id query string false "Assignee User ID"
+// @Param sprint_id query string false "Sprint ID"
+// @Param type query string false "Task Type" Enums(bug,feature,task,chore,story)
+// @Param priority query string false "Task Priority" Enums(low,medium,high,critical)
+// @Param search query string false "Search query for title, description or key"
+// @Param is_deleted query boolean false "Get soft deleted tasks"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/ [get]
+func (h *taskHandler) GetTasks(g *gin.Context) {
+	var filter requestdto.TaskFilter
+
+	if err := g.BindQuery(&filter); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid filter parameters",
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	tasks, pagination, err := h.service.GetTasks(projectID, userUUID, organizationUUID, filter)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Tasks retrieved successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       tasks,
+		Meta:       &pagination,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}

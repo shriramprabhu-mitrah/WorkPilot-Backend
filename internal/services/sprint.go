@@ -54,7 +54,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
 		s.logger.Error("Unauthorized Access",
 			zap.String("Organization ID", req.OrganizationID.String()),
-			zap.String("User Organization ID", result.OrganizationID.String()))
+			zap.Any("User Organization ID", result.OrganizationID))
 
 		return &response.Error{
 			Code:       response.ErrForbidden,

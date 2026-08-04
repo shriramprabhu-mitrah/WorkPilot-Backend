@@ -32,6 +32,11 @@ definitions:
     - new_password
     - old_password
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.CloneTaskRequest:
+    properties:
+      keep_assignee:
+        type: boolean
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest:
     properties:
       country_id:
@@ -124,6 +129,57 @@ definitions:
         type: array
     required:
     - sprints
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.CreateTaskRequest:
+    properties:
+      actual_hours:
+        minimum: 0
+        type: number
+      assignee_id:
+        type: string
+      description:
+        type: string
+      due_date:
+        type: string
+      estimated_hours:
+        minimum: 0
+        type: number
+      priority:
+        enum:
+        - low
+        - medium
+        - high
+        - critical
+        type: string
+      sprint_id:
+        type: string
+      status:
+        enum:
+        - todo
+        - in_progress
+        - in_review
+        - testing
+        - completed
+        type: string
+      story_points:
+        minimum: 0
+        type: integer
+      title:
+        maxLength: 255
+        minLength: 3
+        type: string
+      type:
+        enum:
+        - bug
+        - feature
+        - task
+        - chore
+        - story
+        type: string
+    required:
+    - priority
+    - title
+    - type
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.Industry:
     enum:
@@ -358,6 +414,53 @@ definitions:
         - completed
         - cancelled
         - archived
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateTaskRequest:
+    properties:
+      actual_hours:
+        minimum: 0
+        type: number
+      assignee_id:
+        type: string
+      description:
+        type: string
+      due_date:
+        type: string
+      estimated_hours:
+        minimum: 0
+        type: number
+      priority:
+        enum:
+        - low
+        - medium
+        - high
+        - critical
+        type: string
+      sprint_id:
+        type: string
+      status:
+        enum:
+        - todo
+        - in_progress
+        - in_review
+        - testing
+        - completed
+        type: string
+      story_points:
+        minimum: 0
+        type: integer
+      title:
+        maxLength: 255
+        minLength: 3
+        type: string
+      type:
+        enum:
+        - bug
+        - feature
+        - task
+        - chore
+        - story
+        type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserRequest:
     properties:
@@ -1865,6 +1968,384 @@ paths:
       summary: Update Sprint
       tags:
       - Sprint
+  /projects/{project_id}/tasks/:
+    get:
+      description: Retrieve tasks for a project with search, filter, sort and pagination
+        options
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Sort by field
+        enum:
+        - title
+        - created_at
+        - updated_at
+        - priority
+        - status
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
+        type: string
+      - description: Task Status
+        in: query
+        name: status
+        type: string
+      - description: Assignee User ID
+        in: query
+        name: assignee_id
+        type: string
+      - description: Sprint ID
+        in: query
+        name: sprint_id
+        type: string
+      - description: Task Type
+        enum:
+        - bug
+        - feature
+        - task
+        - chore
+        - story
+        in: query
+        name: type
+        type: string
+      - description: Task Priority
+        enum:
+        - low
+        - medium
+        - high
+        - critical
+        in: query
+        name: priority
+        type: string
+      - description: Search query for title, description or key
+        in: query
+        name: search
+        type: string
+      - description: Get soft deleted tasks
+        in: query
+        name: is_deleted
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get Tasks
+      tags:
+      - Task
+    post:
+      consumes:
+      - application/json
+      description: Create a new task in the specified project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Create Task Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Create a new task
+      tags:
+      - Task
+  /projects/{project_id}/tasks/{task_id}:
+    delete:
+      description: Soft delete a specific task by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Delete Task
+      tags:
+      - Task
+    get:
+      description: Retrieve details of a specific task by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get Task By ID
+      tags:
+      - Task
+    patch:
+      consumes:
+      - application/json
+      description: Update the details of a specific task by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Update Task Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Update Task
+      tags:
+      - Task
+  /projects/{project_id}/tasks/{task_id}/clone:
+    post:
+      consumes:
+      - application/json
+      description: Clone a task to create a copy of it
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Clone Task Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CloneTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Clone Task
+      tags:
+      - Task
+  /projects/{project_id}/tasks/{task_id}/restore:
+    post:
+      description: Restore a soft-deleted task by ID (within the retention period)
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Restore Task
+      tags:
+      - Task
   /remove-user/:
     delete:
       consumes:
