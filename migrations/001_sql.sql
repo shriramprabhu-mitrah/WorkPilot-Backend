@@ -29,9 +29,7 @@ CREATE INDEX idx_organization_deleted_at ON organizations(deleted_at);
 CREATE TYPE user_role AS ENUM (
     'super_admin',
     'org_admin',
-    'project_manager',
-    'developer',
-    'viewer'
+    'member'
 );
 
 CREATE TABLE users (

@@ -343,3 +343,61 @@ func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID) *re
 
 	return nil
 }
+
+func (d *projectDatabase) GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error) {
+
+	var projects []models.ProjectMember
+
+	if err := d.db.
+		Preload("Project").
+		Where("user_id = ?", userID).
+		Find(&projects).Error; err != nil {
+
+		d.logger.Error("Database error occurred",
+			zap.String("User ID", userID.String()),
+			zap.Error(err))
+
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	return projects, nil
+}
+
+func (d *projectDatabase) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
+
+	var member models.ProjectMember
+
+	if err := d.db.
+		Where("user_id = ? AND project_id = ?", userID, projectID).
+		First(&member).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			d.logger.Warn("Project member not found",
+				zap.String("User ID", userID.String()),
+				zap.String("Project ID", projectID.String()))
+
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Project member not found.",
+			}
+		}
+
+		d.logger.Error("Database error occurred",
+			zap.String("User ID", userID.String()),
+			zap.String("Project ID", projectID.String()),
+			zap.Error(err))
+
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	return &member, nil
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
@@ -23,10 +24,11 @@ type ProjectService interface {
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
 	CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
-	RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error
+	RemoveProjectMember(req requestdto.RemoveProjectMember) *response.Error
 	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]responsedto.ProjectActivityResponse, response.Pagination, *response.Error)
 	GetProjectDetails(req dto.GetProjectDetails) (*responsedto.ProjectDetail, *response.Error)
 	DeleteProject(req dto.DeleteProject) *response.Error
+	GetProjectsByUserID(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error)
 }
 
 func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, logger *zap.Logger) ProjectService {
@@ -84,9 +86,10 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 	}
 
 	projectMemberPayload := &models.ProjectMember{
-		UserID:    req.UserID,
-		AddedByID: req.UserID,
-		JoinedAt:  time.Now(),
+		UserID:      req.UserID,
+		AddedByID:   req.UserID,
+		ProjectRole: string(dto.ProjectRoleOrgAdmin),
+		JoinedAt:    time.Now(),
 	}
 
 	err = s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
@@ -123,15 +126,15 @@ func (s *projectService) CreateProject(req dto.CreateProjectRequest) *response.E
 
 func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.Error {
 
-	result, err := s.authRepo.GetUserByID(req.UserID)
+	user, err := s.authRepo.GetUserByID(req.UserID)
 	if err != nil {
 		return err
 	}
 
-	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+	if user.OrganizationID == nil || req.OrganizationID == uuid.Nil {
 		s.logger.Error("Unauthorized Access",
 			zap.String("Organization ID", req.OrganizationID.String()),
-			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User Organization ID", user.OrganizationID.String()),
 			zap.String("User ID", req.UserID.String()))
 		return &response.Error{
 			Code:       response.ErrForbidden,
@@ -140,14 +143,34 @@ func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.E
 		}
 	}
 
-	if *result.OrganizationID != req.OrganizationID {
+	if *user.OrganizationID != req.OrganizationID {
 		s.logger.Error("Unauthorized Access",
 			zap.String("Organization Id", req.OrganizationID.String()),
-			zap.String("User Organization Id", result.OrganizationID.String()))
+			zap.String("User Organization Id", user.OrganizationID.String()))
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
+		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
+
+		s.logger.Error("Unauthorized project update attempt",
+			zap.String("User ID", req.UserID.String()),
+			zap.String("Project ID", req.ProjectID.String()),
+			zap.String("Project Role", string(member.ProjectRole)))
+
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update this project",
 		}
 	}
 
@@ -218,9 +241,9 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 
 	var existingUsers []string
 
-	for _, userID := range req.UserIDs {
+	for _, member := range req.Members {
 
-		result, err := s.authRepo.GetUserByID(userID)
+		result, err := s.authRepo.GetUserByID(member.UserID)
 		if err != nil {
 			return err
 		}
@@ -241,7 +264,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			s.logger.Error("Unauthorized Access",
 				zap.String("Organization ID", req.OrganizationID.String()),
 				zap.String("User Organization ID", result.OrganizationID.String()),
-				zap.String("User ID", userID.String()),
+				zap.String("User ID", member.UserID.String()),
 			)
 
 			return &response.Error{
@@ -251,7 +274,7 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			}
 		}
 
-		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, userID)
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, member.UserID)
 		if err != nil {
 			return err
 		}
@@ -262,10 +285,11 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 		}
 
 		projectMember := models.ProjectMember{
-			ProjectID: req.ProjectID,
-			UserID:    userID,
-			AddedByID: req.AddedByID,
-			JoinedAt:  time.Now(),
+			ProjectID:   req.ProjectID,
+			UserID:      member.UserID,
+			ProjectRole: string(member.ProjectRole),
+			AddedByID:   req.AddedByID,
+			JoinedAt:    time.Now(),
 		}
 
 		if err := s.projectRepo.CreateProjectMember(projectMember); err != nil {
@@ -278,8 +302,8 @@ func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest
 			ProjectID:      &req.ProjectID,
 			Action:         "member_added",
 			ResourceType:   "project_member",
-			ResourceID:     userID.String(),
-			Details:        fmt.Sprintf("User %s added to project", userID.String()),
+			ResourceID:     member.UserID.String(),
+			Details:        fmt.Sprintf("User %s added to project", member.UserID.String()),
 			CreatedAt:      time.Now(),
 		}
 
@@ -304,22 +328,42 @@ func (s *projectService) GetProjectsMembersByProjectID(projectID uuid.UUID, filt
 	return s.projectRepo.GetProjectsMembersByProjectID(projectID, filter)
 }
 
-func (s *projectService) RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error {
+func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember) *response.Error {
 
-	err := s.projectRepo.RemoveProjectMember(projectID, userID)
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.PerformingUserID, req.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
+		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
+
+		s.logger.Error("Unauthorized project update attempt",
+			zap.String("User ID", req.PerformingUserID.String()),
+			zap.String("Project ID", req.ProjectID.String()),
+			zap.String("Project Role", string(member.ProjectRole)))
+
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update this project",
+		}
+	}
+
+	err = s.projectRepo.RemoveProjectMember(req.ProjectID, req.TargetUserID)
 	if err != nil {
 		return err
 	}
 
 	// Log member removed audit event
 	auditLog := models.AuditLog{
-		UserID:         &performingUserID,
-		OrganizationID: &organizationID,
-		ProjectID:      &projectID,
+		UserID:         &req.PerformingUserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
 		Action:         "member_removed",
 		ResourceType:   "project_member",
-		ResourceID:     userID.String(),
-		Details:        fmt.Sprintf("User %s removed from project", userID.String()),
+		ResourceID:     req.PerformingUserID.String(),
+		Details:        fmt.Sprintf("User %s removed from project", req.TargetUserID.String()),
 		CreatedAt:      time.Now(),
 	}
 	err = s.projectRepo.CreateAuditLog(auditLog)
@@ -340,9 +384,9 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 	// Authorization check: super_admin, org_admin of project's org, or project member
 	isAuthorized := false
 
-	if userRole == string(models.RoleSuperAdmin) {
+	if userRole == string(dto.RoleSuperAdmin) {
 		isAuthorized = true
-	} else if userRole == string(models.RoleOrgAdmin) && userOrgID != uuid.Nil && userOrgID == project.OrganizationID {
+	} else if userRole == string(dto.ProjectRoleOrgAdmin) && userOrgID != uuid.Nil && userOrgID == project.OrganizationID {
 		isAuthorized = true
 	} else {
 		isMember, memberErr := s.projectRepo.IsUserProjectMember(projectID, userID)
@@ -527,4 +571,61 @@ func (s *projectService) DeleteProject(req dto.DeleteProject) *response.Error {
 	}
 
 	return s.projectRepo.DeleteProject(req.ProjectID, req.OrganizationID)
+}
+
+func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error) {
+
+	result, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	projectMembers, err := s.projectRepo.GetProjectsByUserID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &responsedto.GetProjectByUserIDResponse{
+		UserID:  req.UserID,
+		Project: make([]responsedto.ProjectResponse, 0, len(projectMembers)),
+	}
+
+	for _, member := range projectMembers {
+		projectID := member.ProjectID
+
+		resp.Project = append(resp.Project, responsedto.ProjectResponse{
+			ProjectID:   projectID,
+			Role:        member.ProjectRole,
+			ProjectName: member.Project.Name,
+			Status:      member.Project.Status,
+		})
+	}
+
+	return resp, nil
 }

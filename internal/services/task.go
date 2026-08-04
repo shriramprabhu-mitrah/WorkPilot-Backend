@@ -52,10 +52,10 @@ func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (bool, *re
 	if err != nil {
 		return false, err
 	}
-	if user.Role == string(models.RoleSuperAdmin) {
+	if user.Role == string(dto.RoleSuperAdmin) {
 		return true, nil
 	}
-	if user.Role == string(models.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
 		return true, nil
 	}
 	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
