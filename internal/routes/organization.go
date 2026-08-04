@@ -5,6 +5,7 @@ import (
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
+	"github.com/ms-kanban-server/internal/pkg/storage"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	organizationrepo "github.com/ms-kanban-server/internal/repository/organization-repo"
 	publicrepo "github.com/ms-kanban-server/internal/repository/public-repo"
@@ -23,8 +24,11 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 	publicRepo := publicrepo.InitPublicRepository(deps)
 	publicService := services.InitPublicService(publicRepo, deps.Logger)
 
+	// initialize storage client
+	storageClient := storage.NewS3Client(deps.Logger)
+
 	// initialize handlers
-	OrganizationHandler := handlers.InitOrganizationHandler(OrganizationService, publicService, deps.Logger)
+	OrganizationHandler := handlers.InitOrganizationHandler(OrganizationService, publicService, storageClient, deps.Logger)
 
 	middleware := middleware.InitMiddleware(deps.Logger)
 

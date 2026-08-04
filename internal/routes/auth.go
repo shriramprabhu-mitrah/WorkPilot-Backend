@@ -5,6 +5,7 @@ import (
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
+	"github.com/ms-kanban-server/internal/pkg/storage"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
@@ -17,8 +18,11 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 	// initialize services
 	authService := services.InitAuthService(authRepo, deps.Logger)
 
+	// initialize storage client
+	storageClient := storage.NewS3Client(deps.Logger)
+
 	// initialize handlers
-	authHandler := handlers.InitAuthHandler(authService, deps.Logger)
+	authHandler := handlers.InitAuthHandler(authService, storageClient, deps.Logger)
 
 	// initialize middleware
 	middleware := middleware.InitMiddleware(deps.Logger)

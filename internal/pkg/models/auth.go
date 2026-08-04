@@ -16,7 +16,7 @@ type User struct {
 	Email          string         `json:"email" validate:"required,email" gorm:"size:100;not null;unique;index:idx_users_email"`
 	PasswordHash   string         `json:"password_hash" validate:"required"`
 	Role           string         `json:"role" gorm:"size:30;index:idx_users_role"`
-	AvatarURL      string         `json:"avatar_url" gorm:"size:255"`
+	AvatarURL      string         `json:"avatar_url" gorm:"size:500"`
 	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
 	IsActive       bool           `json:"is_active" gorm:"default:true"`
 	IsVerified     bool           `json:"is_verified" gorm:"default:false"`
