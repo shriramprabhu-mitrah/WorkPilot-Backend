@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -319,5 +320,241 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 	}
 	if cloned.Title != "Write API Documentation (Cloned)" {
 		t.Fatalf("expected cloned title modifier, got %s", cloned.Title)
+	}
+}
+
+func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+
+	// Define users with global roles
+	globalMemberUser := models.User{
+		ID:             userID,
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember),
+	}
+
+	nonAssigneeMember := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember),
+	}
+
+	authRepo := &sprintAuthRepoStub{user: globalMemberUser}
+	projectRepo := &stubProjectRepo{
+		project:     models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+		isMember:    true,
+		projectRole: string(dto.ProjectRoleDeveloper), // Project-level Developer
+	}
+
+	existingTask := &models.Task{
+		ID:         taskID,
+		ProjectID:  projectID,
+		Key:        "WP-1",
+		Title:      "Test Workflow",
+		Type:       string(dto.TaskTypeTask),
+		Priority:   string(dto.TaskPriorityMedium),
+		Status:     string(dto.TaskStatusTodo),
+		AssigneeID: &userID,
+	}
+
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Test 1: Developer valid sequential transition (todo -> in_progress)
+	inProgressStatus := string(dto.TaskStatusInProgress)
+	_, err := service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &inProgressStatus,
+	})
+	if err != nil {
+		t.Fatalf("expected developer to transition to in_progress successfully, got %v", err)
+	}
+	if existingTask.Status != string(dto.TaskStatusInProgress) {
+		t.Fatalf("expected task status to be in_progress, got %s", existingTask.Status)
+	}
+
+	// Test 2: Developer invalid transition (in_progress -> completed directly)
+	completedStatus := string(dto.TaskStatusCompleted)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &completedStatus,
+	})
+	if err == nil {
+		t.Fatal("expected developer transition from in_progress to completed directly to fail")
+	}
+	if err.Code != response.ErrInvalidStatusTransition {
+		t.Fatalf("expected ErrInvalidStatusTransition, got %v", err.Code)
+	}
+
+	// Test 3: Project Manager (ProjectRole) can override transition rules (in_progress -> completed directly)
+	pmUser := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember), // Global RoleMember, but PM in project
+	}
+	authRepo.user = pmUser
+	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    pmUser.ID,
+		Status:    &completedStatus,
+	})
+	if err != nil {
+		t.Fatalf("expected project manager to successfully transition from in_progress to completed, got %v", err)
+	}
+	if existingTask.Status != string(dto.TaskStatusCompleted) {
+		t.Fatalf("expected task status to be completed, got %s", existingTask.Status)
+	}
+
+	// Reset task status to todo and set role back to developer for next tests
+	existingTask.Status = string(dto.TaskStatusTodo)
+	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
+
+	// Test 4: Transition to blocked requires a reason
+	blockedStatus := string(dto.TaskStatusBlocked)
+	authRepo.user = globalMemberUser
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &blockedStatus,
+	})
+	if err == nil {
+		t.Fatal("expected transition to blocked without reason to fail")
+	}
+
+	blockedReason := "API dependency not ready"
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:        taskID,
+		ProjectID:     projectID,
+		UserID:        userID,
+		Status:        &blockedStatus,
+		BlockedReason: &blockedReason,
+	})
+	if err != nil {
+		t.Fatalf("expected transition to blocked with reason to succeed, got %v", err)
+	}
+	if existingTask.Status != string(dto.TaskStatusBlocked) {
+		t.Fatalf("expected status to be blocked, got %s", existingTask.Status)
+	}
+	if existingTask.BlockedReason != blockedReason {
+		t.Fatalf("expected blocked reason to be set, got %s", existingTask.BlockedReason)
+	}
+
+	// Test 5: Transition out of blocked clears blocked reason
+	todoStatus := string(dto.TaskStatusTodo)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &todoStatus,
+	})
+	if err != nil {
+		t.Fatalf("expected transition out of blocked to succeed, got %v", err)
+	}
+	if existingTask.BlockedReason != "" {
+		t.Fatalf("expected blocked reason to be cleared, got %s", existingTask.BlockedReason)
+	}
+
+	// Test 6: Non-assignee Developer cannot increment actual hours
+	authRepo.user = nonAssigneeMember
+	actualHrs := 5.0
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      nonAssigneeMember.ID,
+		ActualHours: &actualHrs,
+	})
+	if err == nil {
+		t.Fatal("expected non-assignee actual hours update to fail")
+	}
+
+	// Test 7: Assignee Developer can increment actual hours
+	authRepo.user = globalMemberUser
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      userID,
+		ActualHours: &actualHrs,
+	})
+	if err != nil {
+		t.Fatalf("expected assignee actual hours increment to succeed, got %v", err)
+	}
+	if existingTask.ActualHours == nil || *existingTask.ActualHours != 5.0 {
+		t.Fatalf("expected actual hours to be updated to 5.0")
+	}
+
+	// Test 8: Assignee Developer cannot decrement actual hours
+	lowerHrs := 4.0
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      userID,
+		ActualHours: &lowerHrs,
+	})
+	if err == nil {
+		t.Fatal("expected assignee actual hours decrement to fail")
+	}
+
+	// Test 9: PM can update/decrement actual hours
+	authRepo.user = pmUser
+	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      pmUser.ID,
+		ActualHours: &lowerHrs,
+	})
+	if err != nil {
+		t.Fatalf("expected Project Manager actual hours decrement to succeed, got %v", err)
+	}
+	if existingTask.ActualHours == nil || *existingTask.ActualHours != 4.0 {
+		t.Fatalf("expected actual hours to be decremented to 4.0")
+	}
+
+	// Test 10: Assignee must be a member of the project
+	projectRepo.isMember = false // mock assignee is not project member
+	nonMemberUUID := uuid.Must(uuid.NewV4())
+	authRepo.user = pmUser // update by PM
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:     taskID,
+		ProjectID:  projectID,
+		UserID:     pmUser.ID,
+		AssigneeID: &nonMemberUUID,
+	})
+	if err == nil {
+		t.Fatal("expected assignment to non-member to fail")
+	}
+
+	// Test 11: Viewers cannot update tasks
+	viewerUser := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember),
+	}
+	authRepo.user = viewerUser
+	projectRepo.projectRole = string(dto.ProjectRoleViewer)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    viewerUser.ID,
+		Title:     &blockedReason,
+	})
+	if err == nil {
+		t.Fatal("expected viewer task update to be rejected")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden, got %d", err.StatusCode)
 	}
 }

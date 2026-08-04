@@ -22,6 +22,74 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/project/user": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve all projects associated with a specific user within the authenticated organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Get projects by user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Validation Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/project/{project_id}/detail": {
             "get": {
                 "description": "Retrieve a project's details along with its members and sprints.",
@@ -2705,9 +2773,6 @@ const docTemplate = `{
                 },
                 "old_password": {
                     "type": "string"
-                },
-                "userID": {
-                    "type": "string"
                 }
             }
         },
@@ -2897,7 +2962,8 @@ const docTemplate = `{
                         "in_progress",
                         "in_review",
                         "testing",
-                        "completed"
+                        "completed",
+                        "blocked"
                     ]
                 },
                 "story_points": {
@@ -2987,13 +3053,15 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole": {
             "type": "string",
             "enum": [
+                "org_admin",
                 "project_manager",
                 "developer",
                 "tester",
                 "viewer"
             ],
             "x-enum-varnames": [
-                "ProjectRoleManager",
+                "ProjectRoleOrgAdmin",
+                "ProjectRoleProjectManager",
                 "ProjectRoleDeveloper",
                 "ProjectRoleTester",
                 "ProjectRoleViewer"
@@ -3061,16 +3129,12 @@ const docTemplate = `{
             "enum": [
                 "super_admin",
                 "org_admin",
-                "project_manager",
-                "developer",
-                "viewer"
+                "member"
             ],
             "x-enum-varnames": [
                 "RoleSuperAdmin",
                 "RoleOrgAdmin",
-                "RoleProjectManager",
-                "RoleDeveloper",
-                "RoleViewer"
+                "RoleMember"
             ]
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.SignInRequest": {
@@ -3251,6 +3315,9 @@ const docTemplate = `{
                 "assignee_id": {
                     "type": "string"
                 },
+                "blocked_reason": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3280,7 +3347,8 @@ const docTemplate = `{
                         "in_progress",
                         "in_review",
                         "testing",
-                        "completed"
+                        "completed",
+                        "blocked"
                     ]
                 },
                 "story_points": {
@@ -3354,6 +3422,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "otp": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse"
+                    }
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -3451,6 +3533,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_ms-kanban-server_internal_handlers_dto_response.Sprint": {
             "type": "object",
             "properties": {
@@ -3533,6 +3632,7 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "BAD_REQUEST",
+                "INVALID_STATUS_TRANSITION",
                 "METHOD_NOT_ALLOWED",
                 "VALIDATION_ERROR",
                 "UNAUTHORIZED",
@@ -3548,6 +3648,7 @@ const docTemplate = `{
             ],
             "x-enum-varnames": [
                 "ErrBadRequest",
+                "ErrInvalidStatusTransition",
                 "ErrMethodNotAllowed",
                 "ErrValidation",
                 "ErrUnauthorized",

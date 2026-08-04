@@ -136,6 +136,8 @@ type stubProjectRepo struct {
 	project            models.Project
 	isMember           bool
 	getProjectActivity func(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
+	createdLogs        []models.AuditLog
+	projectRole        string
 }
 
 func (s *stubProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
@@ -151,7 +153,15 @@ func (s *stubProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.Projec
 	return nil, nil
 }
 func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
-	return nil, nil
+	role := s.projectRole
+	if role == "" {
+		role = "developer"
+	}
+	return &models.ProjectMember{
+		UserID:      userID,
+		ProjectID:   projectID,
+		ProjectRole: role,
+	}, nil
 }
 func (s *stubProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *response.Error) {
 	return s.project, nil
