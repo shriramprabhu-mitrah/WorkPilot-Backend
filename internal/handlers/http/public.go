@@ -31,6 +31,16 @@ type PublicHandler struct {
 	cacheFetchedAt time.Time
 }
 
+// HealthHandler godoc
+//
+// @Summary      Health check endpoint
+// @Description  Returns system health status and dependency checks (database, redis)
+// @Tags         Public
+// @Produce      json
+// @Param        full query bool false "Include detailed dependency health checks"
+// @Success      200 {object} map[string]interface{}
+// @Failure      538 {object} map[string]interface{}
+// @Router       /health [get]
 func (h *PublicHandler) HealthHandler(deps models.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		timestamp := time.Now().UTC().Format(time.RFC3339)
