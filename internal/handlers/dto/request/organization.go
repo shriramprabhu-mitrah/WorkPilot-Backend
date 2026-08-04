@@ -32,21 +32,18 @@ const (
 )
 
 type UpdateOrganizationRequest struct {
-	Name      string   `json:"name"`
-	Domain    string   `json:"domain"`
-	LogoURL   string   `json:"logo_url"`
-	TeamSize  TeamSize `json:"team_size" binding:"required,oneof=1-10 11-50 51-200 201-500 501-1000 1000+"`
-	CountryID string   `json:"country_id,omitempty" binding:"omitempty,uuid"`
+	Name      string   `form:"name"`
+	Domain    string   `form:"domain"`
+	TeamSize  TeamSize `form:"team_size" binding:"omitempty,oneof=1-10 11-50 51-200 201-500 501-1000 1000+"`
+	CountryID string   `form:"country_id,omitempty" binding:"omitempty,uuid"`
 }
 
 type CreateOrganizationRequest struct {
-	Name      string   `json:"name" binding:"required"`
-	Slug      string   `json:"slug"`
-	Domain    string   `json:"domain" binding:"required"`
-	LogoURL   string   `json:"logo_url"`
-	Industry  Industry `json:"industry" binding:"required,oneof=Information_Technology Finance Healthcare Education Manufacturing Retail 'Real Estate' Logistics Hospitality Other"`
-	TeamSize  TeamSize `json:"team_size" binding:"required,oneof=1-10 11-50 51-200 201-500 501-1000 1000+"`
-	CountryID string   `json:"country_id" binding:"required,uuid"`
+	Name      string   `form:"name"      binding:"required"`
+	Domain    string   `form:"domain"    binding:"required"`
+	Industry  Industry `form:"industry"  binding:"required,oneof=Information_Technology Finance Healthcare Education Manufacturing Retail 'Real Estate' Logistics Hospitality Other"`
+	TeamSize  TeamSize `form:"team_size" binding:"required,oneof=1-10 11-50 51-200 201-500 501-1000 1000+"`
+	CountryID string   `form:"country_id" binding:"required,uuid"`
 }
 
 type UserStatusRequest struct {

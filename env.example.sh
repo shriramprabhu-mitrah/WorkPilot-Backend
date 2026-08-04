@@ -24,16 +24,12 @@ export JWT_SECRET_KEY = # Your Key
 export JWT_EXPIRY= # Set the duration (in Seconds)
 export REFRESH_TOKEN_EXPIRY= # Set the duration (in Seconds)
 
-# Email configs
-export BREVO_API_KEY= # Your API Key
-export BREVO_FROM_EMAIL= # Sender email for Brevo and fallback
+# Email configs (Primary: Brevo, Fallback: Resend)
+export BREVO_API_KEY= # Your Brevo API Key
+export BREVO_FROM_EMAIL= # Primary sender email
 
-# Gmail SMTP configs
-export GMAIL_SMTP_HOST=smtp.gmail.com
-export GMAIL_SMTP_PORT=587
-export GMAIL_SMTP_USERNAME= # Your Gmail address (e.g. yourgmail@gmail.com)
-export GMAIL_SMTP_PASSWORD= # Your Gmail app password (16-character). Do NOT commit secrets here.
-export GMAIL_FROM_EMAIL= # Optional sender email for Gmail SMTP. Defaults to BREVO_FROM_EMAIL if blank
+export RESEND_API_KEY= # Optional fallback Resend API Key
+export RESEND_FROM_EMAIL= # Optional fallback sender email (defaults to BREVO_FROM_EMAIL)
 
 # Frontend configs
 export FRONTEND_DASHBOARD_URL=http://localhost:3000
@@ -43,3 +39,12 @@ export COOKIE_SECURE= #bool
 export COOKIE_DOMAIN= #backend domain
 export COOKIE_PATH=/ #default path
 export COOKIE_SAMESITE= #Controls when browsers send cookies with cross-site requests.
+
+# Supabase S3 Storage (for organization logo uploads)
+export S3_ENDPOINT=https://rywvrcvpgeenhvlyrtaj.storage.supabase.co/storage/v1/s3
+export S3_PUBLIC_ENDPOINT= # Optional public endpoint (e.g. https://rywvrcvpgeenhvlyrtaj.supabase.co/storage/v1/object/public)
+export S3_REGION=ap-south-1
+export S3_ACCESS_KEY_ID=      # Supabase S3 access key ID
+export S3_SECRET_ACCESS_KEY=  # Supabase S3 secret access key
+export S3_BUCKET=work_pilot_bucket
+export S3_MAX_FILE_SIZE_MB=5  # Maximum logo upload size in megabytes (default: 5)

@@ -683,7 +683,7 @@ func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			user_id	query		string	true	"User ID"	format(uuid)
-//	@Success		200		{object}	response.SuccessResponse{data=[]models.Project}
+//	@Success		200		{object}	response.SuccessResponse{data=responsedto.GetProjectByUserIDResponse}
 //	@Failure		400		{object}	response.ErrorResponse	"Validation Error"
 //	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
 //	@Failure		500		{object}	response.ErrorResponse	"Internal Server Error"
