@@ -53,7 +53,11 @@ func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (bool, *re
 		return false, err
 	}
 	if user.Role == string(dto.RoleSuperAdmin) {
-		return true, nil
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Super admins are not allowed to perform organization-level activities",
+		}
 	}
 	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
 		return true, nil
@@ -261,8 +265,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		return nil, err
 	}
 
-	isPMOrAdmin := user.Role == string(dto.RoleSuperAdmin) ||
-		(user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
+	isPMOrAdmin := (user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
 
 	var member *models.ProjectMember
 	if !isPMOrAdmin {
@@ -296,8 +299,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		if !isMember {
 			assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
 			if err == nil {
-				if assigneeUser.Role == string(dto.RoleSuperAdmin) ||
-					(assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID) {
+				if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
 					isMember = true
 				}
 			}

@@ -223,7 +223,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -234,7 +234,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			UserID: "invalid-uuid",
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error, got nil")
 		}
@@ -251,7 +251,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			UserID: uuid.Nil.String(),
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error for nil UUID, got nil")
 		}
@@ -272,7 +272,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

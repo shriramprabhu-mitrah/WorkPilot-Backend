@@ -557,4 +557,24 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	if err.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403 Forbidden, got %d", err.StatusCode)
 	}
+
+	// Test 12: Super Admins are not allowed to update tasks
+	superAdminUser := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleSuperAdmin),
+	}
+	authRepo.user = superAdminUser
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    superAdminUser.ID,
+		Title:     &blockedReason,
+	})
+	if err == nil {
+		t.Fatal("expected super_admin task update to be rejected")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden for super_admin, got %d", err.StatusCode)
+	}
 }
