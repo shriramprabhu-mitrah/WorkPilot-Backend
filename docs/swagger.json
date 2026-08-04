@@ -3021,7 +3021,8 @@
                         "in_progress",
                         "in_review",
                         "testing",
-                        "completed"
+                        "completed",
+                        "blocked"
                     ]
                 },
                 "story_points": {
@@ -3263,6 +3264,9 @@
                 "assignee_id": {
                     "type": "string"
                 },
+                "blocked_reason": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3292,7 +3296,8 @@
                         "in_progress",
                         "in_review",
                         "testing",
-                        "completed"
+                        "completed",
+                        "blocked"
                     ]
                 },
                 "story_points": {
@@ -3559,6 +3564,7 @@
             "type": "string",
             "enum": [
                 "BAD_REQUEST",
+                "INVALID_STATUS_TRANSITION",
                 "METHOD_NOT_ALLOWED",
                 "VALIDATION_ERROR",
                 "UNAUTHORIZED",
@@ -3574,6 +3580,7 @@
             ],
             "x-enum-varnames": [
                 "ErrBadRequest",
+                "ErrInvalidStatusTransition",
                 "ErrMethodNotAllowed",
                 "ErrValidation",
                 "ErrUnauthorized",

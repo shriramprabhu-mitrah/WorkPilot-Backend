@@ -3028,7 +3028,8 @@ const docTemplate = `{
                         "in_progress",
                         "in_review",
                         "testing",
-                        "completed"
+                        "completed",
+                        "blocked"
                     ]
                 },
                 "story_points": {
@@ -3270,6 +3271,9 @@ const docTemplate = `{
                 "assignee_id": {
                     "type": "string"
                 },
+                "blocked_reason": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3299,7 +3303,8 @@ const docTemplate = `{
                         "in_progress",
                         "in_review",
                         "testing",
-                        "completed"
+                        "completed",
+                        "blocked"
                     ]
                 },
                 "story_points": {
@@ -3566,6 +3571,7 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "BAD_REQUEST",
+                "INVALID_STATUS_TRANSITION",
                 "METHOD_NOT_ALLOWED",
                 "VALIDATION_ERROR",
                 "UNAUTHORIZED",
@@ -3581,6 +3587,7 @@ const docTemplate = `{
             ],
             "x-enum-varnames": [
                 "ErrBadRequest",
+                "ErrInvalidStatusTransition",
                 "ErrMethodNotAllowed",
                 "ErrValidation",
                 "ErrUnauthorized",

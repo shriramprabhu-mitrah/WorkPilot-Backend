@@ -16,6 +16,7 @@ const (
 	TaskStatusInReview   TaskStatus = "in_review"
 	TaskStatusTesting    TaskStatus = "testing"
 	TaskStatusCompleted  TaskStatus = "completed"
+	TaskStatusBlocked    TaskStatus = "blocked"
 )
 
 func (r TaskStatus) Validate() error {
@@ -24,7 +25,8 @@ func (r TaskStatus) Validate() error {
 		TaskStatusInProgress,
 		TaskStatusInReview,
 		TaskStatusTesting,
-		TaskStatusCompleted:
+		TaskStatusCompleted,
+		TaskStatusBlocked:
 		return nil
 	default:
 		return fmt.Errorf("Invalid task status: %s", r)
@@ -80,7 +82,7 @@ type CreateTaskRequest struct {
 	Description    string     `json:"description"`
 	Type           string     `json:"type" binding:"required,oneof=bug feature task chore story"`
 	Priority       string     `json:"priority" binding:"required,oneof=low medium high critical"`
-	Status         string     `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed"`
+	Status         string     `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
 	AssigneeID     *uuid.UUID `json:"assignee_id"`
 	SprintID       *uuid.UUID `json:"sprint_id"`
 	StoryPoints    int        `json:"story_points" binding:"min=0"`
@@ -97,7 +99,8 @@ type UpdateTaskRequest struct {
 	Description    *string    `json:"description"`
 	Type           *string    `json:"type" binding:"omitempty,oneof=bug feature task chore story"`
 	Priority       *string    `json:"priority" binding:"omitempty,oneof=low medium high critical"`
-	Status         *string    `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed"`
+	Status         *string    `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
+	BlockedReason  *string    `json:"blocked_reason"`
 	AssigneeID     *uuid.UUID `json:"assignee_id"`
 	SprintID       *uuid.UUID `json:"sprint_id"`
 	StoryPoints    *int       `json:"story_points" binding:"omitempty,min=0"`

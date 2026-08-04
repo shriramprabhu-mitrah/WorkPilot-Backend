@@ -136,6 +136,8 @@ type stubProjectRepo struct {
 	project            models.Project
 	isMember           bool
 	getProjectActivity func(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
+	createdLogs        []models.AuditLog
+	projectRole        string
 }
 
 func (s *stubProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
@@ -151,7 +153,15 @@ func (s *stubProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.Projec
 	return nil, nil
 }
 func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
-	return nil, nil
+	role := s.projectRole
+	if role == "" {
+		role = "developer"
+	}
+	return &models.ProjectMember{
+		UserID:      userID,
+		ProjectID:   projectID,
+		ProjectRole: role,
+	}, nil
 }
 func (s *stubProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *response.Error) {
 	return s.project, nil
@@ -213,7 +223,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -224,7 +234,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			UserID: "invalid-uuid",
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error, got nil")
 		}
@@ -241,7 +251,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			UserID: uuid.Nil.String(),
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error for nil UUID, got nil")
 		}
@@ -262,7 +272,7 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleSuperAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

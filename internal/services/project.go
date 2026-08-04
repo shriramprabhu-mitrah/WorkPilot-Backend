@@ -381,12 +381,10 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		return nil, response.Pagination{}, err
 	}
 
-	// Authorization check: super_admin, org_admin of project's org, or project member
+	// Authorization check: org_admin of project's org, or project member
 	isAuthorized := false
 
-	if userRole == string(dto.RoleSuperAdmin) {
-		isAuthorized = true
-	} else if userRole == string(dto.ProjectRoleOrgAdmin) && userOrgID != uuid.Nil && userOrgID == project.OrganizationID {
+	if userRole == string(dto.RoleOrgAdmin) && userOrgID != uuid.Nil && userOrgID == project.OrganizationID {
 		isAuthorized = true
 	} else {
 		isMember, memberErr := s.projectRepo.IsUserProjectMember(projectID, userID)

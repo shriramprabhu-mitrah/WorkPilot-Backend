@@ -53,7 +53,11 @@ func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (bool, *re
 		return false, err
 	}
 	if user.Role == string(dto.RoleSuperAdmin) {
-		return true, nil
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Super admins are not allowed to perform organization-level activities",
+		}
 	}
 	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
 		return true, nil
@@ -134,6 +138,7 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		DueDate:        task.DueDate,
 		EstimatedHours: task.EstimatedHours,
 		ActualHours:    task.ActualHours,
+		BlockedReason:  task.BlockedReason,
 		CreatedAt:      task.CreatedAt,
 		UpdatedAt:      task.UpdatedAt,
 	}
@@ -250,34 +255,254 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	project, err := s.projectRepo.GetProjectByID(req.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	isPMOrAdmin := (user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
+
+	var member *models.ProjectMember
+	if !isPMOrAdmin {
+		member, err = s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+
+		if member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager) {
+			isPMOrAdmin = true
+		} else if member.ProjectRole == string(dto.ProjectRoleViewer) {
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "Viewers do not have permission to update tasks",
+			}
+		}
+	}
+
 	task, err := s.taskRepo.GetTaskByID(req.TaskID, req.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Title != nil {
+	// 1. Validate Assignee Membership
+	if req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
+			if err == nil {
+				if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+					isMember = true
+				}
+			}
+		}
+		if !isMember {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be a member of the project",
+			}
+		}
+	}
+
+	// 2. Validate Actual Hours Update
+	if req.ActualHours != nil {
+		if !isPMOrAdmin {
+			if task.AssigneeID == nil || *task.AssigneeID != req.UserID {
+				return nil, &response.Error{
+					Code:       response.ErrForbidden,
+					StatusCode: http.StatusForbidden,
+					Message:    "Only the task assignee or a PM/Admin can update actual hours",
+				}
+			}
+			if task.ActualHours != nil && *req.ActualHours <= *task.ActualHours {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Actual hours can only be incremented",
+				}
+			}
+			if task.ActualHours == nil && *req.ActualHours <= 0 {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Actual hours must be greater than 0",
+				}
+			}
+		} else {
+			if *req.ActualHours < 0 {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Actual hours cannot be negative",
+				}
+			}
+		}
+	}
+
+	// 3. Validate Status Transition
+	if req.Status != nil && *req.Status != task.Status {
+		newStatus := *req.Status
+		oldStatus := task.Status
+
+		if newStatus == string(dto.TaskStatusBlocked) {
+			if req.BlockedReason == nil || strings.TrimSpace(*req.BlockedReason) == "" {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Moving to Blocked requires a blocked reason",
+				}
+			}
+		}
+
+		if !isPMOrAdmin {
+			allowedTransition := false
+			switch oldStatus {
+			case string(dto.TaskStatusTodo):
+				allowedTransition = newStatus == string(dto.TaskStatusInProgress) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusInProgress):
+				allowedTransition = newStatus == string(dto.TaskStatusInReview) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusInReview):
+				allowedTransition = newStatus == string(dto.TaskStatusTesting) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusTesting):
+				allowedTransition = newStatus == string(dto.TaskStatusCompleted) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusCompleted):
+				allowedTransition = newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusBlocked):
+				allowedTransition = newStatus == string(dto.TaskStatusInProgress) || newStatus == string(dto.TaskStatusTodo)
+			default:
+				allowedTransition = false
+			}
+
+			if !allowedTransition {
+				return nil, &response.Error{
+					Code:       response.ErrInvalidStatusTransition,
+					StatusCode: http.StatusBadRequest,
+					Message:    fmt.Sprintf("Invalid status transition from %s to %s for developers", oldStatus, newStatus),
+				}
+			}
+		}
+	}
+
+	// 4. Track Changes for Audit Log and Apply Updates
+	var changes []string
+
+	if req.Title != nil && *req.Title != task.Title {
+		changes = append(changes, fmt.Sprintf("title changed from '%s' to '%s'", task.Title, *req.Title))
 		task.Title = *req.Title
 	}
-	if req.Description != nil {
+	if req.Description != nil && *req.Description != task.Description {
+		changes = append(changes, "description changed")
 		task.Description = *req.Description
 	}
-	if req.Type != nil {
+	if req.Type != nil && *req.Type != task.Type {
+		changes = append(changes, fmt.Sprintf("type changed from '%s' to '%s'", task.Type, *req.Type))
 		task.Type = *req.Type
 	}
-	if req.Priority != nil {
+	if req.Priority != nil && *req.Priority != task.Priority {
+		changes = append(changes, fmt.Sprintf("priority changed from '%s' to '%s'", task.Priority, *req.Priority))
 		task.Priority = *req.Priority
 	}
-	if req.Status != nil {
+	if req.Status != nil && *req.Status != task.Status {
+		changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, *req.Status))
 		task.Status = *req.Status
+		if *req.Status == string(dto.TaskStatusBlocked) {
+			task.BlockedReason = *req.BlockedReason
+		} else {
+			task.BlockedReason = ""
+		}
 	}
-	task.AssigneeID = req.AssigneeID
-	task.SprintID = req.SprintID
-	if req.StoryPoints != nil {
+	if req.AssigneeID != nil {
+		oldAssignee := "nil"
+		if task.AssigneeID != nil {
+			oldAssignee = task.AssigneeID.String()
+		}
+		newAssignee := "nil"
+		if *req.AssigneeID != uuid.Nil {
+			newAssignee = req.AssigneeID.String()
+		}
+		if oldAssignee != newAssignee {
+			changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
+			if *req.AssigneeID == uuid.Nil {
+				task.AssigneeID = nil
+			} else {
+				task.AssigneeID = req.AssigneeID
+			}
+		}
+	}
+	if req.SprintID != nil {
+		oldSprint := "nil"
+		if task.SprintID != nil {
+			oldSprint = task.SprintID.String()
+		}
+		newSprint := "nil"
+		if *req.SprintID != uuid.Nil {
+			newSprint = req.SprintID.String()
+		}
+		if oldSprint != newSprint {
+			changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
+			if *req.SprintID == uuid.Nil {
+				task.SprintID = nil
+			} else {
+				task.SprintID = req.SprintID
+			}
+		}
+	}
+	if req.StoryPoints != nil && *req.StoryPoints != task.StoryPoints {
+		changes = append(changes, fmt.Sprintf("story points changed from %d to %d", task.StoryPoints, *req.StoryPoints))
 		task.StoryPoints = *req.StoryPoints
 	}
-	task.DueDate = req.DueDate
-	task.EstimatedHours = req.EstimatedHours
-	task.ActualHours = req.ActualHours
+	if req.DueDate != nil {
+		oldDue := "nil"
+		if task.DueDate != nil {
+			oldDue = task.DueDate.Format(time.RFC3339)
+		}
+		newDue := "nil"
+		if !req.DueDate.IsZero() {
+			newDue = req.DueDate.Format(time.RFC3339)
+		}
+		if oldDue != newDue {
+			changes = append(changes, fmt.Sprintf("due date changed from %s to %s", oldDue, newDue))
+			if req.DueDate.IsZero() {
+				task.DueDate = nil
+			} else {
+				task.DueDate = req.DueDate
+			}
+		}
+	}
+	if req.EstimatedHours != nil {
+		oldEst := "nil"
+		if task.EstimatedHours != nil {
+			oldEst = fmt.Sprintf("%.2f", *task.EstimatedHours)
+		}
+		newEst := "nil"
+		if *req.EstimatedHours >= 0 {
+			newEst = fmt.Sprintf("%.2f", *req.EstimatedHours)
+		}
+		if oldEst != newEst {
+			changes = append(changes, fmt.Sprintf("estimated hours changed from %s to %s", oldEst, newEst))
+			task.EstimatedHours = req.EstimatedHours
+		}
+	}
+	if req.ActualHours != nil {
+		oldAct := "nil"
+		if task.ActualHours != nil {
+			oldAct = fmt.Sprintf("%.2f", *task.ActualHours)
+		}
+		newAct := fmt.Sprintf("%.2f", *req.ActualHours)
+		if oldAct != newAct {
+			changes = append(changes, fmt.Sprintf("actual hours changed from %s to %s", oldAct, newAct))
+			task.ActualHours = req.ActualHours
+		}
+	}
 
 	err = s.taskRepo.UpdateTask(task)
 	if err != nil {
@@ -290,6 +515,14 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		return nil, err
 	}
 
+	// 5. Create Audit Log
+	var detail string
+	if len(changes) > 0 {
+		detail = fmt.Sprintf("Task %s updated: %s", task.Key, strings.Join(changes, ", "))
+	} else {
+		detail = fmt.Sprintf("Task %s updated", task.Key)
+	}
+
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
@@ -297,7 +530,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		Action:         "task_updated",
 		ResourceType:   "task",
 		ResourceID:     task.ID.String(),
-		Details:        fmt.Sprintf("Task %s updated", task.Key),
+		Details:        detail,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {

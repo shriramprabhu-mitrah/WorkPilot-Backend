@@ -115,6 +115,7 @@ definitions:
         - in_review
         - testing
         - completed
+        - blocked
         type: string
       story_points:
         minimum: 0
@@ -292,6 +293,8 @@ definitions:
         type: number
       assignee_id:
         type: string
+      blocked_reason:
+        type: string
       description:
         type: string
       due_date:
@@ -315,6 +318,7 @@ definitions:
         - in_review
         - testing
         - completed
+        - blocked
         type: string
       story_points:
         minimum: 0
@@ -491,6 +495,7 @@ definitions:
   github_com_ms-kanban-server_internal_pkg_response.ErrorCode:
     enum:
     - BAD_REQUEST
+    - INVALID_STATUS_TRANSITION
     - METHOD_NOT_ALLOWED
     - VALIDATION_ERROR
     - UNAUTHORIZED
@@ -506,6 +511,7 @@ definitions:
     type: string
     x-enum-varnames:
     - ErrBadRequest
+    - ErrInvalidStatusTransition
     - ErrMethodNotAllowed
     - ErrValidation
     - ErrUnauthorized
