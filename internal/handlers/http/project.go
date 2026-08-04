@@ -453,7 +453,13 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 		}
 	}
 
-	if serviceErr := h.service.RemoveProjectMember(projectUUID, targetUserUUID, performingUserUUID, organizationUUID); serviceErr != nil {
+	payload := requestdto.RemoveProjectMember{
+		ProjectID:        projectUUID,
+		OrganizationID:   organizationUUID,
+		PerformingUserID: performingUserUUID,
+		TargetUserID:     targetUserUUID,
+	}
+	if serviceErr := h.service.RemoveProjectMember(payload); serviceErr != nil {
 		g.JSON(serviceErr.StatusCode, response.ErrorResponse{
 			Success: false,
 			Error:   *serviceErr,

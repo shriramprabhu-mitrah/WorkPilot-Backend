@@ -80,7 +80,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		return err
 	}
 
-	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
 		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
 
 		s.logger.Error("Unauthorized project update attempt",
@@ -198,7 +198,7 @@ func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 		return err
 	}
 
-	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
 		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
 
 		s.logger.Error("Unauthorized project update attempt",
@@ -257,7 +257,7 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		return err
 	}
 
-	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
 		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
 
 		s.logger.Error("Unauthorized project update attempt",
@@ -559,7 +559,7 @@ func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID uuid.UUID) *
 		return err
 	}
 
-	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
 		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
 
 		s.logger.Error("Unauthorized project update attempt",

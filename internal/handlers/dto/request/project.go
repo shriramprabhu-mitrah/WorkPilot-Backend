@@ -35,7 +35,7 @@ func (r ProjectStatus) Validate() error {
 }
 
 const (
-	ProjecRoleOrgAdmin        ProjectRole = "org_admin"
+	ProjectRoleOrgAdmin       ProjectRole = "org_admin"
 	ProjectRoleProjectManager ProjectRole = "project_manager"
 	ProjectRoleDeveloper      ProjectRole = "developer"
 	ProjectRoleTester         ProjectRole = "tester"
@@ -150,4 +150,11 @@ type SprintItem struct {
 	Status    string    `json:"status"`
 	StartDate time.Time `json:"start_date"`
 	EndDate   time.Time `json:"end_date"`
+}
+
+type RemoveProjectMember struct {
+	ProjectID        uuid.UUID
+	TargetUserID     uuid.UUID
+	PerformingUserID uuid.UUID
+	OrganizationID   uuid.UUID
 }

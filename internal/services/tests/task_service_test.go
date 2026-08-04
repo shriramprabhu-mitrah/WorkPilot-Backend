@@ -116,7 +116,7 @@ func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(models.RoleDeveloper)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "WorkPilot Backend"},
 		isMember: true,
@@ -157,7 +157,7 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	taskID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(models.RoleDeveloper)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 		isMember: true,
@@ -219,7 +219,7 @@ func TestTaskService_DeleteAndRestore_RetentionChecks(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	taskID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(models.RoleDeveloper)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID},
 		isMember: true,
@@ -273,7 +273,7 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 	taskID := uuid.Must(uuid.NewV4())
 	assigneeID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(models.RoleDeveloper)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 		isMember: true,

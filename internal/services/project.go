@@ -24,7 +24,7 @@ type ProjectService interface {
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
 	CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
-	RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error
+	RemoveProjectMember(req requestdto.RemoveProjectMember) *response.Error
 	GetProjectActivity(userID uuid.UUID, userRole string, userOrgID uuid.UUID, projectID uuid.UUID, req dto.ProjectActivityFilterRequest) ([]responsedto.ProjectActivityResponse, response.Pagination, *response.Error)
 	GetProjectDetails(req dto.GetProjectDetails) (*responsedto.ProjectDetail, *response.Error)
 	DeleteProject(req dto.DeleteProject) *response.Error
@@ -158,7 +158,7 @@ func (s *projectService) UpdateProject(req dto.UpdateProjectRequest) *response.E
 		return err
 	}
 
-	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
 		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
 
 		s.logger.Error("Unauthorized project update attempt",
@@ -327,19 +327,19 @@ func (s *projectService) GetProjectsMembersByProjectID(projectID uuid.UUID, filt
 	return s.projectRepo.GetProjectsMembersByProjectID(projectID, filter)
 }
 
-func (s *projectService) RemoveProjectMember(projectID, userID, performingUserID, organizationID uuid.UUID) *response.Error {
+func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember) *response.Error {
 
-	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.PerformingUserID, req.ProjectID)
 	if err != nil {
 		return err
 	}
 
-	if member.ProjectRole != string(requestdto.ProjecRoleOrgAdmin) &&
+	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
 		member.ProjectRole != string(requestdto.ProjectRoleProjectManager) {
 
 		s.logger.Error("Unauthorized project update attempt",
-			zap.String("User ID", userID.String()),
-			zap.String("Project ID",projectID.String()),
+			zap.String("User ID", req.PerformingUserID.String()),
+			zap.String("Project ID", req.ProjectID.String()),
 			zap.String("Project Role", string(member.ProjectRole)))
 
 		return &response.Error{
@@ -349,20 +349,20 @@ func (s *projectService) RemoveProjectMember(projectID, userID, performingUserID
 		}
 	}
 
-	err = s.projectRepo.RemoveProjectMember(projectID, userID)
+	err = s.projectRepo.RemoveProjectMember(req.ProjectID, req.TargetUserID)
 	if err != nil {
 		return err
 	}
 
 	// Log member removed audit event
 	auditLog := models.AuditLog{
-		UserID:         &performingUserID,
-		OrganizationID: &organizationID,
-		ProjectID:      &projectID,
+		UserID:         &req.PerformingUserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
 		Action:         "member_removed",
 		ResourceType:   "project_member",
-		ResourceID:     userID.String(),
-		Details:        fmt.Sprintf("User %s removed from project", userID.String()),
+		ResourceID:     req.PerformingUserID.String(),
+		Details:        fmt.Sprintf("User %s removed from project", req.PerformingUserID.String()),
 		CreatedAt:      time.Now(),
 	}
 	err = s.projectRepo.CreateAuditLog(auditLog)
