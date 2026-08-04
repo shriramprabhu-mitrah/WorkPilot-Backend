@@ -339,7 +339,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router      /organization/user-status/ [patch]
+// @Router       /organization/user-status [patch]
 func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 
 	var payload requestdto.UserStatusRequest
@@ -410,7 +410,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /user-role/ [patch]
+// @Router       /organization/user-role [patch]
 func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 
 	var payload requestdto.UserRoleRequest
@@ -491,7 +491,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 // @Success      200 {object} response.SuccessResponse{data=[]responsedto.UserProfile}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /organization/get-user [get]
+// @Router       /organization/get-users [get]
 func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
@@ -575,10 +575,10 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 
 }
 
-// UpdateUserRole godoc
+// RemoveUser godoc
 //
-// @Summary      RemoveUser
-// @Description  RemoveUser.
+// @Summary      Remove user from organization
+// @Description  Removes a user from the organization.
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
@@ -587,7 +587,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /remove-user/ [delete]
+// @Router       /organization/remove-user [delete]
 func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 
 	var payload requestdto.RemoveUserRequest
@@ -638,6 +638,20 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 
 }
 
+// InviteOrganizationMember godoc
+//
+// @Summary      Invite member to organization
+// @Description  Sends an email invitation to a user to join the organization.
+// @Tags         Organizations
+// @Accept       json
+// @Produce      json
+// @Param        request body requestdto.InviteOrganizationMemberRequest true "Invite Organization Member Request"
+// @Success      201 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
+// @Failure      403 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /organization/invite [post]
 func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 	var payload requestdto.InviteOrganizationMemberRequest
 	if err := g.ShouldBindJSON(&payload); err != nil {

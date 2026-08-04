@@ -474,6 +474,26 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	})
 }
 
+// GetProjectActivity godoc
+//
+//	@Summary		Get project activity history
+//	@Description	Retrieve activity logs for a project with optional filters and pagination.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			project_id	path		string	true	"Project ID (UUID)"
+//	@Param			page		query		int		false	"Page number" default(1)
+//	@Param			page_size	query		int		false	"Page size" default(10)
+//	@Param			entity_type	query		string	false	"Filter by entity type"
+//	@Param			action		query		string	false	"Filter by action"
+//	@Param			user_id		query		string	false	"Filter by user ID"
+//	@Success		200			{object}	response.SuccessResponse
+//	@Failure		400			{object}	response.ErrorResponse
+//	@Failure		401			{object}	response.ErrorResponse
+//	@Failure		403			{object}	response.ErrorResponse
+//	@Failure		500			{object}	response.ErrorResponse
+//	@Router			/project/{project_id}/activity [get]
 func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 	var filter requestdto.ProjectActivityFilterRequest
 
@@ -547,7 +567,7 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 //	@Failure		403	{object}	response.ErrorResponse	"Forbidden"
 //	@Failure		404	{object}	response.ErrorResponse	"Project not found"
 //	@Failure		500	{object}	response.ErrorResponse	"Internal server error"
-//	@Router			/api/v1/project/{project_id}/detail [get]
+//	@Router			/project/{project_id}/detail [get]
 func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 
 	var payload requestdto.GetProjectDetails
@@ -682,13 +702,13 @@ func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			user_id	query		string	true	"User ID"	format(uuid)
+//	@Param			user_id	path		string	true	"User ID (UUID)"
 //	@Success		200		{object}	response.SuccessResponse{data=responsedto.GetProjectByUserIDResponse}
 //	@Failure		400		{object}	response.ErrorResponse	"Validation Error"
 //	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
 //	@Failure		500		{object}	response.ErrorResponse	"Internal Server Error"
 //	@Security		BearerAuth
-//	@Router			/api/v1/project/user [get]
+//	@Router			/project/user/{user_id} [get]
 func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 
 	var payload requestdto.GetProjectByUserID

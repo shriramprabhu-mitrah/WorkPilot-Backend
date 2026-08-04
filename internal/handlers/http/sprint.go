@@ -480,6 +480,20 @@ func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 	})
 }
 
+// GetSprintBurndown godoc
+// @Summary Get Sprint Burndown
+// @Description Retrieve burndown chart data for a specific sprint
+// @Tags Sprints
+// @Produce json
+// @Param project_id path string true "Project ID (UUID)"
+// @Param sprint_id path string true "Sprint ID (UUID)"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/{sprint_id}/burndown [get]
 func (h *sprintHandler) GetSprintBurndown(g *gin.Context) {
 	organizationID, exist := g.Get("organization_id")
 	if !exist {
@@ -540,6 +554,19 @@ func (h *sprintHandler) GetSprintBurndown(g *gin.Context) {
 	})
 }
 
+// TriggerSnapshot godoc
+// @Summary Trigger Sprint Snapshots
+// @Description Trigger daily snapshot calculation for active sprints in a project
+// @Tags Sprints
+// @Produce json
+// @Param project_id path string true "Project ID (UUID)"
+// @Param sprint_id path string true "Sprint ID (UUID)"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/sprint/{sprint_id}/snapshot [post]
 func (h *sprintHandler) TriggerSnapshot(g *gin.Context) {
 	projectIDParam := g.Param("project_id")
 	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
