@@ -23,6 +23,20 @@ func InitTaskHandler(service services.TaskService, logger *zap.Logger) *taskHand
 	}
 }
 
+// CreateTask godoc
+// @Summary Create a new task
+// @Description Create a new task in the specified project
+// @Tags Task
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param request body requestdto.CreateTaskRequest true "Create Task Request Body"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/ [post]
 func (h *taskHandler) CreateTask(g *gin.Context) {
 	var payload requestdto.CreateTaskRequest
 
@@ -82,6 +96,20 @@ func (h *taskHandler) CreateTask(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// GetTaskByID godoc
+// @Summary Get Task By ID
+// @Description Retrieve details of a specific task by ID
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id} [get]
 func (h *taskHandler) GetTaskByID(g *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
@@ -127,6 +155,22 @@ func (h *taskHandler) GetTaskByID(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// UpdateTask godoc
+// @Summary Update Task
+// @Description Update the details of a specific task by ID
+// @Tags Task
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Param request body requestdto.UpdateTaskRequest true "Update Task Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id} [patch]
 func (h *taskHandler) UpdateTask(g *gin.Context) {
 	var payload requestdto.UpdateTaskRequest
 
@@ -196,6 +240,20 @@ func (h *taskHandler) UpdateTask(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// DeleteTask godoc
+// @Summary Delete Task
+// @Description Soft delete a specific task by ID
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id} [delete]
 func (h *taskHandler) DeleteTask(g *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
@@ -240,6 +298,20 @@ func (h *taskHandler) DeleteTask(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// RestoreTask godoc
+// @Summary Restore Task
+// @Description Restore a soft-deleted task by ID (within the retention period)
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id}/restore [post]
 func (h *taskHandler) RestoreTask(g *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
@@ -284,6 +356,22 @@ func (h *taskHandler) RestoreTask(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// CloneTask godoc
+// @Summary Clone Task
+// @Description Clone a task to create a copy of it
+// @Tags Task
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Param request body requestdto.CloneTaskRequest true "Clone Task Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id}/clone [post]
 func (h *taskHandler) CloneTask(g *gin.Context) {
 	var payload requestdto.CloneTaskRequest
 
@@ -351,6 +439,29 @@ func (h *taskHandler) CloneTask(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// GetTasks godoc
+// @Summary Get Tasks
+// @Description Retrieve tasks for a project with search, filter, sort and pagination options
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Param sort_by query string false "Sort by field" Enums(title,created_at,updated_at,priority,status)
+// @Param sort_order query string false "Sort order" Enums(ASC,DESC)
+// @Param status query string false "Task Status"
+// @Param assignee_id query string false "Assignee User ID"
+// @Param sprint_id query string false "Sprint ID"
+// @Param type query string false "Task Type" Enums(bug,feature,task,chore,story)
+// @Param priority query string false "Task Priority" Enums(low,medium,high,critical)
+// @Param search query string false "Search query for title, description or key"
+// @Param is_deleted query boolean false "Get soft deleted tasks"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/ [get]
 func (h *taskHandler) GetTasks(g *gin.Context) {
 	var filter requestdto.TaskFilter
 
