@@ -484,6 +484,7 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 		UserName:       username,
 		PasswordHash:   passwordHash,
 		OrganizationID: &organizationID,
+		Role:           string(dto.RoleMember),
 		Timezone:       "UTC",
 		IsActive:       true,
 		IsVerified:     true,
