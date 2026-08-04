@@ -363,7 +363,7 @@ func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember)
 		Action:         "member_removed",
 		ResourceType:   "project_member",
 		ResourceID:     req.PerformingUserID.String(),
-		Details:        fmt.Sprintf("User %s removed from project", req.PerformingUserID.String()),
+		Details:        fmt.Sprintf("User %s removed from project", req.TargetUserID.String()),
 		CreatedAt:      time.Now(),
 	}
 	err = s.projectRepo.CreateAuditLog(auditLog)
@@ -384,9 +384,9 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 	// Authorization check: super_admin, org_admin of project's org, or project member
 	isAuthorized := false
 
-	if userRole == "super_admin" {
+	if userRole == string(dto.RoleSuperAdmin) {
 		isAuthorized = true
-	} else if userRole == "org_admin" && userOrgID != uuid.Nil && userOrgID == project.OrganizationID {
+	} else if userRole == string(dto.ProjectRoleOrgAdmin) && userOrgID != uuid.Nil && userOrgID == project.OrganizationID {
 		isAuthorized = true
 	} else {
 		isMember, memberErr := s.projectRepo.IsUserProjectMember(projectID, userID)
