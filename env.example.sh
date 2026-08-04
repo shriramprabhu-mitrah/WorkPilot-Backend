@@ -43,3 +43,12 @@ export COOKIE_SECURE= #bool
 export COOKIE_DOMAIN= #backend domain
 export COOKIE_PATH=/ #default path
 export COOKIE_SAMESITE= #Controls when browsers send cookies with cross-site requests.
+
+# Supabase S3 Storage (for organization logo uploads)
+export S3_ENDPOINT=https://rywvrcvpgeenhvlyrtaj.storage.supabase.co/storage/v1/s3
+export S3_PUBLIC_ENDPOINT= # Optional public endpoint (e.g. https://rywvrcvpgeenhvlyrtaj.supabase.co/storage/v1/object/public)
+export S3_REGION=ap-south-1
+export S3_ACCESS_KEY_ID=      # Supabase S3 access key ID
+export S3_SECRET_ACCESS_KEY=  # Supabase S3 secret access key
+export S3_BUCKET=work_pilot_bucket
+export S3_MAX_FILE_SIZE_MB=5  # Maximum logo upload size in megabytes (default: 5)

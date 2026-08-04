@@ -25,7 +25,7 @@ type Organization struct {
 	Industry  string         `json:"industry" validate:"required" gorm:"size:150;not null"`
 	TeamSize  string         `json:"team_size" validate:"required" gorm:"not null"`
 	Country   string         `json:"country" validate:"required" gorm:"not null"`
-	LogoURL   string         `json:"logo_url" validate:"required" gorm:"size:150;not null"`
+	LogoURL   string         `json:"logo_url" gorm:"size:500"`
 	CreatedAt time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
 	UpdatedAt time.Time      `json:"updated_at" gorm:"type:timestamptz"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index:idx_organization_deleted_at"`

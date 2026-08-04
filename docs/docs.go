@@ -22,6 +22,74 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/project/user": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve all projects associated with a specific user within the authenticated organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Get projects by user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Validation Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/project/{project_id}/detail": {
             "get": {
                 "description": "Retrieve a project's details along with its members and sprints.",
@@ -481,9 +549,9 @@ const docTemplate = `{
         },
         "/auth/signup": {
             "post": {
-                "description": "Creates a new user account.",
+                "description": "Creates a new user account. Send as multipart/form-data. Optionally include an 'avatar' file to set the user avatar.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -494,13 +562,44 @@ const docTemplate = `{
                 "summary": "Register a new user",
                 "parameters": [
                     {
-                        "description": "Sign Up Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.SignUpRequest"
-                        }
+                        "type": "string",
+                        "description": "Email address",
+                        "name": "email",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Password",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Full name",
+                        "name": "full_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Username",
+                        "name": "username",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Timezone",
+                        "name": "timezone",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)",
+                        "name": "avatar",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -533,9 +632,9 @@ const docTemplate = `{
         },
         "/auth/update": {
             "patch": {
-                "description": "Updates user profile.",
+                "description": "Updates user profile. Send as multipart/form-data. Include an 'avatar' file field to replace the user avatar.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -546,13 +645,28 @@ const docTemplate = `{
                 "summary": "Update user",
                 "parameters": [
                     {
-                        "description": "Update User Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserRequest"
-                        }
+                        "type": "string",
+                        "description": "Full name",
+                        "name": "full_name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Username",
+                        "name": "username",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Timezone",
+                        "name": "timezone",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)",
+                        "name": "avatar",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -785,9 +899,9 @@ const docTemplate = `{
         },
         "/organization/create": {
             "post": {
-                "description": "Creates a new Organization account.",
+                "description": "Creates a new Organization account. Send as multipart/form-data. Optionally include a 'logo' file to set the organization logo.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -798,13 +912,65 @@ const docTemplate = `{
                 "summary": "Register a new Organization",
                 "parameters": [
                     {
-                        "description": "Creates new Organization",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest"
-                        }
+                        "type": "string",
+                        "description": "Organization name",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization domain",
+                        "name": "domain",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "Information_Technology",
+                            "Finance",
+                            "Healthcare",
+                            "Education",
+                            "Manufacturing",
+                            "Retail",
+                            "Real Estate",
+                            "Logistics",
+                            "Hospitality",
+                            "Other"
+                        ],
+                        "type": "string",
+                        "description": "Industry",
+                        "name": "industry",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "1-10",
+                            "11-50",
+                            "51-200",
+                            "201-500",
+                            "501-1000",
+                            "1000+"
+                        ],
+                        "type": "string",
+                        "description": "Team size",
+                        "name": "team_size",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Country ID (UUID)",
+                        "name": "country_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)",
+                        "name": "logo",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1018,9 +1184,9 @@ const docTemplate = `{
         },
         "/organization/update": {
             "patch": {
-                "description": "Updates Organization profile.",
+                "description": "Updates Organization profile. Send as multipart/form-data. Include a 'logo' file field to replace the logo.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -1031,13 +1197,42 @@ const docTemplate = `{
                 "summary": "Update Organization",
                 "parameters": [
                     {
-                        "description": "Update Organization Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest"
-                        }
+                        "type": "string",
+                        "description": "Organization name",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization domain",
+                        "name": "domain",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "1-10",
+                            "11-50",
+                            "51-200",
+                            "201-500",
+                            "501-1000",
+                            "1000+"
+                        ],
+                        "type": "string",
+                        "description": "Team size",
+                        "name": "team_size",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Country ID (UUID)",
+                        "name": "country_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)",
+                        "name": "logo",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -2705,9 +2900,6 @@ const docTemplate = `{
                 },
                 "old_password": {
                     "type": "string"
-                },
-                "userID": {
-                    "type": "string"
                 }
             }
         },
@@ -2716,67 +2908,6 @@ const docTemplate = `{
             "properties": {
                 "keep_assignee": {
                     "type": "boolean"
-                }
-            }
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest": {
-            "type": "object",
-            "required": [
-                "country_id",
-                "domain",
-                "industry",
-                "name",
-                "team_size"
-            ],
-            "properties": {
-                "country_id": {
-                    "type": "string"
-                },
-                "domain": {
-                    "type": "string"
-                },
-                "industry": {
-                    "enum": [
-                        "Information_Technology",
-                        "Finance",
-                        "Healthcare",
-                        "Education",
-                        "Manufacturing",
-                        "Retail",
-                        "Real Estate",
-                        "Logistics",
-                        "Hospitality",
-                        "Other"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.Industry"
-                        }
-                    ]
-                },
-                "logo_url": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "team_size": {
-                    "enum": [
-                        "1-10",
-                        "11-50",
-                        "51-200",
-                        "201-500",
-                        "501-1000",
-                        "1000+"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize"
-                        }
-                    ]
                 }
             }
         },
@@ -2921,33 +3052,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.Industry": {
-            "type": "string",
-            "enum": [
-                "Information_Technology",
-                "Finance",
-                "Healthcare",
-                "Education",
-                "Manufacturing",
-                "Retail",
-                "Real Estate",
-                "Logistics",
-                "Hospitality",
-                "Other"
-            ],
-            "x-enum-varnames": [
-                "IndustryInformationTechnology",
-                "IndustryFinance",
-                "IndustryHealthcare",
-                "IndustryEducation",
-                "IndustryManufacturing",
-                "IndustryRetail",
-                "IndustryRealEstate",
-                "IndustryLogistics",
-                "IndustryHospitality",
-                "IndustryOther"
-            ]
-        },
         "github_com_ms-kanban-server_internal_handlers_dto_request.PasswordResetRequest": {
             "type": "object",
             "required": [
@@ -2987,13 +3091,15 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole": {
             "type": "string",
             "enum": [
+                "org_admin",
                 "project_manager",
                 "developer",
                 "tester",
                 "viewer"
             ],
             "x-enum-varnames": [
-                "ProjectRoleManager",
+                "ProjectRoleOrgAdmin",
+                "ProjectRoleProjectManager",
                 "ProjectRoleDeveloper",
                 "ProjectRoleTester",
                 "ProjectRoleViewer"
@@ -3061,16 +3167,12 @@ const docTemplate = `{
             "enum": [
                 "super_admin",
                 "org_admin",
-                "project_manager",
-                "developer",
-                "viewer"
+                "member"
             ],
             "x-enum-varnames": [
                 "RoleSuperAdmin",
                 "RoleOrgAdmin",
-                "RoleProjectManager",
-                "RoleDeveloper",
-                "RoleViewer"
+                "RoleMember"
             ]
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.SignInRequest": {
@@ -3084,35 +3186,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.SignUpRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "full_name",
-                "password",
-                "username"
-            ],
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "timezone": {
-                    "type": "string"
-                },
-                "username": {
                     "type": "string"
                 }
             }
@@ -3135,60 +3208,6 @@ const docTemplate = `{
                 "SprintStatusCancelled",
                 "SprintStatusArchived"
             ]
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize": {
-            "type": "string",
-            "enum": [
-                "1-10",
-                "11-50",
-                "51-200",
-                "201-500",
-                "501-1000",
-                "1000+"
-            ],
-            "x-enum-varnames": [
-                "TeamSize1To10",
-                "TeamSize11To50",
-                "TeamSize51To200",
-                "TeamSize201To500",
-                "TeamSize501To1000",
-                "TeamSize1000Plus"
-            ]
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest": {
-            "type": "object",
-            "required": [
-                "team_size"
-            ],
-            "properties": {
-                "country_id": {
-                    "type": "string"
-                },
-                "domain": {
-                    "type": "string"
-                },
-                "logo_url": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "team_size": {
-                    "enum": [
-                        "1-10",
-                        "11-50",
-                        "51-200",
-                        "201-500",
-                        "501-1000",
-                        "1000+"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize"
-                        }
-                    ]
-                }
-            }
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectRequest": {
             "type": "object",
@@ -3304,23 +3323,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserRequest": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "timezone": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_ms-kanban-server_internal_handlers_dto_request.UserRoleRequest": {
             "type": "object",
             "properties": {
@@ -3354,6 +3356,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "otp": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse"
+                    }
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -3447,6 +3463,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }

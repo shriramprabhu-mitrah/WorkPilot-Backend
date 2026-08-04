@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,15 +13,17 @@ import (
 	cookies "github.com/ms-kanban-server/internal/pkg/cookie"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/storage"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
 
-func InitOrganizationHandler(service services.OrganizationService, publicService services.PublicService, logger *zap.Logger) *OrganizationHandler {
+func InitOrganizationHandler(service services.OrganizationService, publicService services.PublicService, storage storage.StorageClient, logger *zap.Logger) *OrganizationHandler {
 	return &OrganizationHandler{
 		service:       service,
 		publicService: publicService,
+		storage:       storage,
 		logger:        logger,
 	}
 }
@@ -28,6 +31,7 @@ func InitOrganizationHandler(service services.OrganizationService, publicService
 type OrganizationHandler struct {
 	service       services.OrganizationService
 	publicService services.PublicService
+	storage       storage.StorageClient
 	logger        *zap.Logger
 }
 
@@ -69,11 +73,15 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 // UpdateOrganization godoc
 //
 // @Summary      Update Organization
-// @Description  Updates Organization profile.
+// @Description  Updates Organization profile. Send as multipart/form-data. Include a 'logo' file field to replace the logo.
 // @Tags         Organizations
-// @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        request body requestdto.UpdateOrganizationRequest true "Update Organization Request"
+// @Param        name      formData string false "Organization name"
+// @Param        domain    formData string false "Organization domain"
+// @Param        team_size formData string false "Team size" Enums(1-10,11-50,51-200,201-500,501-1000,1000+)
+// @Param        country_id formData string false "Country ID (UUID)"
+// @Param        logo      formData file   false "Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
@@ -83,7 +91,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 
 	var payload requestdto.UpdateOrganizationRequest
 
-	if err := g.ShouldBindJSON(&payload); err != nil {
+	if err := g.ShouldBind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -93,7 +101,6 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 				Message:    message,
 			},
 		}
-
 		h.logger.Error("Invalid request payload", zap.Error(err))
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
@@ -104,10 +111,25 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		return
 	}
 
+	// Handle optional logo upload.
+	var logoURL string
+	var uploadedKey string
+	logoFile, logoHeader, fileErr := g.Request.FormFile("logo")
+	if fileErr == nil {
+		defer logoFile.Close()
+		var uploadErr *response.Error
+		logoURL, uploadedKey, uploadErr = h.storage.UploadLogo(logoFile, logoHeader)
+		if uploadErr != nil {
+			h.logger.Error("Logo upload failed during organization update", zap.String("error", uploadErr.Message))
+			g.JSON(uploadErr.StatusCode, &response.ErrorResponse{Success: false, Error: *uploadErr})
+			return
+		}
+	}
+
 	credentials := models.Organization{
 		Name:     payload.Name,
 		Domain:   payload.Domain,
-		LogoURL:  payload.LogoURL,
+		LogoURL:  logoURL,
 		TeamSize: string(payload.TeamSize),
 	}
 
@@ -115,6 +137,10 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		countryUUID, errorResponse := utils.StringToUUID(payload.CountryID)
 		if errorResponse != nil {
 			h.logger.Error("Invalid country id")
+			// Clean up orphaned upload.
+			if uploadedKey != "" {
+				_ = h.storage.DeleteObject(context.Background(), uploadedKey)
+			}
 			g.JSON(errorResponse.StatusCode, errorResponse)
 			return
 		}
@@ -124,19 +150,24 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 			h.logger.Error("Failed to resolve country id",
 				zap.String("message", err.Message),
 				zap.Int("status", err.StatusCode))
+			// Clean up orphaned upload.
+			if uploadedKey != "" {
+				_ = h.storage.DeleteObject(context.Background(), uploadedKey)
+			}
 			g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
 			return
 		}
 
 		credentials.Country = country.Name
 	}
-	err := h.service.UpdateOrganization(id, credentials)
-	if err != nil {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error:   *err,
+
+	updateErr := h.service.UpdateOrganization(id, credentials)
+	if updateErr != nil {
+		// Clean up orphaned upload since the DB update failed.
+		if uploadedKey != "" {
+			_ = h.storage.DeleteObject(context.Background(), uploadedKey)
 		}
-		g.JSON(err.StatusCode, errorResponse)
+		g.JSON(updateErr.StatusCode, &response.ErrorResponse{Success: false, Error: *updateErr})
 		return
 	}
 
@@ -148,7 +179,6 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 			"organizationID": id},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
-
 }
 
 // GetOrganization godoc
@@ -193,11 +223,16 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 // CreateOrganization godoc
 //
 // @Summary      Register a new Organization
-// @Description  Creates a new Organization account.
+// @Description  Creates a new Organization account. Send as multipart/form-data. Optionally include a 'logo' file to set the organization logo.
 // @Tags         Organizations
-// @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        request body requestdto.CreateOrganizationRequest true "Creates new Organization"
+// @Param        name       formData string true  "Organization name"
+// @Param        domain     formData string true  "Organization domain"
+// @Param        industry   formData string true  "Industry" Enums(Information_Technology,Finance,Healthcare,Education,Manufacturing,Retail,Real Estate,Logistics,Hospitality,Other)
+// @Param        team_size  formData string true  "Team size" Enums(1-10,11-50,51-200,201-500,501-1000,1000+)
+// @Param        country_id formData string true  "Country ID (UUID)"
+// @Param        logo       formData file   false "Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)"
 // @Success      201 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
@@ -207,7 +242,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 
 	var payload requestdto.CreateOrganizationRequest
 
-	if err := g.Bind(&payload); err != nil {
+	if err := g.ShouldBind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -241,10 +276,25 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 		return
 	}
 
+	// Handle optional logo upload.
+	var logoURL string
+	var uploadedKey string
+	logoFile, logoHeader, fileErr := g.Request.FormFile("logo")
+	if fileErr == nil {
+		defer logoFile.Close()
+		var uploadErr *response.Error
+		logoURL, uploadedKey, uploadErr = h.storage.UploadLogo(logoFile, logoHeader)
+		if uploadErr != nil {
+			h.logger.Error("Logo upload failed during organization creation", zap.String("error", uploadErr.Message))
+			g.JSON(uploadErr.StatusCode, &response.ErrorResponse{Success: false, Error: *uploadErr})
+			return
+		}
+	}
+
 	credentials := models.Organization{
 		Name:      payload.Name,
 		Domain:    payload.Domain,
-		LogoURL:   payload.LogoURL,
+		LogoURL:   logoURL,
 		CreatedBy: userUUID,
 		Industry:  string(payload.Industry),
 		TeamSize:  string(payload.TeamSize),
@@ -253,11 +303,11 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 
 	tokens, err := h.service.CreateOrganization(credentials)
 	if err != nil {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error:   *err,
+		// Clean up orphaned upload since the DB creation failed.
+		if uploadedKey != "" {
+			_ = h.storage.DeleteObject(context.Background(), uploadedKey)
 		}
-		g.JSON(err.StatusCode, errorResponse)
+		g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
 		return
 	}
 
@@ -270,14 +320,11 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 	cookies.SetAccessToken(g, tokens.AccessToken, tokens.ExpiresIn, secure)
 	cookies.SetRefreshToken(g, tokens.RefreshToken, tokens.RefreshExpiresIn, secure)
 
-	successResponse := &response.SuccessResponse{
+	g.JSON(http.StatusCreated, &response.SuccessResponse{
 		Message:    "Successfully Created",
 		StatusCode: http.StatusCreated,
 		Success:    true,
-	}
-
-	g.JSON(successResponse.StatusCode, successResponse)
-
+	})
 }
 
 // UpdateUserStatus godoc

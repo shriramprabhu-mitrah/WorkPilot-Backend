@@ -45,12 +45,12 @@ type RefreshTokenRequest struct {
 }
 
 type SignUpRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required"`
-	FullName  string `json:"full_name" binding:"required"`
-	UserName  string `json:"username" binding:"required"`
-	AvatarURL string `json:"avatar_url"`
-	Timezone  string `json:"timezone"`
+	Email     string `form:"email" binding:"required,email"`
+	Password  string `form:"password" binding:"required"`
+	FullName  string `form:"full_name" binding:"required"`
+	UserName  string `form:"username" binding:"required"`
+	AvatarURL string `form:"-"`
+	Timezone  string `form:"timezone"`
 }
 
 type VerifyEmailRequest struct {
@@ -79,8 +79,8 @@ type ChangePasswordRequest struct {
 }
 
 type UpdateUserRequest struct {
-	FullName  string `json:"full_name"`
-	UserName  string `json:"username"`
-	AvatarURL string `json:"avatar_url"`
-	Timezone  string `json:"timezone"`
+	FullName  string `form:"full_name"`
+	UserName  string `form:"username"`
+	AvatarURL string `form:"-"`
+	Timezone  string `form:"timezone"`
 }

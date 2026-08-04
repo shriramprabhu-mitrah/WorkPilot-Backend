@@ -26,8 +26,6 @@ definitions:
         type: string
       old_password:
         type: string
-      userID:
-        type: string
     required:
     - new_password
     - old_password
@@ -36,49 +34,6 @@ definitions:
     properties:
       keep_assignee:
         type: boolean
-    type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest:
-    properties:
-      country_id:
-        type: string
-      domain:
-        type: string
-      industry:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.Industry'
-        enum:
-        - Information_Technology
-        - Finance
-        - Healthcare
-        - Education
-        - Manufacturing
-        - Retail
-        - Real Estate
-        - Logistics
-        - Hospitality
-        - Other
-      logo_url:
-        type: string
-      name:
-        type: string
-      slug:
-        type: string
-      team_size:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize'
-        enum:
-        - 1-10
-        - 11-50
-        - 51-200
-        - 201-500
-        - 501-1000
-        - 1000+
-    required:
-    - country_id
-    - domain
-    - industry
-    - name
-    - team_size
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateProjectMemberRequest:
     properties:
@@ -181,30 +136,6 @@ definitions:
     - title
     - type
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.Industry:
-    enum:
-    - Information_Technology
-    - Finance
-    - Healthcare
-    - Education
-    - Manufacturing
-    - Retail
-    - Real Estate
-    - Logistics
-    - Hospitality
-    - Other
-    type: string
-    x-enum-varnames:
-    - IndustryInformationTechnology
-    - IndustryFinance
-    - IndustryHealthcare
-    - IndustryEducation
-    - IndustryManufacturing
-    - IndustryRetail
-    - IndustryRealEstate
-    - IndustryLogistics
-    - IndustryHospitality
-    - IndustryOther
   github_com_ms-kanban-server_internal_handlers_dto_request.PasswordResetRequest:
     properties:
       email:
@@ -230,13 +161,15 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole:
     enum:
+    - org_admin
     - project_manager
     - developer
     - tester
     - viewer
     type: string
     x-enum-varnames:
-    - ProjectRoleManager
+    - ProjectRoleOrgAdmin
+    - ProjectRoleProjectManager
     - ProjectRoleDeveloper
     - ProjectRoleTester
     - ProjectRoleViewer
@@ -285,16 +218,12 @@ definitions:
     enum:
     - super_admin
     - org_admin
-    - project_manager
-    - developer
-    - viewer
+    - member
     type: string
     x-enum-varnames:
     - RoleSuperAdmin
     - RoleOrgAdmin
-    - RoleProjectManager
-    - RoleDeveloper
-    - RoleViewer
+    - RoleMember
   github_com_ms-kanban-server_internal_handlers_dto_request.SignInRequest:
     properties:
       email:
@@ -304,26 +233,6 @@ definitions:
     required:
     - email
     - password
-    type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.SignUpRequest:
-    properties:
-      avatar_url:
-        type: string
-      email:
-        type: string
-      full_name:
-        type: string
-      password:
-        type: string
-      timezone:
-        type: string
-      username:
-        type: string
-    required:
-    - email
-    - full_name
-    - password
-    - username
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.SprintStatus:
     enum:
@@ -341,45 +250,6 @@ definitions:
     - SprintStatusCompleted
     - SprintStatusCancelled
     - SprintStatusArchived
-  github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize:
-    enum:
-    - 1-10
-    - 11-50
-    - 51-200
-    - 201-500
-    - 501-1000
-    - 1000+
-    type: string
-    x-enum-varnames:
-    - TeamSize1To10
-    - TeamSize11To50
-    - TeamSize51To200
-    - TeamSize201To500
-    - TeamSize501To1000
-    - TeamSize1000Plus
-  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest:
-    properties:
-      country_id:
-        type: string
-      domain:
-        type: string
-      logo_url:
-        type: string
-      name:
-        type: string
-      team_size:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize'
-        enum:
-        - 1-10
-        - 11-50
-        - 51-200
-        - 201-500
-        - 501-1000
-        - 1000+
-    required:
-    - team_size
-    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectRequest:
     properties:
       description:
@@ -462,17 +332,6 @@ definitions:
         - story
         type: string
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserRequest:
-    properties:
-      avatar_url:
-        type: string
-      full_name:
-        type: string
-      timezone:
-        type: string
-      username:
-        type: string
-    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UserRoleRequest:
     properties:
       role:
@@ -496,6 +355,15 @@ definitions:
     required:
     - email
     - otp
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse:
+    properties:
+      project:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse'
+        type: array
+      user_id:
+        type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.OrganizationSummary:
     properties:
@@ -556,6 +424,17 @@ definitions:
       user_id:
         type: string
       username:
+        type: string
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse:
+    properties:
+      project_id:
+        type: string
+      project_name:
+        type: string
+      role:
+        type: string
+      status:
         type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.Sprint:
@@ -728,6 +607,48 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get project details
+      tags:
+      - Projects
+  /api/v1/project/user:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all projects associated with a specific user within the
+        authenticated organization.
+      parameters:
+      - description: User ID
+        format: uuid
+        in: query
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse'
+              type: object
+        "400":
+          description: Validation Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get projects by user
       tags:
       - Projects
   /auth/{user_id}:
@@ -1021,15 +942,38 @@ paths:
   /auth/signup:
     post:
       consumes:
-      - application/json
-      description: Creates a new user account.
+      - multipart/form-data
+      description: Creates a new user account. Send as multipart/form-data. Optionally
+        include an 'avatar' file to set the user avatar.
       parameters:
-      - description: Sign Up Request
-        in: body
-        name: request
+      - description: Email address
+        in: formData
+        name: email
         required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.SignUpRequest'
+        type: string
+      - description: Password
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: Full name
+        in: formData
+        name: full_name
+        required: true
+        type: string
+      - description: Username
+        in: formData
+        name: username
+        required: true
+        type: string
+      - description: Timezone
+        in: formData
+        name: timezone
+        type: string
+      - description: User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: avatar
+        type: file
       produces:
       - application/json
       responses:
@@ -1055,15 +999,26 @@ paths:
   /auth/update:
     patch:
       consumes:
-      - application/json
-      description: Updates user profile.
+      - multipart/form-data
+      description: Updates user profile. Send as multipart/form-data. Include an 'avatar'
+        file field to replace the user avatar.
       parameters:
-      - description: Update User Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserRequest'
+      - description: Full name
+        in: formData
+        name: full_name
+        type: string
+      - description: Username
+        in: formData
+        name: username
+        type: string
+      - description: Timezone
+        in: formData
+        name: timezone
+        type: string
+      - description: User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: avatar
+        type: file
       produces:
       - application/json
       responses:
@@ -1172,15 +1127,57 @@ paths:
   /organization/create:
     post:
       consumes:
-      - application/json
-      description: Creates a new Organization account.
+      - multipart/form-data
+      description: Creates a new Organization account. Send as multipart/form-data.
+        Optionally include a 'logo' file to set the organization logo.
       parameters:
-      - description: Creates new Organization
-        in: body
-        name: request
+      - description: Organization name
+        in: formData
+        name: name
         required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest'
+        type: string
+      - description: Organization domain
+        in: formData
+        name: domain
+        required: true
+        type: string
+      - description: Industry
+        enum:
+        - Information_Technology
+        - Finance
+        - Healthcare
+        - Education
+        - Manufacturing
+        - Retail
+        - Real Estate
+        - Logistics
+        - Hospitality
+        - Other
+        in: formData
+        name: industry
+        required: true
+        type: string
+      - description: Team size
+        enum:
+        - 1-10
+        - 11-50
+        - 51-200
+        - 201-500
+        - 501-1000
+        - 1000+
+        in: formData
+        name: team_size
+        required: true
+        type: string
+      - description: Country ID (UUID)
+        in: formData
+        name: country_id
+        required: true
+        type: string
+      - description: Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: logo
+        type: file
       produces:
       - application/json
       responses:
@@ -1316,15 +1313,37 @@ paths:
   /organization/update:
     patch:
       consumes:
-      - application/json
-      description: Updates Organization profile.
+      - multipart/form-data
+      description: Updates Organization profile. Send as multipart/form-data. Include
+        a 'logo' file field to replace the logo.
       parameters:
-      - description: Update Organization Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest'
+      - description: Organization name
+        in: formData
+        name: name
+        type: string
+      - description: Organization domain
+        in: formData
+        name: domain
+        type: string
+      - description: Team size
+        enum:
+        - 1-10
+        - 11-50
+        - 51-200
+        - 201-500
+        - 501-1000
+        - 1000+
+        in: formData
+        name: team_size
+        type: string
+      - description: Country ID (UUID)
+        in: formData
+        name: country_id
+        type: string
+      - description: Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: logo
+        type: file
       produces:
       - application/json
       responses:
