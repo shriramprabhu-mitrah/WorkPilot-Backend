@@ -17,7 +17,7 @@ type TaskRepository interface {
 	UpdateTask(task *models.Task) *response.Error
 	DeleteTask(id uuid.UUID, projectID uuid.UUID) *response.Error
 	RestoreTask(id uuid.UUID, projectID uuid.UUID) *response.Error
-	GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, *response.Error)
+	GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, response.Pagination, *response.Error)
 	GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error)
 }
 

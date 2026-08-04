@@ -385,7 +385,7 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 		return
 	}
 
-	tasks, err := h.service.GetTasks(projectID, userUUID, organizationUUID, filter)
+	tasks, pagination, err := h.service.GetTasks(projectID, userUUID, organizationUUID, filter)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -400,6 +400,7 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data:       tasks,
+		Meta:       &pagination,
 	}
 
 	g.JSON(successResponse.StatusCode, successResponse)

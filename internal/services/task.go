@@ -24,7 +24,7 @@ type TaskService interface {
 	DeleteTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
-	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, *response.Error)
+	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error)
 }
 
 type taskService struct {
@@ -168,7 +168,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	if req.Status != "" {
 		task.Status = req.Status
 	} else {
-		task.Status = "todo"
+		task.Status = string(dto.TaskStatusTodo)
 	}
 	task.AssigneeID = req.AssigneeID
 	task.StoryPoints = req.StoryPoints
@@ -427,7 +427,7 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 	clonedTask.Description = origTask.Description
 	clonedTask.Type = origTask.Type
 	clonedTask.Priority = origTask.Priority
-	clonedTask.Status = "todo"
+	clonedTask.Status = string(dto.TaskStatusTodo)
 	if req.KeepAssignee {
 		clonedTask.AssigneeID = origTask.AssigneeID
 	}
@@ -475,27 +475,27 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 	return &res, nil
 }
 
-func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, *response.Error) {
+func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error) {
 	authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
-		return nil, err
+		return nil, response.Pagination{}, err
 	}
 	if !authorized {
-		return nil, &response.Error{
+		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to view tasks in this project",
 		}
 	}
 
-	tasks, err := s.taskRepo.GetTasks(projectID, filter)
+	tasks, pagination, err := s.taskRepo.GetTasks(projectID, filter)
 	if err != nil {
-		return nil, err
+		return nil, response.Pagination{}, err
 	}
 
 	resList := []responsedto.TaskResponse{}
 	for _, t := range tasks {
 		resList = append(resList, mapToTaskResponse(t))
 	}
-	return resList, nil
+	return resList, pagination, nil
 }

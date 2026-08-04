@@ -89,9 +89,9 @@ func (s *stubTaskRepo) RestoreTask(id uuid.UUID, projectID uuid.UUID) *response.
 	return nil
 }
 
-func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, *response.Error) {
+func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, response.Pagination, *response.Error) {
 	if s.listErr != nil {
-		return nil, s.listErr
+		return nil, response.Pagination{}, s.listErr
 	}
 	var res []models.Task
 	for _, t := range s.tasks {
@@ -103,7 +103,7 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		}
 		res = append(res, *t)
 	}
-	return res, nil
+	return res, response.Pagination{}, nil
 }
 
 func (s *stubTaskRepo) GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error) {
@@ -127,8 +127,8 @@ func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 
 	req := dto.CreateTaskRequest{
 		Title:       "Setup database connections",
-		Type:        "task",
-		Priority:    "high",
+		Type:        string(dto.TaskTypeTask),
+		Priority:    string(dto.TaskPriorityHigh),
 		StoryPoints: 5,
 		ProjectID:   projectID,
 		UserID:      userID,
@@ -169,9 +169,9 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 		Key:         "WP-1",
 		Title:       "Old Title",
 		Description: "Old Desc",
-		Type:        "bug",
-		Priority:    "low",
-		Status:      "todo",
+		Type:        string(dto.TaskTypeBug),
+		Priority:    string(dto.TaskPriorityLow),
+		Status:      string(dto.TaskStatusTodo),
 		StoryPoints: 1,
 	}
 	taskRepo := &stubTaskRepo{
@@ -181,8 +181,8 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
 
 	newTitle := "New Title"
-	newPriority := "critical"
-	newStatus := "in_progress"
+	newPriority := string(dto.TaskPriorityCritical)
+	newStatus := string(dto.TaskStatusInProgress)
 	newPoints := 8
 
 	req := dto.UpdateTaskRequest{
@@ -202,10 +202,10 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 	if updated.Title != "New Title" {
 		t.Fatalf("expected title New Title, got %s", updated.Title)
 	}
-	if updated.Priority != "critical" {
+	if updated.Priority != string(dto.TaskPriorityCritical) {
 		t.Fatalf("expected priority critical, got %s", updated.Priority)
 	}
-	if updated.Status != "in_progress" {
+	if updated.Status != string(dto.TaskStatusInProgress) {
 		t.Fatalf("expected status in_progress, got %s", updated.Status)
 	}
 	if updated.StoryPoints != 8 {
@@ -285,7 +285,7 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 		Key:         "WP-1",
 		Title:       "Write API Documentation",
 		Description: "Explain endpoints in details",
-		Status:      "completed",
+		Status:      string(dto.TaskStatusCompleted),
 		AssigneeID:  &assigneeID,
 		StoryPoints: 3,
 	}
@@ -311,7 +311,7 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 	if cloned.Key != "WP-2" {
 		t.Fatalf("expected new key WP-2, got %s", cloned.Key)
 	}
-	if cloned.Status != "todo" {
+	if cloned.Status != string(dto.TaskStatusTodo) {
 		t.Fatalf("expected status reset to todo, got %s", cloned.Status)
 	}
 	if cloned.AssigneeID != nil {

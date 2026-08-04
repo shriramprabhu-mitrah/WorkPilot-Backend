@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/internal/pkg/response"
 )
 
 type TaskStatus string
@@ -118,6 +119,8 @@ type CloneTaskRequest struct {
 }
 
 type TaskFilter struct {
+	response.PaginationQuery
+	response.SortQuery
 	Status    string `form:"status"`
 	Assignee  string `form:"assignee_id"`
 	Sprint    string `form:"sprint_id"`

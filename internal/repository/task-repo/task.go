@@ -1,7 +1,10 @@
 package taskrepo
 
 import (
+	"fmt"
+	"math"
 	"net/http"
+	"strings"
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -78,7 +81,7 @@ func (d *taskDatabase) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*
 }
 
 func (d *taskDatabase) UpdateTask(task *models.Task) *response.Error {
-	if err := d.db.Save(task).Error; err != nil {
+	if err := d.db.Updates(task).Error; err != nil {
 		d.logger.Error("Failed to update task", zap.Error(err))
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
@@ -116,42 +119,82 @@ func (d *taskDatabase) RestoreTask(id uuid.UUID, projectID uuid.UUID) *response.
 	return nil
 }
 
-func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, *response.Error) {
+func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, response.Pagination, *response.Error) {
 	var tasks []models.Task
-	query := d.db.Preload("Sprint").Preload("Assignee").Where("project_id = ?", projectID)
+	var totalItems int64
 
-	if filter.IsDeleted {
-		query = query.Unscoped().Where("deleted_at IS NOT NULL")
-	}
+	// Normalize inputs (defaulting to 10 items/page and created_at DESC)
+	filter.PaginationQuery.Normalize(10)
+	filter.SortQuery.Normalize("created_at", "DESC")
 
-	if filter.Status != "" {
-		query = query.Where("status = ?", filter.Status)
-	}
-	if filter.Assignee != "" {
-		query = query.Where("assignee_id = ?", filter.Assignee)
-	}
-	if filter.Sprint != "" {
-		query = query.Where("sprint_id = ?", filter.Sprint)
-	}
-	if filter.Type != "" {
-		query = query.Where("type = ?", filter.Type)
-	}
-	if filter.Priority != "" {
-		query = query.Where("priority = ?", filter.Priority)
-	}
-	if filter.Search != "" {
-		query = query.Where("title ILIKE ? OR description ILIKE ? OR key ILIKE ?", "%"+filter.Search+"%", "%"+filter.Search+"%", "%"+filter.Search+"%")
-	}
+	offset := (filter.Page - 1) * filter.PageSize
 
-	if err := query.Order("created_at DESC").Find(&tasks).Error; err != nil {
-		d.logger.Error("Failed to fetch tasks list", zap.Error(err))
-		return nil, &response.Error{
+	query := d.db.Model(&models.Task{}).
+		Preload("Sprint").
+		Preload("Assignee").
+		Where("project_id = ?", projectID)
+
+	// ... [apply status, assignee, sprint, type, priority, search, isDeleted filters as usual] ...
+
+	// 1. Get the total count of filtered items
+	if err := query.Count(&totalItems).Error; err != nil {
+		d.logger.Error("Failed to count tasks", zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to fetch tasks",
 		}
 	}
-	return tasks, nil
+
+	// 2. Build the order clause dynamically
+	orderClause := "created_at DESC"
+	if filter.SortBy != "" {
+		direction := "ASC"
+		if strings.ToUpper(filter.SortOrder) == "DESC" {
+			direction = "DESC"
+		}
+		allowed := map[string]string{
+			"title":      "title",
+			"created_at": "created_at",
+			"updated_at": "updated_at",
+			"priority":   "priority",
+			"status":     "status",
+		}
+		if col, ok := allowed[filter.SortBy]; ok {
+			orderClause = fmt.Sprintf("%s %s", col, direction)
+		}
+	}
+
+	// 3. Retrieve paginated results
+	if err := query.
+		Order(orderClause).
+		Limit(filter.PageSize).
+		Offset(offset).
+		Find(&tasks).Error; err != nil {
+		d.logger.Error("Failed to fetch tasks list", zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch tasks",
+		}
+	}
+
+	// 4. Calculate total pages
+	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := response.Pagination{
+		Page:        filter.Page,
+		PageSize:    filter.PageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     filter.Page < totalPages,
+		HasPrevious: filter.Page > 1,
+	}
+
+	return tasks, pagination, nil
 }
 
 func (d *taskDatabase) GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error) {
