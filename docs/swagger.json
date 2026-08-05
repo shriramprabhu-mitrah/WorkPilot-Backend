@@ -3062,6 +3062,77 @@
                 }
             }
         },
+        "/projects/{project_id}/tasks/bulk": {
+            "patch": {
+                "description": "Update status, sprint, or assignee of multiple tasks in a project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Task"
+                ],
+                "summary": "Bulk Update Tasks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Bulk Update Tasks Request Body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "207": {
+                        "description": "Multi-Status",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{project_id}/tasks/{task_id}": {
             "get": {
                 "description": "Retrieve details of a specific task by ID",
@@ -3347,7 +3418,7 @@
             }
         },
         "/projects/{project_id}/tasks/{task_id}/labels/{label_id}": {
-            "post": {
+            "put": {
                 "description": "Attach a project label to a specific task",
                 "tags": [
                     "Task"
@@ -3580,6 +3651,52 @@
                 },
                 "token_type": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTaskItem": {
+            "type": "object",
+            "required": [
+                "task_id"
+            ],
+            "properties": {
+                "assignee_id": {
+                    "type": "string"
+                },
+                "blocked_reason": {
+                    "type": "string"
+                },
+                "sprint_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "todo",
+                        "in_progress",
+                        "in_review",
+                        "testing",
+                        "completed",
+                        "blocked"
+                    ]
+                },
+                "task_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest": {
+            "type": "object",
+            "required": [
+                "tasks"
+            ],
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTaskItem"
+                    }
                 }
             }
         },

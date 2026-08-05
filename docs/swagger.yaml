@@ -20,6 +20,38 @@ definitions:
       token_type:
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTaskItem:
+    properties:
+      assignee_id:
+        type: string
+      blocked_reason:
+        type: string
+      sprint_id:
+        type: string
+      status:
+        enum:
+        - todo
+        - in_progress
+        - in_review
+        - testing
+        - completed
+        - blocked
+        type: string
+      task_id:
+        type: string
+    required:
+    - task_id
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest:
+    properties:
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTaskItem'
+        minItems: 1
+        type: array
+    required:
+    - tasks
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.ChangePasswordRequest:
     properties:
       new_password:
@@ -2862,7 +2894,7 @@ paths:
       summary: Remove Label from Task
       tags:
       - Task
-    post:
+    put:
       description: Attach a project label to a specific task
       parameters:
       - description: Project ID
@@ -2950,6 +2982,53 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Restore Task
+      tags:
+      - Task
+  /projects/{project_id}/tasks/bulk:
+    patch:
+      consumes:
+      - application/json
+      description: Update status, sprint, or assignee of multiple tasks in a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Bulk Update Tasks Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Bulk Update Tasks
       tags:
       - Task
 securityDefinitions:
