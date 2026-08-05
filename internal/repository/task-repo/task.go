@@ -310,8 +310,18 @@ func (d *taskDatabase) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID)
 	if len(labelIDs) == 0 {
 		return []models.Label{}, nil
 	}
+
+	uniqueIDsMap := make(map[uuid.UUID]bool)
+	var deduplicatedIDs []uuid.UUID
+	for _, id := range labelIDs {
+		if !uniqueIDsMap[id] {
+			uniqueIDsMap[id] = true
+			deduplicatedIDs = append(deduplicatedIDs, id)
+		}
+	}
+
 	var labels []models.Label
-	err := d.db.Where("project_id = ? AND id IN ?", projectID, labelIDs).Find(&labels).Error
+	err := d.db.Where("project_id = ? AND id IN ?", projectID, deduplicatedIDs).Find(&labels).Error
 	if err != nil {
 		d.logger.Error("Failed to verify label IDs", zap.Error(err))
 		return nil, &response.Error{
@@ -320,14 +330,26 @@ func (d *taskDatabase) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID)
 			Message:    "Failed to verify labels",
 		}
 	}
-	if len(labels) != len(labelIDs) {
-		return nil, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "One or more labels do not exist or do not belong to the project",
-		}
+
+	labelsMap := make(map[uuid.UUID]models.Label)
+	for _, l := range labels {
+		labelsMap[l.ID] = l
 	}
-	return labels, nil
+
+	orderedLabels := make([]models.Label, 0, len(deduplicatedIDs))
+	for _, id := range deduplicatedIDs {
+		l, ok := labelsMap[id]
+		if !ok {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "One or more labels do not exist or do not belong to the project",
+			}
+		}
+		orderedLabels = append(orderedLabels, l)
+	}
+
+	return orderedLabels, nil
 }
 
 func (d *taskDatabase) UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error {

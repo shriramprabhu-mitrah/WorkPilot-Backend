@@ -159,8 +159,17 @@ func (s *stubTaskRepo) IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *
 }
 
 func (s *stubTaskRepo) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error) {
-	var labels []models.Label
+	uniqueIDsMap := make(map[uuid.UUID]bool)
+	var deduplicatedIDs []uuid.UUID
 	for _, id := range labelIDs {
+		if !uniqueIDsMap[id] {
+			uniqueIDsMap[id] = true
+			deduplicatedIDs = append(deduplicatedIDs, id)
+		}
+	}
+
+	var labels []models.Label
+	for _, id := range deduplicatedIDs {
 		labels = append(labels, models.Label{
 			ID:        id,
 			ProjectID: projectID,
