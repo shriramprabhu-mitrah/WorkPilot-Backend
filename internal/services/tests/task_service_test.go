@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,20 +105,40 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 			continue
 		}
 		if len(filter.Labels) > 0 {
-			matched := false
-			for _, fl := range filter.Labels {
-				for _, tl := range t.Labels {
-					if tl.ID.String() == fl || tl.Name == fl {
-						matched = true
+			isMatchAll := (strings.ToLower(filter.Match) == "all")
+			if isMatchAll {
+				matchedCount := 0
+				for _, fl := range filter.Labels {
+					found := false
+					for _, tl := range t.Labels {
+						if tl.ID.String() == fl || strings.ToLower(tl.Name) == strings.ToLower(fl) {
+							found = true
+							break
+						}
+					}
+					if found {
+						matchedCount++
+					}
+				}
+				if matchedCount < len(filter.Labels) {
+					continue
+				}
+			} else {
+				matched := false
+				for _, fl := range filter.Labels {
+					for _, tl := range t.Labels {
+						if tl.ID.String() == fl || strings.ToLower(tl.Name) == strings.ToLower(fl) {
+							matched = true
+							break
+						}
+					}
+					if matched {
 						break
 					}
 				}
-				if matched {
-					break
+				if !matched {
+					continue
 				}
-			}
-			if !matched {
-				continue
 			}
 		}
 		res = append(res, *t)
@@ -153,6 +174,14 @@ func (s *stubTaskRepo) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID)
 func (s *stubTaskRepo) UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error {
 	if task, ok := s.tasks[taskID]; ok {
 		task.Labels = labels
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error {
+	if t, ok := s.tasks[task.ID]; ok {
+		*t = *task
+		t.Labels = labels
 	}
 	return nil
 }
@@ -919,6 +948,18 @@ func TestTaskService_GetTasks_LabelFiltering(t *testing.T) {
 	}
 	if len(res) != 3 {
 		t.Errorf("expected 3 tasks for 'Frontend' or 'Bug', got: %d", len(res))
+	}
+
+	// 4. AND filter: Filter by both label1 and label2 with match=all
+	res, _, err = service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{"Frontend", "Bug"},
+		Match:  "all",
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 1 {
+		t.Errorf("expected 1 task matching both 'Frontend' and 'Bug', got: %d", len(res))
 	}
 }
 

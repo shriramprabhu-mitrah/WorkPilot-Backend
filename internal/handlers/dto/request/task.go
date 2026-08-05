@@ -134,6 +134,7 @@ type TaskFilter struct {
 	Priority  string   `form:"priority"`
 	IsDeleted bool     `form:"is_deleted"`
 	Labels    []string `form:"labels"`
+	Match     string   `form:"match"`
 }
 
 type BulkUpdateTaskItem struct {

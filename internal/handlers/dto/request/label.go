@@ -6,7 +6,7 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-var hexColorRegex = regexp.MustCompile("^#[0-9a-fA-F]{6}$")
+var hexColorRegex = regexp.MustCompile(`^#[[:xdigit:]]{6}$`)
 
 type CreateLabelRequest struct {
 	Name           string    `json:"name" binding:"required,min=1,max=30"`

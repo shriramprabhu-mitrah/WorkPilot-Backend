@@ -625,7 +625,7 @@ func (h *taskHandler) BulkUpdateTasks(g *gin.Context) {
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/tasks/{task_id}/labels/{label_id} [post]
+// @Router /projects/{project_id}/tasks/{task_id}/labels/{label_id} [put]
 func (h *taskHandler) AttachLabelToTask(g *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {

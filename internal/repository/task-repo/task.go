@@ -171,7 +171,9 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 	if len(filter.Labels) > 0 {
 		var labelIDs []uuid.UUID
 		var labelNames []string
+		uniqueSearchItems := make(map[string]bool)
 		for _, l := range filter.Labels {
+			uniqueSearchItems[strings.ToLower(l)] = true
 			if uid, err := uuid.FromString(l); err == nil {
 				labelIDs = append(labelIDs, uid)
 			} else {
@@ -179,17 +181,37 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 			}
 		}
 
-		subQuery := d.db.Table("task_labels").Select("task_id")
+		var resolvedIDs []uuid.UUID
+		dbQuery := d.db.Model(&models.Label{}).Where("project_id = ?", projectID)
 		if len(labelIDs) > 0 && len(labelNames) > 0 {
-			subQuery = subQuery.Joins("JOIN labels ON labels.id = task_labels.label_id").
-				Where("task_labels.label_id IN ? OR (LOWER(labels.name) IN ? AND labels.project_id = ?)", labelIDs, labelNames, projectID)
+			dbQuery = dbQuery.Where("id IN ? OR LOWER(name) IN ?", labelIDs, labelNames)
 		} else if len(labelIDs) > 0 {
-			subQuery = subQuery.Where("label_id IN ?", labelIDs)
+			dbQuery = dbQuery.Where("id IN ?", labelIDs)
 		} else if len(labelNames) > 0 {
-			subQuery = subQuery.Joins("JOIN labels ON labels.id = task_labels.label_id").
-				Where("LOWER(labels.name) IN ? AND labels.project_id = ?", labelNames, projectID)
+			dbQuery = dbQuery.Where("LOWER(name) IN ?", labelNames)
 		}
-		query = query.Where("tasks.id IN (?)", subQuery)
+
+		isMatchAll := (strings.ToLower(filter.Match) == "all")
+
+		if err := dbQuery.Pluck("id", &resolvedIDs).Error; err == nil && len(resolvedIDs) > 0 {
+			if isMatchAll && len(resolvedIDs) < len(uniqueSearchItems) {
+				query = query.Where("1 = 0")
+			} else if isMatchAll {
+				subQuery := d.db.Table("task_labels").
+					Select("task_id").
+					Where("label_id IN ?", resolvedIDs).
+					Group("task_id").
+					Having("COUNT(DISTINCT label_id) = ?", len(resolvedIDs))
+				query = query.Where("tasks.id IN (?)", subQuery)
+			} else {
+				subQuery := d.db.Table("task_labels").
+					Select("task_id").
+					Where("label_id IN ?", resolvedIDs)
+				query = query.Where("tasks.id IN (?)", subQuery)
+			}
+		} else {
+			query = query.Where("1 = 0")
+		}
 	}
 
 	// 1. Get the total count of filtered items
@@ -342,6 +364,28 @@ func (d *taskDatabase) RemoveLabel(taskID uuid.UUID, label *models.Label) *respo
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to delete task label association",
+		}
+	}
+	return nil
+}
+
+func (d *taskDatabase) UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error {
+	err := d.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(task).Association("Labels").Replace(labels); err != nil {
+			return err
+		}
+		if err := tx.Updates(task).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		d.logger.Error("Failed to update task with labels in transaction", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update task with labels",
 		}
 	}
 	return nil

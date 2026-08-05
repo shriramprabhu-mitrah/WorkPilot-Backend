@@ -552,11 +552,6 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			}
 		}
 
-		assocErr := s.taskRepo.UpdateTaskLabels(task.ID, verifiedLabels)
-		if assocErr != nil {
-			return nil, assocErr
-		}
-
 		var labelChanges []string
 		if len(added) > 0 {
 			labelChanges = append(labelChanges, fmt.Sprintf("attached %s", strings.Join(added, ", ")))
@@ -567,9 +562,11 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		if len(labelChanges) > 0 {
 			changes = append(changes, fmt.Sprintf("labels changed (%s)", strings.Join(labelChanges, " and ")))
 		}
-	}
 
-	err = s.taskRepo.UpdateTask(task)
+		err = s.taskRepo.UpdateTaskWithLabels(task, verifiedLabels)
+	} else {
+		err = s.taskRepo.UpdateTask(task)
+	}
 	if err != nil {
 		return nil, err
 	}

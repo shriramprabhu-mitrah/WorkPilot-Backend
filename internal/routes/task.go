@@ -35,7 +35,7 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 		tsk.DELETE("/:task_id", middleware.ValidateJWT(), taskHandler.DeleteTask)
 		tsk.POST("/:task_id/restore", middleware.ValidateJWT(), taskHandler.RestoreTask)
 		tsk.POST("/:task_id/clone", middleware.ValidateJWT(), taskHandler.CloneTask)
-		tsk.POST("/:task_id/labels/:label_id", middleware.ValidateJWT(), taskHandler.AttachLabelToTask)
+		tsk.PUT("/:task_id/labels/:label_id", middleware.ValidateJWT(), taskHandler.AttachLabelToTask)
 		tsk.DELETE("/:task_id/labels/:label_id", middleware.ValidateJWT(), taskHandler.RemoveLabelFromTask)
 	}
 }

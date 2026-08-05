@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -107,7 +108,10 @@ func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*response
 		}
 	}
 
-	// 2. Validation
+	// 2. Validation & Normalization
+	req.Name = strings.TrimSpace(req.Name)
+	req.Name = strings.ToLower(req.Name)
+
 	if len(req.Name) < 1 || len(req.Name) > 30 {
 		return nil, &response.Error{
 			Code:       response.ErrValidation,
@@ -219,30 +223,34 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 
 	// 3. Validation and updates
 	updated := false
-	if req.Name != nil && *req.Name != "" && *req.Name != label.Name {
-		if len(*req.Name) < 1 || len(*req.Name) > 30 {
-			return nil, &response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Label name must be between 1 and 30 characters",
+	if req.Name != nil && *req.Name != "" {
+		normalizedName := strings.TrimSpace(*req.Name)
+		normalizedName = strings.ToLower(normalizedName)
+		if normalizedName != label.Name {
+			if len(normalizedName) < 1 || len(normalizedName) > 30 {
+				return nil, &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Label name must be between 1 and 30 characters",
+				}
 			}
-		}
 
-		// check duplicate name
-		exists, err := s.labelRepo.IsLabelNameExists(req.ProjectID, *req.Name)
-		if err != nil {
-			return nil, err
-		}
-		if exists {
-			return nil, &response.Error{
-				Code:       response.ErrConflict,
-				StatusCode: http.StatusConflict,
-				Message:    "Label name already exists in this project",
+			// check duplicate name
+			exists, err := s.labelRepo.IsLabelNameExists(req.ProjectID, normalizedName)
+			if err != nil {
+				return nil, err
 			}
-		}
+			if exists {
+				return nil, &response.Error{
+					Code:       response.ErrConflict,
+					StatusCode: http.StatusConflict,
+					Message:    "Label name already exists in this project",
+				}
+			}
 
-		label.Name = *req.Name
-		updated = true
+			label.Name = normalizedName
+			updated = true
+		}
 	}
 
 	if req.Color != nil && *req.Color != "" && *req.Color != label.Color {

@@ -106,7 +106,7 @@ func TestLabelService_CreateLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected create label to succeed, got: %v", err)
 	}
-	if res.Name != "Bug" || res.Color != "#FF0000" {
+	if res.Name != "bug" || res.Color != "#FF0000" {
 		t.Errorf("created label has unexpected values: %+v", res)
 	}
 
@@ -179,7 +179,7 @@ func TestLabelService_UpdateAndDeleteLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected update to succeed, got: %v", err)
 	}
-	if res.Name != "New Name" || res.Color != "#FFFFFF" {
+	if res.Name != "new name" || res.Color != "#FFFFFF" {
 		t.Errorf("updated label has unexpected values: %+v", res)
 	}
 
