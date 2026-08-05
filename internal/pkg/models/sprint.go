@@ -36,7 +36,7 @@ func (s *Sprint) BeforeCreate(tx *gorm.DB) (err error) {
 
 type Task struct {
 	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
-	ProjectID      uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;index"`
+	ProjectID      uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;index;uniqueIndex:idx_project_task_key"`
 	Project        Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
 	SprintID       *uuid.UUID     `json:"sprint_id,omitempty" gorm:"type:uuid;index"`
 	Sprint         *Sprint        `json:"sprint,omitempty" gorm:"foreignKey:SprintID"`
