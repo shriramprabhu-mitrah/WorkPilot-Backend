@@ -57,6 +57,7 @@ type Task struct {
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
+	Labels         []Label        `json:"labels,omitempty" gorm:"many2many:task_labels;"`
 }
 
 func (t *Task) BeforeCreate(tx *gorm.DB) (err error) {

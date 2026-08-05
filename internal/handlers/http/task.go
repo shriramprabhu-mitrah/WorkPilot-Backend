@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -479,6 +480,19 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 		return
 	}
 
+	var finalLabels []string
+	rawLabels := g.Request.URL.Query()["labels"]
+	for _, raw := range rawLabels {
+		parts := strings.Split(raw, ",")
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				finalLabels = append(finalLabels, trimmed)
+			}
+		}
+	}
+	filter.Labels = finalLabels
+
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
 		return
@@ -515,4 +529,122 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 	}
 
 	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// AttachLabelToTask godoc
+// @Summary Attach Label to Task
+// @Description Attach a project label to a specific task
+// @Tags Task
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Param label_id path string true "Label ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id}/labels/{label_id} [post]
+func (h *taskHandler) AttachLabelToTask(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, response.ErrorResponse{Success: false, Error: *errorResponse})
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, response.ErrorResponse{Success: false, Error: *errorResponse})
+		return
+	}
+
+	labelIDParam := g.Param("label_id")
+	labelUUID, errorResponse := utils.StringToUUID(labelIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, response.ErrorResponse{Success: false, Error: *errorResponse})
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	err := h.service.AttachLabelToTask(projectUUID, taskUUID, labelUUID, userUUID, organizationUUID)
+	if err != nil {
+		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Label attached to task successfully",
+	})
+}
+
+// RemoveLabelFromTask godoc
+// @Summary Remove Label from Task
+// @Description Remove a project label from a specific task
+// @Tags Task
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Param label_id path string true "Label ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id}/labels/{label_id} [delete]
+func (h *taskHandler) RemoveLabelFromTask(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, response.ErrorResponse{Success: false, Error: *errorResponse})
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, response.ErrorResponse{Success: false, Error: *errorResponse})
+		return
+	}
+
+	labelIDParam := g.Param("label_id")
+	labelUUID, errorResponse := utils.StringToUUID(labelIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, response.ErrorResponse{Success: false, Error: *errorResponse})
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	err := h.service.RemoveLabelFromTask(projectUUID, taskUUID, labelUUID, userUUID, organizationUUID)
+	if err != nil {
+		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Label removed from task successfully",
+	})
 }

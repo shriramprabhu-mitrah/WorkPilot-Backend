@@ -102,6 +102,23 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		if !filter.IsDeleted && t.DeletedAt.Valid {
 			continue
 		}
+		if len(filter.Labels) > 0 {
+			matched := false
+			for _, fl := range filter.Labels {
+				for _, tl := range t.Labels {
+					if tl.ID.String() == fl || tl.Name == fl {
+						matched = true
+						break
+					}
+				}
+				if matched {
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
 		res = append(res, *t)
 	}
 	return res, response.Pagination{}, nil
@@ -110,6 +127,51 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 func (s *stubTaskRepo) GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error) {
 	s.seqNumber++
 	return s.seqNumber, nil
+}
+
+func (s *stubTaskRepo) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error) {
+	var labels []models.Label
+	for _, id := range labelIDs {
+		labels = append(labels, models.Label{
+			ID:        id,
+			ProjectID: projectID,
+			Name:      "Mock Label",
+			Color:     "#FF0000",
+		})
+	}
+	return labels, nil
+}
+
+func (s *stubTaskRepo) UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error {
+	if task, ok := s.tasks[taskID]; ok {
+		task.Labels = labels
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) AttachLabel(taskID uuid.UUID, label *models.Label) *response.Error {
+	if task, ok := s.tasks[taskID]; ok {
+		for _, l := range task.Labels {
+			if l.ID == label.ID {
+				return nil
+			}
+		}
+		task.Labels = append(task.Labels, *label)
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) RemoveLabel(taskID uuid.UUID, label *models.Label) *response.Error {
+	if task, ok := s.tasks[taskID]; ok {
+		var newLabels []models.Label
+		for _, l := range task.Labels {
+			if l.ID != label.ID {
+				newLabels = append(newLabels, l)
+			}
+		}
+		task.Labels = newLabels
+	}
+	return nil
 }
 
 func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
@@ -576,5 +638,190 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 	if err.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403 Forbidden for super_admin, got %d", err.StatusCode)
+	}
+}
+
+func TestTaskService_CreateAndUpdateTask_WithLabels(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Create Task with Labels
+	labelID := uuid.Must(uuid.NewV4())
+	createReq := dto.CreateTaskRequest{
+		Title:          "Task with label",
+		Type:           "task",
+		Priority:       "medium",
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		LabelIDs:       []uuid.UUID{labelID},
+	}
+
+	res, err := service.CreateTask(createReq)
+	if err != nil {
+		t.Fatalf("expected create task with labels to succeed, got: %v", err)
+	}
+
+	if len(res.Labels) != 1 || res.Labels[0].ID != labelID {
+		t.Errorf("expected task to have 1 label with ID %s, got: %+v", labelID, res.Labels)
+	}
+
+	// Update Task with Labels
+	newLabelID := uuid.Must(uuid.NewV4())
+	updateLabelIDs := []uuid.UUID{newLabelID}
+	updateReq := dto.UpdateTaskRequest{
+		TaskID:         res.ID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		LabelIDs:       &updateLabelIDs,
+	}
+
+	resUpdate, err := service.UpdateTask(updateReq)
+	if err != nil {
+		t.Fatalf("expected update task labels to succeed, got: %v", err)
+	}
+
+	if len(resUpdate.Labels) != 1 || resUpdate.Labels[0].ID != newLabelID {
+		t.Errorf("expected updated task to have 1 label with ID %s, got: %+v", newLabelID, resUpdate.Labels)
+	}
+}
+
+func TestTaskService_GetTasks_LabelFiltering(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+
+	label1 := models.Label{ID: uuid.Must(uuid.NewV4()), Name: "Frontend", Color: "#0000FF"}
+	label2 := models.Label{ID: uuid.Must(uuid.NewV4()), Name: "Bug", Color: "#FF0000"}
+
+	task1 := models.Task{
+		ID:        uuid.Must(uuid.NewV4()),
+		Title:     "Task 1",
+		ProjectID: projectID,
+		Labels:    []models.Label{label1},
+	}
+	task2 := models.Task{
+		ID:        uuid.Must(uuid.NewV4()),
+		Title:     "Task 2",
+		ProjectID: projectID,
+		Labels:    []models.Label{label2},
+	}
+	task3 := models.Task{
+		ID:        uuid.Must(uuid.NewV4()),
+		Title:     "Task 3",
+		ProjectID: projectID,
+		Labels:    []models.Label{label1, label2},
+	}
+
+	taskRepo := &stubTaskRepo{tasks: map[uuid.UUID]*models.Task{
+		task1.ID: &task1,
+		task2.ID: &task2,
+		task3.ID: &task3,
+	}}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// 1. Filter by label1 ID
+	res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{label1.ID.String()},
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 2 {
+		t.Errorf("expected 2 tasks for label1, got: %d", len(res))
+	}
+
+	// 2. Filter by label2 Name
+	res, _, err = service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{"Bug"},
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 2 {
+		t.Errorf("expected 2 tasks for label 'Bug', got: %d", len(res))
+	}
+
+	// 3. Filter by both label1 and label2
+	res, _, err = service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{"Frontend", "Bug"},
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 3 {
+		t.Errorf("expected 3 tasks for 'Frontend' or 'Bug', got: %d", len(res))
+	}
+}
+
+func TestTaskService_AttachAndRemoveLabel(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+
+	labelID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+	task := models.Task{
+		ID:        taskID,
+		Title:     "Task 1",
+		ProjectID: projectID,
+		Labels:    []models.Label{},
+	}
+
+	taskRepo := &stubTaskRepo{tasks: map[uuid.UUID]*models.Task{
+		taskID: &task,
+	}}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Attach Label (should succeed)
+	err := service.AttachLabelToTask(projectID, taskID, labelID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected AttachLabelToTask to succeed, got: %v", err)
+	}
+	if len(task.Labels) != 1 || task.Labels[0].ID != labelID {
+		t.Errorf("expected 1 label with ID %s attached to task, got: %+v", labelID, task.Labels)
+	}
+
+	// Idempotency: Attach same label again (should be no-op/succeed)
+	err = service.AttachLabelToTask(projectID, taskID, labelID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected AttachLabelToTask to succeed (idempotent), got: %v", err)
+	}
+	if len(task.Labels) != 1 {
+		t.Errorf("expected task to still have exactly 1 label, got: %d", len(task.Labels))
+	}
+
+	// Remove Label (should succeed)
+	err = service.RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected RemoveLabelFromTask to succeed, got: %v", err)
+	}
+	if len(task.Labels) != 0 {
+		t.Errorf("expected task to have 0 labels, got: %d", len(task.Labels))
 	}
 }

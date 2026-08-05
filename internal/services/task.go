@@ -25,6 +25,8 @@ type TaskService interface {
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error)
+	AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
+	RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
 }
 
 type taskService struct {
@@ -77,7 +79,7 @@ func GenerateProjectPrefix(name string) string {
 	parts := strings.FieldsFunc(name, func(r rune) bool {
 		return r == ' ' || r == '-' || r == '_'
 	})
-	
+
 	var prefix string
 	if len(parts) > 1 {
 		for _, part := range parts {
@@ -94,14 +96,14 @@ func GenerateProjectPrefix(name string) string {
 			prefix = string(runes)
 		}
 	}
-	
+
 	cleaned := ""
 	for _, r := range prefix {
 		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
 			cleaned += string(r)
 		}
 	}
-	
+
 	if len(cleaned) < 2 {
 		cleaned = "WP"
 	}
@@ -119,6 +121,11 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 	var assigneeName string
 	if task.Assignee != nil {
 		assigneeName = task.Assignee.FullName
+	}
+
+	labelsRes := []responsedto.LabelResponse{}
+	for _, l := range task.Labels {
+		labelsRes = append(labelsRes, responsedto.LabelFromModel(l))
 	}
 
 	return responsedto.TaskResponse{
@@ -141,6 +148,7 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		BlockedReason:  task.BlockedReason,
 		CreatedAt:      task.CreatedAt,
 		UpdatedAt:      task.UpdatedAt,
+		Labels:         labelsRes,
 	}
 }
 
@@ -180,6 +188,16 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	task.DueDate = req.DueDate
 	task.EstimatedHours = req.EstimatedHours
 	task.ActualHours = req.ActualHours
+
+	var labels []models.Label
+	if len(req.LabelIDs) > 0 {
+		var verifyErr *response.Error
+		labels, verifyErr = s.taskRepo.VerifyLabelIDs(req.ProjectID, req.LabelIDs)
+		if verifyErr != nil {
+			return nil, verifyErr
+		}
+	}
+	task.Labels = labels
 
 	var lastErr *response.Error
 	for attempt := 0; attempt < 3; attempt++ {
@@ -504,6 +522,52 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	if req.LabelIDs != nil {
+		verifiedLabels, verifyErr := s.taskRepo.VerifyLabelIDs(req.ProjectID, *req.LabelIDs)
+		if verifyErr != nil {
+			return nil, verifyErr
+		}
+
+		existingMap := make(map[uuid.UUID]string)
+		for _, l := range task.Labels {
+			existingMap[l.ID] = l.Name
+		}
+
+		newMap := make(map[uuid.UUID]string)
+		for _, l := range verifiedLabels {
+			newMap[l.ID] = l.Name
+		}
+
+		var added []string
+		var removed []string
+		for id, name := range newMap {
+			if _, exists := existingMap[id]; !exists {
+				added = append(added, fmt.Sprintf("'%s'", name))
+			}
+		}
+		for id, name := range existingMap {
+			if _, exists := newMap[id]; !exists {
+				removed = append(removed, fmt.Sprintf("'%s'", name))
+			}
+		}
+
+		assocErr := s.taskRepo.UpdateTaskLabels(task.ID, verifiedLabels)
+		if assocErr != nil {
+			return nil, assocErr
+		}
+
+		var labelChanges []string
+		if len(added) > 0 {
+			labelChanges = append(labelChanges, fmt.Sprintf("attached %s", strings.Join(added, ", ")))
+		}
+		if len(removed) > 0 {
+			labelChanges = append(labelChanges, fmt.Sprintf("removed %s", strings.Join(removed, ", ")))
+		}
+		if len(labelChanges) > 0 {
+			changes = append(changes, fmt.Sprintf("labels changed (%s)", strings.Join(labelChanges, " and ")))
+		}
+	}
+
 	err = s.taskRepo.UpdateTask(task)
 	if err != nil {
 		return nil, err
@@ -731,4 +795,144 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 		resList = append(resList, mapToTaskResponse(t))
 	}
 	return resList, pagination, nil
+}
+
+func (s *taskService) checkProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
+	project, err := s.projectRepo.GetProjectByID(projectID)
+	if err != nil {
+		return false, err
+	}
+
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+		return true, nil
+	}
+
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
+	if err != nil {
+		return false, err
+	}
+
+	if member.ProjectRole == string(dto.ProjectRoleViewer) {
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Viewers do not have permission to modify task labels",
+		}
+	}
+
+	return true, nil
+}
+
+func (s *taskService) AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error {
+	authorized, err := s.checkProjectMember(projectID, userID)
+	if err != nil {
+		return err
+	}
+	if !authorized {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to modify task labels in this project",
+		}
+	}
+
+	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
+	if err != nil {
+		return err
+	}
+
+	labels, verifyErr := s.taskRepo.VerifyLabelIDs(projectID, []uuid.UUID{labelID})
+	if verifyErr != nil {
+		return verifyErr
+	}
+	label := labels[0]
+
+	for _, l := range task.Labels {
+		if l.ID == labelID {
+			return nil
+		}
+	}
+
+	err = s.taskRepo.AttachLabel(taskID, &label)
+	if err != nil {
+		return err
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "task_updated",
+		ResourceType:   "task",
+		ResourceID:     taskID.String(),
+		Details:        fmt.Sprintf("Task %s updated: labels changed (attached '%s')", task.Key, label.Name),
+		CreatedAt:      time.Now(),
+	}
+	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return nil
+}
+
+func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error {
+	authorized, err := s.checkProjectMember(projectID, userID)
+	if err != nil {
+		return err
+	}
+	if !authorized {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to modify task labels in this project",
+		}
+	}
+
+	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
+	if err != nil {
+		return err
+	}
+
+	labels, verifyErr := s.taskRepo.VerifyLabelIDs(projectID, []uuid.UUID{labelID})
+	if verifyErr != nil {
+		return verifyErr
+	}
+	label := labels[0]
+
+	attached := false
+	for _, l := range task.Labels {
+		if l.ID == labelID {
+			attached = true
+			break
+		}
+	}
+	if !attached {
+		return nil
+	}
+
+	err = s.taskRepo.RemoveLabel(taskID, &label)
+	if err != nil {
+		return err
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "task_updated",
+		ResourceType:   "task",
+		ResourceID:     taskID.String(),
+		Details:        fmt.Sprintf("Task %s updated: labels changed (removed '%s')", task.Key, label.Name),
+		CreatedAt:      time.Now(),
+	}
+	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return nil
 }
