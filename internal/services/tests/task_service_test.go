@@ -24,6 +24,7 @@ type stubTaskRepo struct {
 	restoreErr      *response.Error
 	listErr         *response.Error
 	lastCreatedTask *models.Task
+	validSprints    map[uuid.UUID]bool
 }
 
 func (s *stubTaskRepo) CreateTask(task *models.Task) *response.Error {
@@ -127,6 +128,13 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 func (s *stubTaskRepo) GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error) {
 	s.seqNumber++
 	return s.seqNumber, nil
+}
+
+func (s *stubTaskRepo) IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *response.Error) {
+	if s.validSprints == nil {
+		return true, nil
+	}
+	return s.validSprints[sprintID], nil
 }
 
 func (s *stubTaskRepo) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error) {
@@ -631,7 +639,6 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    superAdminUser.ID,
-		Title:     &blockedReason,
 	})
 	if err == nil {
 		t.Fatal("expected super_admin task update to be rejected")
@@ -639,6 +646,149 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	if err.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403 Forbidden for super_admin, got %d", err.StatusCode)
 	}
+}
+
+func TestTaskService_BulkUpdateTasks(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           string(dto.RoleMember),
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:     models.Project{ID: projectID, OrganizationID: orgID, Name: "WorkPilot Backend"},
+		isMember:    true,
+		projectRole: string(dto.ProjectRoleProjectManager),
+	}
+
+	taskID1 := uuid.Must(uuid.NewV4())
+	taskID2 := uuid.Must(uuid.NewV4())
+	taskID3 := uuid.Must(uuid.NewV4())
+
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{
+			taskID1: {
+				ID:        taskID1,
+				ProjectID: projectID,
+				Key:       "WB-1",
+				Status:    "todo",
+			},
+			taskID2: {
+				ID:        taskID2,
+				ProjectID: projectID,
+				Key:       "WB-2",
+				Status:    "in_progress",
+			},
+		},
+		validSprints: make(map[uuid.UUID]bool),
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Test 1: Non-PM/Admin user (Developer) gets 403 Forbidden
+	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
+	authRepo.user.Role = string(dto.RoleMember)
+	req := dto.BulkUpdateTasksRequest{
+		Tasks: []dto.BulkUpdateTaskItem{
+			{
+				TaskID: taskID1,
+				Status: pointer("completed"),
+			},
+		},
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	}
+	_, err := service.BulkUpdateTasks(req)
+	if err == nil {
+		t.Fatal("expected non-PM/Admin user to be rejected")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden, got %d", err.StatusCode)
+	}
+
+	// Reset role to Project Manager
+	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
+
+	// Test 2: Bulk Update with mixed valid and invalid tasks
+	sprintID := uuid.Must(uuid.NewV4())
+	taskRepo.validSprints[sprintID] = true
+
+	invalidSprintID := uuid.Must(uuid.NewV4())
+
+	req = dto.BulkUpdateTasksRequest{
+		Tasks: []dto.BulkUpdateTaskItem{
+			// 1. Valid update
+			{
+				TaskID:   taskID1,
+				Status:   pointer("completed"),
+				SprintID: &sprintID,
+			},
+			// 2. Task not found
+			{
+				TaskID: taskID3,
+				Status: pointer("completed"),
+			},
+			// 3. Sprint not in project
+			{
+				TaskID:   taskID2,
+				SprintID: &invalidSprintID,
+			},
+			// 4. Blocked status without reason
+			{
+				TaskID: taskID2,
+				Status: pointer("blocked"),
+			},
+		},
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	}
+
+	res, err := service.BulkUpdateTasks(req)
+	if err != nil {
+		t.Fatalf("expected no general error, got %v", err)
+	}
+
+	if res.UpdatedCount != 1 {
+		t.Fatalf("expected 1 task to be updated, got %d", res.UpdatedCount)
+	}
+
+	if len(res.FailedTaskIDs) != 3 {
+		t.Fatalf("expected 3 task failures, got %d", len(res.FailedTaskIDs))
+	}
+
+	// Verify failure reasons
+	reasonNotFound, exists := res.FailureReasons[taskID3.String()]
+	if !exists || reasonNotFound != "Task not found" {
+		t.Fatalf("expected 'Task not found' for task3, got '%s'", reasonNotFound)
+	}
+
+	reasonBlocked, exists := res.FailureReasons[taskID2.String()]
+	if !exists {
+		t.Fatalf("expected failure reason for task2")
+	}
+	if reasonBlocked != "Sprint must belong to the project" && reasonBlocked != "Moving to Blocked requires a blocked reason" {
+		t.Fatalf("expected failure reason related to sprint/blocked, got '%s'", reasonBlocked)
+	}
+
+	// Verify task1 actually updated
+	updatedTask1 := taskRepo.tasks[taskID1]
+	if updatedTask1.Status != "completed" {
+		t.Fatalf("expected task1 status to be completed, got %s", updatedTask1.Status)
+	}
+	if updatedTask1.SprintID == nil || *updatedTask1.SprintID != sprintID {
+		t.Fatalf("expected task1 sprint ID to be updated")
+	}
+}
+
+func pointer[T any](v T) *T {
+	return &v
 }
 
 func TestTaskService_CreateAndUpdateTask_WithLabels(t *testing.T) {

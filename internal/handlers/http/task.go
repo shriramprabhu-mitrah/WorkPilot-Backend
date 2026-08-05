@@ -531,6 +531,87 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// BulkUpdateTasks godoc
+// @Summary Bulk Update Tasks
+// @Description Update status, sprint, or assignee of multiple tasks in a project
+// @Tags Task
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param request body requestdto.BulkUpdateTasksRequest true "Bulk Update Tasks Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Success 207 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/bulk [patch]
+func (h *taskHandler) BulkUpdateTasks(g *gin.Context) {
+	var payload requestdto.BulkUpdateTasksRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	payload.UserID = userUUID
+	payload.ProjectID = projectID
+	payload.OrganizationID = organizationUUID
+
+	res, err := h.service.BulkUpdateTasks(payload)
+	if err != nil {
+		errResp := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errResp)
+		return
+	}
+
+	statusCode := http.StatusOK
+	message := "Successfully updated tasks"
+	if len(res.FailedTaskIDs) > 0 {
+		statusCode = http.StatusMultiStatus // 207 Partial Success
+		message = "Bulk update completed with some failures"
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    message,
+		StatusCode: statusCode,
+		Success:    true,
+		Data:       res,
+	}
+
+	g.JSON(statusCode, successResponse)
+}
+
 // AttachLabelToTask godoc
 // @Summary Attach Label to Task
 // @Description Attach a project label to a specific task

@@ -28,3 +28,9 @@ type TaskResponse struct {
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Labels         []LabelResponse `json:"labels,omitempty"`
 }
+
+type BulkUpdateTasksResponse struct {
+	UpdatedCount   int               `json:"updated_count"`
+	FailedTaskIDs  []uuid.UUID       `json:"failed_task_ids"`
+	FailureReasons map[string]string `json:"failure_reasons"`
+}

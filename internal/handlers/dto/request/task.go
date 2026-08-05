@@ -135,3 +135,18 @@ type TaskFilter struct {
 	IsDeleted bool     `form:"is_deleted"`
 	Labels    []string `form:"labels"`
 }
+
+type BulkUpdateTaskItem struct {
+	TaskID        uuid.UUID  `json:"task_id" binding:"required"`
+	Status        *string    `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
+	BlockedReason *string    `json:"blocked_reason"`
+	SprintID      *uuid.UUID `json:"sprint_id"`
+	AssigneeID    *uuid.UUID `json:"assignee_id"`
+}
+
+type BulkUpdateTasksRequest struct {
+	Tasks          []BulkUpdateTaskItem `json:"tasks" binding:"required,min=1,dive"`
+	ProjectID      uuid.UUID            `json:"-"`
+	UserID         uuid.UUID            `json:"-"`
+	OrganizationID uuid.UUID            `json:"-"`
+}

@@ -270,6 +270,20 @@ func (d *taskDatabase) GetNextSequenceNumber(projectID uuid.UUID) (int, *respons
 	return int(maxSeq) + 1, nil
 }
 
+func (d *taskDatabase) IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *response.Error) {
+	var count int64
+	err := d.db.Model(&models.Sprint{}).Where("id = ? AND project_id = ?", sprintID, projectID).Count(&count).Error
+	if err != nil {
+		d.logger.Error("Failed to check if sprint is in project", zap.Error(err))
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to validate sprint",
+		}
+	}
+	return count > 0, nil
+}
+
 func (d *taskDatabase) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error) {
 	if len(labelIDs) == 0 {
 		return []models.Label{}, nil

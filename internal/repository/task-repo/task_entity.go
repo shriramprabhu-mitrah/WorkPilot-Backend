@@ -19,6 +19,7 @@ type TaskRepository interface {
 	RestoreTask(id uuid.UUID, projectID uuid.UUID) *response.Error
 	GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, response.Pagination, *response.Error)
 	GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error)
+	IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *response.Error)
 	VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error)
 	UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error
 	AttachLabel(taskID uuid.UUID, label *models.Label) *response.Error

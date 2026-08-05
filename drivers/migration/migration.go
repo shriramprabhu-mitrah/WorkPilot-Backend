@@ -8,6 +8,10 @@ import (
 func AutoMigrate(dbConn *gorm.DB) error {
 	// Perform auto-migration for your models here
 
+	if err := dbConn.Exec("DROP INDEX IF EXISTS idx_project_task_key").Error; err != nil {
+		return err
+	}
+
 	err := dbConn.AutoMigrate(
 		&models.Organization{},
 		&models.User{},

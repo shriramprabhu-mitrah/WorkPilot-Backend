@@ -25,6 +25,7 @@ type TaskService interface {
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error)
+	BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*responsedto.BulkUpdateTasksResponse, *response.Error)
 	AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
 	RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
 }
@@ -795,6 +796,207 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 		resList = append(resList, mapToTaskResponse(t))
 	}
 	return resList, pagination, nil
+}
+
+func (s *taskService) checkIsPMOrAdmin(projectID, userID uuid.UUID) (bool, *response.Error) {
+	project, err := s.projectRepo.GetProjectByID(projectID)
+	if err != nil {
+		return false, err
+	}
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+	if user.Role == string(dto.RoleSuperAdmin) {
+		return false, nil
+	}
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+		return true, nil
+	}
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
+	if err != nil {
+		return false, nil
+	}
+	if member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager) {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*responsedto.BulkUpdateTasksResponse, *response.Error) {
+	isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
+	if checkErr != nil {
+		return nil, checkErr
+	}
+	if !isPMOrAdmin {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to bulk update tasks in this project",
+		}
+	}
+
+	updatedCount := 0
+	failedTaskIDs := []uuid.UUID{}
+	failureReasons := make(map[string]string)
+
+	for _, item := range req.Tasks {
+		// 1. Fetch Task
+		task, getErr := s.taskRepo.GetTaskByID(item.TaskID, req.ProjectID)
+		if getErr != nil {
+			failedTaskIDs = append(failedTaskIDs, item.TaskID)
+			failureReasons[item.TaskID.String()] = getErr.Message
+			continue
+		}
+
+		// 2. Validate Assignee
+		if item.AssigneeID != nil && *item.AssigneeID != uuid.Nil {
+			isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *item.AssigneeID)
+			if err != nil {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Failed to validate assignee membership"
+				continue
+			}
+			if !isMember {
+				assigneeUser, err := s.authRepo.GetUserByID(*item.AssigneeID)
+				if err == nil {
+					if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+						isMember = true
+					}
+				}
+			}
+			if !isMember {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Assignee must be a member of the project"
+				continue
+			}
+		}
+
+		// 3. Validate Sprint
+		if item.SprintID != nil && *item.SprintID != uuid.Nil {
+			exists, err := s.taskRepo.IsSprintInProject(*item.SprintID, req.ProjectID)
+			if err != nil {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Failed to validate sprint"
+				continue
+			}
+			if !exists {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Sprint must belong to the project"
+				continue
+			}
+		}
+
+		// 4. Validate Status Transition to Blocked
+		if item.Status != nil && *item.Status == string(dto.TaskStatusBlocked) {
+			if item.BlockedReason == nil || strings.TrimSpace(*item.BlockedReason) == "" {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Moving to Blocked requires a blocked reason"
+				continue
+			}
+		}
+
+		// 5. Track Changes and Update Task
+		var changes []string
+		if item.Status != nil && *item.Status != task.Status {
+			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, *item.Status))
+			task.Status = *item.Status
+			if *item.Status == string(dto.TaskStatusBlocked) {
+				task.BlockedReason = *item.BlockedReason
+			} else {
+				task.BlockedReason = ""
+			}
+		}
+		if item.AssigneeID != nil {
+			oldAssignee := "nil"
+			if task.AssigneeID != nil {
+				oldAssignee = task.AssigneeID.String()
+			}
+			newAssignee := "nil"
+			if *item.AssigneeID != uuid.Nil {
+				newAssignee = item.AssigneeID.String()
+			}
+			if oldAssignee != newAssignee {
+				changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
+				if *item.AssigneeID == uuid.Nil {
+					task.AssigneeID = nil
+				} else {
+					task.AssigneeID = item.AssigneeID
+				}
+			}
+		}
+		if item.SprintID != nil {
+			oldSprint := "nil"
+			if task.SprintID != nil {
+				oldSprint = task.SprintID.String()
+			}
+			newSprint := "nil"
+			if *item.SprintID != uuid.Nil {
+				newSprint = item.SprintID.String()
+			}
+			if oldSprint != newSprint {
+				changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
+				if *item.SprintID == uuid.Nil {
+					task.SprintID = nil
+				} else {
+					task.SprintID = item.SprintID
+				}
+			}
+		}
+
+		if len(changes) > 0 {
+			updateErr := s.taskRepo.UpdateTask(task)
+			if updateErr != nil {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = updateErr.Message
+				continue
+			}
+
+			// Create individual task audit log
+			detail := fmt.Sprintf("Task %s updated in bulk: %s", task.Key, strings.Join(changes, ", "))
+			auditLog := models.AuditLog{
+				UserID:         &req.UserID,
+				OrganizationID: &req.OrganizationID,
+				ProjectID:      &req.ProjectID,
+				Action:         "task_updated",
+				ResourceType:   "task",
+				ResourceID:     task.ID.String(),
+				Details:        detail,
+				CreatedAt:      time.Now(),
+			}
+			if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+				s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+			}
+		}
+		updatedCount++
+	}
+
+	// Create bulk operation audit log
+	var bulkDetails string
+	if updatedCount > 0 {
+		bulkDetails = fmt.Sprintf("Bulk update completed. Successfully updated %d tasks. Failed tasks: %d.", updatedCount, len(failedTaskIDs))
+	} else {
+		bulkDetails = fmt.Sprintf("Bulk update executed but 0 tasks were updated. Failed tasks: %d.", len(failedTaskIDs))
+	}
+	bulkAuditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "tasks_bulk_updated",
+		ResourceType:   "task",
+		ResourceID:     req.ProjectID.String(),
+		Details:        bulkDetails,
+		CreatedAt:      time.Now(),
+	}
+	if err := s.projectRepo.CreateAuditLog(bulkAuditLog); err != nil {
+		s.logger.Warn("Failed to create bulk audit log", zap.Any("error", err))
+	}
+
+	return &responsedto.BulkUpdateTasksResponse{
+		UpdatedCount:   updatedCount,
+		FailedTaskIDs:  failedTaskIDs,
+		FailureReasons: failureReasons,
+	}, nil
 }
 
 func (s *taskService) checkProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
