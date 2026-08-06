@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,7 +87,23 @@ func (s *stubOrganizationRepository) DeleteUser(id uuid.UUID) *response.Error {
 }
 
 func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
-	items := []models.User{}
+	var items []models.User
+	for _, inv := range s.invites {
+		if filter.Role != "" && strings.ToLower(inv.Role) != strings.ToLower(filter.Role) {
+			continue
+		}
+		if filter.Email != "" && !strings.Contains(strings.ToLower(inv.Email), strings.ToLower(filter.Email)) {
+			continue
+		}
+		if !filter.IncludeOrgAdmins && strings.ToLower(inv.Role) == "org_admin" {
+			continue
+		}
+		items = append(items, models.User{
+			Email:          inv.Email,
+			OrganizationID: &inv.OrganizationID,
+			Role:           inv.Role,
+		})
+	}
 	return items, response.Pagination{Page: filter.Page, PageSize: filter.PageSize, TotalItems: len(items), TotalPages: 1, HasNext: false, HasPrevious: false}, nil
 }
 
@@ -102,7 +119,11 @@ func TestGetUserInOrganizationSupportsSearchAndStatusFilters(t *testing.T) {
 	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
 	service := InitOrganizationService(repo, authRepo, zap.NewNop())
 
-	members, pagination, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 10}, Role: string(dto.RoleMember)})
+	members, pagination, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{
+		PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 10},
+		Role:            string(dto.RoleMember),
+		Email:           "deepak",
+	})
 	if err != nil {
 		t.Fatalf("expected filtered member listing to succeed, got %v", err)
 	}
@@ -198,5 +219,45 @@ func TestAcceptInvitationMarksMembershipAndStatus(t *testing.T) {
 	}
 	if authRepo.user.Role != string(dto.RoleMember) {
 		t.Fatalf("expected role to be updated to developer, got %s", authRepo.user.Role)
+	}
+}
+
+func TestGetUserInOrganizationSupportsAdminsExclusion(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	repo := &stubOrganizationRepository{
+		organization: models.Organization{ID: orgID},
+		invites: []models.OrganizationInvitation{
+			{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "admin1@example.com", Role: string(dto.RoleOrgAdmin), Status: models.InvitationStatusPending, Token: "token-1"},
+			{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "member1@example.com", Role: string(dto.RoleMember), Status: models.InvitationStatusPending, Token: "token-2"},
+		},
+	}
+	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", Role: string(dto.RoleOrgAdmin), OrganizationID: &orgID, IsActive: true}}
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
+
+	// Scenario 1: Default exclusion (IncludeOrgAdmins is false)
+	members, _, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{
+		PaginationQuery:  response.PaginationQuery{Page: 1, PageSize: 10},
+		IncludeOrgAdmins: false,
+	})
+	if err != nil {
+		t.Fatalf("expected member listing to succeed, got %v", err)
+	}
+	if len(members) != 1 {
+		t.Fatalf("expected 1 user by default, got %d", len(members))
+	}
+	if members[0].Email != "member1@example.com" {
+		t.Fatalf("expected member1@example.com, got %s", members[0].Email)
+	}
+
+	// Scenario 2: Inclusion enabled (IncludeOrgAdmins is true)
+	membersWithAdmins, _, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{
+		PaginationQuery:  response.PaginationQuery{Page: 1, PageSize: 10},
+		IncludeOrgAdmins: true,
+	})
+	if err != nil {
+		t.Fatalf("expected member listing to succeed, got %v", err)
+	}
+	if len(membersWithAdmins) != 2 {
+		t.Fatalf("expected 2 users when including admins, got %d", len(membersWithAdmins))
 	}
 }

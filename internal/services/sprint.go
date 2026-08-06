@@ -154,9 +154,15 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 	}
 
 	if len(existingSprints) > 0 {
+		statusCode := http.StatusConflict
+		errCode := response.ErrConflict
+		if len(existingSprints) < len(req.Sprints) {
+			statusCode = http.StatusMultiStatus
+			errCode = response.ErrBadRequest
+		}
 		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
+			Code:       errCode,
+			StatusCode: statusCode,
 			Message: fmt.Sprintf(
 				"The following sprints already exist in the project: %s",
 				strings.Join(existingSprints, ", "),

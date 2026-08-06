@@ -259,6 +259,9 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	if filter.Timezone != "" {
 		baseQuery = baseQuery.Where("timezone ILIKE ?", "%"+strings.TrimSpace(filter.Timezone)+"%")
 	}
+	if !filter.IncludeOrgAdmins {
+		baseQuery = baseQuery.Where("LOWER(role) != ? OR role IS NULL", "org_admin")
+	}
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
 		return nil, response.Pagination{}, &response.Error{

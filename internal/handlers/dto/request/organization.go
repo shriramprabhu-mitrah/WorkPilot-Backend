@@ -91,11 +91,12 @@ type AcceptInvitationRequest struct {
 
 type OrganizationMemberListFilter struct {
 	response.PaginationQuery
-	FullName   string `json:"full_name,omitempty"`
-	Email      string `json:"email,omitempty"`
-	Username   string `json:"username,omitempty"`
-	Role       string `json:"role,omitempty"`
-	IsActive   *bool  `json:"is_active,omitempty"`
-	IsVerified *bool  `json:"is_verified,omitempty"`
-	Timezone   string `json:"timezone,omitempty"`
+	FullName         string `json:"full_name,omitempty"`
+	Email            string `json:"email,omitempty"`
+	Username         string `json:"username,omitempty"`
+	Role             string `json:"role,omitempty"`
+	IsActive         *bool  `json:"is_active,omitempty"`
+	IsVerified       *bool  `json:"is_verified,omitempty"`
+	Timezone         string `json:"timezone,omitempty"`
+	IncludeOrgAdmins bool   `json:"include_org_admins,omitempty"`
 }

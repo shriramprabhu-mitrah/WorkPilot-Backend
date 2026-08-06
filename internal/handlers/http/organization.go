@@ -536,18 +536,22 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		isVerified = &v
 	}
 
+	includeOrgAdminsQuery := g.Query("include_org_admins")
+	includeOrgAdmins := strings.EqualFold(includeOrgAdminsQuery, "true")
+
 	filter := requestdto.OrganizationMemberListFilter{
 		PaginationQuery: response.PaginationQuery{
 			Page:     page,
 			PageSize: pageSize,
 		},
-		FullName:   fullName,
-		Email:      email,
-		Username:   username,
-		Role:       role,
-		IsActive:   isActive,
-		IsVerified: isVerified,
-		Timezone:   timezone,
+		FullName:         fullName,
+		Email:            email,
+		Username:         username,
+		Role:             role,
+		IsActive:         isActive,
+		IsVerified:       isVerified,
+		Timezone:         timezone,
+		IncludeOrgAdmins: includeOrgAdmins,
 	}
 
 	users, pagination, respErr := h.service.GetUserInOrganization(organizationUUID, filter)
