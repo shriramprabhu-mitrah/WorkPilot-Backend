@@ -37,7 +37,8 @@ func (d *commentsDatabase) MarkCommentAsDeleted(commentID uuid.UUID) *response.E
 		Model(&models.Comments{}).
 		Where("id = ?", commentID).
 		Updates(map[string]interface{}{
-			"content": "This comment was deleted.",
+			"content":    "[Deleted]",
+			"is_deleted": true,
 		})
 
 	if result.Error != nil {

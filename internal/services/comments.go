@@ -65,7 +65,7 @@ func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UU
 		return &task.ProjectID, true, nil
 	}
 
-	if user.OrganizationID != nil || *user.OrganizationID != task.Project.OrganizationID {
+	if user.OrganizationID == nil || *user.OrganizationID != task.Project.OrganizationID {
 		return &task.ProjectID, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -149,6 +149,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *
 			return err
 		}
 	}
+
 	req.Content = strings.TrimSpace(req.Content)
 	if req.Content == "" {
 		return &response.Error{
@@ -253,6 +254,15 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *
 		}
 	}
 
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Content == "" {
+		return &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Content cannot be empty",
+		}
+	}
+
 	comment, err := s.commentsRepo.GetCommentByID(req.CommentID)
 	if err != nil {
 		return err
@@ -337,9 +347,25 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 	}
 
 	if hasReplies {
+		auditLog := models.AuditLog{
+			UserID:         &req.UserID,
+			OrganizationID: &req.OrganizationID,
+			ProjectID:      projectID,
+			Action:         "Deleted Comment",
+			ResourceType:   "Comment",
+			ResourceID:     req.TaskID.String(),
+			Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Deleted Comment", req.TaskID.String()),
+			CreatedAt:      time.Now(),
+		}
+		s.projectRepo.CreateAuditLog(auditLog)
+
 		return s.commentsRepo.MarkCommentAsDeleted(req.CommentID)
 	}
 
+	err = s.commentsRepo.DeleteComment(req.CommentID)
+	if err != nil {
+		return err
+	}
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
@@ -352,7 +378,7 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 	}
 	s.projectRepo.CreateAuditLog(auditLog)
 
-	return s.commentsRepo.DeleteComment(req.CommentID)
+	return nil
 }
 
 func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error) {

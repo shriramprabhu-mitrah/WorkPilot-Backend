@@ -3051,7 +3051,7 @@ paths:
       summary: Bulk Update Tasks
       tags:
       - Task
-  /task/{task_id}/comment:
+  /task/{task_id}/comments:
     get:
       consumes:
       - application/json
@@ -3150,7 +3150,7 @@ paths:
       summary: Create a comment
       tags:
       - Comments
-  /task/{task_id}/comment/{comment_id}:
+  /task/{task_id}/comments/{comment_id}:
     get:
       consumes:
       - application/json
@@ -3251,7 +3251,7 @@ paths:
       summary: Update Comment
       tags:
       - Comments
-  /task/{task_id}/comment/replies/{parent_comment_id}:
+  /task/{task_id}/comments/replies/{parent_comment_id}:
     get:
       consumes:
       - application/json

@@ -19,6 +19,7 @@ type Comments struct {
 	ParentCommentID *uuid.UUID     `json:"parent_comment_id,omitempty" gorm:"type:uuid;index"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	IsDeleted       bool           `json:"is_deleted"`
 	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
 	Replies         []Comments     `json:"replies,omitempty" gorm:"foreignKey:ParentCommentID"`
 }

@@ -42,7 +42,7 @@ type commentsHandler struct {
 //	@Failure		401			{object}	response.ErrorResponse				"Unauthorized"
 //	@Failure		403			{object}	response.ErrorResponse				"Forbidden"
 //	@Failure		500			{object}	response.ErrorResponse				"Internal server error"
-//	@Router			/task/{task_id}/comment [post]
+//	@Router			/task/{task_id}/comments [post]
 func (h *commentsHandler) CreateComments(g *gin.Context) {
 
 	var payload requestdto.CreateCommentsRequest
@@ -118,7 +118,7 @@ func (h *commentsHandler) CreateComments(g *gin.Context) {
 //	@Failure		403	{object}	response.ErrorResponse
 //	@Failure		404	{object}	response.ErrorResponse
 //	@Failure		500	{object}	response.ErrorResponse
-//	@Router			/task/{task_id}/comment/{comment_id} [get]
+//	@Router			/task/{task_id}/comments/{comment_id} [get]
 func (h *commentsHandler) GetCommentByID(g *gin.Context) {
 
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
@@ -193,7 +193,7 @@ func (h *commentsHandler) GetCommentByID(g *gin.Context) {
 //	@Failure		403			{object}	response.Error
 //	@Failure		404			{object}	response.Error
 //	@Failure		500			{object}	response.Error
-//	@Router			/task/{task_id}/comment/{comment_id} [patch]
+//	@Router			/task/{task_id}/comments/{comment_id} [patch]
 func (h *commentsHandler) UpdateComments(g *gin.Context) {
 
 	var req requestdto.UpdateCommentsRequest
@@ -352,7 +352,7 @@ func (h *commentsHandler) DeleteComments(g *gin.Context) {
 //	@Failure		403			{object}	response.ErrorResponse
 //	@Failure		404			{object}	response.ErrorResponse
 //	@Failure		500			{object}	response.ErrorResponse
-//	@Router			/task/{task_id}/comment [get]
+//	@Router			/task/{task_id}/comments [get]
 func (h *commentsHandler) GetCommentsByTaskID(g *gin.Context) {
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
@@ -442,7 +442,7 @@ func (h *commentsHandler) GetCommentsByTaskID(g *gin.Context) {
 //	@Failure		401	{object}	response.ErrorResponse
 //	@Failure		403	{object}	response.ErrorResponse
 //	@Failure		500	{object}	response.ErrorResponse
-//	@Router			/task/{task_id}/comment/replies/{parent_comment_id} [get]
+//	@Router			/task/{task_id}/comments/replies/{parent_comment_id} [get]
 func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")

@@ -28,7 +28,7 @@ func CommentsRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	middleware := middleware.InitMiddleware(deps.Logger)
 
-	cmt := api.Group("/task/:task_id/comment")
+	cmt := api.Group("/task/:task_id/comments")
 	{
 		cmt.POST("", middleware.ValidateJWT(), commentsHandler.CreateComments)
 		cmt.GET("/:comment_id", middleware.ValidateJWT(), commentsHandler.GetCommentByID)

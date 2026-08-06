@@ -3,6 +3,7 @@ package commentsrepo
 import (
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -37,8 +38,6 @@ func (d *commentsDatabase) GetCommentByID(commentID uuid.UUID) (*models.Comments
 
 	if err := d.db.
 		Preload("User").
-		Preload("Replies").
-		Preload("Replies.User").
 		First(&comment, "id = ?", commentID).Error; err != nil {
 
 		if err == gorm.ErrRecordNotFound {
@@ -95,7 +94,6 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 		Preload("Replies", func(db *gorm.DB) *gorm.DB {
 			return db.Order("created_at DESC")
 		}).
-		Preload("Replies.User").
 		Order("created_at DESC").
 		Limit(req.PageSize).
 		Offset(offset).
@@ -165,9 +163,12 @@ func (d *commentsDatabase) UpdateComment(commentID uuid.UUID, req models.Comment
 
 func (d *commentsDatabase) DeleteComment(commentID uuid.UUID) *response.Error {
 
-	result := d.db.
+	result := d.db.Model(&models.Comments{}).
 		Where("id = ?", commentID).
-		Delete(&models.Comments{})
+		Updates(map[string]interface{}{
+			"is_deleted": true,
+			"deleted_at": time.Now(),
+		})
 
 	if result.Error != nil {
 

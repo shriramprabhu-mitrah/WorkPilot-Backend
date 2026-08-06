@@ -3628,7 +3628,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task/{task_id}/comment": {
+        "/task/{task_id}/comments": {
             "get": {
                 "security": [
                     {
@@ -3777,7 +3777,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task/{task_id}/comment/replies/{parent_comment_id}": {
+        "/task/{task_id}/comments/replies/{parent_comment_id}": {
             "get": {
                 "security": [
                     {
@@ -3859,7 +3859,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task/{task_id}/comment/{comment_id}": {
+        "/task/{task_id}/comments/{comment_id}": {
             "get": {
                 "security": [
                     {

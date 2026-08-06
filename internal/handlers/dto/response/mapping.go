@@ -78,5 +78,6 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 		ParentCommentID: comment.ParentCommentID,
 		CreatedAt:       comment.CreatedAt,
 		UpdatedAt:       comment.UpdatedAt,
+		IsDeleted:       comment.IsDeleted,
 	}
 }

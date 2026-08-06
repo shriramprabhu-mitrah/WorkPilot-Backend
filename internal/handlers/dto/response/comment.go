@@ -15,4 +15,5 @@ type CommentsResponse struct {
 	ParentCommentID *uuid.UUID `json:"parent_comment_id,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+	IsDeleted       bool       `json:"is_deleted"`
 }
