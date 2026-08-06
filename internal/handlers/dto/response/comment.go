@@ -11,7 +11,7 @@ type CommentsResponse struct {
 	TaskID          uuid.UUID  `json:"task_id"`
 	UserID          uuid.UUID  `json:"user_id"`
 	UserName        string     `json:"user_name"`
-	FullName        string     `json:"name"`
+	FullName        string     `json:"full_name"`
 	Email           string     `json:"email"`
 	AvatarURL       string     `json:"avatar_url,omitempty"`
 	Content         string     `json:"content"`

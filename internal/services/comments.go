@@ -166,6 +166,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *
 		OrganizationID:  req.OrganizationID,
 		Content:         req.Content,
 		ParentCommentID: req.ParentCommentID,
+		IsDeleted:       false,
 	}
 
 	if err := s.commentsRepo.CreateComment(comment); err != nil {
