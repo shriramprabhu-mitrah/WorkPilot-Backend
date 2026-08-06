@@ -247,7 +247,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		if err != nil {
 			return nil, err
 		}
-		if sprintStatus == "completed" {
+		if sprintStatus == string(dto.SprintStatusCompleted) {
 			return nil, &response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
@@ -521,7 +521,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 
 	if isSprintChanging {
-		if task.Sprint != nil && task.Sprint.Status == "completed" {
+		if task.Sprint != nil && task.Sprint.Status == string(dto.SprintStatusCompleted) {
 			return nil, &response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
@@ -533,7 +533,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			if err != nil {
 				return nil, err
 			}
-			if targetStatus == "completed" {
+			if targetStatus == string(dto.SprintStatusCompleted) {
 				return nil, &response.Error{
 					Code:       response.ErrValidation,
 					StatusCode: http.StatusBadRequest,
@@ -1077,7 +1077,7 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 		}
 
 		if isSprintChanging {
-			if task.Sprint != nil && task.Sprint.Status == "completed" {
+			if task.Sprint != nil && task.Sprint.Status == string(dto.SprintStatusCompleted) {
 				failedTaskIDs = append(failedTaskIDs, item.TaskID)
 				failureReasons[item.TaskID.String()] = "Changing the sprint of a task in a completed sprint is blocked"
 				continue
@@ -1101,7 +1101,7 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 					failureReasons[item.TaskID.String()] = "Failed to validate sprint status"
 					continue
 				}
-				if targetStatus == "completed" {
+				if targetStatus == string(dto.SprintStatusCompleted) {
 					failedTaskIDs = append(failedTaskIDs, item.TaskID)
 					failureReasons[item.TaskID.String()] = "Cannot assign a task to a completed sprint"
 					continue
