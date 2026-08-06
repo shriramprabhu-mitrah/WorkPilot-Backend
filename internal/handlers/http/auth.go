@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,31 +12,39 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	cookies "github.com/ms-kanban-server/internal/pkg/cookie"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/storage"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
 
-func InitAuthHandler(service services.AuthService, logger *zap.Logger) *authHandler {
+func InitAuthHandler(service services.AuthService, storage storage.StorageClient, logger *zap.Logger) *authHandler {
 	return &authHandler{
 		service: service,
+		storage: storage,
 		logger:  logger,
 	}
 }
 
 type authHandler struct {
 	service services.AuthService
+	storage storage.StorageClient
 	logger  *zap.Logger
 }
 
 // SignUp godoc
 //
 // @Summary      Register a new user
-// @Description  Creates a new user account.
+// @Description  Creates a new user account. Send as multipart/form-data. Optionally include an 'avatar' file to set the user avatar.
 // @Tags         Authentication
-// @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        request body requestdto.SignUpRequest true "Sign Up Request"
+// @Param        email     formData string true  "Email address"
+// @Param        password  formData string true  "Password"
+// @Param        full_name formData string true  "Full name"
+// @Param        username  formData string true  "Username"
+// @Param        timezone  formData string false "Timezone"
+// @Param        avatar    formData file   false "User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)"
 // @Success      201 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
@@ -45,7 +54,7 @@ func (h *authHandler) SignUp(g *gin.Context) {
 
 	var payload requestdto.SignUpRequest
 
-	if err := g.ShouldBindJSON(&payload); err != nil {
+	if err := g.ShouldBind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -59,8 +68,27 @@ func (h *authHandler) SignUp(g *gin.Context) {
 		return
 	}
 
+	// Handle optional avatar upload.
+	var avatarURL string
+	var uploadedKey string
+	avatarFile, avatarHeader, fileErr := g.Request.FormFile("avatar")
+	if fileErr == nil {
+		defer avatarFile.Close()
+		var uploadErr *response.Error
+		avatarURL, uploadedKey, uploadErr = h.storage.UploadAvatar(avatarFile, avatarHeader)
+		if uploadErr != nil {
+			h.logger.Error("Avatar upload failed during sign up", zap.String("error", uploadErr.Message))
+			g.JSON(uploadErr.StatusCode, &response.ErrorResponse{Success: false, Error: *uploadErr})
+			return
+		}
+	}
+	payload.AvatarURL = avatarURL
+
 	err := h.service.SignUp(payload)
 	if err != nil {
+		if uploadedKey != "" {
+			_ = h.storage.DeleteObject(context.Background(), uploadedKey)
+		}
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error:   *err,
@@ -542,11 +570,14 @@ func (h *authHandler) ChangePassword(g *gin.Context) {
 // UpdateUser godoc
 //
 // @Summary      Update user
-// @Description  Updates user profile.
+// @Description  Updates user profile. Send as multipart/form-data. Include an 'avatar' file field to replace the user avatar.
 // @Tags         Users
-// @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        request body requestdto.UpdateUserRequest true "Update User Request"
+// @Param        full_name formData string false "Full name"
+// @Param        username  formData string false "Username"
+// @Param        timezone  formData string false "Timezone"
+// @Param        avatar    formData file   false "User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
@@ -556,7 +587,7 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 
 	var payload requestdto.UpdateUserRequest
 
-	if err := g.ShouldBindJSON(&payload); err != nil {
+	if err := g.ShouldBind(&payload); err != nil {
 		message := utils.ValidationErrorMessage(err, payload)
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -595,8 +626,27 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 		return
 	}
 
+	// Handle optional avatar upload.
+	var avatarURL string
+	var uploadedKey string
+	avatarFile, avatarHeader, fileErr := g.Request.FormFile("avatar")
+	if fileErr == nil {
+		defer avatarFile.Close()
+		var uploadErr *response.Error
+		avatarURL, uploadedKey, uploadErr = h.storage.UploadAvatar(avatarFile, avatarHeader)
+		if uploadErr != nil {
+			h.logger.Error("Avatar upload failed during user update", zap.String("error", uploadErr.Message))
+			g.JSON(uploadErr.StatusCode, &response.ErrorResponse{Success: false, Error: *uploadErr})
+			return
+		}
+	}
+	payload.AvatarURL = avatarURL
+
 	err := h.service.UpdateUser(payload, id)
 	if err != nil {
+		if uploadedKey != "" {
+			_ = h.storage.DeleteObject(context.Background(), uploadedKey)
+		}
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error:   *err,

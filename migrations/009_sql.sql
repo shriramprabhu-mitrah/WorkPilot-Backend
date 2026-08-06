@@ -1,18 +1,14 @@
--- 1. Create comments table
-CREATE TABLE comments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Expand logo_url column to accommodate S3 public URLs (previously VARCHAR(150))
 
-    task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+ALTER TABLE organizations
+    ALTER COLUMN logo_url TYPE VARCHAR(500);
 
-    user_id UUID NOT NULL REFERENCES users(id),
+-- Allow logo_url to be NULL (logo is now optional; existing rows keep their value)
 
-    organization_id UUID NOT NULL REFERENCES organizations(id),
+ALTER TABLE organizations
+    ALTER COLUMN logo_url DROP NOT NULL;
 
-    parent_comment_id UUID NULL REFERENCES comments(id) ON DELETE CASCADE,
+-- Expand avatar_url column in users table to accommodate S3 public URLs (previously VARCHAR(255))
 
-    content TEXT NOT NULL,
-
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP NULL
-);
+ALTER TABLE users
+    ALTER COLUMN avatar_url TYPE VARCHAR(500);

@@ -21,12 +21,25 @@ func Start(db *gorm.DB, logger *zap.Logger) {
 
 	time.AfterFunc(duration, func() {
 		runSnapshotJob(sprintRepo, logger)
+		purgeSoftDeletedTasks(db, logger)
 
 		ticker := time.NewTicker(24 * time.Hour)
 		for range ticker.C {
 			runSnapshotJob(sprintRepo, logger)
+			purgeSoftDeletedTasks(db, logger)
 		}
 	})
+}
+
+func purgeSoftDeletedTasks(db *gorm.DB, logger *zap.Logger) {
+	logger.Info("Running daily task purge background job")
+	thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour)
+	result := db.Unscoped().Where("deleted_at < ?", thirtyDaysAgo).Delete(&models.Task{})
+	if result.Error != nil {
+		logger.Error("Failed to purge expired soft-deleted tasks", zap.Error(result.Error))
+	} else if result.RowsAffected > 0 {
+		logger.Info("Successfully purged expired soft-deleted tasks", zap.Int64("purged_count", result.RowsAffected))
+	}
 }
 
 func runSnapshotJob(sprintRepo sprintrepo.SprintRepository, logger *zap.Logger) {

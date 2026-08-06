@@ -20,6 +20,38 @@ definitions:
       token_type:
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTaskItem:
+    properties:
+      assignee_id:
+        type: string
+      blocked_reason:
+        type: string
+      sprint_id:
+        type: string
+      status:
+        enum:
+        - todo
+        - in_progress
+        - in_review
+        - testing
+        - completed
+        - blocked
+        type: string
+      task_id:
+        type: string
+    required:
+    - task_id
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest:
+    properties:
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTaskItem'
+        minItems: 1
+        type: array
+    required:
+    - tasks
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.ChangePasswordRequest:
     properties:
       new_password:
@@ -48,46 +80,15 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest:
     properties:
-      country_id:
-        type: string
-      domain:
-        type: string
-      industry:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.Industry'
-        enum:
-        - Information_Technology
-        - Finance
-        - Healthcare
-        - Education
-        - Manufacturing
-        - Retail
-        - Real Estate
-        - Logistics
-        - Hospitality
-        - Other
-      logo_url:
+      color:
         type: string
       name:
+        maxLength: 30
+        minLength: 1
         type: string
-      slug:
-        type: string
-      team_size:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize'
-        enum:
-        - 1-10
-        - 11-50
-        - 51-200
-        - 201-500
-        - 501-1000
-        - 1000+
     required:
-    - country_id
-    - domain
-    - industry
+    - color
     - name
-    - team_size
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateProjectMemberRequest:
     properties:
@@ -153,6 +154,10 @@ definitions:
       estimated_hours:
         minimum: 0
         type: number
+      label_ids:
+        items:
+          type: string
+        type: array
       priority:
         enum:
         - low
@@ -169,6 +174,7 @@ definitions:
         - in_review
         - testing
         - completed
+        - blocked
         type: string
       story_points:
         minimum: 0
@@ -190,30 +196,22 @@ definitions:
     - title
     - type
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.Industry:
-    enum:
-    - Information_Technology
-    - Finance
-    - Healthcare
-    - Education
-    - Manufacturing
-    - Retail
-    - Real Estate
-    - Logistics
-    - Hospitality
-    - Other
-    type: string
-    x-enum-varnames:
-    - IndustryInformationTechnology
-    - IndustryFinance
-    - IndustryHealthcare
-    - IndustryEducation
-    - IndustryManufacturing
-    - IndustryRetail
-    - IndustryRealEstate
-    - IndustryLogistics
-    - IndustryHospitality
-    - IndustryOther
+  github_com_ms-kanban-server_internal_handlers_dto_request.InviteOrganizationMemberItem:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.InviteOrganizationMemberRequest:
+    properties:
+      members:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.InviteOrganizationMemberItem'
+        type: array
+    required:
+    - members
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.PasswordResetRequest:
     properties:
       email:
@@ -312,26 +310,6 @@ definitions:
     - email
     - password
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.SignUpRequest:
-    properties:
-      avatar_url:
-        type: string
-      email:
-        type: string
-      full_name:
-        type: string
-      password:
-        type: string
-      timezone:
-        type: string
-      username:
-        type: string
-    required:
-    - email
-    - full_name
-    - password
-    - username
-    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.SprintStatus:
     enum:
     - planning
@@ -373,26 +351,12 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest:
     properties:
-      country_id:
-        type: string
-      domain:
-        type: string
-      logo_url:
+      color:
         type: string
       name:
+        maxLength: 30
+        minLength: 1
         type: string
-      team_size:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize'
-        enum:
-        - 1-10
-        - 11-50
-        - 51-200
-        - 201-500
-        - 501-1000
-        - 1000+
-    required:
-    - team_size
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectRequest:
     properties:
@@ -436,6 +400,8 @@ definitions:
         type: number
       assignee_id:
         type: string
+      blocked_reason:
+        type: string
       description:
         type: string
       due_date:
@@ -443,6 +409,10 @@ definitions:
       estimated_hours:
         minimum: 0
         type: number
+      label_ids:
+        items:
+          type: string
+        type: array
       priority:
         enum:
         - low
@@ -459,6 +429,7 @@ definitions:
         - in_review
         - testing
         - completed
+        - blocked
         type: string
       story_points:
         minimum: 0
@@ -474,17 +445,6 @@ definitions:
         - task
         - chore
         - story
-        type: string
-    type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserRequest:
-    properties:
-      avatar_url:
-        type: string
-      full_name:
-        type: string
-      timezone:
-        type: string
-      username:
         type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UserRoleRequest:
@@ -510,6 +470,15 @@ definitions:
     required:
     - email
     - otp
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse:
+    properties:
+      project:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse'
+        type: array
+      user_id:
+        type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.OrganizationSummary:
     properties:
@@ -643,6 +612,7 @@ definitions:
   github_com_ms-kanban-server_internal_pkg_response.ErrorCode:
     enum:
     - BAD_REQUEST
+    - INVALID_STATUS_TRANSITION
     - METHOD_NOT_ALLOWED
     - VALIDATION_ERROR
     - UNAUTHORIZED
@@ -658,6 +628,7 @@ definitions:
     type: string
     x-enum-varnames:
     - ErrBadRequest
+    - ErrInvalidStatusTransition
     - ErrMethodNotAllowed
     - ErrValidation
     - ErrUnauthorized
@@ -1096,15 +1067,38 @@ paths:
   /auth/signup:
     post:
       consumes:
-      - application/json
-      description: Creates a new user account.
+      - multipart/form-data
+      description: Creates a new user account. Send as multipart/form-data. Optionally
+        include an 'avatar' file to set the user avatar.
       parameters:
-      - description: Sign Up Request
-        in: body
-        name: request
+      - description: Email address
+        in: formData
+        name: email
         required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.SignUpRequest'
+        type: string
+      - description: Password
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: Full name
+        in: formData
+        name: full_name
+        required: true
+        type: string
+      - description: Username
+        in: formData
+        name: username
+        required: true
+        type: string
+      - description: Timezone
+        in: formData
+        name: timezone
+        type: string
+      - description: User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: avatar
+        type: file
       produces:
       - application/json
       responses:
@@ -1130,15 +1124,26 @@ paths:
   /auth/update:
     patch:
       consumes:
-      - application/json
-      description: Updates user profile.
+      - multipart/form-data
+      description: Updates user profile. Send as multipart/form-data. Include an 'avatar'
+        file field to replace the user avatar.
       parameters:
-      - description: Update User Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserRequest'
+      - description: Full name
+        in: formData
+        name: full_name
+        type: string
+      - description: Username
+        in: formData
+        name: username
+        type: string
+      - description: Timezone
+        in: formData
+        name: timezone
+        type: string
+      - description: User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: avatar
+        type: file
       produces:
       - application/json
       responses:
@@ -1244,18 +1249,84 @@ paths:
       summary: Get all countries
       tags:
       - Lookup
+  /health:
+    get:
+      description: Returns system health status and dependency checks (database, redis)
+      parameters:
+      - description: Include detailed dependency health checks
+        in: query
+        name: full
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "538":
+          description: ""
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health check endpoint
+      tags:
+      - Public
   /organization/create:
     post:
       consumes:
-      - application/json
-      description: Creates a new Organization account.
+      - multipart/form-data
+      description: Creates a new Organization account. Send as multipart/form-data.
+        Optionally include a 'logo' file to set the organization logo.
       parameters:
-      - description: Creates new Organization
-        in: body
-        name: request
+      - description: Organization name
+        in: formData
+        name: name
         required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest'
+        type: string
+      - description: Organization domain
+        in: formData
+        name: domain
+        required: true
+        type: string
+      - description: Industry
+        enum:
+        - Information_Technology
+        - Finance
+        - Healthcare
+        - Education
+        - Manufacturing
+        - Retail
+        - Real Estate
+        - Logistics
+        - Hospitality
+        - Other
+        in: formData
+        name: industry
+        required: true
+        type: string
+      - description: Team size
+        enum:
+        - 1-10
+        - 11-50
+        - 51-200
+        - 201-500
+        - 501-1000
+        - 1000+
+        in: formData
+        name: team_size
+        required: true
+        type: string
+      - description: Country ID (UUID)
+        in: formData
+        name: country_id
+        required: true
+        type: string
+      - description: Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: logo
+        type: file
       produces:
       - application/json
       responses:
@@ -1330,7 +1401,7 @@ paths:
       summary: Get current Organization
       tags:
       - Organizations
-  /organization/get-user:
+  /organization/get-users:
     get:
       description: Returns the profile of the authenticated Organization.
       produces:
@@ -1388,18 +1459,112 @@ paths:
       summary: Accept organization invitation
       tags:
       - Organizations
-  /organization/update:
-    patch:
+  /organization/invite:
+    post:
       consumes:
       - application/json
-      description: Updates Organization profile.
+      description: Sends an email invitation to a user to join the organization.
       parameters:
-      - description: Update Organization Request
+      - description: Invite Organization Member Request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest'
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.InviteOrganizationMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Invite member to organization
+      tags:
+      - Organizations
+  /organization/remove-user:
+    delete:
+      consumes:
+      - application/json
+      description: Removes a user from the organization.
+      parameters:
+      - description: RemoveUser Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.RemoveUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Remove user from organization
+      tags:
+      - Organizations
+  /organization/update:
+    patch:
+      consumes:
+      - multipart/form-data
+      description: Updates Organization profile. Send as multipart/form-data. Include
+        a 'logo' file field to replace the logo.
+      parameters:
+      - description: Organization name
+        in: formData
+        name: name
+        type: string
+      - description: Organization domain
+        in: formData
+        name: domain
+        type: string
+      - description: Team size
+        enum:
+        - 1-10
+        - 11-50
+        - 51-200
+        - 201-500
+        - 501-1000
+        - 1000+
+        in: formData
+        name: team_size
+        type: string
+      - description: Country ID (UUID)
+        in: formData
+        name: country_id
+        type: string
+      - description: Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)
+        in: formData
+        name: logo
+        type: file
       produces:
       - application/json
       responses:
@@ -1422,7 +1587,41 @@ paths:
       summary: Update Organization
       tags:
       - Organizations
-  /organization/user-status/:
+  /organization/user-role:
+    patch:
+      consumes:
+      - application/json
+      description: Updates User profile.
+      parameters:
+      - description: Update User Role Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Update User Role
+      tags:
+      - Organizations
+  /organization/user-status:
     patch:
       consumes:
       - application/json
@@ -1497,6 +1696,114 @@ paths:
       security:
       - BearerAuth: []
       summary: Delete Project
+      tags:
+      - Projects
+  /project/{project_id}/activity:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve activity logs for a project with optional filters and
+        pagination.
+      parameters:
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by entity type
+        in: query
+        name: entity_type
+        type: string
+      - description: Filter by action
+        in: query
+        name: action
+        type: string
+      - description: Filter by user ID
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get project activity history
+      tags:
+      - Projects
+  /project/{project_id}/detail:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a project's details along with its members and sprints.
+      parameters:
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Project retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectDetail'
+              type: object
+        "400":
+          description: Invalid project ID
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Project not found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get project details
       tags:
       - Projects
   /project/{project_id}/member/{user_id}:
@@ -1793,6 +2100,215 @@ paths:
       summary: Update project
       tags:
       - Projects
+  /project/user/{user_id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all projects associated with a specific user within the
+        authenticated organization.
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse'
+              type: object
+        "400":
+          description: Validation Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get projects by user
+      tags:
+      - Projects
+  /projects/{project_id}/labels/:
+    get:
+      description: Get all labels for a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get labels
+      tags:
+      - Label
+    post:
+      consumes:
+      - application/json
+      description: Create a new label for a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Create Label Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateLabelRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Create a label
+      tags:
+      - Label
+  /projects/{project_id}/labels/{label_id}:
+    delete:
+      description: Delete an existing label
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Label ID
+        in: path
+        name: label_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Delete a label
+      tags:
+      - Label
+    patch:
+      consumes:
+      - application/json
+      description: Update an existing label
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Label ID
+        in: path
+        name: label_id
+        required: true
+        type: string
+      - description: Update Label Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateLabelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Update a label
+      tags:
+      - Label
   /projects/{project_id}/sprint:
     get:
       description: Retrieve all sprints for a project with pagination, search and
@@ -2043,6 +2559,90 @@ paths:
       summary: Update Sprint
       tags:
       - Sprint
+  /projects/{project_id}/sprint/{sprint_id}/burndown:
+    get:
+      description: Retrieve burndown chart data for a specific sprint
+      parameters:
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Sprint ID (UUID)
+        in: path
+        name: sprint_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get Sprint Burndown
+      tags:
+      - Sprints
+  /projects/{project_id}/sprint/{sprint_id}/snapshot:
+    post:
+      description: Trigger daily snapshot calculation for active sprints in a project
+      parameters:
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Sprint ID (UUID)
+        in: path
+        name: sprint_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Trigger Sprint Snapshots
+      tags:
+      - Sprints
   /projects/{project_id}/tasks/:
     get:
       description: Retrieve tasks for a project with search, filter, sort and pagination
@@ -2375,6 +2975,99 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Clone Task
+      tags:
+      - Task
+  /projects/{project_id}/tasks/{task_id}/labels/{label_id}:
+    delete:
+      description: Remove a project label from a specific task
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Label ID
+        in: path
+        name: label_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Remove Label from Task
+      tags:
+      - Task
+    put:
+      description: Attach a project label to a specific task
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Label ID
+        in: path
+        name: label_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Attach Label to Task
       tags:
       - Task
   /projects/{project_id}/tasks/{task_id}/restore:
@@ -2761,14 +3454,19 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Updates User profile.
+      description: Update status, sprint, or assignee of multiple tasks in a project
       parameters:
-      - description: Update User Role Request
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Bulk Update Tasks Request Body
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UserRoleRequest'
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest'
       produces:
       - application/json
       responses:
@@ -2776,21 +3474,29 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "404":
-          description: Not Found
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Update User Role
+      summary: Bulk Update Tasks
       tags:
-      - Organizations
+      - Task
 securityDefinitions:
   BearerAuth:
     in: header

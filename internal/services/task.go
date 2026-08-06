@@ -25,6 +25,9 @@ type TaskService interface {
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error)
+	BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*responsedto.BulkUpdateTasksResponse, *response.Error)
+	AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
+	RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
 }
 
 type taskService struct {
@@ -53,7 +56,11 @@ func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (bool, *re
 		return false, err
 	}
 	if user.Role == string(dto.RoleSuperAdmin) {
-		return true, nil
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Super admins are not allowed to perform organization-level activities",
+		}
 	}
 	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
 		return true, nil
@@ -73,7 +80,7 @@ func GenerateProjectPrefix(name string) string {
 	parts := strings.FieldsFunc(name, func(r rune) bool {
 		return r == ' ' || r == '-' || r == '_'
 	})
-	
+
 	var prefix string
 	if len(parts) > 1 {
 		for _, part := range parts {
@@ -90,14 +97,14 @@ func GenerateProjectPrefix(name string) string {
 			prefix = string(runes)
 		}
 	}
-	
+
 	cleaned := ""
 	for _, r := range prefix {
 		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
 			cleaned += string(r)
 		}
 	}
-	
+
 	if len(cleaned) < 2 {
 		cleaned = "WP"
 	}
@@ -117,6 +124,11 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		assigneeName = task.Assignee.FullName
 	}
 
+	labelsRes := []responsedto.LabelResponse{}
+	for _, l := range task.Labels {
+		labelsRes = append(labelsRes, responsedto.LabelFromModel(l))
+	}
+
 	return responsedto.TaskResponse{
 		ID:             task.ID,
 		ProjectID:      task.ProjectID,
@@ -134,8 +146,10 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		DueDate:        task.DueDate,
 		EstimatedHours: task.EstimatedHours,
 		ActualHours:    task.ActualHours,
+		BlockedReason:  task.BlockedReason,
 		CreatedAt:      task.CreatedAt,
 		UpdatedAt:      task.UpdatedAt,
+		Labels:         labelsRes,
 	}
 }
 
@@ -156,6 +170,92 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	if err != nil {
 		return nil, err
 	}
+
+	// Validation: Title length
+	if len([]rune(req.Title)) < 3 || len([]rune(req.Title)) > 200 {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Task title must be between 3 and 200 characters",
+		}
+	}
+
+	// Validation: Story Points (Fibonacci)
+	if !isFibonacci(req.StoryPoints) {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Story points must follow the Fibonacci scale",
+		}
+	}
+
+	// Validation: Assignee must be active and a member of the project
+	if req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
+		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
+		if err != nil {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee user not found",
+			}
+		}
+		if !assigneeUser.IsActive {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be an active user",
+			}
+		}
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+				isMember = true
+			}
+		}
+		if !isMember {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be a member of the project",
+			}
+		}
+	}
+
+	// Validation: Due date cannot be backdated unless overridden by PM/Admin
+	if req.DueDate != nil && !req.DueDate.IsZero() {
+		if isBackdated(*req.DueDate) {
+			isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
+			if checkErr != nil {
+				return nil, checkErr
+			}
+			if !isPMOrAdmin {
+				return nil, &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Due date cannot be backdated unless set by a PM or Admin",
+				}
+			}
+		}
+	}
+
+	// Validation: Target sprint cannot be completed
+	if req.SprintID != nil && *req.SprintID != uuid.Nil {
+		sprintStatus, err := s.taskRepo.GetSprintStatus(*req.SprintID)
+		if err != nil {
+			return nil, err
+		}
+		if sprintStatus == string(dto.SprintStatusCompleted) {
+			return nil, &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Cannot assign a task to a completed sprint",
+			}
+		}
+	}
+
 	projectKey := GenerateProjectPrefix(project.Name)
 
 	var task models.Task
@@ -175,6 +275,16 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	task.DueDate = req.DueDate
 	task.EstimatedHours = req.EstimatedHours
 	task.ActualHours = req.ActualHours
+
+	var labels []models.Label
+	if len(req.LabelIDs) > 0 {
+		var verifyErr *response.Error
+		labels, verifyErr = s.taskRepo.VerifyLabelIDs(req.ProjectID, req.LabelIDs)
+		if verifyErr != nil {
+			return nil, verifyErr
+		}
+	}
+	task.Labels = labels
 
 	var lastErr *response.Error
 	for attempt := 0; attempt < 3; attempt++ {
@@ -250,36 +360,389 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	project, err := s.projectRepo.GetProjectByID(req.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	isPMOrAdmin := (user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
+
+	var member *models.ProjectMember
+	if !isPMOrAdmin {
+		member, err = s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+
+		if member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager) {
+			isPMOrAdmin = true
+		} else if member.ProjectRole == string(dto.ProjectRoleViewer) {
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "Viewers do not have permission to update tasks",
+			}
+		}
+	}
+
 	task, err := s.taskRepo.GetTaskByID(req.TaskID, req.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Title != nil {
+	// Validation: Title length
+	if req.Title != nil && (len([]rune(*req.Title)) < 3 || len([]rune(*req.Title)) > 200) {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Task title must be between 3 and 200 characters",
+		}
+	}
+
+	// Validation: Story Points (Fibonacci)
+	if req.StoryPoints != nil && !isFibonacci(*req.StoryPoints) {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Story points must follow the Fibonacci scale",
+		}
+	}
+
+	// 1. Validate Assignee Membership
+	if req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
+		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
+		if err != nil {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee user not found",
+			}
+		}
+		if !assigneeUser.IsActive {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be an active user",
+			}
+		}
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+				isMember = true
+			}
+		}
+		if !isMember {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be a member of the project",
+			}
+		}
+	}
+
+	// Validation: Due date cannot be backdated unless overridden by PM/Admin
+	if req.DueDate != nil && !req.DueDate.IsZero() {
+		if isBackdated(*req.DueDate) {
+			isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
+			if checkErr != nil {
+				return nil, checkErr
+			}
+			if !isPMOrAdmin {
+				return nil, &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Due date cannot be backdated unless set by a PM or Admin",
+				}
+			}
+		}
+	}
+
+	// 2. Validate Actual Hours Update
+	if req.ActualHours != nil {
+		isStatusChangingToActive := req.Status != nil && *req.Status != string(dto.TaskStatusCompleted)
+		if task.Status == string(dto.TaskStatusCompleted) && !isStatusChangingToActive {
+			return nil, &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Actual hours can only be updated while the task is not completed",
+			}
+		}
+		if !isPMOrAdmin {
+			if task.AssigneeID == nil || *task.AssigneeID != req.UserID {
+				return nil, &response.Error{
+					Code:       response.ErrForbidden,
+					StatusCode: http.StatusForbidden,
+					Message:    "Only the task assignee or a PM/Admin can update actual hours",
+				}
+			}
+			if task.ActualHours != nil && *req.ActualHours <= *task.ActualHours {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Actual hours can only be incremented",
+				}
+			}
+			if task.ActualHours == nil && *req.ActualHours <= 0 {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Actual hours must be greater than 0",
+				}
+			}
+		} else {
+			if *req.ActualHours < 0 {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Actual hours cannot be negative",
+				}
+			}
+		}
+	}
+
+	// Validation: Sprint completed constraints
+	isSprintChanging := false
+	if req.SprintID != nil {
+		currentSprintID := uuid.Nil
+		if task.SprintID != nil {
+			currentSprintID = *task.SprintID
+		}
+		if *req.SprintID != currentSprintID {
+			isSprintChanging = true
+		}
+	}
+
+	if isSprintChanging {
+		if task.Sprint != nil && task.Sprint.Status == string(dto.SprintStatusCompleted) {
+			return nil, &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Changing the sprint of a task in a completed sprint is blocked",
+			}
+		}
+		if *req.SprintID != uuid.Nil {
+			targetStatus, err := s.taskRepo.GetSprintStatus(*req.SprintID)
+			if err != nil {
+				return nil, err
+			}
+			if targetStatus == string(dto.SprintStatusCompleted) {
+				return nil, &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Cannot assign a task to a completed sprint",
+				}
+			}
+		}
+	}
+
+	// 3. Validate Status Transition
+	if req.Status != nil && *req.Status != task.Status {
+		newStatus := *req.Status
+		oldStatus := task.Status
+
+		if newStatus == string(dto.TaskStatusBlocked) {
+			if req.BlockedReason == nil || strings.TrimSpace(*req.BlockedReason) == "" {
+				return nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Moving to Blocked requires a blocked reason",
+				}
+			}
+		}
+
+		if !isPMOrAdmin {
+			allowedTransition := false
+			switch oldStatus {
+			case string(dto.TaskStatusTodo):
+				allowedTransition = newStatus == string(dto.TaskStatusInProgress) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusInProgress):
+				allowedTransition = newStatus == string(dto.TaskStatusInReview) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusInReview):
+				allowedTransition = newStatus == string(dto.TaskStatusTesting) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusTesting):
+				allowedTransition = newStatus == string(dto.TaskStatusCompleted) || newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusCompleted):
+				allowedTransition = newStatus == string(dto.TaskStatusBlocked)
+			case string(dto.TaskStatusBlocked):
+				allowedTransition = newStatus == string(dto.TaskStatusInProgress) || newStatus == string(dto.TaskStatusTodo)
+			default:
+				allowedTransition = false
+			}
+
+			if !allowedTransition {
+				return nil, &response.Error{
+					Code:       response.ErrInvalidStatusTransition,
+					StatusCode: http.StatusBadRequest,
+					Message:    fmt.Sprintf("Invalid status transition from %s to %s for developers", oldStatus, newStatus),
+				}
+			}
+		}
+	}
+
+	// 4. Track Changes for Audit Log and Apply Updates
+	var changes []string
+
+	if req.Title != nil && *req.Title != task.Title {
+		changes = append(changes, fmt.Sprintf("title changed from '%s' to '%s'", task.Title, *req.Title))
 		task.Title = *req.Title
 	}
-	if req.Description != nil {
+	if req.Description != nil && *req.Description != task.Description {
+		changes = append(changes, "description changed")
 		task.Description = *req.Description
 	}
-	if req.Type != nil {
+	if req.Type != nil && *req.Type != task.Type {
+		changes = append(changes, fmt.Sprintf("type changed from '%s' to '%s'", task.Type, *req.Type))
 		task.Type = *req.Type
 	}
-	if req.Priority != nil {
+	if req.Priority != nil && *req.Priority != task.Priority {
+		changes = append(changes, fmt.Sprintf("priority changed from '%s' to '%s'", task.Priority, *req.Priority))
 		task.Priority = *req.Priority
 	}
-	if req.Status != nil {
+	if req.Status != nil && *req.Status != task.Status {
+		changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, *req.Status))
 		task.Status = *req.Status
+		if *req.Status == string(dto.TaskStatusBlocked) {
+			task.BlockedReason = *req.BlockedReason
+		} else {
+			task.BlockedReason = ""
+		}
 	}
-	task.AssigneeID = req.AssigneeID
-	task.SprintID = req.SprintID
-	if req.StoryPoints != nil {
+	if req.AssigneeID != nil {
+		oldAssignee := "nil"
+		if task.AssigneeID != nil {
+			oldAssignee = task.AssigneeID.String()
+		}
+		newAssignee := "nil"
+		if *req.AssigneeID != uuid.Nil {
+			newAssignee = req.AssigneeID.String()
+		}
+		if oldAssignee != newAssignee {
+			changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
+			if *req.AssigneeID == uuid.Nil {
+				task.AssigneeID = nil
+			} else {
+				task.AssigneeID = req.AssigneeID
+			}
+		}
+	}
+	if req.SprintID != nil {
+		oldSprint := "nil"
+		if task.SprintID != nil {
+			oldSprint = task.SprintID.String()
+		}
+		newSprint := "nil"
+		if *req.SprintID != uuid.Nil {
+			newSprint = req.SprintID.String()
+		}
+		if oldSprint != newSprint {
+			changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
+			if *req.SprintID == uuid.Nil {
+				task.SprintID = nil
+			} else {
+				task.SprintID = req.SprintID
+			}
+		}
+	}
+	if req.StoryPoints != nil && *req.StoryPoints != task.StoryPoints {
+		changes = append(changes, fmt.Sprintf("story points changed from %d to %d", task.StoryPoints, *req.StoryPoints))
 		task.StoryPoints = *req.StoryPoints
 	}
-	task.DueDate = req.DueDate
-	task.EstimatedHours = req.EstimatedHours
-	task.ActualHours = req.ActualHours
+	if req.DueDate != nil {
+		oldDue := "nil"
+		if task.DueDate != nil {
+			oldDue = task.DueDate.Format(time.RFC3339)
+		}
+		newDue := "nil"
+		if !req.DueDate.IsZero() {
+			newDue = req.DueDate.Format(time.RFC3339)
+		}
+		if oldDue != newDue {
+			changes = append(changes, fmt.Sprintf("due date changed from %s to %s", oldDue, newDue))
+			if req.DueDate.IsZero() {
+				task.DueDate = nil
+			} else {
+				task.DueDate = req.DueDate
+			}
+		}
+	}
+	if req.EstimatedHours != nil {
+		oldEst := "nil"
+		if task.EstimatedHours != nil {
+			oldEst = fmt.Sprintf("%.2f", *task.EstimatedHours)
+		}
+		newEst := "nil"
+		if *req.EstimatedHours >= 0 {
+			newEst = fmt.Sprintf("%.2f", *req.EstimatedHours)
+		}
+		if oldEst != newEst {
+			changes = append(changes, fmt.Sprintf("estimated hours changed from %s to %s", oldEst, newEst))
+			task.EstimatedHours = req.EstimatedHours
+		}
+	}
+	if req.ActualHours != nil {
+		oldAct := "nil"
+		if task.ActualHours != nil {
+			oldAct = fmt.Sprintf("%.2f", *task.ActualHours)
+		}
+		newAct := fmt.Sprintf("%.2f", *req.ActualHours)
+		if oldAct != newAct {
+			changes = append(changes, fmt.Sprintf("actual hours changed from %s to %s", oldAct, newAct))
+			task.ActualHours = req.ActualHours
+		}
+	}
 
-	err = s.taskRepo.UpdateTask(task)
+	if req.LabelIDs != nil {
+		verifiedLabels, verifyErr := s.taskRepo.VerifyLabelIDs(req.ProjectID, *req.LabelIDs)
+		if verifyErr != nil {
+			return nil, verifyErr
+		}
+
+		existingMap := make(map[uuid.UUID]string)
+		for _, l := range task.Labels {
+			existingMap[l.ID] = l.Name
+		}
+
+		newMap := make(map[uuid.UUID]string)
+		for _, l := range verifiedLabels {
+			newMap[l.ID] = l.Name
+		}
+
+		var added []string
+		var removed []string
+		for id, name := range newMap {
+			if _, exists := existingMap[id]; !exists {
+				added = append(added, fmt.Sprintf("'%s'", name))
+			}
+		}
+		for id, name := range existingMap {
+			if _, exists := newMap[id]; !exists {
+				removed = append(removed, fmt.Sprintf("'%s'", name))
+			}
+		}
+
+		var labelChanges []string
+		if len(added) > 0 {
+			labelChanges = append(labelChanges, fmt.Sprintf("attached %s", strings.Join(added, ", ")))
+		}
+		if len(removed) > 0 {
+			labelChanges = append(labelChanges, fmt.Sprintf("removed %s", strings.Join(removed, ", ")))
+		}
+		if len(labelChanges) > 0 {
+			changes = append(changes, fmt.Sprintf("labels changed (%s)", strings.Join(labelChanges, " and ")))
+		}
+
+		err = s.taskRepo.UpdateTaskWithLabels(task, verifiedLabels)
+	} else {
+		err = s.taskRepo.UpdateTask(task)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -290,6 +753,14 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		return nil, err
 	}
 
+	// 5. Create Audit Log
+	var detail string
+	if len(changes) > 0 {
+		detail = fmt.Sprintf("Task %s updated: %s", task.Key, strings.Join(changes, ", "))
+	} else {
+		detail = fmt.Sprintf("Task %s updated", task.Key)
+	}
+
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
@@ -297,7 +768,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		Action:         "task_updated",
 		ResourceType:   "task",
 		ResourceID:     task.ID.String(),
-		Details:        fmt.Sprintf("Task %s updated", task.Key),
+		Details:        detail,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
@@ -363,14 +834,21 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 
 	task, err := s.taskRepo.GetTaskByIDUnscoped(taskID, projectID)
 	if err != nil {
+		if err.Code == response.ErrNotFound {
+			return &response.Error{
+				Code:       response.ErrTaskPermanentlyDeleted,
+				StatusCode: http.StatusGone,
+				Message:    "Task is permanently deleted and cannot be restored",
+			}
+		}
 		return err
 	}
 
 	if task.DeletedAt.Valid && time.Since(task.DeletedAt.Time) > 30*24*time.Hour {
 		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Task retention period has expired and cannot be restored",
+			Code:       response.ErrTaskPermanentlyDeleted,
+			StatusCode: http.StatusGone,
+			Message:    "Task is permanently deleted and cannot be restored",
 		}
 	}
 
@@ -423,7 +901,11 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 	var clonedTask models.Task
 	clonedTask.ProjectID = origTask.ProjectID
 	clonedTask.SprintID = origTask.SprintID
-	clonedTask.Title = origTask.Title + " (Cloned)"
+	clonedTitle := origTask.Title + " (Cloned)"
+	if len([]rune(clonedTitle)) > 200 {
+		clonedTitle = string([]rune(clonedTitle)[:200])
+	}
+	clonedTask.Title = clonedTitle
 	clonedTask.Description = origTask.Description
 	clonedTask.Type = origTask.Type
 	clonedTask.Priority = origTask.Priority
@@ -498,4 +980,405 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 		resList = append(resList, mapToTaskResponse(t))
 	}
 	return resList, pagination, nil
+}
+
+func (s *taskService) checkIsPMOrAdmin(projectID, userID uuid.UUID) (bool, *response.Error) {
+	project, err := s.projectRepo.GetProjectByID(projectID)
+	if err != nil {
+		return false, err
+	}
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+	if user.Role == string(dto.RoleSuperAdmin) {
+		return false, nil
+	}
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+		return true, nil
+	}
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
+	if err != nil {
+		return false, nil
+	}
+	if member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager) {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*responsedto.BulkUpdateTasksResponse, *response.Error) {
+	isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
+	if checkErr != nil {
+		return nil, checkErr
+	}
+	if !isPMOrAdmin {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to bulk update tasks in this project",
+		}
+	}
+
+	updatedCount := 0
+	failedTaskIDs := []uuid.UUID{}
+	failureReasons := make(map[string]string)
+
+	for _, item := range req.Tasks {
+		// 1. Fetch Task
+		task, getErr := s.taskRepo.GetTaskByID(item.TaskID, req.ProjectID)
+		if getErr != nil {
+			failedTaskIDs = append(failedTaskIDs, item.TaskID)
+			failureReasons[item.TaskID.String()] = getErr.Message
+			continue
+		}
+
+		// 2. Validate Assignee
+		if item.AssigneeID != nil && *item.AssigneeID != uuid.Nil {
+			assigneeUser, err := s.authRepo.GetUserByID(*item.AssigneeID)
+			if err != nil {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Assignee user not found"
+				continue
+			}
+			if !assigneeUser.IsActive {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Assignee must be an active user"
+				continue
+			}
+			isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *item.AssigneeID)
+			if err != nil {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Failed to validate assignee membership"
+				continue
+			}
+			if !isMember {
+				if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+					isMember = true
+				}
+			}
+			if !isMember {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Assignee must be a member of the project"
+				continue
+			}
+		}
+
+		// 3. Validate Sprint & completed sprint constraints
+		isSprintChanging := false
+		if item.SprintID != nil {
+			currentSprintID := uuid.Nil
+			if task.SprintID != nil {
+				currentSprintID = *task.SprintID
+			}
+			if *item.SprintID != currentSprintID {
+				isSprintChanging = true
+			}
+		}
+
+		if isSprintChanging {
+			if task.Sprint != nil && task.Sprint.Status == string(dto.SprintStatusCompleted) {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Changing the sprint of a task in a completed sprint is blocked"
+				continue
+			}
+			if *item.SprintID != uuid.Nil {
+				exists, err := s.taskRepo.IsSprintInProject(*item.SprintID, req.ProjectID)
+				if err != nil {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Failed to validate sprint"
+					continue
+				}
+				if !exists {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Sprint must belong to the project"
+					continue
+				}
+
+				targetStatus, err := s.taskRepo.GetSprintStatus(*item.SprintID)
+				if err != nil {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Failed to validate sprint status"
+					continue
+				}
+				if targetStatus == string(dto.SprintStatusCompleted) {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Cannot assign a task to a completed sprint"
+					continue
+				}
+			}
+		}
+
+		// 4. Validate Status Transition to Blocked
+		if item.Status != nil && *item.Status == string(dto.TaskStatusBlocked) {
+			if item.BlockedReason == nil || strings.TrimSpace(*item.BlockedReason) == "" {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Moving to Blocked requires a blocked reason"
+				continue
+			}
+		}
+
+		// 5. Track Changes and Update Task
+		var changes []string
+		if item.Status != nil && *item.Status != task.Status {
+			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, *item.Status))
+			task.Status = *item.Status
+			if *item.Status == string(dto.TaskStatusBlocked) {
+				task.BlockedReason = *item.BlockedReason
+			} else {
+				task.BlockedReason = ""
+			}
+		}
+		if item.AssigneeID != nil {
+			oldAssignee := "nil"
+			if task.AssigneeID != nil {
+				oldAssignee = task.AssigneeID.String()
+			}
+			newAssignee := "nil"
+			if *item.AssigneeID != uuid.Nil {
+				newAssignee = item.AssigneeID.String()
+			}
+			if oldAssignee != newAssignee {
+				changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
+				if *item.AssigneeID == uuid.Nil {
+					task.AssigneeID = nil
+				} else {
+					task.AssigneeID = item.AssigneeID
+				}
+			}
+		}
+		if item.SprintID != nil {
+			oldSprint := "nil"
+			if task.SprintID != nil {
+				oldSprint = task.SprintID.String()
+			}
+			newSprint := "nil"
+			if *item.SprintID != uuid.Nil {
+				newSprint = item.SprintID.String()
+			}
+			if oldSprint != newSprint {
+				changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
+				if *item.SprintID == uuid.Nil {
+					task.SprintID = nil
+				} else {
+					task.SprintID = item.SprintID
+				}
+			}
+		}
+
+		if len(changes) > 0 {
+			updateErr := s.taskRepo.UpdateTask(task)
+			if updateErr != nil {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = updateErr.Message
+				continue
+			}
+
+			// Create individual task audit log
+			detail := fmt.Sprintf("Task %s updated in bulk: %s", task.Key, strings.Join(changes, ", "))
+			auditLog := models.AuditLog{
+				UserID:         &req.UserID,
+				OrganizationID: &req.OrganizationID,
+				ProjectID:      &req.ProjectID,
+				Action:         "task_updated",
+				ResourceType:   "task",
+				ResourceID:     task.ID.String(),
+				Details:        detail,
+				CreatedAt:      time.Now(),
+			}
+			if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+				s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+			}
+		}
+		updatedCount++
+	}
+
+	// Create bulk operation audit log
+	var bulkDetails string
+	if updatedCount > 0 {
+		bulkDetails = fmt.Sprintf("Bulk update completed. Successfully updated %d tasks. Failed tasks: %d.", updatedCount, len(failedTaskIDs))
+	} else {
+		bulkDetails = fmt.Sprintf("Bulk update executed but 0 tasks were updated. Failed tasks: %d.", len(failedTaskIDs))
+	}
+	bulkAuditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "tasks_bulk_updated",
+		ResourceType:   "task",
+		ResourceID:     req.ProjectID.String(),
+		Details:        bulkDetails,
+		CreatedAt:      time.Now(),
+	}
+	if err := s.projectRepo.CreateAuditLog(bulkAuditLog); err != nil {
+		s.logger.Warn("Failed to create bulk audit log", zap.Any("error", err))
+	}
+
+	return &responsedto.BulkUpdateTasksResponse{
+		UpdatedCount:   updatedCount,
+		FailedTaskIDs:  failedTaskIDs,
+		FailureReasons: failureReasons,
+	}, nil
+}
+
+func (s *taskService) checkProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
+	project, err := s.projectRepo.GetProjectByID(projectID)
+	if err != nil {
+		return false, err
+	}
+
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+		return true, nil
+	}
+
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
+	if err != nil {
+		return false, err
+	}
+
+	if member.ProjectRole == string(dto.ProjectRoleViewer) {
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Viewers do not have permission to modify task labels",
+		}
+	}
+
+	return true, nil
+}
+
+func (s *taskService) AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error {
+	authorized, err := s.checkProjectMember(projectID, userID)
+	if err != nil {
+		return err
+	}
+	if !authorized {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to modify task labels in this project",
+		}
+	}
+
+	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
+	if err != nil {
+		return err
+	}
+
+	labels, verifyErr := s.taskRepo.VerifyLabelIDs(projectID, []uuid.UUID{labelID})
+	if verifyErr != nil {
+		return verifyErr
+	}
+	label := labels[0]
+
+	for _, l := range task.Labels {
+		if l.ID == labelID {
+			return nil
+		}
+	}
+
+	err = s.taskRepo.AttachLabel(taskID, &label)
+	if err != nil {
+		return err
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "task_updated",
+		ResourceType:   "task",
+		ResourceID:     taskID.String(),
+		Details:        fmt.Sprintf("Task %s updated: labels changed (attached '%s')", task.Key, label.Name),
+		CreatedAt:      time.Now(),
+	}
+	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return nil
+}
+
+func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error {
+	authorized, err := s.checkProjectMember(projectID, userID)
+	if err != nil {
+		return err
+	}
+	if !authorized {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to modify task labels in this project",
+		}
+	}
+
+	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
+	if err != nil {
+		return err
+	}
+
+	labels, verifyErr := s.taskRepo.VerifyLabelIDs(projectID, []uuid.UUID{labelID})
+	if verifyErr != nil {
+		return verifyErr
+	}
+	label := labels[0]
+
+	attached := false
+	for _, l := range task.Labels {
+		if l.ID == labelID {
+			attached = true
+			break
+		}
+	}
+	if !attached {
+		return nil
+	}
+
+	err = s.taskRepo.RemoveLabel(taskID, &label)
+	if err != nil {
+		return err
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "task_updated",
+		ResourceType:   "task",
+		ResourceID:     taskID.String(),
+		Details:        fmt.Sprintf("Task %s updated: labels changed (removed '%s')", task.Key, label.Name),
+		CreatedAt:      time.Now(),
+	}
+	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return nil
+}
+
+func isFibonacci(n int) bool {
+	if n < 0 {
+		return false
+	}
+	if n == 0 || n == 1 {
+		return true
+	}
+	a, b := 1, 1
+	for b < n {
+		a, b = b, a+b
+	}
+	return b == n
+}
+
+func isBackdated(t time.Time) bool {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tLocal := t.In(now.Location())
+	tDate := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, now.Location())
+	return tDate.Before(today)
 }

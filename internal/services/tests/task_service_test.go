@@ -1,6 +1,8 @@
 package services_test
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,6 +25,8 @@ type stubTaskRepo struct {
 	restoreErr      *response.Error
 	listErr         *response.Error
 	lastCreatedTask *models.Task
+	validSprints    map[uuid.UUID]bool
+	sprintStatuses  map[uuid.UUID]string
 }
 
 func (s *stubTaskRepo) CreateTask(task *models.Task) *response.Error {
@@ -110,6 +114,43 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		if !filter.IsDeleted && t.DeletedAt.Valid {
 			continue
 		}
+		if len(filter.Labels) > 0 {
+			isMatchAll := (strings.ToLower(filter.Match) == "all")
+			if isMatchAll {
+				matchedCount := 0
+				for _, fl := range filter.Labels {
+					found := false
+					for _, tl := range t.Labels {
+						if tl.ID.String() == fl || strings.ToLower(tl.Name) == strings.ToLower(fl) {
+							found = true
+							break
+						}
+					}
+					if found {
+						matchedCount++
+					}
+				}
+				if matchedCount < len(filter.Labels) {
+					continue
+				}
+			} else {
+				matched := false
+				for _, fl := range filter.Labels {
+					for _, tl := range t.Labels {
+						if tl.ID.String() == fl || strings.ToLower(tl.Name) == strings.ToLower(fl) {
+							matched = true
+							break
+						}
+					}
+					if matched {
+						break
+					}
+				}
+				if !matched {
+					continue
+				}
+			}
+		}
 		res = append(res, *t)
 	}
 	return res, response.Pagination{}, nil
@@ -118,6 +159,95 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 func (s *stubTaskRepo) GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error) {
 	s.seqNumber++
 	return s.seqNumber, nil
+}
+
+func (s *stubTaskRepo) IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *response.Error) {
+	if s.validSprints == nil {
+		return true, nil
+	}
+	return s.validSprints[sprintID], nil
+}
+
+func (s *stubTaskRepo) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error) {
+	uniqueIDsMap := make(map[uuid.UUID]bool)
+	var deduplicatedIDs []uuid.UUID
+	for _, id := range labelIDs {
+		if !uniqueIDsMap[id] {
+			uniqueIDsMap[id] = true
+			deduplicatedIDs = append(deduplicatedIDs, id)
+		}
+	}
+
+	var labels []models.Label
+	for _, id := range deduplicatedIDs {
+		labels = append(labels, models.Label{
+			ID:        id,
+			ProjectID: projectID,
+			Name:      "Mock Label",
+			Color:     "#FF0000",
+		})
+	}
+	return labels, nil
+}
+
+func (s *stubTaskRepo) UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error {
+	if task, ok := s.tasks[taskID]; ok {
+		task.Labels = labels
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error {
+	if t, ok := s.tasks[task.ID]; ok {
+		*t = *task
+		t.Labels = labels
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) AttachLabel(taskID uuid.UUID, label *models.Label) *response.Error {
+	if task, ok := s.tasks[taskID]; ok {
+		for _, l := range task.Labels {
+			if l.ID == label.ID {
+				return nil
+			}
+		}
+		task.Labels = append(task.Labels, *label)
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) RemoveLabel(taskID uuid.UUID, label *models.Label) *response.Error {
+	if task, ok := s.tasks[taskID]; ok {
+		var newLabels []models.Label
+		for _, l := range task.Labels {
+			if l.ID != label.ID {
+				newLabels = append(newLabels, l)
+			}
+		}
+		task.Labels = newLabels
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error {
+	for _, t := range s.tasks {
+		if t.SprintID != nil && *t.SprintID == sprintID && t.Status != "completed" {
+			t.SprintID = nil
+		}
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) GetSprintStatus(sprintID uuid.UUID) (string, *response.Error) {
+	if s.sprintStatuses == nil {
+		return "planning", nil
+	}
+	status, ok := s.sprintStatuses[sprintID]
+	if !ok {
+		return "planning", nil
+	}
+	return status, nil
 }
 
 func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
@@ -270,8 +400,11 @@ func TestTaskService_DeleteAndRestore_RetentionChecks(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected restore to fail after retention expired, got nil")
 	}
-	if err.Code != response.ErrBadRequest {
-		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	if err.Code != response.ErrTaskPermanentlyDeleted {
+		t.Fatalf("expected TASK_PERMANENTLY_DELETED, got %s", err.Code)
+	}
+	if err.StatusCode != 410 {
+		t.Fatalf("expected status code 410, got %d", err.StatusCode)
 	}
 }
 
@@ -330,3 +463,715 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 		t.Fatalf("expected cloned title modifier, got %s", cloned.Title)
 	}
 }
+
+func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+
+	// Define users with global roles
+	globalMemberUser := models.User{
+		ID:             userID,
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember),
+	}
+
+	nonAssigneeMember := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember),
+	}
+
+	authRepo := &sprintAuthRepoStub{user: globalMemberUser}
+	projectRepo := &stubProjectRepo{
+		project:     models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+		isMember:    true,
+		projectRole: string(dto.ProjectRoleDeveloper), // Project-level Developer
+	}
+
+	existingTask := &models.Task{
+		ID:         taskID,
+		ProjectID:  projectID,
+		Key:        "WP-1",
+		Title:      "Test Workflow",
+		Type:       string(dto.TaskTypeTask),
+		Priority:   string(dto.TaskPriorityMedium),
+		Status:     string(dto.TaskStatusTodo),
+		AssigneeID: &userID,
+	}
+
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Test 1: Developer valid sequential transition (todo -> in_progress)
+	inProgressStatus := string(dto.TaskStatusInProgress)
+	_, err := service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &inProgressStatus,
+	})
+	if err != nil {
+		t.Fatalf("expected developer to transition to in_progress successfully, got %v", err)
+	}
+	if existingTask.Status != string(dto.TaskStatusInProgress) {
+		t.Fatalf("expected task status to be in_progress, got %s", existingTask.Status)
+	}
+
+	// Test 2: Developer invalid transition (in_progress -> completed directly)
+	completedStatus := string(dto.TaskStatusCompleted)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &completedStatus,
+	})
+	if err == nil {
+		t.Fatal("expected developer transition from in_progress to completed directly to fail")
+	}
+	if err.Code != response.ErrInvalidStatusTransition {
+		t.Fatalf("expected ErrInvalidStatusTransition, got %v", err.Code)
+	}
+
+	// Test 3: Project Manager (ProjectRole) can override transition rules (in_progress -> completed directly)
+	pmUser := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember), // Global RoleMember, but PM in project
+	}
+	authRepo.user = pmUser
+	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    pmUser.ID,
+		Status:    &completedStatus,
+	})
+	if err != nil {
+		t.Fatalf("expected project manager to successfully transition from in_progress to completed, got %v", err)
+	}
+	if existingTask.Status != string(dto.TaskStatusCompleted) {
+		t.Fatalf("expected task status to be completed, got %s", existingTask.Status)
+	}
+
+	// Reset task status to todo and set role back to developer for next tests
+	existingTask.Status = string(dto.TaskStatusTodo)
+	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
+
+	// Test 4: Transition to blocked requires a reason
+	blockedStatus := string(dto.TaskStatusBlocked)
+	authRepo.user = globalMemberUser
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &blockedStatus,
+	})
+	if err == nil {
+		t.Fatal("expected transition to blocked without reason to fail")
+	}
+
+	blockedReason := "API dependency not ready"
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:        taskID,
+		ProjectID:     projectID,
+		UserID:        userID,
+		Status:        &blockedStatus,
+		BlockedReason: &blockedReason,
+	})
+	if err != nil {
+		t.Fatalf("expected transition to blocked with reason to succeed, got %v", err)
+	}
+	if existingTask.Status != string(dto.TaskStatusBlocked) {
+		t.Fatalf("expected status to be blocked, got %s", existingTask.Status)
+	}
+	if existingTask.BlockedReason != blockedReason {
+		t.Fatalf("expected blocked reason to be set, got %s", existingTask.BlockedReason)
+	}
+
+	// Test 5: Transition out of blocked clears blocked reason
+	todoStatus := string(dto.TaskStatusTodo)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &todoStatus,
+	})
+	if err != nil {
+		t.Fatalf("expected transition out of blocked to succeed, got %v", err)
+	}
+	if existingTask.BlockedReason != "" {
+		t.Fatalf("expected blocked reason to be cleared, got %s", existingTask.BlockedReason)
+	}
+
+	// Test 6: Non-assignee Developer cannot increment actual hours
+	authRepo.user = nonAssigneeMember
+	actualHrs := 5.0
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      nonAssigneeMember.ID,
+		ActualHours: &actualHrs,
+	})
+	if err == nil {
+		t.Fatal("expected non-assignee actual hours update to fail")
+	}
+
+	// Test 7: Assignee Developer can increment actual hours
+	authRepo.user = globalMemberUser
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      userID,
+		ActualHours: &actualHrs,
+	})
+	if err != nil {
+		t.Fatalf("expected assignee actual hours increment to succeed, got %v", err)
+	}
+	if existingTask.ActualHours == nil || *existingTask.ActualHours != 5.0 {
+		t.Fatalf("expected actual hours to be updated to 5.0")
+	}
+
+	// Test 8: Assignee Developer cannot decrement actual hours
+	lowerHrs := 4.0
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      userID,
+		ActualHours: &lowerHrs,
+	})
+	if err == nil {
+		t.Fatal("expected assignee actual hours decrement to fail")
+	}
+
+	// Test 9: PM can update/decrement actual hours
+	authRepo.user = pmUser
+	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:      taskID,
+		ProjectID:   projectID,
+		UserID:      pmUser.ID,
+		ActualHours: &lowerHrs,
+	})
+	if err != nil {
+		t.Fatalf("expected Project Manager actual hours decrement to succeed, got %v", err)
+	}
+	if existingTask.ActualHours == nil || *existingTask.ActualHours != 4.0 {
+		t.Fatalf("expected actual hours to be decremented to 4.0")
+	}
+
+	// Test 10: Assignee must be a member of the project
+	projectRepo.isMember = false // mock assignee is not project member
+	nonMemberUUID := uuid.Must(uuid.NewV4())
+	authRepo.user = pmUser // update by PM
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:     taskID,
+		ProjectID:  projectID,
+		UserID:     pmUser.ID,
+		AssigneeID: &nonMemberUUID,
+	})
+	if err == nil {
+		t.Fatal("expected assignment to non-member to fail")
+	}
+
+	// Test 11: Viewers cannot update tasks
+	viewerUser := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleMember),
+	}
+	authRepo.user = viewerUser
+	projectRepo.projectRole = string(dto.ProjectRoleViewer)
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    viewerUser.ID,
+		Title:     &blockedReason,
+	})
+	if err == nil {
+		t.Fatal("expected viewer task update to be rejected")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden, got %d", err.StatusCode)
+	}
+
+	// Test 12: Super Admins are not allowed to update tasks
+	superAdminUser := models.User{
+		ID:             uuid.Must(uuid.NewV4()),
+		OrganizationID: &orgID,
+		Role:           string(dto.RoleSuperAdmin),
+	}
+	authRepo.user = superAdminUser
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    superAdminUser.ID,
+	})
+	if err == nil {
+		t.Fatal("expected super_admin task update to be rejected")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden for super_admin, got %d", err.StatusCode)
+	}
+}
+
+func TestTaskService_BulkUpdateTasks(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           string(dto.RoleMember),
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:     models.Project{ID: projectID, OrganizationID: orgID, Name: "WorkPilot Backend"},
+		isMember:    true,
+		projectRole: string(dto.ProjectRoleProjectManager),
+	}
+
+	taskID1 := uuid.Must(uuid.NewV4())
+	taskID2 := uuid.Must(uuid.NewV4())
+	taskID3 := uuid.Must(uuid.NewV4())
+
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{
+			taskID1: {
+				ID:        taskID1,
+				ProjectID: projectID,
+				Key:       "WB-1",
+				Status:    "todo",
+			},
+			taskID2: {
+				ID:        taskID2,
+				ProjectID: projectID,
+				Key:       "WB-2",
+				Status:    "in_progress",
+			},
+		},
+		validSprints: make(map[uuid.UUID]bool),
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Test 1: Non-PM/Admin user (Developer) gets 403 Forbidden
+	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
+	authRepo.user.Role = string(dto.RoleMember)
+	req := dto.BulkUpdateTasksRequest{
+		Tasks: []dto.BulkUpdateTaskItem{
+			{
+				TaskID: taskID1,
+				Status: pointer("completed"),
+			},
+		},
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	}
+	_, err := service.BulkUpdateTasks(req)
+	if err == nil {
+		t.Fatal("expected non-PM/Admin user to be rejected")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden, got %d", err.StatusCode)
+	}
+
+	// Reset role to Project Manager
+	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
+
+	// Test 2: Bulk Update with mixed valid and invalid tasks
+	sprintID := uuid.Must(uuid.NewV4())
+	taskRepo.validSprints[sprintID] = true
+
+	invalidSprintID := uuid.Must(uuid.NewV4())
+
+	req = dto.BulkUpdateTasksRequest{
+		Tasks: []dto.BulkUpdateTaskItem{
+			// 1. Valid update
+			{
+				TaskID:   taskID1,
+				Status:   pointer("completed"),
+				SprintID: &sprintID,
+			},
+			// 2. Task not found
+			{
+				TaskID: taskID3,
+				Status: pointer("completed"),
+			},
+			// 3. Sprint not in project
+			{
+				TaskID:   taskID2,
+				SprintID: &invalidSprintID,
+			},
+			// 4. Blocked status without reason
+			{
+				TaskID: taskID2,
+				Status: pointer("blocked"),
+			},
+		},
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	}
+
+	res, err := service.BulkUpdateTasks(req)
+	if err != nil {
+		t.Fatalf("expected no general error, got %v", err)
+	}
+
+	if res.UpdatedCount != 1 {
+		t.Fatalf("expected 1 task to be updated, got %d", res.UpdatedCount)
+	}
+
+	if len(res.FailedTaskIDs) != 3 {
+		t.Fatalf("expected 3 task failures, got %d", len(res.FailedTaskIDs))
+	}
+
+	// Verify failure reasons
+	reasonNotFound, exists := res.FailureReasons[taskID3.String()]
+	if !exists || reasonNotFound != "Task not found" {
+		t.Fatalf("expected 'Task not found' for task3, got '%s'", reasonNotFound)
+	}
+
+	reasonBlocked, exists := res.FailureReasons[taskID2.String()]
+	if !exists {
+		t.Fatalf("expected failure reason for task2")
+	}
+	if reasonBlocked != "Sprint must belong to the project" && reasonBlocked != "Moving to Blocked requires a blocked reason" {
+		t.Fatalf("expected failure reason related to sprint/blocked, got '%s'", reasonBlocked)
+	}
+
+	// Verify task1 actually updated
+	updatedTask1 := taskRepo.tasks[taskID1]
+	if updatedTask1.Status != "completed" {
+		t.Fatalf("expected task1 status to be completed, got %s", updatedTask1.Status)
+	}
+	if updatedTask1.SprintID == nil || *updatedTask1.SprintID != sprintID {
+		t.Fatalf("expected task1 sprint ID to be updated")
+	}
+}
+
+func pointer[T any](v T) *T {
+	return &v
+}
+
+func TestTaskService_CreateAndUpdateTask_WithLabels(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Create Task with Labels
+	labelID := uuid.Must(uuid.NewV4())
+	createReq := dto.CreateTaskRequest{
+		Title:          "Task with label",
+		Type:           "task",
+		Priority:       "medium",
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		LabelIDs:       []uuid.UUID{labelID},
+	}
+
+	res, err := service.CreateTask(createReq)
+	if err != nil {
+		t.Fatalf("expected create task with labels to succeed, got: %v", err)
+	}
+
+	if len(res.Labels) != 1 || res.Labels[0].ID != labelID {
+		t.Errorf("expected task to have 1 label with ID %s, got: %+v", labelID, res.Labels)
+	}
+
+	// Update Task with Labels
+	newLabelID := uuid.Must(uuid.NewV4())
+	updateLabelIDs := []uuid.UUID{newLabelID}
+	updateReq := dto.UpdateTaskRequest{
+		TaskID:         res.ID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		LabelIDs:       &updateLabelIDs,
+	}
+
+	resUpdate, err := service.UpdateTask(updateReq)
+	if err != nil {
+		t.Fatalf("expected update task labels to succeed, got: %v", err)
+	}
+
+	if len(resUpdate.Labels) != 1 || resUpdate.Labels[0].ID != newLabelID {
+		t.Errorf("expected updated task to have 1 label with ID %s, got: %+v", newLabelID, resUpdate.Labels)
+	}
+}
+
+func TestTaskService_GetTasks_LabelFiltering(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+
+	label1 := models.Label{ID: uuid.Must(uuid.NewV4()), Name: "Frontend", Color: "#0000FF"}
+	label2 := models.Label{ID: uuid.Must(uuid.NewV4()), Name: "Bug", Color: "#FF0000"}
+
+	task1 := models.Task{
+		ID:        uuid.Must(uuid.NewV4()),
+		Title:     "Task 1",
+		ProjectID: projectID,
+		Labels:    []models.Label{label1},
+	}
+	task2 := models.Task{
+		ID:        uuid.Must(uuid.NewV4()),
+		Title:     "Task 2",
+		ProjectID: projectID,
+		Labels:    []models.Label{label2},
+	}
+	task3 := models.Task{
+		ID:        uuid.Must(uuid.NewV4()),
+		Title:     "Task 3",
+		ProjectID: projectID,
+		Labels:    []models.Label{label1, label2},
+	}
+
+	taskRepo := &stubTaskRepo{tasks: map[uuid.UUID]*models.Task{
+		task1.ID: &task1,
+		task2.ID: &task2,
+		task3.ID: &task3,
+	}}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// 1. Filter by label1 ID
+	res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{label1.ID.String()},
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 2 {
+		t.Errorf("expected 2 tasks for label1, got: %d", len(res))
+	}
+
+	// 2. Filter by label2 Name
+	res, _, err = service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{"Bug"},
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 2 {
+		t.Errorf("expected 2 tasks for label 'Bug', got: %d", len(res))
+	}
+
+	// 3. Filter by both label1 and label2
+	res, _, err = service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{"Frontend", "Bug"},
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 3 {
+		t.Errorf("expected 3 tasks for 'Frontend' or 'Bug', got: %d", len(res))
+	}
+
+	// 4. AND filter: Filter by both label1 and label2 with match=all
+	res, _, err = service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+		Labels: []string{"Frontend", "Bug"},
+		Match:  "all",
+	})
+	if err != nil {
+		t.Fatalf("expected GetTasks to succeed, got: %v", err)
+	}
+	if len(res) != 1 {
+		t.Errorf("expected 1 task matching both 'Frontend' and 'Bug', got: %d", len(res))
+	}
+}
+
+func TestTaskService_AttachAndRemoveLabel(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+
+	labelID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+	task := models.Task{
+		ID:        taskID,
+		Title:     "Task 1",
+		ProjectID: projectID,
+		Labels:    []models.Label{},
+	}
+
+	taskRepo := &stubTaskRepo{tasks: map[uuid.UUID]*models.Task{
+		taskID: &task,
+	}}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, zap.NewNop())
+
+	// Attach Label (should succeed)
+	err := service.AttachLabelToTask(projectID, taskID, labelID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected AttachLabelToTask to succeed, got: %v", err)
+	}
+	if len(task.Labels) != 1 || task.Labels[0].ID != labelID {
+		t.Errorf("expected 1 label with ID %s attached to task, got: %+v", labelID, task.Labels)
+	}
+
+	// Idempotency: Attach same label again (should be no-op/succeed)
+	err = service.AttachLabelToTask(projectID, taskID, labelID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected AttachLabelToTask to succeed (idempotent), got: %v", err)
+	}
+	if len(task.Labels) != 1 {
+		t.Errorf("expected task to still have exactly 1 label, got: %d", len(task.Labels))
+	}
+
+	// Remove Label (should succeed)
+	err = service.RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected RemoveLabelFromTask to succeed, got: %v", err)
+	}
+	if len(task.Labels) != 0 {
+		t.Errorf("expected task to have 0 labels, got: %d", len(task.Labels))
+	}
+}
+
+func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	// Stubs
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember), IsActive: true}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+		isMember: true,
+	}
+	taskRepo := &stubTaskRepo{
+		tasks:          make(map[uuid.UUID]*models.Task),
+		sprintStatuses: make(map[uuid.UUID]string),
+	}
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, logger)
+
+	// Case 1: Title too short
+	_, err := service.CreateTask(dto.CreateTaskRequest{
+		Title:          "ab",
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for short title")
+	}
+
+	// Case 2: Title too long
+	_, err = service.CreateTask(dto.CreateTaskRequest{
+		Title:          string(make([]byte, 201)),
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for long title")
+	}
+
+	// Case 3: Story points not Fibonacci
+	_, err = service.CreateTask(dto.CreateTaskRequest{
+		Title:          "Valid Title",
+		StoryPoints:    4,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for non-Fibonacci story points")
+	}
+
+	// Case 4: Backdated due date for non-PM/Admin
+	backdated := time.Now().Add(-5 * 24 * time.Hour)
+	_, err = service.CreateTask(dto.CreateTaskRequest{
+		Title:          "Valid Title",
+		DueDate:        &backdated,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for backdated due date")
+	}
+
+	// Case 5: Backdated due date allowed for PM/Admin
+	authRepo.user.Role = string(dto.RoleOrgAdmin)
+	createdTask, err := service.CreateTask(dto.CreateTaskRequest{
+		Title:          "Valid Title",
+		DueDate:        &backdated,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err != nil {
+		t.Fatalf("expected PM/Admin to be allowed to backdate, got %v", err)
+	}
+
+	// Case 6: Actual Hours update on completed task
+	taskID := createdTask.ID
+	taskRepo.tasks[taskID].Status = string(dto.TaskStatusCompleted)
+	authRepo.user.Role = string(dto.RoleMember)
+
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:         taskID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		ActualHours:    pointer(5.0),
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation when updating actual hours for a completed task")
+	}
+
+	// Case 7: Changing sprint of task in completed sprint
+	completedSprintID := uuid.Must(uuid.NewV4())
+	newSprintID := uuid.Must(uuid.NewV4())
+	taskRepo.sprintStatuses[completedSprintID] = "completed"
+	taskRepo.sprintStatuses[newSprintID] = "active"
+
+	taskRepo.tasks[taskID].Status = string(dto.TaskStatusInProgress)
+	taskRepo.tasks[taskID].SprintID = &completedSprintID
+	taskRepo.tasks[taskID].Sprint = &models.Sprint{ID: completedSprintID, Status: "completed"}
+
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:         taskID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		SprintID:       &newSprintID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation when changing sprint of a task in a completed sprint")
+	}
+}
+

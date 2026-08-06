@@ -30,7 +30,7 @@ The repository implements the functional specifications described in the **TaskF
 | Logging | **Uber Zap** |
 | Config | **environment variables** |
 | Validation | **go-playground/validator v10** |
-| Email | **go-simple-mail (SMTP with Gmail/Brevo)** |
+| Email | **Brevo API (Primary) & Resend API (Fallback)** |
 | Testing | **testing + testify** |
 | Containerization | **Docker & Docker‑Compose** |
 | CI/CD | **GitHub Actions** |

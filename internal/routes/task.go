@@ -29,10 +29,13 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 	{
 		tsk.POST("/", middleware.ValidateJWT(), taskHandler.CreateTask)
 		tsk.GET("/", middleware.ValidateJWT(), taskHandler.GetTasks)
+		tsk.PATCH("/bulk", middleware.ValidateJWT(), taskHandler.BulkUpdateTasks)
 		tsk.GET("/:task_id", middleware.ValidateJWT(), taskHandler.GetTaskByID)
 		tsk.PATCH("/:task_id", middleware.ValidateJWT(), taskHandler.UpdateTask)
 		tsk.DELETE("/:task_id", middleware.ValidateJWT(), taskHandler.DeleteTask)
 		tsk.POST("/:task_id/restore", middleware.ValidateJWT(), taskHandler.RestoreTask)
 		tsk.POST("/:task_id/clone", middleware.ValidateJWT(), taskHandler.CloneTask)
+		tsk.PUT("/:task_id/labels/:label_id", middleware.ValidateJWT(), taskHandler.AttachLabelToTask)
+		tsk.DELETE("/:task_id/labels/:label_id", middleware.ValidateJWT(), taskHandler.RemoveLabelFromTask)
 	}
 }
