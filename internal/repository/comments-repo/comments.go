@@ -91,9 +91,6 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 
 	if err := baseQuery.
 		Preload("User").
-		Preload("Replies", func(db *gorm.DB) *gorm.DB {
-			return db.Order("created_at DESC")
-		}).
 		Order("created_at DESC").
 		Limit(req.PageSize).
 		Offset(offset).
