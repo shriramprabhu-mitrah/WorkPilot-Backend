@@ -27,6 +27,7 @@ type TaskRepository interface {
 	RemoveLabel(taskID uuid.UUID, label *models.Label) *response.Error
 	MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error
 	GetSprintStatus(sprintID uuid.UUID) (string, *response.Error)
+	GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error)
 }
 
 func InitTaskRepository(deps models.Config) TaskRepository {

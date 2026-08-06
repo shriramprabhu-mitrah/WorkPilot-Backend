@@ -67,3 +67,37 @@ func SprintFromModel(sprint models.Sprint) Sprint {
 		EndDate:   sprint.EndDate,
 	}
 }
+
+func CommentsFromModel(comment models.Comments) CommentsResponse {
+	resp := CommentsResponse{
+		ID:              comment.ID,
+		TaskID:          comment.TaskID,
+		UserID:          comment.UserID,
+		UserName:        comment.User.UserName,
+		FullName:        comment.User.FullName,
+		Email:           comment.User.Email,
+		AvatarURL:       comment.User.AvatarURL,
+		Content:         comment.Content,
+		ParentCommentID: comment.ParentCommentID,
+		CreatedAt:       comment.CreatedAt,
+		UpdatedAt:       comment.UpdatedAt,
+		IsDeleted:       comment.IsDeleted,
+	}
+
+	if comment.ParentComment != nil {
+		resp.ParentComment = &ParentUserResponse{
+			ID:        comment.ParentComment.ID,
+			UserID:    comment.ParentComment.UserID,
+			UserName:  comment.ParentComment.User.UserName,
+			FullName:  comment.ParentComment.User.FullName,
+			Email:     comment.ParentComment.User.Email,
+			AvatarURL: comment.ParentComment.User.AvatarURL,
+			Content:   comment.ParentComment.Content,
+			CreatedAt: comment.ParentComment.CreatedAt,
+			UpdatedAt: comment.ParentComment.UpdatedAt,
+			IsDeleted: comment.ParentComment.IsDeleted,
+		}
+	}
+
+	return resp
+}

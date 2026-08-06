@@ -51,7 +51,16 @@ func (s *stubTaskRepo) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.T
 	}
 	return task, nil
 }
-
+func (s *stubTaskRepo) GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	task, ok := s.tasks[id]
+	if !ok || task.DeletedAt.Valid {
+		return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
+	}
+	return task, nil
+}
 func (s *stubTaskRepo) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	if s.getErr != nil {
 		return nil, s.getErr

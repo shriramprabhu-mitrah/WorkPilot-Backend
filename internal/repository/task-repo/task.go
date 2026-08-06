@@ -448,3 +448,29 @@ func (d *taskDatabase) GetSprintStatus(sprintID uuid.UUID) (string, *response.Er
 	}
 	return sprint.Status, nil
 }
+
+func (d *taskDatabase) GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error) {
+	var task models.Task
+	err := d.db.
+		Preload("Sprint").
+		Preload("Project").
+		Preload("Assignee").
+		Where("id = ?", id).
+		First(&task).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Task not found",
+			}
+		}
+		d.logger.Error("Failed to fetch task", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch task",
+		}
+	}
+	return &task, nil
+}

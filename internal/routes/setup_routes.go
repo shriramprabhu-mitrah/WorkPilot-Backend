@@ -16,6 +16,7 @@ func SetupRoutes(deps models.Config) {
 		SprintRoutes(deps, api)
 		TaskRoutes(deps, api)
 		LabelRoutes(deps, api)
+		CommentsRoutes(deps, api)
 	}
 
 }
