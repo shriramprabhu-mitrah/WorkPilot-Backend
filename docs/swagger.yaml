@@ -78,7 +78,7 @@ definitions:
     required:
     - content
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest:
+  github_com_ms-kanban-server_internal_handlers_dto_request.CreateLabelRequest:
     properties:
       color:
         type: string
@@ -326,22 +326,6 @@ definitions:
     - SprintStatusCompleted
     - SprintStatusCancelled
     - SprintStatusArchived
-  github_com_ms-kanban-server_internal_handlers_dto_request.TeamSize:
-    enum:
-    - 1-10
-    - 11-50
-    - 51-200
-    - 201-500
-    - 501-1000
-    - 1000+
-    type: string
-    x-enum-varnames:
-    - TeamSize1To10
-    - TeamSize11To50
-    - TeamSize51To200
-    - TeamSize201To500
-    - TeamSize501To1000
-    - TeamSize1000Plus
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateCommentsRequest:
     properties:
       content:
@@ -349,7 +333,7 @@ definitions:
     required:
     - content
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest:
+  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateLabelRequest:
     properties:
       color:
         type: string
@@ -541,19 +525,13 @@ definitions:
       username:
         type: string
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_response.ProjectSummary:
+  github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse:
     properties:
-      created_at:
+      project_id:
         type: string
-      created_by:
+      project_name:
         type: string
-      description:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      organization_id:
+      role:
         type: string
       status:
         type: string
@@ -620,6 +598,7 @@ definitions:
     - RESOURCE_NOT_FOUND
     - CONFLICT
     - GONE
+    - TASK_PERMANENTLY_DELETED
     - BUSINESS_RULE_VIOLATION
     - RATE_LIMIT_EXCEEDED
     - INTERNAL_SERVER_ERROR
@@ -636,6 +615,7 @@ definitions:
     - ErrNotFound
     - ErrConflict
     - ErrGone
+    - ErrTaskPermanentlyDeleted
     - ErrBusinessRule
     - ErrRateLimitExceeded
     - ErrInternalServerError
@@ -686,96 +666,6 @@ info:
   title: PMT API
   version: "1.0"
 paths:
-  /api/v1/project/{project_id}/detail:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve a project's details along with its members and sprints.
-      parameters:
-      - description: Project ID (UUID)
-        in: path
-        name: project_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Project retrieved successfully
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectDetail'
-              type: object
-        "400":
-          description: Invalid project ID
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "404":
-          description: Project not found
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Get project details
-      tags:
-      - Projects
-  /api/v1/project/user:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve all projects associated with a specific user within the
-        authenticated organization.
-      parameters:
-      - description: User ID
-        format: uuid
-        in: query
-        name: user_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectSummary'
-                  type: array
-              type: object
-        "400":
-          description: Validation Error
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get projects by user
-      tags:
-      - Projects
   /auth/{user_id}:
     get:
       consumes:
@@ -3114,18 +3004,23 @@ paths:
       summary: Restore Task
       tags:
       - Task
-  /remove-user/:
-    delete:
+  /projects/{project_id}/tasks/bulk:
+    patch:
       consumes:
       - application/json
-      description: RemoveUser.
+      description: Update status, sprint, or assignee of multiple tasks in a project
       parameters:
-      - description: RemoveUser Request
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Bulk Update Tasks Request Body
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.RemoveUserRequest'
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest'
       produces:
       - application/json
       responses:
@@ -3133,21 +3028,29 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "404":
-          description: Not Found
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: RemoveUser
+      summary: Bulk Update Tasks
       tags:
-      - Organizations
+      - Task
   /task/{task_id}/comment:
     get:
       consumes:
@@ -3450,53 +3353,6 @@ paths:
       summary: Delete Comment
       tags:
       - Comments
-  /user-role/:
-    patch:
-      consumes:
-      - application/json
-      description: Update status, sprint, or assignee of multiple tasks in a project
-      parameters:
-      - description: Project ID
-        in: path
-        name: project_id
-        required: true
-        type: string
-      - description: Bulk Update Tasks Request Body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTasksRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
-        "207":
-          description: Multi-Status
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Bulk Update Tasks
-      tags:
-      - Task
 securityDefinitions:
   BearerAuth:
     in: header
