@@ -65,7 +65,7 @@ func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UU
 		return &task.ProjectID, true, nil
 	}
 
-	if user.OrganizationID != nil && *user.OrganizationID == task.Project.OrganizationID {
+	if user.OrganizationID != nil || *user.OrganizationID != task.Project.OrganizationID {
 		return &task.ProjectID, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -194,7 +194,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *
 
 func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsedto.CommentsResponse, *response.Error) {
 
-	_, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
+	projectID, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
 	if err != nil {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
@@ -218,12 +218,25 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 
 	commentResponse := responsedto.CommentsFromModel(*comment)
 
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      projectID,
+		Action:         "Get Comments",
+		ResourceType:   "Task",
+		ResourceID:     req.TaskID.String(),
+		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Getting Comments", req.TaskID.String()),
+		CreatedAt:      time.Now(),
+	}
+
+	s.projectRepo.CreateAuditLog(auditLog)
+
 	return &commentResponse, nil
 }
 
 func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *response.Error {
 
-	_, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
+	projectID, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
 	if err != nil {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
@@ -259,12 +272,24 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *
 		Content: req.Content,
 	}
 
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      projectID,
+		Action:         "Updated Comment",
+		ResourceType:   "Comment",
+		ResourceID:     req.TaskID.String(),
+		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Updated Comment", req.TaskID.String()),
+		CreatedAt:      time.Now(),
+	}
+	s.projectRepo.CreateAuditLog(auditLog)
+
 	return s.commentsRepo.UpdateComment(req.CommentID, updateComment)
 }
 
 func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *response.Error {
 
-	_, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
+	projectID, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
 	if err != nil {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
@@ -315,11 +340,23 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 		return s.commentsRepo.MarkCommentAsDeleted(req.CommentID)
 	}
 
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      projectID,
+		Action:         "Deleted Comment",
+		ResourceType:   "Comment",
+		ResourceID:     req.TaskID.String(),
+		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Deleted Comment", req.TaskID.String()),
+		CreatedAt:      time.Now(),
+	}
+	s.projectRepo.CreateAuditLog(auditLog)
+
 	return s.commentsRepo.DeleteComment(req.CommentID)
 }
 
 func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error) {
-	_, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
+	projectID, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
 	if err != nil {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
@@ -345,11 +382,23 @@ func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]res
 		commentResponse = append(commentResponse, responsedto.CommentsFromModel(comment))
 	}
 
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      projectID,
+		Action:         "Get Comments task ID",
+		ResourceType:   "Comment",
+		ResourceID:     req.TaskID.String(),
+		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Get Comments task ID", req.TaskID.String()),
+		CreatedAt:      time.Now(),
+	}
+	s.projectRepo.CreateAuditLog(auditLog)
+
 	return commentResponse, pagination, nil
 }
 
 func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error) {
-	_, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
+	projectID, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
 	if err != nil {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
@@ -374,6 +423,18 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 	for _, comment := range comments {
 		commentResponse = append(commentResponse, responsedto.CommentsFromModel(comment))
 	}
+
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      projectID,
+		Action:         "Get Comments by Parent Comment ID",
+		ResourceType:   "Comment",
+		ResourceID:     req.TaskID.String(),
+		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Get Comments by Parent Comment ID", req.TaskID.String()),
+		CreatedAt:      time.Now(),
+	}
+	s.projectRepo.CreateAuditLog(auditLog)
 
 	return commentResponse, pagination, nil
 }

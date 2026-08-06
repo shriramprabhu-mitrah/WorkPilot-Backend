@@ -75,7 +75,7 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 	offset := (req.Page - 1) * req.PageSize
 
 	baseQuery := d.db.Model(&models.Comments{}).
-		Where("task_id = ? AND parent_comment_id IS NULL", req.TaskID)
+		Where("organization_id = ? AND task_id = ? AND parent_comment_id IS NULL", req.OrganizationID, req.TaskID)
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
 
@@ -208,7 +208,7 @@ func (d *commentsDatabase) GetCommentsByParentID(req requestdto.GetComments) ([]
 	offset := (req.Page - 1) * req.PageSize
 
 	baseQuery := d.db.Model(&models.Comments{}).
-		Where("task_id = ? AND parent_comment_id = ?", req.TaskID, req.CommentID)
+		Where("organization_id = ? AND task_id = ? AND parent_comment_id = ?", req.OrganizationID, req.TaskID, req.CommentID)
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
 
