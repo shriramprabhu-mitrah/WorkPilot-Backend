@@ -24,18 +24,6 @@ type Sprint struct {
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
-func (s *Sprint) BeforeCreate(tx *gorm.DB) (err error) {
-	if s.ID == uuid.Nil {
-		s.ID, err = uuid.NewV7()
-		if err != nil {
-			return err
-		}
-	}
-	return
-}
-
-
-
 type SprintSnapshot struct {
 	ID                   uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
 	SprintID             uuid.UUID `json:"sprint_id" gorm:"type:uuid;not null;index"`
@@ -47,6 +35,16 @@ type SprintSnapshot struct {
 }
 
 func (s *SprintSnapshot) BeforeCreate(tx *gorm.DB) (err error) {
+	if s.ID == uuid.Nil {
+		s.ID, err = uuid.NewV7()
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func (s *Sprint) BeforeCreate(tx *gorm.DB) (err error) {
 	if s.ID == uuid.Nil {
 		s.ID, err = uuid.NewV7()
 		if err != nil {
