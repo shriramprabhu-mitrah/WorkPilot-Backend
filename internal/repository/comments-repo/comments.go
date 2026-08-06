@@ -38,8 +38,8 @@ func (d *commentsDatabase) GetCommentByID(commentID uuid.UUID) (*models.Comments
 
 	if err := d.db.
 		Preload("User").
-		Preload("Replies").
-		Preload("Replies.User").
+		Preload("ParentComment").
+		Preload("ParentComment.User").
 		First(&comment, "id = ?", commentID).Error; err != nil {
 
 		if err == gorm.ErrRecordNotFound {
@@ -93,6 +93,8 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 
 	if err := baseQuery.
 		Preload("User").
+		Preload("ParentComment").
+		Preload("ParentComment.User").
 		Order("created_at DESC").
 		Limit(req.PageSize).
 		Offset(offset).
@@ -226,6 +228,8 @@ func (d *commentsDatabase) GetCommentsByParentID(req requestdto.GetComments) ([]
 
 	if err := baseQuery.
 		Preload("User").
+		Preload("ParentComment").
+		Preload("ParentComment.User").
 		Order("created_at ASC").
 		Limit(req.PageSize).
 		Offset(offset).

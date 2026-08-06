@@ -17,11 +17,11 @@ type Comments struct {
 	OrganizationID  uuid.UUID      `json:"organization_id" gorm:"type:uuid;not null;index"`
 	Content         string         `json:"content" gorm:"type:text;not null"`
 	ParentCommentID *uuid.UUID     `json:"parent_comment_id,omitempty" gorm:"type:uuid;index"`
+	ParentComment   *Comments      `json:"parent_comment,omitempty" gorm:"foreignKey:ParentCommentID;references:ID"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	IsDeleted       bool           `json:"is_deleted"`
 	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
-	Replies         []Comments     `json:"replies,omitempty" gorm:"foreignKey:ParentCommentID"`
 }
 
 func (c *Comments) BeforeCreate(tx *gorm.DB) (err error) {
