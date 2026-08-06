@@ -38,6 +38,8 @@ func (d *commentsDatabase) GetCommentByID(commentID uuid.UUID) (*models.Comments
 
 	if err := d.db.
 		Preload("User").
+		Preload("Replies").
+		Preload("Replies.User").
 		First(&comment, "id = ?", commentID).Error; err != nil {
 
 		if err == gorm.ErrRecordNotFound {
