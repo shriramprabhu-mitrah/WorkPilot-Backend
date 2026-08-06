@@ -594,6 +594,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -4465,6 +4471,7 @@ const docTemplate = `{
                 "RESOURCE_NOT_FOUND",
                 "CONFLICT",
                 "GONE",
+                "TASK_PERMANENTLY_DELETED",
                 "BUSINESS_RULE_VIOLATION",
                 "RATE_LIMIT_EXCEEDED",
                 "INTERNAL_SERVER_ERROR",
@@ -4481,6 +4488,7 @@ const docTemplate = `{
                 "ErrNotFound",
                 "ErrConflict",
                 "ErrGone",
+                "ErrTaskPermanentlyDeleted",
                 "ErrBusinessRule",
                 "ErrRateLimitExceeded",
                 "ErrInternalServerError",

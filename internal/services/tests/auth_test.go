@@ -444,7 +444,7 @@ func TestSignUpReturnsConflictForDuplicateEmail(t *testing.T) {
 	repo := &stubAuthRepository{emailExists: true}
 	service := InitAuthService(repo, zap.NewNop())
 
-	err := service.SignUp(dto.SignUpRequest{Email: "existing@example.com", Password: "StrongPassword123", FullName: "John", UserName: "johnny"})
+	err := service.SignUp(dto.SignUpRequest{Email: "existing@example.com", Password: "StrongPassword123!", FullName: "John", UserName: "johnny"})
 	if err == nil {
 		t.Fatal("expected error for duplicate email signup, got nil")
 	}
@@ -460,7 +460,7 @@ func TestSignUpReturnsConflictForDuplicateUsername(t *testing.T) {
 	repo := &stubAuthRepository{emailExists: false, usernameExists: true}
 	service := InitAuthService(repo, zap.NewNop())
 
-	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPassword123", FullName: "John", UserName: "existinguser"})
+	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPassword123!", FullName: "John", UserName: "existinguser"})
 	if err == nil {
 		t.Fatal("expected error for duplicate username signup, got nil")
 	}
@@ -497,7 +497,7 @@ func TestChangePasswordVerifiesOldPassword(t *testing.T) {
 	service := InitAuthService(repo, zap.NewNop())
 
 	// Test incorrect old password
-	wrongErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "WrongPassword123", NewPassword: "NewPassword123"})
+	wrongErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "WrongPassword123", NewPassword: "NewPassword123!"})
 	if wrongErr == nil {
 		t.Fatal("expected error when old password is incorrect, got nil")
 	}
@@ -509,7 +509,7 @@ func TestChangePasswordVerifiesOldPassword(t *testing.T) {
 	}
 
 	// Test correct old password
-	validErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "OldPassword123", NewPassword: "NewPassword123"})
+	validErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "OldPassword123", NewPassword: "NewPassword123!"})
 	if validErr != nil {
 		t.Fatalf("expected password change to succeed, got error: %v", validErr)
 	}
