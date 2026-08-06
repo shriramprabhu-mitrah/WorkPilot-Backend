@@ -78,39 +78,41 @@ func (r TaskType) Validate() error {
 }
 
 type CreateTaskRequest struct {
-	Title          string     `json:"title" binding:"required,min=3,max=255"`
-	Description    string     `json:"description"`
-	Type           string     `json:"type" binding:"required,oneof=bug feature task chore story"`
-	Priority       string     `json:"priority" binding:"required,oneof=low medium high critical"`
-	Status         string     `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
-	AssigneeID     *uuid.UUID `json:"assignee_id"`
-	SprintID       *uuid.UUID `json:"sprint_id"`
-	StoryPoints    int        `json:"story_points" binding:"min=0"`
-	DueDate        *time.Time `json:"due_date"`
-	EstimatedHours *float64   `json:"estimated_hours" binding:"omitempty,min=0"`
-	ActualHours    *float64   `json:"actual_hours" binding:"omitempty,min=0"`
-	ProjectID      uuid.UUID  `json:"-"`
-	UserID         uuid.UUID  `json:"-"`
-	OrganizationID uuid.UUID  `json:"-"`
+	Title          string      `json:"title" binding:"required,min=3,max=255"`
+	Description    string      `json:"description"`
+	Type           string      `json:"type" binding:"required,oneof=bug feature task chore story"`
+	Priority       string      `json:"priority" binding:"required,oneof=low medium high critical"`
+	Status         string      `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
+	AssigneeID     *uuid.UUID  `json:"assignee_id"`
+	SprintID       *uuid.UUID  `json:"sprint_id"`
+	StoryPoints    int         `json:"story_points" binding:"min=0"`
+	DueDate        *time.Time  `json:"due_date"`
+	EstimatedHours *float64    `json:"estimated_hours" binding:"omitempty,min=0"`
+	ActualHours    *float64    `json:"actual_hours" binding:"omitempty,min=0"`
+	LabelIDs       []uuid.UUID `json:"label_ids"`
+	ProjectID      uuid.UUID   `json:"-"`
+	UserID         uuid.UUID   `json:"-"`
+	OrganizationID uuid.UUID   `json:"-"`
 }
 
 type UpdateTaskRequest struct {
-	Title          *string    `json:"title" binding:"omitempty,min=3,max=255"`
-	Description    *string    `json:"description"`
-	Type           *string    `json:"type" binding:"omitempty,oneof=bug feature task chore story"`
-	Priority       *string    `json:"priority" binding:"omitempty,oneof=low medium high critical"`
-	Status         *string    `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
-	BlockedReason  *string    `json:"blocked_reason"`
-	AssigneeID     *uuid.UUID `json:"assignee_id"`
-	SprintID       *uuid.UUID `json:"sprint_id"`
-	StoryPoints    *int       `json:"story_points" binding:"omitempty,min=0"`
-	DueDate        *time.Time `json:"due_date"`
-	EstimatedHours *float64   `json:"estimated_hours" binding:"omitempty,min=0"`
-	ActualHours    *float64   `json:"actual_hours" binding:"omitempty,min=0"`
-	TaskID         uuid.UUID  `json:"-"`
-	ProjectID      uuid.UUID  `json:"-"`
-	UserID         uuid.UUID  `json:"-"`
-	OrganizationID uuid.UUID  `json:"-"`
+	Title          *string      `json:"title" binding:"omitempty,min=3,max=255"`
+	Description    *string      `json:"description"`
+	Type           *string      `json:"type" binding:"omitempty,oneof=bug feature task chore story"`
+	Priority       *string      `json:"priority" binding:"omitempty,oneof=low medium high critical"`
+	Status         *string      `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
+	BlockedReason  *string      `json:"blocked_reason"`
+	AssigneeID     *uuid.UUID   `json:"assignee_id"`
+	SprintID       *uuid.UUID   `json:"sprint_id"`
+	StoryPoints    *int         `json:"story_points" binding:"omitempty,min=0"`
+	DueDate        *time.Time   `json:"due_date"`
+	EstimatedHours *float64     `json:"estimated_hours" binding:"omitempty,min=0"`
+	ActualHours    *float64     `json:"actual_hours" binding:"omitempty,min=0"`
+	LabelIDs       *[]uuid.UUID `json:"label_ids"`
+	TaskID         uuid.UUID    `json:"-"`
+	ProjectID      uuid.UUID    `json:"-"`
+	UserID         uuid.UUID    `json:"-"`
+	OrganizationID uuid.UUID    `json:"-"`
 }
 
 type CloneTaskRequest struct {
@@ -124,13 +126,15 @@ type CloneTaskRequest struct {
 type TaskFilter struct {
 	response.PaginationQuery
 	response.SortQuery
-	Status    string `form:"status"`
-	Assignee  string `form:"assignee_id"`
-	Sprint    string `form:"sprint_id"`
-	Search    string `form:"search"`
-	Type      string `form:"type"`
-	Priority  string `form:"priority"`
-	IsDeleted bool   `form:"is_deleted"`
+	Status    string   `form:"status"`
+	Assignee  string   `form:"assignee_id"`
+	Sprint    string   `form:"sprint_id"`
+	Search    string   `form:"search"`
+	Type      string   `form:"type"`
+	Priority  string   `form:"priority"`
+	IsDeleted bool     `form:"is_deleted"`
+	Labels    []string `form:"labels"`
+	Match     string   `form:"match"`
 }
 
 type BulkUpdateTaskItem struct {

@@ -36,7 +36,7 @@ func (d *taskDatabase) CreateTask(task *models.Task) *response.Error {
 
 func (d *taskDatabase) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	var task models.Task
-	err := d.db.Preload("Sprint").Preload("Assignee").
+	err := d.db.Preload("Sprint").Preload("Assignee").Preload("Labels").
 		Where("id = ? AND project_id = ?", id, projectID).
 		First(&task).Error
 	if err != nil {
@@ -59,7 +59,7 @@ func (d *taskDatabase) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.T
 
 func (d *taskDatabase) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	var task models.Task
-	err := d.db.Unscoped().Preload("Sprint").Preload("Assignee").
+	err := d.db.Unscoped().Preload("Sprint").Preload("Assignee").Preload("Labels").
 		Where("id = ? AND project_id = ?", id, projectID).
 		First(&task).Error
 	if err != nil {
@@ -132,9 +132,87 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 	query := d.db.Model(&models.Task{}).
 		Preload("Sprint").
 		Preload("Assignee").
+		Preload("Labels").
 		Where("project_id = ?", projectID)
 
-	// ... [apply status, assignee, sprint, type, priority, search, isDeleted filters as usual] ...
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+
+	if filter.Assignee != "" {
+		query = query.Where("assignee_id = ?", filter.Assignee)
+	}
+
+	if filter.Sprint != "" {
+		if filter.Sprint == "null" || filter.Sprint == "none" {
+			query = query.Where("sprint_id IS NULL")
+		} else {
+			query = query.Where("sprint_id = ?", filter.Sprint)
+		}
+	}
+
+	if filter.Type != "" {
+		query = query.Where("type = ?", filter.Type)
+	}
+
+	if filter.Priority != "" {
+		query = query.Where("priority = ?", filter.Priority)
+	}
+
+	if filter.Search != "" {
+		searchTerm := "%" + strings.ToLower(filter.Search) + "%"
+		query = query.Where("LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(key) LIKE ?", searchTerm, searchTerm, searchTerm)
+	}
+
+	if filter.IsDeleted {
+		query = query.Unscoped().Where("deleted_at IS NOT NULL")
+	}
+
+	if len(filter.Labels) > 0 {
+		var labelIDs []uuid.UUID
+		var labelNames []string
+		uniqueSearchItems := make(map[string]bool)
+		for _, l := range filter.Labels {
+			uniqueSearchItems[strings.ToLower(l)] = true
+			if uid, err := uuid.FromString(l); err == nil {
+				labelIDs = append(labelIDs, uid)
+			} else {
+				labelNames = append(labelNames, strings.ToLower(l))
+			}
+		}
+
+		var resolvedIDs []uuid.UUID
+		dbQuery := d.db.Model(&models.Label{}).Where("project_id = ?", projectID)
+		if len(labelIDs) > 0 && len(labelNames) > 0 {
+			dbQuery = dbQuery.Where("id IN ? OR LOWER(name) IN ?", labelIDs, labelNames)
+		} else if len(labelIDs) > 0 {
+			dbQuery = dbQuery.Where("id IN ?", labelIDs)
+		} else if len(labelNames) > 0 {
+			dbQuery = dbQuery.Where("LOWER(name) IN ?", labelNames)
+		}
+
+		isMatchAll := (strings.ToLower(filter.Match) == "all")
+
+		if err := dbQuery.Pluck("id", &resolvedIDs).Error; err == nil && len(resolvedIDs) > 0 {
+			if isMatchAll && len(resolvedIDs) < len(uniqueSearchItems) {
+				query = query.Where("1 = 0")
+			} else if isMatchAll {
+				subQuery := d.db.Table("task_labels").
+					Select("task_id").
+					Where("label_id IN ?", resolvedIDs).
+					Group("task_id").
+					Having("COUNT(DISTINCT label_id) = ?", len(resolvedIDs))
+				query = query.Where("tasks.id IN (?)", subQuery)
+			} else {
+				subQuery := d.db.Table("task_labels").
+					Select("task_id").
+					Where("label_id IN ?", resolvedIDs)
+				query = query.Where("tasks.id IN (?)", subQuery)
+			}
+		} else {
+			query = query.Where("1 = 0")
+		}
+	}
 
 	// 1. Get the total count of filtered items
 	if err := query.Count(&totalItems).Error; err != nil {
@@ -226,4 +304,111 @@ func (d *taskDatabase) IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *
 		}
 	}
 	return count > 0, nil
+}
+
+func (d *taskDatabase) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error) {
+	if len(labelIDs) == 0 {
+		return []models.Label{}, nil
+	}
+
+	uniqueIDsMap := make(map[uuid.UUID]bool)
+	var deduplicatedIDs []uuid.UUID
+	for _, id := range labelIDs {
+		if !uniqueIDsMap[id] {
+			uniqueIDsMap[id] = true
+			deduplicatedIDs = append(deduplicatedIDs, id)
+		}
+	}
+
+	var labels []models.Label
+	err := d.db.Where("project_id = ? AND id IN ?", projectID, deduplicatedIDs).Find(&labels).Error
+	if err != nil {
+		d.logger.Error("Failed to verify label IDs", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to verify labels",
+		}
+	}
+
+	labelsMap := make(map[uuid.UUID]models.Label)
+	for _, l := range labels {
+		labelsMap[l.ID] = l
+	}
+
+	orderedLabels := make([]models.Label, 0, len(deduplicatedIDs))
+	for _, id := range deduplicatedIDs {
+		l, ok := labelsMap[id]
+		if !ok {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "One or more labels do not exist or do not belong to the project",
+			}
+		}
+		orderedLabels = append(orderedLabels, l)
+	}
+
+	return orderedLabels, nil
+}
+
+func (d *taskDatabase) UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error {
+	err := d.db.Model(&models.Task{ID: taskID}).Association("Labels").Replace(labels)
+	if err != nil {
+		d.logger.Error("Failed to update task labels association", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update task labels association",
+		}
+	}
+	return nil
+}
+
+func (d *taskDatabase) AttachLabel(taskID uuid.UUID, label *models.Label) *response.Error {
+	err := d.db.Model(&models.Task{ID: taskID}).Association("Labels").Append(label)
+	if err != nil {
+		d.logger.Error("Failed to append task label association", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to append task label association",
+		}
+	}
+	return nil
+}
+
+func (d *taskDatabase) RemoveLabel(taskID uuid.UUID, label *models.Label) *response.Error {
+	err := d.db.Model(&models.Task{ID: taskID}).Association("Labels").Delete(label)
+	if err != nil {
+		d.logger.Error("Failed to delete task label association", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete task label association",
+		}
+	}
+	return nil
+}
+
+func (d *taskDatabase) UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error {
+	err := d.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(task).Association("Labels").Replace(labels); err != nil {
+			return err
+		}
+		if err := tx.Updates(task).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		d.logger.Error("Failed to update task with labels in transaction", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update task with labels",
+		}
+	}
+	return nil
 }
