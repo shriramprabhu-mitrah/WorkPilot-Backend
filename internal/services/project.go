@@ -610,8 +610,13 @@ func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) 
 	}
 
 	resp := &responsedto.GetProjectByUserIDResponse{
-		UserID:  req.UserID,
-		Project: make([]responsedto.ProjectResponse, 0, len(projectMembers)),
+		UserID:    req.UserID,
+		FullName:  result.FullName,
+		UserName:  result.UserName,
+		AvatarURL: result.AvatarURL,
+		Email:     result.Email,
+		Role:      result.Role,
+		Project:   make([]responsedto.ProjectResponse, 0, len(projectMembers)),
 	}
 
 	for _, member := range projectMembers {

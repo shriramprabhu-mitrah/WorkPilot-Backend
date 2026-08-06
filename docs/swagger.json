@@ -4738,13 +4738,28 @@
         "github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse": {
             "type": "object",
             "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
                 "project": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse"
                     }
                 },
+                "role": {
+                    "type": "string"
+                },
                 "user_id": {
+                    "type": "string"
+                },
+                "user_name": {
                     "type": "string"
                 }
             }
