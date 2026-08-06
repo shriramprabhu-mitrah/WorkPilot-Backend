@@ -26,8 +26,6 @@ definitions:
         type: string
       old_password:
         type: string
-      userID:
-        type: string
     required:
     - new_password
     - old_password
@@ -36,6 +34,17 @@ definitions:
     properties:
       keep_assignee:
         type: boolean
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.CreateCommentsRequest:
+    properties:
+      content:
+        maxLength: 5000
+        minLength: 1
+        type: string
+      parent_comment_id:
+        type: string
+    required:
+    - content
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateOrganizationRequest:
     properties:
@@ -230,13 +239,15 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole:
     enum:
+    - org_admin
     - project_manager
     - developer
     - tester
     - viewer
     type: string
     x-enum-varnames:
-    - ProjectRoleManager
+    - ProjectRoleOrgAdmin
+    - ProjectRoleProjectManager
     - ProjectRoleDeveloper
     - ProjectRoleTester
     - ProjectRoleViewer
@@ -285,16 +296,12 @@ definitions:
     enum:
     - super_admin
     - org_admin
-    - project_manager
-    - developer
-    - viewer
+    - member
     type: string
     x-enum-varnames:
     - RoleSuperAdmin
     - RoleOrgAdmin
-    - RoleProjectManager
-    - RoleDeveloper
-    - RoleViewer
+    - RoleMember
   github_com_ms-kanban-server_internal_handlers_dto_request.SignInRequest:
     properties:
       email:
@@ -357,6 +364,13 @@ definitions:
     - TeamSize201To500
     - TeamSize501To1000
     - TeamSize1000Plus
+  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateCommentsRequest:
+    properties:
+      content:
+        type: string
+    required:
+    - content
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationRequest:
     properties:
       country_id:
@@ -558,6 +572,23 @@ definitions:
       username:
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.ProjectSummary:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      organization_id:
+        type: string
+      status:
+        type: string
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.Sprint:
     properties:
       end_date:
@@ -728,6 +759,50 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get project details
+      tags:
+      - Projects
+  /api/v1/project/user:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all projects associated with a specific user within the
+        authenticated organization.
+      parameters:
+      - description: User ID
+        format: uuid
+        in: query
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectSummary'
+                  type: array
+              type: object
+        "400":
+          description: Validation Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get projects by user
       tags:
       - Projects
   /auth/{user_id}:
@@ -2380,6 +2455,308 @@ paths:
       summary: RemoveUser
       tags:
       - Organizations
+  /task/{task_id}/comment:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated top-level comments for a task along with their replies
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of comments per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Task Comments
+      tags:
+      - Comments
+    post:
+      consumes:
+      - application/json
+      description: Creates a new comment for the specified task. To create a reply,
+        provide the parent_comment_id of an existing comment. The comment content
+        is trimmed and cannot be empty after trimming.
+      parameters:
+      - description: Task ID (UUID)
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Comment details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateCommentsRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Invalid request, task ID, parent comment, or comment content
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a comment
+      tags:
+      - Comments
+  /task/{task_id}/comment/{comment_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a comment by ID along with its replies
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Comment ID
+        in: path
+        name: comment_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Comment By ID
+      tags:
+      - Comments
+    patch:
+      consumes:
+      - application/json
+      description: Update an existing comment
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Comment ID
+        in: path
+        name: comment_id
+        required: true
+        type: string
+      - description: Update Comment
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateCommentsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+      security:
+      - BearerAuth: []
+      summary: Update Comment
+      tags:
+      - Comments
+  /task/{task_id}/comment/replies/{parent_comment_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get all replies for a parent comment in a task
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Parent Comment ID
+        in: path
+        name: parent_comment_id
+        required: true
+        type: string
+      - default: 1
+        description: Page Number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page Size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Reply Comments
+      tags:
+      - Comments
+  /tasks/{task_id}/comments/{comment_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a comment
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Comment ID
+        in: path
+        name: comment_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+      security:
+      - BearerAuth: []
+      summary: Delete Comment
+      tags:
+      - Comments
   /user-role/:
     patch:
       consumes:

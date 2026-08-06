@@ -19,6 +19,7 @@ type TaskRepository interface {
 	RestoreTask(id uuid.UUID, projectID uuid.UUID) *response.Error
 	GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, response.Pagination, *response.Error)
 	GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error)
+	GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error)
 }
 
 func InitTaskRepository(deps models.Config) TaskRepository {

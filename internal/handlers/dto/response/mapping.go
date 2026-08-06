@@ -67,3 +67,16 @@ func SprintFromModel(sprint models.Sprint) Sprint {
 		EndDate:   sprint.EndDate,
 	}
 }
+
+func CommentsFromModel(comment models.Comments) CommentsResponse {
+	return CommentsResponse{
+		ID:              comment.ID,
+		TaskID:          comment.TaskID,
+		UserID:          comment.UserID,
+		UserName:        comment.User.UserName,
+		Content:         comment.Content,
+		ParentCommentID: comment.ParentCommentID,
+		CreatedAt:       comment.CreatedAt,
+		UpdatedAt:       comment.UpdatedAt,
+	}
+}
