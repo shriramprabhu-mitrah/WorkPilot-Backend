@@ -41,7 +41,7 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 		org.PATCH("/user-status", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.UpdateUserStatus)
 		org.PATCH("/user-role", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.UpdateUserRole)
 		org.POST("/invite", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.InviteOrganizationMember)
-		org.POST("/invitations/accept", middleware.ValidateJWT(), OrganizationHandler.AcceptInvitation)
+		org.GET("/invitations/accept", OrganizationHandler.AcceptInvitation)
 		org.GET("/get-users", middleware.ValidateJWT(), OrganizationHandler.GetUserInOrganization)
 		org.DELETE("/remove-user", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.RemoveUser)
 	}

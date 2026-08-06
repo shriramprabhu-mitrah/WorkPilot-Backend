@@ -1037,7 +1037,7 @@ const docTemplate = `{
             }
         },
         "/organization/invitations/accept": {
-            "post": {
+            "get": {
                 "description": "Accepts a pending organization invitation using the provided token.",
                 "consumes": [
                     "application/json"

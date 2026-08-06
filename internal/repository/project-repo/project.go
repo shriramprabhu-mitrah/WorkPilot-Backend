@@ -376,6 +376,22 @@ func (d *projectDatabase) GetProjectMemberByUserAndProjectID(userID, projectID u
 		First(&member).Error; err != nil {
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			var user models.User
+			if errUser := d.db.Select("role", "organization_id").Where("id = ?", userID).First(&user).Error; errUser == nil {
+				if user.Role == "org_admin" && user.OrganizationID != nil {
+					var project models.Project
+					if errProj := d.db.Select("organization_id").Where("id = ?", projectID).First(&project).Error; errProj == nil {
+						if project.OrganizationID == *user.OrganizationID {
+							return &models.ProjectMember{
+								UserID:      userID,
+								ProjectID:   projectID,
+								ProjectRole: string(dto.ProjectRoleOrgAdmin),
+							}, nil
+						}
+					}
+				}
+			}
+
 			d.logger.Warn("Project member not found",
 				zap.String("User ID", userID.String()),
 				zap.String("Project ID", projectID.String()))

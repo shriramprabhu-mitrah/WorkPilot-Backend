@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -704,34 +705,26 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
-// @Router       /organization/invitations/accept [post]
+// @Router       /organization/invitations/accept [get]
 func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
-	var payload requestdto.AcceptInvitationRequest
-	if err := g.ShouldBindJSON(&payload); err != nil {
-		message := utils.ValidationErrorMessage(err, payload)
+	token := g.Query("token")
+	if token == "" {
 		g.JSON(http.StatusBadRequest, response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
-				Message:    message,
+				Message:    "Invitation token is required",
 			}},
 		)
 		return
 	}
 
-	userID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
-	if !ok {
+	if err := h.service.AcceptInvitation(token); err != nil {
+		redirectURL := fmt.Sprintf("%s?error=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), err.Message)
+		g.Redirect(http.StatusFound, redirectURL)
 		return
 	}
 
-	if err := h.service.AcceptInvitation(userID, payload.Token); err != nil {
-		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
-		return
-	}
-
-	g.JSON(http.StatusOK, response.SuccessResponse{
-		Success:    true,
-		StatusCode: http.StatusOK,
-		Message:    "Invitation accepted successfully"})
+	g.Redirect(http.StatusFound, config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"))
 }

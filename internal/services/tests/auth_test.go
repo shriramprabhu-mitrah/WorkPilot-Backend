@@ -34,6 +34,7 @@ type stubAuthRepository struct {
 	verifiedUserID          uuid.UUID
 	createdOrganization     models.Organization
 	createOrganizationCalls int
+	updateUserCalls         int
 }
 
 func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Error) {
@@ -127,6 +128,7 @@ func (s *stubAuthRepository) ChangePassword(tokenHash string, userID uuid.UUID) 
 	return nil
 }
 func (s *stubAuthRepository) UpdateUser(userID uuid.UUID, req models.User) *response.Error {
+	s.updateUserCalls++
 	if s.err != nil {
 		return s.err
 	}

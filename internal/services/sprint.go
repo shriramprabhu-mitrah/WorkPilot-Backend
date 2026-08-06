@@ -95,7 +95,21 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		}
 	}
 
+	type validatedSprint struct {
+		Name      string
+		Goal      string
+		StartDate time.Time
+		EndDate   time.Time
+	}
+
+	validatedList := make([]validatedSprint, 0, len(req.Sprints))
 	var existingSprints []string
+
+	type dateRange struct {
+		Start time.Time
+		End   time.Time
+	}
+	batchDateRanges := make(map[dateRange]bool)
 
 	for _, spr := range req.Sprints {
 
@@ -139,18 +153,34 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 			}
 		}
 
-		sprint := models.Sprint{
-			Name:        spr.Name,
-			Goal:        spr.Goal,
-			StartDate:   *startDate,
-			EndDate:     *endDate,
-			ProjectID:   req.ProjectID,
-			CreatedByID: req.UserID,
+		dr := dateRange{Start: *startDate, End: *endDate}
+		if batchDateRanges[dr] {
+			return &response.Error{
+				Code:       response.ErrConflict,
+				StatusCode: http.StatusConflict,
+				Message:    "Multiple sprints in the request have the same date range",
+			}
 		}
+		batchDateRanges[dr] = true
 
-		if err := s.sprintRepo.CreateSprint(sprint); err != nil {
+		dateRangeExists, err := s.sprintRepo.IsSprintDateRangeExists(req.ProjectID, *startDate, *endDate, uuid.Nil)
+		if err != nil {
 			return err
 		}
+		if dateRangeExists {
+			return &response.Error{
+				Code:       response.ErrConflict,
+				StatusCode: http.StatusConflict,
+				Message:    fmt.Sprintf("A sprint with the same date range (%s to %s) already exists in this project", spr.StartDate, spr.EndDate),
+			}
+		}
+
+		validatedList = append(validatedList, validatedSprint{
+			Name:      spr.Name,
+			Goal:      spr.Goal,
+			StartDate: *startDate,
+			EndDate:   *endDate,
+		})
 	}
 
 	if len(existingSprints) > 0 {
@@ -167,6 +197,21 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 				"The following sprints already exist in the project: %s",
 				strings.Join(existingSprints, ", "),
 			),
+		}
+	}
+
+	for _, vSpr := range validatedList {
+		sprint := models.Sprint{
+			Name:        vSpr.Name,
+			Goal:        vSpr.Goal,
+			StartDate:   vSpr.StartDate,
+			EndDate:     vSpr.EndDate,
+			ProjectID:   req.ProjectID,
+			CreatedByID: req.UserID,
+		}
+
+		if err := s.sprintRepo.CreateSprint(sprint); err != nil {
+			return err
 		}
 	}
 
@@ -308,12 +353,12 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 
 	if req.EndDate != "" {
 		d, err := utils.StringToTime(req.EndDate)
-		startDate = d
+		endDate = d
 		if err != nil {
 			return &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
+				Message:    "Invalid end_date. Expected format: YYYY-MM-DD",
 			}
 		}
 	}
@@ -323,6 +368,18 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Sprint start date cannot be after end date",
+		}
+	}
+
+	dateRangeExists, err := s.sprintRepo.IsSprintDateRangeExists(req.ProjectID, *startDate, *endDate, req.SprintID)
+	if err != nil {
+		return err
+	}
+	if dateRangeExists {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "A sprint with the same date range already exists in this project",
 		}
 	}
 

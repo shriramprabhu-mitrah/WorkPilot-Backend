@@ -1,6 +1,8 @@
 package sprintrepo
 
 import (
+	"time"
+
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
@@ -17,6 +19,7 @@ type SprintRepository interface {
 	GetSprintByID(sprintID, projectID uuid.UUID) (*models.Sprint, *response.Error)
 	GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
 	IsSprintExists(projectID uuid.UUID, name string) (bool, *response.Error)
+	IsSprintDateRangeExists(projectID uuid.UUID, startDate, endDate time.Time, excludeSprintID uuid.UUID) (bool, *response.Error)
 	CreateSprintSnapshot(snapshot models.SprintSnapshot) *response.Error
 	GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error)
 	GetTotalStoryPoints(sprintID uuid.UUID) (int, *response.Error)

@@ -207,7 +207,7 @@ func TestAcceptInvitationMarksMembershipAndStatus(t *testing.T) {
 
 	repo.invite = models.OrganizationInvitation{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "member@example.com", Role: string(dto.RoleMember), Status: models.InvitationStatusPending, Token: "token-123", ExpiresAt: time.Now().Add(24 * time.Hour)}
 
-	inviteErr := service.AcceptInvitation(userID, "token-123")
+	inviteErr := service.AcceptInvitation("token-123")
 	if inviteErr != nil {
 		t.Fatalf("expected invite acceptance to succeed, got %v", inviteErr)
 	}
@@ -259,5 +259,53 @@ func TestGetUserInOrganizationSupportsAdminsExclusion(t *testing.T) {
 	}
 	if len(membersWithAdmins) != 2 {
 		t.Fatalf("expected 2 users when including admins, got %d", len(membersWithAdmins))
+	}
+}
+
+func TestInviteOrganizationMemberDoesNotDirectlyAddUser(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	inviterID := uuid.Must(uuid.NewV4())
+	existingUserID := uuid.Must(uuid.NewV4())
+	repo := &stubOrganizationRepository{organization: models.Organization{ID: orgID}}
+	authRepo := &stubAuthRepository{
+		user: models.User{
+			ID:             inviterID,
+			Email:          "admin@example.com",
+			Role:           string(dto.RoleOrgAdmin),
+			OrganizationID: &orgID,
+			IsActive:       true,
+		},
+		userByEmail: map[string]models.User{
+			"member@example.com": {
+				ID:             existingUserID,
+				Email:          "member@example.com",
+				OrganizationID: nil,
+				IsActive:       true,
+			},
+		},
+	}
+	service := InitOrganizationService(repo, authRepo, zap.NewNop())
+
+	inviteErr := service.InviteOrganizationMember(inviterID, orgID, dto.InviteOrganizationMemberRequest{
+		Members: []dto.InviteOrganizationMemberItem{
+			{Email: "member@example.com"},
+		},
+	})
+	if inviteErr != nil {
+		t.Fatalf("expected invitation to succeed, got %v", inviteErr)
+	}
+
+	if authRepo.updateUserCalls != 0 {
+		t.Fatalf("expected UpdateUser to not be called, but it was called %d times", authRepo.updateUserCalls)
+	}
+
+	if len(repo.invites) != 1 {
+		t.Fatalf("expected 1 invitation to be created, got %d", len(repo.invites))
+	}
+	if repo.invite.Email != "member@example.com" {
+		t.Fatalf("expected invitation for member@example.com, got %s", repo.invite.Email)
+	}
+	if repo.invite.Role != string(dto.RoleMember) {
+		t.Fatalf("expected invitation role to default to member, got %s", repo.invite.Role)
 	}
 }

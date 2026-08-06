@@ -1334,7 +1334,7 @@ paths:
       tags:
       - Organizations
   /organization/invitations/accept:
-    post:
+    get:
       consumes:
       - application/json
       description: Accepts a pending organization invitation using the provided token.

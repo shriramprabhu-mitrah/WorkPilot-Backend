@@ -44,6 +44,10 @@ func (d *dummySprintRepo) IsSprintExists(projectID uuid.UUID, name string) (bool
 	return false, nil
 }
 
+func (d *dummySprintRepo) IsSprintDateRangeExists(projectID uuid.UUID, startDate, endDate time.Time, excludeSprintID uuid.UUID) (bool, *response.Error) {
+	return false, nil
+}
+
 func (d *dummySprintRepo) GetActiveSprints() ([]models.Sprint, *response.Error) {
 	return nil, nil
 }
