@@ -26,6 +26,7 @@ type stubTaskRepo struct {
 	listErr         *response.Error
 	lastCreatedTask *models.Task
 	validSprints    map[uuid.UUID]bool
+	sprintStatuses  map[uuid.UUID]string
 }
 
 func (s *stubTaskRepo) CreateTask(task *models.Task) *response.Error {
@@ -220,6 +221,26 @@ func (s *stubTaskRepo) RemoveLabel(taskID uuid.UUID, label *models.Label) *respo
 	return nil
 }
 
+func (s *stubTaskRepo) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error {
+	for _, t := range s.tasks {
+		if t.SprintID != nil && *t.SprintID == sprintID && t.Status != "completed" {
+			t.SprintID = nil
+		}
+	}
+	return nil
+}
+
+func (s *stubTaskRepo) GetSprintStatus(sprintID uuid.UUID) (string, *response.Error) {
+	if s.sprintStatuses == nil {
+		return "planning", nil
+	}
+	status, ok := s.sprintStatuses[sprintID]
+	if !ok {
+		return "planning", nil
+	}
+	return status, nil
+}
+
 func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())
@@ -370,8 +391,11 @@ func TestTaskService_DeleteAndRestore_RetentionChecks(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected restore to fail after retention expired, got nil")
 	}
-	if err.Code != response.ErrBadRequest {
-		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	if err.Code != response.ErrTaskPermanentlyDeleted {
+		t.Fatalf("expected TASK_PERMANENTLY_DELETED, got %s", err.Code)
+	}
+	if err.StatusCode != 410 {
+		t.Fatalf("expected status code 410, got %d", err.StatusCode)
 	}
 }
 
@@ -1025,3 +1049,120 @@ func TestTaskService_AttachAndRemoveLabel(t *testing.T) {
 		t.Errorf("expected task to have 0 labels, got: %d", len(task.Labels))
 	}
 }
+
+func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	// Stubs
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember), IsActive: true}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+		isMember: true,
+	}
+	taskRepo := &stubTaskRepo{
+		tasks:          make(map[uuid.UUID]*models.Task),
+		sprintStatuses: make(map[uuid.UUID]string),
+	}
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, logger)
+
+	// Case 1: Title too short
+	_, err := service.CreateTask(dto.CreateTaskRequest{
+		Title:          "ab",
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for short title")
+	}
+
+	// Case 2: Title too long
+	_, err = service.CreateTask(dto.CreateTaskRequest{
+		Title:          string(make([]byte, 201)),
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for long title")
+	}
+
+	// Case 3: Story points not Fibonacci
+	_, err = service.CreateTask(dto.CreateTaskRequest{
+		Title:          "Valid Title",
+		StoryPoints:    4,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for non-Fibonacci story points")
+	}
+
+	// Case 4: Backdated due date for non-PM/Admin
+	backdated := time.Now().Add(-5 * 24 * time.Hour)
+	_, err = service.CreateTask(dto.CreateTaskRequest{
+		Title:          "Valid Title",
+		DueDate:        &backdated,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation for backdated due date")
+	}
+
+	// Case 5: Backdated due date allowed for PM/Admin
+	authRepo.user.Role = string(dto.RoleOrgAdmin)
+	createdTask, err := service.CreateTask(dto.CreateTaskRequest{
+		Title:          "Valid Title",
+		DueDate:        &backdated,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
+	if err != nil {
+		t.Fatalf("expected PM/Admin to be allowed to backdate, got %v", err)
+	}
+
+	// Case 6: Actual Hours update on completed task
+	taskID := createdTask.ID
+	taskRepo.tasks[taskID].Status = string(dto.TaskStatusCompleted)
+	authRepo.user.Role = string(dto.RoleMember)
+
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:         taskID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		ActualHours:    pointer(5.0),
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation when updating actual hours for a completed task")
+	}
+
+	// Case 7: Changing sprint of task in completed sprint
+	completedSprintID := uuid.Must(uuid.NewV4())
+	newSprintID := uuid.Must(uuid.NewV4())
+	taskRepo.sprintStatuses[completedSprintID] = "completed"
+	taskRepo.sprintStatuses[newSprintID] = "active"
+
+	taskRepo.tasks[taskID].Status = string(dto.TaskStatusInProgress)
+	taskRepo.tasks[taskID].SprintID = &completedSprintID
+	taskRepo.tasks[taskID].Sprint = &models.Sprint{ID: completedSprintID, Status: "completed"}
+
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:         taskID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		SprintID:       &newSprintID,
+	})
+	if err == nil || err.Code != response.ErrValidation {
+		t.Fatal("expected ErrValidation when changing sprint of a task in a completed sprint")
+	}
+}
+

@@ -412,3 +412,39 @@ func (d *taskDatabase) UpdateTaskWithLabels(task *models.Task, labels []models.L
 	}
 	return nil
 }
+
+func (d *taskDatabase) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error {
+	err := d.db.Model(&models.Task{}).
+		Where("sprint_id = ? AND status != ? AND deleted_at IS NULL", sprintID, "completed").
+		Update("sprint_id", nil).Error
+	if err != nil {
+		d.logger.Error("Failed to move incomplete tasks to backlog", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to move incomplete tasks to backlog",
+		}
+	}
+	return nil
+}
+
+func (d *taskDatabase) GetSprintStatus(sprintID uuid.UUID) (string, *response.Error) {
+	var sprint models.Sprint
+	err := d.db.Select("status").Where("id = ?", sprintID).First(&sprint).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "", &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Sprint not found",
+			}
+		}
+		d.logger.Error("Failed to fetch sprint status", zap.Error(err))
+		return "", &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch sprint status",
+		}
+	}
+	return sprint.Status, nil
+}
