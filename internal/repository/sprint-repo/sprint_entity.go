@@ -23,6 +23,7 @@ type SprintRepository interface {
 	GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error)
 	GetActiveSprints() ([]models.Sprint, *response.Error)
 	GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error)
+	MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error
 }
 
 func InitSprintRepository(deps models.Config) SprintRepository {

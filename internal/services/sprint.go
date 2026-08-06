@@ -340,6 +340,13 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 			return err
 		}
 		velocity = &v
+
+		if existingSprint.Status != "completed" {
+			err := s.sprintRepo.MoveIncompleteTasksToBacklog(req.SprintID)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	payload := models.Sprint{

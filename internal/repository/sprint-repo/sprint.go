@@ -296,3 +296,18 @@ func (d *sprintDatabase) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, 
 	}
 	return int(completed), nil
 }
+
+func (d *sprintDatabase) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error {
+	err := d.db.Model(&models.Task{}).
+		Where("sprint_id = ? AND status != ? AND deleted_at IS NULL", sprintID, "completed").
+		Update("sprint_id", nil).Error
+	if err != nil {
+		d.logger.Error("Failed to move incomplete tasks to backlog during sprint completion", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to move incomplete tasks to backlog during sprint completion",
+		}
+	}
+	return nil
+}

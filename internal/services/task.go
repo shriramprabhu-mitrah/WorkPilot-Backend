@@ -170,6 +170,92 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	if err != nil {
 		return nil, err
 	}
+
+	// Validation: Title length
+	if len([]rune(req.Title)) < 3 || len([]rune(req.Title)) > 200 {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Task title must be between 3 and 200 characters",
+		}
+	}
+
+	// Validation: Story Points (Fibonacci)
+	if !isFibonacci(req.StoryPoints) {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Story points must follow the Fibonacci scale",
+		}
+	}
+
+	// Validation: Assignee must be active and a member of the project
+	if req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
+		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
+		if err != nil {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee user not found",
+			}
+		}
+		if !assigneeUser.IsActive {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be an active user",
+			}
+		}
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+				isMember = true
+			}
+		}
+		if !isMember {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be a member of the project",
+			}
+		}
+	}
+
+	// Validation: Due date cannot be backdated unless overridden by PM/Admin
+	if req.DueDate != nil && !req.DueDate.IsZero() {
+		if isBackdated(*req.DueDate) {
+			isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
+			if checkErr != nil {
+				return nil, checkErr
+			}
+			if !isPMOrAdmin {
+				return nil, &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Due date cannot be backdated unless set by a PM or Admin",
+				}
+			}
+		}
+	}
+
+	// Validation: Target sprint cannot be completed
+	if req.SprintID != nil && *req.SprintID != uuid.Nil {
+		sprintStatus, err := s.taskRepo.GetSprintStatus(*req.SprintID)
+		if err != nil {
+			return nil, err
+		}
+		if sprintStatus == string(dto.SprintStatusCompleted) {
+			return nil, &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Cannot assign a task to a completed sprint",
+			}
+		}
+	}
+
 	projectKey := GenerateProjectPrefix(project.Name)
 
 	var task models.Task
@@ -309,18 +395,48 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		return nil, err
 	}
 
+	// Validation: Title length
+	if req.Title != nil && (len([]rune(*req.Title)) < 3 || len([]rune(*req.Title)) > 200) {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Task title must be between 3 and 200 characters",
+		}
+	}
+
+	// Validation: Story Points (Fibonacci)
+	if req.StoryPoints != nil && !isFibonacci(*req.StoryPoints) {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Story points must follow the Fibonacci scale",
+		}
+	}
+
 	// 1. Validate Assignee Membership
 	if req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
+		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
+		if err != nil {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee user not found",
+			}
+		}
+		if !assigneeUser.IsActive {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be an active user",
+			}
+		}
 		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
 		if err != nil {
 			return nil, err
 		}
 		if !isMember {
-			assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
-			if err == nil {
-				if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
-					isMember = true
-				}
+			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+				isMember = true
 			}
 		}
 		if !isMember {
@@ -332,8 +448,33 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	// Validation: Due date cannot be backdated unless overridden by PM/Admin
+	if req.DueDate != nil && !req.DueDate.IsZero() {
+		if isBackdated(*req.DueDate) {
+			isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
+			if checkErr != nil {
+				return nil, checkErr
+			}
+			if !isPMOrAdmin {
+				return nil, &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Due date cannot be backdated unless set by a PM or Admin",
+				}
+			}
+		}
+	}
+
 	// 2. Validate Actual Hours Update
 	if req.ActualHours != nil {
+		isStatusChangingToActive := req.Status != nil && *req.Status != string(dto.TaskStatusCompleted)
+		if task.Status == string(dto.TaskStatusCompleted) && !isStatusChangingToActive {
+			return nil, &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Actual hours can only be updated while the task is not completed",
+			}
+		}
 		if !isPMOrAdmin {
 			if task.AssigneeID == nil || *task.AssigneeID != req.UserID {
 				return nil, &response.Error{
@@ -362,6 +503,41 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 					Code:       response.ErrBadRequest,
 					StatusCode: http.StatusBadRequest,
 					Message:    "Actual hours cannot be negative",
+				}
+			}
+		}
+	}
+
+	// Validation: Sprint completed constraints
+	isSprintChanging := false
+	if req.SprintID != nil {
+		currentSprintID := uuid.Nil
+		if task.SprintID != nil {
+			currentSprintID = *task.SprintID
+		}
+		if *req.SprintID != currentSprintID {
+			isSprintChanging = true
+		}
+	}
+
+	if isSprintChanging {
+		if task.Sprint != nil && task.Sprint.Status == string(dto.SprintStatusCompleted) {
+			return nil, &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Changing the sprint of a task in a completed sprint is blocked",
+			}
+		}
+		if *req.SprintID != uuid.Nil {
+			targetStatus, err := s.taskRepo.GetSprintStatus(*req.SprintID)
+			if err != nil {
+				return nil, err
+			}
+			if targetStatus == string(dto.SprintStatusCompleted) {
+				return nil, &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Cannot assign a task to a completed sprint",
 				}
 			}
 		}
@@ -658,14 +834,21 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 
 	task, err := s.taskRepo.GetTaskByIDUnscoped(taskID, projectID)
 	if err != nil {
+		if err.Code == response.ErrNotFound {
+			return &response.Error{
+				Code:       response.ErrTaskPermanentlyDeleted,
+				StatusCode: http.StatusGone,
+				Message:    "Task is permanently deleted and cannot be restored",
+			}
+		}
 		return err
 	}
 
 	if task.DeletedAt.Valid && time.Since(task.DeletedAt.Time) > 30*24*time.Hour {
 		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Task retention period has expired and cannot be restored",
+			Code:       response.ErrTaskPermanentlyDeleted,
+			StatusCode: http.StatusGone,
+			Message:    "Task is permanently deleted and cannot be restored",
 		}
 	}
 
@@ -718,7 +901,11 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 	var clonedTask models.Task
 	clonedTask.ProjectID = origTask.ProjectID
 	clonedTask.SprintID = origTask.SprintID
-	clonedTask.Title = origTask.Title + " (Cloned)"
+	clonedTitle := origTask.Title + " (Cloned)"
+	if len([]rune(clonedTitle)) > 200 {
+		clonedTitle = string([]rune(clonedTitle)[:200])
+	}
+	clonedTask.Title = clonedTitle
 	clonedTask.Description = origTask.Description
 	clonedTask.Type = origTask.Type
 	clonedTask.Priority = origTask.Priority
@@ -848,6 +1035,17 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 
 		// 2. Validate Assignee
 		if item.AssigneeID != nil && *item.AssigneeID != uuid.Nil {
+			assigneeUser, err := s.authRepo.GetUserByID(*item.AssigneeID)
+			if err != nil {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Assignee user not found"
+				continue
+			}
+			if !assigneeUser.IsActive {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = "Assignee must be an active user"
+				continue
+			}
 			isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *item.AssigneeID)
 			if err != nil {
 				failedTaskIDs = append(failedTaskIDs, item.TaskID)
@@ -855,11 +1053,8 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 				continue
 			}
 			if !isMember {
-				assigneeUser, err := s.authRepo.GetUserByID(*item.AssigneeID)
-				if err == nil {
-					if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
-						isMember = true
-					}
+				if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+					isMember = true
 				}
 			}
 			if !isMember {
@@ -869,18 +1064,48 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 			}
 		}
 
-		// 3. Validate Sprint
-		if item.SprintID != nil && *item.SprintID != uuid.Nil {
-			exists, err := s.taskRepo.IsSprintInProject(*item.SprintID, req.ProjectID)
-			if err != nil {
+		// 3. Validate Sprint & completed sprint constraints
+		isSprintChanging := false
+		if item.SprintID != nil {
+			currentSprintID := uuid.Nil
+			if task.SprintID != nil {
+				currentSprintID = *task.SprintID
+			}
+			if *item.SprintID != currentSprintID {
+				isSprintChanging = true
+			}
+		}
+
+		if isSprintChanging {
+			if task.Sprint != nil && task.Sprint.Status == string(dto.SprintStatusCompleted) {
 				failedTaskIDs = append(failedTaskIDs, item.TaskID)
-				failureReasons[item.TaskID.String()] = "Failed to validate sprint"
+				failureReasons[item.TaskID.String()] = "Changing the sprint of a task in a completed sprint is blocked"
 				continue
 			}
-			if !exists {
-				failedTaskIDs = append(failedTaskIDs, item.TaskID)
-				failureReasons[item.TaskID.String()] = "Sprint must belong to the project"
-				continue
+			if *item.SprintID != uuid.Nil {
+				exists, err := s.taskRepo.IsSprintInProject(*item.SprintID, req.ProjectID)
+				if err != nil {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Failed to validate sprint"
+					continue
+				}
+				if !exists {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Sprint must belong to the project"
+					continue
+				}
+
+				targetStatus, err := s.taskRepo.GetSprintStatus(*item.SprintID)
+				if err != nil {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Failed to validate sprint status"
+					continue
+				}
+				if targetStatus == string(dto.SprintStatusCompleted) {
+					failedTaskIDs = append(failedTaskIDs, item.TaskID)
+					failureReasons[item.TaskID.String()] = "Cannot assign a task to a completed sprint"
+					continue
+				}
 			}
 		}
 
@@ -1134,4 +1359,26 @@ func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, or
 	}
 
 	return nil
+}
+
+func isFibonacci(n int) bool {
+	if n < 0 {
+		return false
+	}
+	if n == 0 || n == 1 {
+		return true
+	}
+	a, b := 1, 1
+	for b < n {
+		a, b = b, a+b
+	}
+	return b == n
+}
+
+func isBackdated(t time.Time) bool {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tLocal := t.In(now.Location())
+	tDate := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, now.Location())
+	return tDate.Before(today)
 }

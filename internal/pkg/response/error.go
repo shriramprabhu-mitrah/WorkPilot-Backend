@@ -12,6 +12,7 @@ const (
 	ErrNotFound                ErrorCode = "RESOURCE_NOT_FOUND"
 	ErrConflict                ErrorCode = "CONFLICT"
 	ErrGone                    ErrorCode = "GONE"
+	ErrTaskPermanentlyDeleted  ErrorCode = "TASK_PERMANENTLY_DELETED"
 	ErrBusinessRule            ErrorCode = "BUSINESS_RULE_VIOLATION"
 	ErrRateLimitExceeded       ErrorCode = "RATE_LIMIT_EXCEEDED"
 	ErrInternalServerError     ErrorCode = "INTERNAL_SERVER_ERROR"

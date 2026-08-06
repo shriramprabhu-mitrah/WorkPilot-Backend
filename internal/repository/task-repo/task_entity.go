@@ -25,6 +25,8 @@ type TaskRepository interface {
 	UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error
 	AttachLabel(taskID uuid.UUID, label *models.Label) *response.Error
 	RemoveLabel(taskID uuid.UUID, label *models.Label) *response.Error
+	MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error
+	GetSprintStatus(sprintID uuid.UUID) (string, *response.Error)
 }
 
 func InitTaskRepository(deps models.Config) TaskRepository {
