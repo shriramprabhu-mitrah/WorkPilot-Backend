@@ -38,15 +38,6 @@ type ProjectMemberResponse struct {
 	Role     string    `json:"role"`
 }
 
-type SprintResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Goal      string    `json:"goal,omitempty"`
-	Status    string    `json:"status"`
-	StartDate time.Time `json:"start_date"`
-	EndDate   time.Time `json:"end_date"`
-}
-
 type ProjectResponse struct {
 	ProjectID   uuid.UUID `json:"project_id"`
 	Role        string    `json:"role"`
@@ -55,6 +46,11 @@ type ProjectResponse struct {
 }
 
 type GetProjectByUserIDResponse struct {
-	UserID  uuid.UUID         `json:"user_id"`
-	Project []ProjectResponse `json:"project"`
+	UserID    uuid.UUID         `json:"user_id"`
+	UserName  string            `json:"user_name"`
+	FullName  string            `json:"full_name"`
+	Email     string            `json:"email"`
+	AvatarURL string            `json:"avatar_url,omitempty"`
+	Role      string            `json:"role,omitempty"`
+	Project   []ProjectResponse `json:"project"`
 }
