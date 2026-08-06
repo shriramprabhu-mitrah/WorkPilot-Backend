@@ -734,6 +734,7 @@ func (h *authHandler) GetUser(g *gin.Context) {
 // @Param        value  query    string  true  "Value to validate"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
+// @Failure      409 {object} response.SuccessResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/validate [get]
 func (h *authHandler) Validate(g *gin.Context) {
@@ -792,14 +793,19 @@ func (h *authHandler) Validate(g *gin.Context) {
 		return
 	}
 
+	statusCode := http.StatusOK
+	success := true
 	message := fmt.Sprintf("%s is available.", validationType)
 	if !available {
+		statusCode = http.StatusConflict
+		success = false
 		message = fmt.Sprintf("%s is already taken.", validationType)
 	}
+
 	successResponse := &response.SuccessResponse{
 		Message:    message,
-		StatusCode: http.StatusOK,
-		Success:    true,
+		StatusCode: statusCode,
+		Success:    success,
 		Data: map[string]any{
 			"type":      validationType,
 			"value":     value,

@@ -596,16 +596,23 @@ func (h *taskHandler) BulkUpdateTasks(g *gin.Context) {
 	}
 
 	statusCode := http.StatusOK
+	success := true
 	message := "Successfully updated tasks"
 	if len(res.FailedTaskIDs) > 0 {
-		statusCode = http.StatusMultiStatus // 207 Partial Success
-		message = "Bulk update completed with some failures"
+		if len(res.FailedTaskIDs) == len(payload.Tasks) {
+			statusCode = http.StatusBadRequest
+			success = false
+			message = "Failed to update all tasks"
+		} else {
+			statusCode = http.StatusMultiStatus // 207 Partial Success
+			message = "Bulk update completed with some failures"
+		}
 	}
 
 	successResponse := &response.SuccessResponse{
 		Message:    message,
 		StatusCode: statusCode,
-		Success:    true,
+		Success:    success,
 		Data:       res,
 	}
 
