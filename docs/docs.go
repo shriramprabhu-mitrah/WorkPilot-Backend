@@ -3938,13 +3938,13 @@ const docTemplate = `{
                     }
                 }
             },
-            "patch": {
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update an existing comment",
+                "description": "Delete a comment",
                 "consumes": [
                     "application/json"
                 ],
@@ -3954,7 +3954,7 @@ const docTemplate = `{
                 "tags": [
                     "Comments"
                 ],
-                "summary": "Update Comment",
+                "summary": "Delete Comment",
                 "parameters": [
                     {
                         "type": "string",
@@ -3969,15 +3969,6 @@ const docTemplate = `{
                         "name": "comment_id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Update Comment",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateCommentsRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -4018,16 +4009,14 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/tasks/{task_id}/comments/{comment_id}": {
-            "delete": {
+            },
+            "patch": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a comment",
+                "description": "Update an existing comment",
                 "consumes": [
                     "application/json"
                 ],
@@ -4037,7 +4026,7 @@ const docTemplate = `{
                 "tags": [
                     "Comments"
                 ],
-                "summary": "Delete Comment",
+                "summary": "Update Comment",
                 "parameters": [
                     {
                         "type": "string",
@@ -4052,6 +4041,15 @@ const docTemplate = `{
                         "name": "comment_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Update Comment",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateCommentsRequest"
+                        }
                     }
                 ],
                 "responses": {

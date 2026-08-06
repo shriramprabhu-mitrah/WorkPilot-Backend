@@ -79,5 +79,8 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 		CreatedAt:       comment.CreatedAt,
 		UpdatedAt:       comment.UpdatedAt,
 		IsDeleted:       comment.IsDeleted,
+		AvatarURL:       comment.User.AvatarURL,
+		FullName:        comment.User.FullName,
+		Email:           comment.User.Email,
 	}
 }

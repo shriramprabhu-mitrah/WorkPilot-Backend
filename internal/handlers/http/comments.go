@@ -281,7 +281,7 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 //	@Failure		403			{object}	response.Error
 //	@Failure		404			{object}	response.Error
 //	@Failure		500			{object}	response.Error
-//	@Router			/tasks/{task_id}/comments/{comment_id} [delete]
+//	@Router			/task/{task_id}/comments/{comment_id} [delete]
 func (h *commentsHandler) DeleteComments(g *gin.Context) {
 
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")

@@ -3155,6 +3155,53 @@ paths:
       tags:
       - Comments
   /task/{task_id}/comments/{comment_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a comment
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: Comment ID
+        in: path
+        name: comment_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
+      security:
+      - BearerAuth: []
+      summary: Delete Comment
+      tags:
+      - Comments
     get:
       consumes:
       - application/json
@@ -3307,54 +3354,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Reply Comments
-      tags:
-      - Comments
-  /tasks/{task_id}/comments/{comment_id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a comment
-      parameters:
-      - description: Task ID
-        in: path
-        name: task_id
-        required: true
-        type: string
-      - description: Comment ID
-        in: path
-        name: comment_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.Error'
-      security:
-      - BearerAuth: []
-      summary: Delete Comment
       tags:
       - Comments
 securityDefinitions:

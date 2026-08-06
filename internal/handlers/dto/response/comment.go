@@ -11,6 +11,9 @@ type CommentsResponse struct {
 	TaskID          uuid.UUID  `json:"task_id"`
 	UserID          uuid.UUID  `json:"user_id"`
 	UserName        string     `json:"user_name"`
+	FullName        string     `json:"name"`
+	Email           string     `json:"email"`
+	AvatarURL       string     `json:"avatar_url,omitempty"`
 	Content         string     `json:"content"`
 	ParentCommentID *uuid.UUID `json:"parent_comment_id,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
