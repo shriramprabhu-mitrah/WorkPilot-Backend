@@ -337,6 +337,19 @@ definitions:
         minLength: 1
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectMemberRequest:
+    properties:
+      project_role:
+        allOf:
+        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole'
+        enum:
+        - project_manager
+        - developer
+        - tester
+        - viewer
+    required:
+    - project_role
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectRequest:
     properties:
       description:
@@ -1766,6 +1779,58 @@ paths:
       summary: Remove project member
       tags:
       - Project Members
+    patch:
+      consumes:
+      - application/json
+      description: Update the role of an existing project member. Only authorized
+        users can update member roles based on project role permissions.
+      parameters:
+      - description: Project ID
+        format: uuid
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User ID
+        format: uuid
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Update Project Member Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: Invalid request payload or validation error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Project member not found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update project member role
+      tags:
+      - Projects
   /project/add-members:
     post:
       consumes:
@@ -1961,7 +2026,7 @@ paths:
       summary: Get project members
       tags:
       - Project Members
-  /project/update/{id}:
+  /project/update/{project_id}:
     patch:
       consumes:
       - application/json

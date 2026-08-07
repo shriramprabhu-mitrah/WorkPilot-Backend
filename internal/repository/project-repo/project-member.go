@@ -147,3 +147,38 @@ func (d *projectDatabase) IsUserProjectMember(projectID, userID uuid.UUID) (bool
 	}
 	return count > 0, nil
 }
+
+func (d *projectDatabase) UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error {
+
+	result := d.db.
+		Model(&models.ProjectMember{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Updates(map[string]interface{}{
+			"project_role": projectRole,
+		})
+
+	if result.Error != nil {
+		d.logger.Error("Database error occurred",
+			zap.Error(result.Error))
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if result.RowsAffected == 0 {
+		d.logger.Error("Project member not found",
+			zap.String("project_id", projectID.String()),
+			zap.String("user_id", userID.String()))
+
+		return &response.Error{
+			Code:       response.ErrNotFound,
+			StatusCode: http.StatusNotFound,
+			Message:    "Project member not found",
+		}
+	}
+
+	return nil
+}

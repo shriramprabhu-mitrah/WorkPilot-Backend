@@ -151,6 +151,11 @@ type stubProjectRepo struct {
 func (s *stubProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
 	return nil
 }
+
+func (s *stubProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error {
+	return nil
+}
+
 func (s *stubProjectRepo) UpdateProject(projectID uuid.UUID, req models.Project) *response.Error {
 	return nil
 }
