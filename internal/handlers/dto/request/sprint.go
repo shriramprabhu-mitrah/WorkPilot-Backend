@@ -44,8 +44,9 @@ type UpdateSprintRequest struct {
 
 type SprintFilter struct {
 	response.PaginationQuery
-	Status SprintStatus `form:"status"`
-	Search string       `form:"search"`
+	Status    SprintStatus `form:"status"`
+	Search    string       `form:"search"`
+	FieldName string       `form:"fieldName"`
 }
 
 type DeleteSprint struct {
