@@ -323,8 +323,8 @@ func (d *authDatabase) RequestPasswordReset(email string) (models.User, *respons
 	if err := d.db.Where("email = ?", email).First(&row).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
 				Message:    "The provided email does not match a known account",
 			}
 			d.logger.Error("User not found in database",

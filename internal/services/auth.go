@@ -438,8 +438,8 @@ func (s *authService) ResetPassword(credentials dto.ResetPasswordRequest) *respo
 	if otpRecord.ExpiresAt.Before(time.Now()) || otpRecord.UsedAt != nil || !utils.IsValidPassword(otpRecord.OTPHash, credentials.OTP) {
 		s.logger.Error("")
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
 			Message:    "Invalid or expired OTP",
 		}
 	}
@@ -737,8 +737,8 @@ func (s *authService) ChangePassword(payload dto.ChangePasswordRequest) *respons
 	if !utils.IsValidPassword(result.PasswordHash, payload.OldPassword) {
 		s.logger.Error("Password change failed due to incorrect old password")
 		return &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
 			Message:    "Current password is incorrect",
 		}
 	}

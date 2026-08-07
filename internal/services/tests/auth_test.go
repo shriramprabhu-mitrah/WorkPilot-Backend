@@ -48,12 +48,12 @@ func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Er
 		if user, ok := s.userByEmail[strings.ToLower(email)]; ok {
 			return user, nil
 		}
-		return models.User{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
+		return models.User{}, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User not found"}
 	}
 	if strings.EqualFold(email, s.user.Email) {
 		return s.user, nil
 	}
-	return models.User{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "User not found"}
+	return models.User{}, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User not found"}
 }
 
 func (s *stubAuthRepository) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
@@ -161,7 +161,7 @@ func (s *stubAuthRepository) GetPasswordResetOTP(userID uuid.UUID, otp string) (
 		return models.PasswordResetOTP{}, s.err
 	}
 	if !utils.IsValidPassword(s.otp.OTPHash, otp) {
-		return models.PasswordResetOTP{}, &response.Error{Code: response.ErrUnauthorized, StatusCode: http.StatusUnauthorized, Message: "Invalid OTP"}
+		return models.PasswordResetOTP{}, &response.Error{Code: response.ErrBadRequest, StatusCode: http.StatusBadRequest, Message: "Invalid OTP"}
 	}
 	return s.otp, nil
 }

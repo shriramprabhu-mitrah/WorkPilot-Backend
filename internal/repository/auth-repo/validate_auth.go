@@ -139,8 +139,8 @@ func (d *authDatabase) getOTP(key string) (models.PasswordResetOTP, *response.Er
 		if errors.Is(err, redisclient.Nil) {
 			d.logger.Error("The provided OTP is invalid or expired", zap.Error(err))
 			return models.PasswordResetOTP{}, &response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusUnauthorized,
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid or expired OTP",
 			}
 		}
@@ -173,8 +173,8 @@ func (d *authDatabase) getOTP(key string) (models.PasswordResetOTP, *response.Er
 		}
 		d.logger.Error("The provided OTP is invalid or expired", zap.Error(err))
 		return models.PasswordResetOTP{}, &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
 			Message:    "Invalid or expired OTP",
 		}
 	}
