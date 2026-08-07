@@ -108,7 +108,7 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 //	@Failure		404		{object}	response.ErrorResponse		"Project not found"
 //	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
 //
-// @Router /project/update/{id} [patch]
+// @Router /project/update/{project_id} [patch]
 func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 
 	var payload requestdto.UpdateProjectRequest
@@ -139,10 +139,14 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 		return
 	}
 
-	id := g.Param("id")
+	id := g.Param("project_id")
 	projectID, errorResponse := utils.StringToUUID(id)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
+		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+        Success: false,
+        Error: *errorResponse,
+    })
 		return
 	}
 
@@ -182,6 +186,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //	@Param			page_size	query		int		false	"Page Size"			default(10)
 //	@Param			name		query		string	false	"Project Name"
 //	@Param			status		query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
+//	@Param			fieldName	query		string	false	"Fields to return (comma separated)"
 //	@Success		200			{object}	response.SuccessResponse	"Projects retrieved successfully"
 //	@Failure		400			{object}	response.ErrorResponse		"Invalid query parameters"
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
@@ -203,27 +208,8 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -242,11 +228,21 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		projectResponses = append(projectResponses, responsedto.ProjectSummaryFromModel(project))
 	}
 
+	var filteredData any = projectResponses
+	if filter.FieldName != "" {
+		var filterErr error
+		filteredData, filterErr = utils.FilterFields(projectResponses, filter.FieldName)
+		if filterErr != nil {
+			h.logger.Error("Failed to filter project fields", zap.Error(filterErr))
+			filteredData = projectResponses
+		}
+	}
+
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Projects retrieved successfully.",
-		Data:       projectResponses,
+		Data:       filteredData,
 		Meta:       &pagination,
 	})
 }
@@ -291,27 +287,8 @@ func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -377,7 +354,10 @@ func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 	projectID, errorResponse := utils.StringToUUID(projectIDParam)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+        Success: false,
+        Error: *errorResponse,
+    })
 		return
 	}
 
@@ -428,7 +408,10 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	projectUUID, errorResponse := utils.StringToUUID(projectID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+        Success: false,
+        Error: *errorResponse,
+    })
 		return
 	}
 
@@ -436,21 +419,21 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	targetUserUUID, errorResponse := utils.StringToUUID(userID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
+		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+        Success: false,
+        Error: *errorResponse,
+    })
 		return
 	}
 
-	var performingUserUUID uuid.UUID
-	if performingUserID, exist := g.Get("user_id"); exist {
-		if pUUID, errResp := utils.StringToUUID(performingUserID.(string)); errResp == nil {
-			performingUserUUID = pUUID
-		}
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
 	}
 
-	var organizationUUID uuid.UUID
-	if orgID, exist := g.Get("organization_id"); exist {
-		if oUUID, errResp := utils.StringToUUID(orgID.(string)); errResp == nil {
-			organizationUUID = oUUID
-		}
+	performingUserUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
 	}
 
 	payload := requestdto.RemoveProjectMember{
@@ -526,12 +509,9 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 	roleVal, _ := g.Get("role")
 	userRole, _ := roleVal.(string)
 
-	var userOrgUUID uuid.UUID
-	orgIDVal, exist := g.Get("organization_id")
-	if exist {
-		if orgUUID, errResp := utils.StringToUUID(orgIDVal.(string)); errResp == nil {
-			userOrgUUID = orgUUID
-		}
+	userOrgUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
 	}
 
 	activities, pagination, serviceErr := h.service.GetProjectActivity(userUUID, userRole, userOrgUUID, projectID, filter)
@@ -581,7 +561,10 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+        Success: false,
+        Error: *errorResponse,
+    })
 		return
 	}
 
@@ -632,30 +615,13 @@ func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 
 	var payload requestdto.DeleteProject
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Internal server error: missing organization context")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
-	organizationIDStr := organizationID.(string)
 
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-			Success: false,
-			Error:   *errorResponse,
-		})
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
 		return
 	}
 
@@ -672,6 +638,7 @@ func (h *ProjectHandler) Deleteproject(g *gin.Context) {
 
 	payload.ProjectID = projectUUID
 	payload.OrganizationID = organizationUUID
+	payload.UserID = userUUID
 
 	err := h.service.DeleteProject(payload)
 	if err != nil {
@@ -747,4 +714,98 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 		Message:    "Project retrieved successfully.",
 		Data:       project,
 	})
+}
+// UpdateProjectMember godoc
+//
+//	@Summary		Update project member role
+//	@Description	Update the role of an existing project member. Only authorized users can update member roles based on project role permissions.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			project_id	path		string									true	"Project ID"	Format(uuid)
+//	@Param			user_id		path		string									true	"User ID"		Format(uuid)
+//	@Param			request		body		requestdto.UpdateProjectMemberRequest	true	"Update Project Member Request"
+//	@Failure		400			{object}	response.ErrorResponse	"Invalid request payload or validation error"
+//	@Failure		401			{object}	response.ErrorResponse	"Unauthorized"
+//	@Failure		403			{object}	response.ErrorResponse	"Forbidden"
+//	@Failure		404			{object}	response.ErrorResponse	"Project member not found"
+//	@Failure		500			{object}	response.ErrorResponse	"Internal server error"
+//	@Router			/project/{project_id}/member/{user_id} [patch]
+func (h *ProjectHandler) UpdateProjectMember(g *gin.Context) {
+
+	var payload requestdto.UpdateProjectMemberRequest
+
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userID := g.Param("user_id")
+	userUUID, errorResponse := utils.StringToUUID(userID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	UpdatedBy, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	id := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(id)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+        Success: false,
+        Error: *errorResponse,
+    })
+		return
+	}
+
+	payload.OrganizationID = organizationUUID
+	payload.ProjectID = projectID
+	payload.UpdatedBy = UpdatedBy
+	payload.MemberID = userUUID
+
+	err := h.service.UpdateProjectMember(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Project member updated successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data: map[string]any{
+			"ProjectID": projectID},
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+
 }

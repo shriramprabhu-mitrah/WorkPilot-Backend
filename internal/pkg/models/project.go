@@ -18,6 +18,7 @@ type Project struct {
 	Creator        User           `json:"creator,omitzero" gorm:"foreignKey:CreatedBy"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
+	SprintCount    int            `json:"sprint_count" gorm:"-"`
 	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
@@ -31,6 +32,7 @@ type ProjectMember struct {
 	JoinedAt    time.Time `json:"joined_at" gorm:"not null"`
 	AddedByID   uuid.UUID `json:"added_by_id" gorm:"type:uuid;not null"`
 	AddedBy     User      `json:"added_by,omitzero" gorm:"foreignKey:AddedByID"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 func (p *Project) BeforeCreate(tx *gorm.DB) (err error) {

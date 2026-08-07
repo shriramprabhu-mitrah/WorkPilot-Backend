@@ -42,6 +42,7 @@ type ProjectSummary struct {
 	Status         string    `json:"status"`
 	CreatedBy      uuid.UUID `json:"created_by"`
 	CreatedAt      time.Time `json:"created_at"`
+	SprintCount    int       `json:"sprint_count"`
 }
 
 type ProjectMember struct {

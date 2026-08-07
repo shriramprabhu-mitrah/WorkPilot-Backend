@@ -61,8 +61,9 @@ type UpdateProjectRequest struct {
 type ProjectFilterRequest struct {
 	response.PaginationQuery
 	response.SortQuery
-	Name   string        `form:"name"`
-	Status ProjectStatus `form:"status"`
+	Name      string        `form:"name"`
+	Status    ProjectStatus `form:"status"`
+	FieldName string        `form:"fieldName"`
 }
 
 type ProjectFilter struct {
@@ -108,9 +109,9 @@ type ProjectActivityFilter struct {
 }
 
 type GetProjectDetails struct {
-	ProjectID      uuid.UUID
-	UserID         uuid.UUID
-	OrganizationID uuid.UUID
+	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 type GetProjectByUserID struct {
@@ -119,8 +120,9 @@ type GetProjectByUserID struct {
 }
 
 type DeleteProject struct {
-	ProjectID      uuid.UUID
-	OrganizationID uuid.UUID
+	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 type ProjectResponse struct {
@@ -137,10 +139,10 @@ type ProjectResponse struct {
 }
 
 type Member struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Username string    `json:"username"`
-	FullName string    `json:"full_name"`
-	Role     string    `json:"role"`
+	UserID      uuid.UUID `json:"user_id"`
+	Username    string    `json:"username"`
+	FullName    string    `json:"full_name"`
+	ProjectRole string    `json:"project_role"`
 }
 
 type SprintItem struct {
@@ -157,4 +159,12 @@ type RemoveProjectMember struct {
 	TargetUserID     uuid.UUID
 	PerformingUserID uuid.UUID
 	OrganizationID   uuid.UUID
+}
+
+type UpdateProjectMemberRequest struct {
+	MemberID       uuid.UUID   `json:"-" swaggerignore:"true"`
+	ProjectRole    ProjectRole `json:"project_role" binding:"required,oneof=project_manager developer tester viewer"`
+	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID   `json:"-" swaggerignore:"true"`
+	UpdatedBy      uuid.UUID   `json:"-" swaggerignore:"true"`
 }

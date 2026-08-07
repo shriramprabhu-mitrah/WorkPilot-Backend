@@ -121,7 +121,7 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 				for _, fl := range filter.Labels {
 					found := false
 					for _, tl := range t.Labels {
-						if tl.ID.String() == fl || strings.ToLower(tl.Name) == strings.ToLower(fl) {
+						if tl.ID.String() == fl || strings.EqualFold(tl.Name, fl) {
 							found = true
 							break
 						}
@@ -137,7 +137,7 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 				matched := false
 				for _, fl := range filter.Labels {
 					for _, tl := range t.Labels {
-						if tl.ID.String() == fl || strings.ToLower(tl.Name) == strings.ToLower(fl) {
+						if tl.ID.String() == fl || strings.EqualFold(tl.Name, fl) {
 							matched = true
 							break
 						}
@@ -1174,4 +1174,3 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 		t.Fatal("expected ErrValidation when changing sprint of a task in a completed sprint")
 	}
 }
-

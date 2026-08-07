@@ -30,7 +30,7 @@ func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 	{
 
 		prj.POST("/create", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.CreateProject)
-		prj.PATCH("/update/:id", middleware.ValidateJWT(), projectHandler.UpdateProject)
+		prj.PATCH("/update/:project_id", middleware.ValidateJWT(), projectHandler.UpdateProject)
 		prj.GET("/get", middleware.ValidateJWT(), projectHandler.GetProjects)
 		prj.POST("/add-members", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.CreateProjectMember)
 		prj.GET("/members/:project_id", middleware.ValidateJWT(), projectHandler.GetProjectMembers)
@@ -39,5 +39,6 @@ func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 		prj.GET("/:project_id/detail", middleware.ValidateJWT(), projectHandler.GetProjectDetails)
 		prj.DELETE("/:project_id", middleware.ValidateJWT(), middleware.Authorize("org_admin"), projectHandler.Deleteproject)
 		prj.GET("/user/:user_id", middleware.ValidateJWT(), projectHandler.GetProjectByUser)
+		prj.PATCH("/:project_id/member/:user_id", middleware.ValidateJWT(), projectHandler.UpdateProjectMember)
 	}
 }

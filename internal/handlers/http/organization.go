@@ -584,33 +584,30 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 
 // RemoveUser godoc
 //
-// @Summary      Remove user from organization
-// @Description  Removes a user from the organization.
-// @Tags         Organizations
-// @Accept       json
-// @Produce      json
-// @Param        request body requestdto.RemoveUserRequest true "RemoveUser Request"
-// @Success      200 {object} response.SuccessResponse
-// @Failure      400 {object} response.ErrorResponse
-// @Failure      404 {object} response.ErrorResponse
-// @Failure      500 {object} response.ErrorResponse
-// @Router       /organization/remove-user [delete]
+//	@Summary		Remove user from organization
+//	@Description	Removes a user from the current organization.
+//	@Tags			Organizations
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			user_id	path		string	true	"User ID (UUID)"
+//	@Success		200	{object}	response.SuccessResponse
+//	@Failure		400	{object}	response.ErrorResponse
+//	@Failure		401	{object}	response.ErrorResponse
+//	@Failure		403	{object}	response.ErrorResponse
+//	@Failure		404	{object}	response.ErrorResponse
+//	@Failure		500	{object}	response.ErrorResponse
+//	@Router			/organization/remove-user/{user_id} [delete]
 func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 
-	var payload requestdto.RemoveUserRequest
-
-	if err := g.ShouldBindJSON(&payload); err != nil {
-		message := utils.ValidationErrorMessage(err, payload)
-		errorResponse := &response.ErrorResponse{
+	userID := g.Param("user_id")
+	userUUID, errorResponse := utils.StringToUUID(userID)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
 			Success: false,
-			Error: response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    message,
-			},
-		}
-		h.logger.Error("Invalid request payload", zap.Error(err))
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+			Error:   *errorResponse,
+		})
 		return
 	}
 
@@ -619,11 +616,11 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		return
 	}
 
-	credentials := requestdto.RemoveUser{
+	err := h.service.RemoveUser(requestdto.RemoveUser{
 		OrganizationID: &organizationUUID,
-		UserID:         payload.UserID,
-	}
-	err := h.service.RemoveUser(credentials)
+		UserID:         userUUID,
+	})
+
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -639,7 +636,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		Success:    true,
 		Data: map[string]any{
 			"OrganizationID": organizationUUID,
-			"user_id":        payload.UserID},
+			"user_id":        userUUID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
