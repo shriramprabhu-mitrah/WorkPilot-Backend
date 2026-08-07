@@ -12,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	"go.uber.org/zap"
@@ -34,14 +35,16 @@ type taskService struct {
 	authRepo    authrepo.AuthRepository
 	projectRepo projectrepo.ProjectRepository
 	taskRepo    taskrepo.TaskRepository
+	auditRepo   auditrepo.AuditLogRepository
 	logger      *zap.Logger
 }
 
-func InitTaskService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, taskRepo taskrepo.TaskRepository, logger *zap.Logger) TaskService {
+func InitTaskService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, taskRepo taskrepo.TaskRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) TaskService {
 	return &taskService{
 		authRepo:    authRepo,
 		projectRepo: projectRepo,
 		taskRepo:    taskRepo,
+		auditRepo:   auditRepo,
 		logger:      logger,
 	}
 }
@@ -317,7 +320,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		Details:        fmt.Sprintf("Task %s created", task.Key),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -771,7 +774,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		Details:        detail,
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -812,7 +815,7 @@ func (s *taskService) DeleteTask(taskID, projectID, userID, orgID uuid.UUID) *re
 		Details:        fmt.Sprintf("Task %s soft deleted", task.Key),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -867,7 +870,7 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 		Details:        fmt.Sprintf("Task %s restored", task.Key),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -949,7 +952,7 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 		Details:        fmt.Sprintf("Task %s cloned from %s", clonedTask.Key, origTask.Key),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -1186,7 +1189,7 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 				Details:        detail,
 				CreatedAt:      time.Now(),
 			}
-			if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+			if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 				s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 			}
 		}
@@ -1210,7 +1213,7 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 		Details:        bulkDetails,
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(bulkAuditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(bulkAuditLog); err != nil {
 		s.logger.Warn("Failed to create bulk audit log", zap.Any("error", err))
 	}
 
@@ -1297,7 +1300,7 @@ func (s *taskService) AttachLabelToTask(projectID, taskID, labelID, userID, orgI
 		Details:        fmt.Sprintf("Task %s updated: labels changed (attached '%s')", task.Key, label.Name),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -1354,7 +1357,7 @@ func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, or
 		Details:        fmt.Sprintf("Task %s updated: labels changed (removed '%s')", task.Key, label.Name),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 

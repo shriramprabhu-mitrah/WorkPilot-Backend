@@ -18,6 +18,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	organizationrepo "github.com/ms-kanban-server/internal/repository/organization-repo"
 	"go.uber.org/zap"
 )
@@ -36,17 +37,19 @@ type OrganizationService interface {
 	RemoveUser(payload dto.RemoveUser) *response.Error
 }
 
-func InitOrganizationService(repo organizationrepo.OrganizationRepository, AuthRepo authrepo.AuthRepository, logger *zap.Logger) OrganizationService {
+func InitOrganizationService(repo organizationrepo.OrganizationRepository, AuthRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) OrganizationService {
 	return &organizationService{
 		OrganizationRepo: repo,
-		logger:           logger,
 		AuthRepo:         AuthRepo,
+		auditRepo:        auditRepo,
+		logger:           logger,
 	}
 }
 
 type organizationService struct {
 	AuthRepo         authrepo.AuthRepository
 	OrganizationRepo organizationrepo.OrganizationRepository
+	auditRepo        auditrepo.AuditLogRepository
 	logger           *zap.Logger
 }
 
@@ -326,7 +329,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 			s.logger.Warn("Failed to send organization invitation email", zap.Error(err))
 		}
 
-		auditErr := s.OrganizationRepo.CreateAuditLog(models.AuditLog{
+		auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 			UserID:         &inviterID,
 			OrganizationID: &organizationID,
 			Action:         "organization_invitation_created",
@@ -573,7 +576,7 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 		return err
 	}
 
-	auditErr := s.OrganizationRepo.CreateAuditLog(models.AuditLog{
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &invitation.OrganizationID,
 		Action:         "organization_invitation_accepted",
@@ -656,7 +659,7 @@ func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error
 	}
 
 	// create an audit log for the removal
-	auditErr := s.OrganizationRepo.CreateAuditLog(models.AuditLog{
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 		UserID:         &payload.UserID,
 		OrganizationID: payload.OrganizationID,
 		Action:         "organization_user_removed",

@@ -482,15 +482,3 @@ func (d *authDatabase) UpdateInvitation(invitation models.OrganizationInvitation
 	return nil
 }
 
-func (d *authDatabase) CreateAuditLog(log models.AuditLog) *response.Error {
-	result := d.db.Create(&log)
-	if result.Error != nil {
-		d.logger.Error("Database error occurred while creating audit log", zap.Error(result.Error))
-		return &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
-	return nil
-}

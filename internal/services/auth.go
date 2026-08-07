@@ -18,6 +18,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	"go.uber.org/zap"
 )
@@ -39,16 +40,18 @@ type AuthService interface {
 	GetUserByID(userID, organizationID uuid.UUID) (*models.User, *response.Error)
 }
 
-func InitAuthService(authRepo authrepo.AuthRepository, logger *zap.Logger) AuthService {
+func InitAuthService(authRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) AuthService {
 	return &authService{
-		authRepo: authRepo,
-		logger:   logger,
+		authRepo:  authRepo,
+		auditRepo: auditRepo,
+		logger:    logger,
 	}
 }
 
 type authService struct {
-	authRepo authrepo.AuthRepository
-	logger   *zap.Logger
+	authRepo  authrepo.AuthRepository
+	auditRepo auditrepo.AuditLogRepository
+	logger    *zap.Logger
 }
 
 func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResponse, *response.Error) {
@@ -114,7 +117,7 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 				Details:        fmt.Sprintf("Accepted invitation for %s via Sign-in", invitation.Email),
 				CreatedAt:      now,
 			}
-			_ = s.authRepo.CreateAuditLog(auditLog)
+			_ = s.auditRepo.CreateAuditLog(auditLog)
 
 			organizationID = invitation.OrganizationID
 		} else {

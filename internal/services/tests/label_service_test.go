@@ -92,7 +92,7 @@ func TestLabelService_CreateLabel(t *testing.T) {
 		projectRole: string(dto.ProjectRoleProjectManager),
 	}
 	labelRepo := &stubLabelRepo{labels: make(map[uuid.UUID]*models.Label)}
-	service := services.InitLabelService(labelRepo, projectRepo, authRepo, zap.NewNop())
+	service := services.InitLabelService(labelRepo, projectRepo, authRepo, &stubAuditLogRepo{}, zap.NewNop())
 
 	// 1. Success Create Label
 	req := dto.CreateLabelRequest{
@@ -161,7 +161,7 @@ func TestLabelService_UpdateAndDeleteLabel(t *testing.T) {
 			Color:     "#000000",
 		},
 	}}
-	service := services.InitLabelService(labelRepo, projectRepo, authRepo, zap.NewNop())
+	service := services.InitLabelService(labelRepo, projectRepo, authRepo, &stubAuditLogRepo{}, zap.NewNop())
 
 	// 1. Success Update Label
 	newName := "New Name"

@@ -6,6 +6,7 @@ import (
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	labelrepo "github.com/ms-kanban-server/internal/repository/label-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	"github.com/ms-kanban-server/internal/services"
@@ -16,9 +17,10 @@ func LabelRoutes(deps models.Config, api *gin.RouterGroup) {
 	labelRepo := labelrepo.InitLabelRepository(deps)
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	authRepo := authrepo.InitAuthRepository(deps)
+	auditRepo := auditrepo.InitAuditLogRepository(deps)
 
 	// initialize services
-	labelService := services.InitLabelService(labelRepo, projectRepo, authRepo, deps.Logger)
+	labelService := services.InitLabelService(labelRepo, projectRepo, authRepo, auditRepo, deps.Logger)
 
 	// initialize handlers
 	labelHandler := handlers.InitLabelHandler(labelService, deps.Logger)

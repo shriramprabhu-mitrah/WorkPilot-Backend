@@ -12,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
@@ -27,12 +28,13 @@ type CommentsService interface {
 	GetCommentsByParentID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error)
 }
 
-func InitCommentsService(commentsRepo commentsrepo.CommentsRepository, taskRepo taskrepo.TaskRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) CommentsService {
+func InitCommentsService(commentsRepo commentsrepo.CommentsRepository, taskRepo taskrepo.TaskRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) CommentsService {
 	return &commentsService{
 		commentsRepo: commentsRepo,
 		taskRepo:     taskRepo,
 		projectRepo:  projectRepo,
 		authRepo:     authRepo,
+		auditRepo:    auditRepo,
 		logger:       logger,
 	}
 }
@@ -42,6 +44,7 @@ type commentsService struct {
 	taskRepo     taskrepo.TaskRepository
 	projectRepo  projectrepo.ProjectRepository
 	authRepo     authrepo.AuthRepository
+	auditRepo    auditrepo.AuditLogRepository
 	logger       *zap.Logger
 }
 
@@ -204,7 +207,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *
 		CreatedAt:      time.Now(),
 	}
 
-	s.projectRepo.CreateAuditLog(auditLog)
+	s.auditRepo.CreateAuditLog(auditLog)
 
 	return nil
 }
@@ -246,7 +249,7 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 		CreatedAt:      time.Now(),
 	}
 
-	s.projectRepo.CreateAuditLog(auditLog)
+	s.auditRepo.CreateAuditLog(auditLog)
 
 	return &commentResponse, nil
 }
@@ -308,7 +311,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *
 		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Updated Comment", req.TaskID.String()),
 		CreatedAt:      time.Now(),
 	}
-	s.projectRepo.CreateAuditLog(auditLog)
+	s.auditRepo.CreateAuditLog(auditLog)
 
 	return s.commentsRepo.UpdateComment(req.CommentID, updateComment)
 }
@@ -373,7 +376,7 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Deleted Comment", req.TaskID.String()),
 			CreatedAt:      time.Now(),
 		}
-		s.projectRepo.CreateAuditLog(auditLog)
+		s.auditRepo.CreateAuditLog(auditLog)
 
 		return s.commentsRepo.MarkCommentAsDeleted(req.CommentID)
 	}
@@ -392,7 +395,7 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Deleted Comment", req.TaskID.String()),
 		CreatedAt:      time.Now(),
 	}
-	s.projectRepo.CreateAuditLog(auditLog)
+	s.auditRepo.CreateAuditLog(auditLog)
 
 	return nil
 }
@@ -434,7 +437,7 @@ func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]res
 		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Get Comments task ID", req.TaskID.String()),
 		CreatedAt:      time.Now(),
 	}
-	s.projectRepo.CreateAuditLog(auditLog)
+	s.auditRepo.CreateAuditLog(auditLog)
 
 	return commentResponse, pagination, nil
 }
@@ -476,7 +479,7 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Get Comments by Parent Comment ID", req.TaskID.String()),
 		CreatedAt:      time.Now(),
 	}
-	s.projectRepo.CreateAuditLog(auditLog)
+	s.auditRepo.CreateAuditLog(auditLog)
 
 	return commentResponse, pagination, nil
 }

@@ -37,7 +37,6 @@ type AuthRepository interface {
 	GetUserFromRedis(email string) (*models.User, *response.Error)
 	GetPendingInvitationByEmail(email string) (models.OrganizationInvitation, *response.Error)
 	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
-	CreateAuditLog(log models.AuditLog) *response.Error
 }
 
 func InitAuthRepository(deps models.Config) AuthRepository {
