@@ -66,6 +66,10 @@ func (d *dummySprintRepo) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *resp
 	return nil
 }
 
+func (d *dummySprintRepo) GetSprintCountByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int, *response.Error) {
+	return make(map[uuid.UUID]int), nil
+}
+
 func (d *dummyAuthRepo) GetByEmail(email string) (models.User, *response.Error) {
 	return models.User{}, nil
 }

@@ -311,3 +311,37 @@ func (d *sprintDatabase) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *respo
 	}
 	return nil
 }
+
+func (d *sprintDatabase) GetSprintCountByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int, *response.Error) {
+	if len(projectIDs) == 0 {
+		return make(map[uuid.UUID]int), nil
+	}
+
+	type ProjectSprintCount struct {
+		ProjectID uuid.UUID `gorm:"column:project_id"`
+		Count     int       `gorm:"column:count"`
+	}
+
+	var results []ProjectSprintCount
+	err := d.db.Model(&models.Sprint{}).
+		Select("project_id, count(*) as count").
+		Where("project_id IN (?)", projectIDs).
+		Group("project_id").
+		Scan(&results).Error
+
+	if err != nil {
+		d.logger.Error("Database error occurred while fetching sprint counts", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	counts := make(map[uuid.UUID]int)
+	for _, r := range results {
+		counts[r.ProjectID] = r.Count
+	}
+
+	return counts, nil
+}

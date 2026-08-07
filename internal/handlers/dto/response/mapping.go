@@ -45,6 +45,7 @@ func ProjectSummaryFromModel(project models.Project) ProjectSummary {
 		Status:         project.Status,
 		CreatedBy:      project.CreatedBy,
 		CreatedAt:      project.CreatedAt,
+		SprintCount:    project.SprintCount,
 	}
 }
 

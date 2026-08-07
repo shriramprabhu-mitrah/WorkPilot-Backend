@@ -234,7 +234,26 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 		Status:          string(filterPayload.Status),
 	}
 
-	return s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
+	projects, pagination, err := s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	projectIDs := make([]uuid.UUID, len(projects))
+	for i, p := range projects {
+		projectIDs[i] = p.ID
+	}
+
+	sprintCounts, err := s.sprintRepo.GetSprintCountByProjectIDs(projectIDs)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	for i := range projects {
+		projects[i].SprintCount = sprintCounts[projects[i].ID]
+	}
+
+	return projects, pagination, nil
 }
 
 func (s *projectService) CreateProjectMemeber(req dto.CreateProjectMemberRequest) *response.Error {
