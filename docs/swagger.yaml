@@ -265,11 +265,6 @@ definitions:
     - ProjectStatusCompleted
     - ProjectStatusCancelled
     - ProjectStatusArchived
-  github_com_ms-kanban-server_internal_handlers_dto_request.RemoveUserRequest:
-    properties:
-      user_id:
-        type: string
-    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.ResendVerificationOTPRequest:
     properties:
       email:
@@ -1401,18 +1396,17 @@ paths:
       summary: Invite member to organization
       tags:
       - Organizations
-  /organization/remove-user:
+  /organization/remove-user/{user_id}:
     delete:
       consumes:
       - application/json
-      description: Removes a user from the organization.
+      description: Removes a user from the current organization.
       parameters:
-      - description: RemoveUser Request
-        in: body
-        name: request
+      - description: User ID (UUID)
+        in: path
+        name: user_id
         required: true
-        schema:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.RemoveUserRequest'
+        type: string
       produces:
       - application/json
       responses:
@@ -1424,6 +1418,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1432,6 +1434,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Remove user from organization
       tags:
       - Organizations

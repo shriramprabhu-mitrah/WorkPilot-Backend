@@ -1140,9 +1140,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/organization/remove-user": {
+        "/organization/remove-user/{user_id}": {
             "delete": {
-                "description": "Removes a user from the organization.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes a user from the current organization.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1155,13 +1160,11 @@ const docTemplate = `{
                 "summary": "Remove user from organization",
                 "parameters": [
                     {
-                        "description": "RemoveUser Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.RemoveUserRequest"
-                        }
+                        "type": "string",
+                        "description": "User ID (UUID)",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1173,6 +1176,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
                         }
@@ -4471,14 +4486,6 @@ const docTemplate = `{
                 "ProjectStatusCancelled",
                 "ProjectStatusArchived"
             ]
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.RemoveUserRequest": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string"
-                }
-            }
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.ResendVerificationOTPRequest": {
             "type": "object",
