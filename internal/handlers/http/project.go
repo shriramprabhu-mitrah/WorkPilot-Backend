@@ -186,6 +186,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //	@Param			page_size	query		int		false	"Page Size"			default(10)
 //	@Param			name		query		string	false	"Project Name"
 //	@Param			status		query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
+//	@Param			fieldName	query		string	false	"Fields to return (comma separated)"
 //	@Success		200			{object}	response.SuccessResponse	"Projects retrieved successfully"
 //	@Failure		400			{object}	response.ErrorResponse		"Invalid query parameters"
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
@@ -227,11 +228,21 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		projectResponses = append(projectResponses, responsedto.ProjectSummaryFromModel(project))
 	}
 
+	var filteredData any = projectResponses
+	if filter.FieldName != "" {
+		var filterErr error
+		filteredData, filterErr = utils.FilterFields(projectResponses, filter.FieldName)
+		if filterErr != nil {
+			h.logger.Error("Failed to filter project fields", zap.Error(filterErr))
+			filteredData = projectResponses
+		}
+	}
+
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Projects retrieved successfully.",
-		Data:       projectResponses,
+		Data:       filteredData,
 		Meta:       &pagination,
 	})
 }

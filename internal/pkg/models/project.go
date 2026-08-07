@@ -18,6 +18,7 @@ type Project struct {
 	Creator        User           `json:"creator,omitzero" gorm:"foreignKey:CreatedBy"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
+	SprintCount    int            `json:"sprint_count" gorm:"-"`
 	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
 }
 

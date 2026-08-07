@@ -305,6 +305,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Param page_size query int false "Page size" default(10)
 // @Param status query string false "Sprint Status" Enums(planning,active,on_hold,completed,cancelled,archived)
 // @Param search query string false "Search sprint by name"
+// @Param fieldName query string false "Fields to return (comma separated)"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -385,11 +386,21 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 		sprintResponses = append(sprintResponses, responsedto.SprintFromModel(sprint))
 	}
 
+	var filteredData any = sprintResponses
+	if filter.FieldName != "" {
+		var filterErr error
+		filteredData, filterErr = utils.FilterFields(sprintResponses, filter.FieldName)
+		if filterErr != nil {
+			h.logger.Error("Failed to filter sprint fields", zap.Error(filterErr))
+			filteredData = sprintResponses
+		}
+	}
+
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Sprints retrieved successfully.",
-		Data:       sprintResponses,
+		Data:       filteredData,
 		Meta:       &pagination,
 	})
 }
