@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -60,14 +59,6 @@ type sprintRepoStub struct {
 	lastIsSprintDateRangeExistsExclude uuid.UUID
 	createSnapshotErr                  *response.Error
 	lastSnapshotCreated                models.SprintSnapshot
-	existingSprints                    map[string]bool
-}
-
-func (s *sprintRepoStub) IsSprintExists(projectID uuid.UUID, name string) (bool, *response.Error) {
-	if s.existingSprints == nil {
-		return false, nil
-	}
-	return s.existingSprints[strings.ToLower(name)], nil
 }
 
 func (s *sprintRepoStub) CreateSprint(row models.Sprint) *response.Error {
@@ -580,80 +571,3 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 		t.Fatalf("expected update to allow duplicate date range/name, got error %v", err)
 	}
 }
-
-func TestSprintService_CreateSprint_AppendsRandomNumberIfNameExists(t *testing.T) {
-	logger := zap.NewNop()
-	orgID := uuid.Must(uuid.NewV4())
-	userID := uuid.Must(uuid.NewV4())
-	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
-	sprintRepo := &sprintRepoStub{
-		existingSprints: map[string]bool{
-			"sprint 1": true,
-		},
-	}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
-
-	err := service.CreateSprint(dto.CreateSprintRequest{
-		ProjectID:      uuid.Must(uuid.NewV4()),
-		UserID:         userID,
-		OrganizationID: orgID,
-		Sprints: []dto.CreateSprint{
-			{Name: "Sprint 1", StartDate: "2026-07-12", EndDate: "2026-07-18"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("expected create to succeed, got error %v", err)
-	}
-
-	expectedPrefix := "Sprint 1 ("
-	if !strings.HasPrefix(sprintRepo.lastCreateSprint.Name, expectedPrefix) {
-		t.Fatalf("expected randomized sprint name to start with %q, got %q", expectedPrefix, sprintRepo.lastCreateSprint.Name)
-	}
-	if !strings.HasSuffix(sprintRepo.lastCreateSprint.Name, ")") {
-		t.Fatalf("expected randomized sprint name to end with ')', got %q", sprintRepo.lastCreateSprint.Name)
-	}
-}
-
-func TestSprintService_UpdateSprint_AppendsRandomNumberIfNameExists(t *testing.T) {
-	logger := zap.NewNop()
-	orgID := uuid.Must(uuid.NewV4())
-	userID := uuid.Must(uuid.NewV4())
-	projectID := uuid.Must(uuid.NewV4())
-	sprintID := uuid.Must(uuid.NewV4())
-	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
-	sprintRepo := &sprintRepoStub{
-		getSprintByIDRes: &models.Sprint{
-			ID:        sprintID,
-			ProjectID: projectID,
-			Name:      "Sprint 1",
-			StartDate: time.Now(),
-			EndDate:   time.Now().Add(7 * 24 * time.Hour),
-		},
-		existingSprints: map[string]bool{
-			"sprint 2": true,
-		},
-	}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
-
-	err := service.UpdateSprint(dto.UpdateSprintRequest{
-		ProjectID:      projectID,
-		UserID:         userID,
-		OrganizationID: orgID,
-		SprintID:       sprintID,
-		StartDate:      "2026-08-01",
-		EndDate:        "2026-08-08",
-		Name:           "Sprint 2",
-	})
-	if err != nil {
-		t.Fatalf("expected update to succeed, got error %v", err)
-	}
-
-	expectedPrefix := "Sprint 2 ("
-	if !strings.HasPrefix(sprintRepo.lastUpdatePayload.Name, expectedPrefix) {
-		t.Fatalf("expected randomized sprint name to start with %q, got %q", expectedPrefix, sprintRepo.lastUpdatePayload.Name)
-	}
-	if !strings.HasSuffix(sprintRepo.lastUpdatePayload.Name, ")") {
-		t.Fatalf("expected randomized sprint name to end with ')', got %q", sprintRepo.lastUpdatePayload.Name)
-	}
-}
-

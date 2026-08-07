@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -222,9 +221,4 @@ func StringToTime(str string) (*time.Time, error) {
 		return nil, fmt.Errorf("Invalid time,Error %e. Expected format: YYYY-MM-DD ", err)
 	}
 	return &t, nil
-}
-
-func GenerateRandomSensibleName(base string) string {
-	num := rand.Intn(9000) + 1000
-	return fmt.Sprintf("%s (%d)", base, num)
 }

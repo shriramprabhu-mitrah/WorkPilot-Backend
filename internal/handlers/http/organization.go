@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -716,11 +715,7 @@ func (h *OrganizationHandler) AcceptInvitationPage(g *gin.Context) {
 		return
 	}
 
-	rawURL := config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000")
-	baseURL := "http://localhost:3000"
-	if parsed, err := url.Parse(rawURL); err == nil && parsed.Host != "" {
-		baseURL = parsed.Scheme + "://" + parsed.Host
-	}
+	baseURL := strings.TrimSuffix(config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), "/")
 	dashboardURL := baseURL + "/dashboard"
 	loginURL := baseURL + "/signin"
 
@@ -881,11 +876,7 @@ func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 	}
 
 	if g.ContentType() == "application/x-www-form-urlencoded" {
-		rawURL := config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000")
-		baseURL := "http://localhost:3000"
-		if parsed, err := url.Parse(rawURL); err == nil && parsed.Host != "" {
-			baseURL = parsed.Scheme + "://" + parsed.Host
-		}
+		baseURL := strings.TrimSuffix(config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), "/")
 		g.Redirect(http.StatusFound, baseURL+"/teams")
 		return
 	}

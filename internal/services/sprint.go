@@ -2,7 +2,6 @@ package services
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -148,16 +147,9 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		})
 	}
 
-	existingNamesInBatch := make(map[string]bool)
 	for _, vSpr := range validatedList {
-		uniqueName, err := s.getUniqueSprintName(req.ProjectID, vSpr.Name, existingNamesInBatch)
-		if err != nil {
-			return err
-		}
-		existingNamesInBatch[strings.ToLower(uniqueName)] = true
-
 		sprint := models.Sprint{
-			Name:        uniqueName,
+			Name:        vSpr.Name,
 			Goal:        vSpr.Goal,
 			StartDate:   vSpr.StartDate,
 			EndDate:     vSpr.EndDate,
@@ -339,12 +331,6 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 	name := req.Name
 	if name == "" {
 		name = existingSprint.Name
-	} else if !strings.EqualFold(name, existingSprint.Name) {
-		uniqueName, err := s.getUniqueSprintName(req.ProjectID, name, nil)
-		if err != nil {
-			return err
-		}
-		name = uniqueName
 	}
 	goal := req.Goal
 	if goal == "" {
@@ -661,28 +647,4 @@ func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID uuid.UUID) *
 		}
 	}
 	return nil
-}
-
-func (s *sprintService) getUniqueSprintName(projectID uuid.UUID, originalName string, existingNamesInBatch map[string]bool) (string, *response.Error) {
-	name := originalName
-	existsInDB, err := s.sprintRepo.IsSprintExists(projectID, name)
-	if err != nil {
-		return "", err
-	}
-
-	if !existsInDB && (existingNamesInBatch == nil || !existingNamesInBatch[strings.ToLower(name)]) {
-		return name, nil
-	}
-
-	for {
-		name = utils.GenerateRandomSensibleName(originalName)
-
-		existsInDB, err = s.sprintRepo.IsSprintExists(projectID, name)
-		if err != nil {
-			return "", err
-		}
-		if !existsInDB && (existingNamesInBatch == nil || !existingNamesInBatch[strings.ToLower(name)]) {
-			return name, nil
-		}
-	}
 }
