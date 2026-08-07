@@ -31,6 +31,7 @@ type OrganizationService interface {
 	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
 	InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error
 	AcceptInvitation(userID uuid.UUID, token string) *response.Error
+	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
 	GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	RemoveUser(payload dto.RemoveUser) *response.Error
 }
@@ -257,22 +258,15 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		existingUser, userErr := s.AuthRepo.GetByEmail(inviteEmail)
 		if userErr == nil {
 			if existingUser.OrganizationID != nil && *existingUser.OrganizationID != uuid.Nil {
-				if *existingUser.OrganizationID == organizationID && existingUser.IsActive {
-					return &response.Error{
-						Code:       response.ErrConflict,
-						StatusCode: http.StatusConflict,
-						Message:    "User is already an active member of the organization",
-					}
-				}
 				return &response.Error{
 					Code:       response.ErrConflict,
 					StatusCode: http.StatusConflict,
-					Message:    "User is already assigned to an organization",
+					Message:    "User is already in an organization",
 				}
 			}
-			existingUser.IsActive = true
 			existingUser.OrganizationID = &organizationID
-			existingUser.JoinedAt = time.Now()
+			existingUser.Role = string(dto.RoleMember)
+			existingUser.IsActive = false
 			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
 				return err
 			}
@@ -289,6 +283,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		invitation := models.OrganizationInvitation{
 			OrganizationID: organizationID,
 			Email:          inviteEmail,
+			Role:           string(dto.RoleMember),
 			Status:         models.InvitationStatusPending,
 			ExpiresAt:      expiresAt,
 			CreatedBy:      inviterID,
@@ -317,7 +312,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 			}
 		}
 
-		inviteLink := fmt.Sprintf("%s?token=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), invitation.Token)
+		inviteLink := fmt.Sprintf("%s/api/v1/organization/invitations/accept?token=%s", config.GetEnv("BACKEND_API_URL", "http://localhost:6369"), invitation.Token)
 		tempPassword := ""
 		if userErr != nil {
 			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteEmail, organizationID)
@@ -483,11 +478,11 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 		FullName:       s.generateFullNameFromEmail(email),
 		UserName:       username,
 		PasswordHash:   passwordHash,
+		Timezone:       "UTC",
+		IsActive:       false,
+		IsVerified:     true,
 		OrganizationID: &organizationID,
 		Role:           string(dto.RoleMember),
-		Timezone:       "UTC",
-		IsActive:       true,
-		IsVerified:     true,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -591,6 +586,10 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 		return auditErr
 	}
 	return nil
+}
+
+func (s *organizationService) GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error) {
+	return s.OrganizationRepo.GetInvitationByToken(token)
 }
 
 func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {

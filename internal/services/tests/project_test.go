@@ -44,6 +44,10 @@ func (d *dummySprintRepo) IsSprintExists(projectID uuid.UUID, name string) (bool
 	return false, nil
 }
 
+func (d *dummySprintRepo) IsSprintDateRangeExists(projectID uuid.UUID, startDate, endDate time.Time, excludeSprintID uuid.UUID) (bool, *response.Error) {
+	return false, nil
+}
+
 func (d *dummySprintRepo) GetActiveSprints() ([]models.Sprint, *response.Error) {
 	return nil, nil
 }
@@ -138,6 +142,15 @@ func (d *dummyAuthRepo) StoreUserTemp(row models.User) *response.Error {
 }
 func (d *dummyAuthRepo) GetUserFromRedis(email string) (*models.User, *response.Error) {
 	return nil, nil
+}
+func (d *dummyAuthRepo) GetPendingInvitationByEmail(email string) (models.OrganizationInvitation, *response.Error) {
+	return models.OrganizationInvitation{}, nil
+}
+func (d *dummyAuthRepo) UpdateInvitation(invitation models.OrganizationInvitation) *response.Error {
+	return nil
+}
+func (d *dummyAuthRepo) CreateAuditLog(log models.AuditLog) *response.Error {
+	return nil
 }
 
 type stubProjectRepo struct {

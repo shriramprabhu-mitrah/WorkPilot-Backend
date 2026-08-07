@@ -221,5 +221,4 @@ func StringToTime(str string) (*time.Time, error) {
 		return nil, fmt.Errorf("Invalid time,Error %e. Expected format: YYYY-MM-DD ", err)
 	}
 	return &t, nil
-
 }

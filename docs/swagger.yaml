@@ -1342,6 +1342,25 @@ paths:
       tags:
       - Organizations
   /organization/invitations/accept:
+    get:
+      description: Validates the token, checks login status, and renders acceptance
+        page or redirects to login.
+      parameters:
+      - description: Invitation token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML Confirmation Page
+          schema:
+            type: string
+      summary: Show accept invitation page or redirect to login
+      tags:
+      - Organizations
     post:
       consumes:
       - application/json
@@ -1946,6 +1965,10 @@ paths:
         in: query
         name: status
         type: string
+      - description: Fields to return (comma separated)
+        in: query
+        name: fieldName
+        type: string
       produces:
       - application/json
       responses:
@@ -2316,6 +2339,10 @@ paths:
       - description: Search sprint by name
         in: query
         name: search
+        type: string
+      - description: Fields to return (comma separated)
+        in: query
+        name: fieldName
         type: string
       produces:
       - application/json

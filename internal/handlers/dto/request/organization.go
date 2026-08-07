@@ -86,7 +86,7 @@ type InviteOrganizationMemberRequest struct {
 }
 
 type AcceptInvitationRequest struct {
-	Token string `json:"token" binding:"required"`
+	Token string `json:"token" form:"token" binding:"required"`
 }
 
 type OrganizationMemberListFilter struct {

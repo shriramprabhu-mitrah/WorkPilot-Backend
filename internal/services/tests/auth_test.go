@@ -32,8 +32,12 @@ type stubAuthRepository struct {
 	createdUser             models.User
 	savedVerificationOTP    models.PasswordResetOTP
 	verifiedUserID          uuid.UUID
-	createdOrganization     models.Organization
 	createOrganizationCalls int
+	updateUserCalls         int
+	createdOrganization     models.Organization
+	invitation              models.OrganizationInvitation
+	invitationErr           *response.Error
+	auditLogs               []models.AuditLog
 }
 
 func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Error) {
@@ -127,6 +131,7 @@ func (s *stubAuthRepository) ChangePassword(tokenHash string, userID uuid.UUID) 
 	return nil
 }
 func (s *stubAuthRepository) UpdateUser(userID uuid.UUID, req models.User) *response.Error {
+	s.updateUserCalls++
 	if s.err != nil {
 		return s.err
 	}
@@ -219,6 +224,32 @@ func (s *stubAuthRepository) RevokeRefreshTokens(userID uuid.UUID) *response.Err
 func (s *stubAuthRepository) GetUserFromRedis(email string) (*models.User, *response.Error) {
 
 	return nil, nil
+}
+
+func (s *stubAuthRepository) GetPendingInvitationByEmail(email string) (models.OrganizationInvitation, *response.Error) {
+	if s.invitationErr != nil {
+		return models.OrganizationInvitation{}, s.invitationErr
+	}
+	if strings.EqualFold(s.invitation.Email, email) {
+		return s.invitation, nil
+	}
+	return models.OrganizationInvitation{}, nil
+}
+
+func (s *stubAuthRepository) UpdateInvitation(invitation models.OrganizationInvitation) *response.Error {
+	if s.err != nil {
+		return s.err
+	}
+	s.invitation = invitation
+	return nil
+}
+
+func (s *stubAuthRepository) CreateAuditLog(log models.AuditLog) *response.Error {
+	if s.err != nil {
+		return s.err
+	}
+	s.auditLogs = append(s.auditLogs, log)
+	return nil
 }
 
 func TestSignInReturnsUnauthorizedForInvalidPassword(t *testing.T) {
@@ -514,3 +545,84 @@ func TestChangePasswordVerifiesOldPassword(t *testing.T) {
 		t.Fatalf("expected password change to succeed, got error: %v", validErr)
 	}
 }
+
+func TestSignIn_AutoActivatesUserWithPendingInvitation(t *testing.T) {
+	correctHash, _ := utils.HashPassword("password123")
+	userUUID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+
+	repo := &stubAuthRepository{
+		user: models.User{
+			ID:           userUUID,
+			Email:        "inactive-invited@example.com",
+			PasswordHash: correctHash,
+			Role:         "member",
+			IsActive:     false,
+			IsVerified:   true,
+		},
+		invitation: models.OrganizationInvitation{
+			ID:             uuid.Must(uuid.NewV4()),
+			OrganizationID: orgID,
+			Email:          "inactive-invited@example.com",
+			Role:           "member",
+			Status:         models.InvitationStatusPending,
+			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			Token:          "invite-token-abc",
+		},
+	}
+	service := InitAuthService(repo, zap.NewNop())
+
+	resp, err := service.SignIn(dto.SignInRequest{
+		Email:    "inactive-invited@example.com",
+		Password: "password123",
+	})
+
+	if err != nil {
+		t.Fatalf("expected successful login and auto-activation, got error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected auth tokens response, got nil")
+	}
+
+	if !repo.user.IsActive {
+		t.Fatal("expected user to be activated (IsActive=true)")
+	}
+	if repo.invitation.Status != models.InvitationStatusAccepted {
+		t.Fatalf("expected invitation status to be accepted, got %s", repo.invitation.Status)
+	}
+	if len(repo.auditLogs) != 1 {
+		t.Fatalf("expected 1 audit log to be created, got %d", len(repo.auditLogs))
+	}
+}
+
+func TestSignIn_RejectsInactiveUserWithoutPendingInvitation(t *testing.T) {
+	correctHash, _ := utils.HashPassword("password123")
+	userUUID := uuid.Must(uuid.NewV4())
+
+	repo := &stubAuthRepository{
+		user: models.User{
+			ID:           userUUID,
+			Email:        "inactive-blocked@example.com",
+			PasswordHash: correctHash,
+			Role:         "member",
+			IsActive:     false,
+		},
+	}
+	service := InitAuthService(repo, zap.NewNop())
+
+	_, err := service.SignIn(dto.SignInRequest{
+		Email:    "inactive-blocked@example.com",
+		Password: "password123",
+	})
+
+	if err == nil {
+		t.Fatal("expected sign-in to be rejected for inactive user without invitation, got nil")
+	}
+	if err.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden, got %d", err.StatusCode)
+	}
+	if err.Message != "Your account has been deactivated. Please contact support." {
+		t.Fatalf("unexpected error message: %s", err.Message)
+	}
+}
+

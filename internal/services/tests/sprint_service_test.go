@@ -28,36 +28,50 @@ func (s *sprintAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *response.E
 
 type sprintRepoStub struct {
 	dummySprintRepo
-	createErr               *response.Error
-	deleteErr               *response.Error
-	getSprintsRes           []models.Sprint
-	getSprintsPage          response.Pagination
-	getSprintsErr           *response.Error
-	getSprintByIDRes        *models.Sprint
-	getSprintByIDErr        *response.Error
-	updateErr               *response.Error
-	lastCreateSprint        models.Sprint
-	lastDeleteSprint        uuid.UUID
-	lastUpdateProject       uuid.UUID
-	lastUpdateSprint        uuid.UUID
-	lastUpdatePayload       models.Sprint
-	totalStoryPoints        int
-	totalStoryPointsErr     *response.Error
-	remainingStoryPoints    int
-	remainingStoryPointsErr *response.Error
-	completedStoryPoints    int
-	completedStoryPointsErr *response.Error
-	activeSprints           []models.Sprint
-	activeSprintsErr        *response.Error
-	snapshots               []models.SprintSnapshot
-	snapshotsErr            *response.Error
-	createSnapshotErr       *response.Error
-	lastSnapshotCreated     models.SprintSnapshot
+	createErr                          *response.Error
+	deleteErr                          *response.Error
+	getSprintsRes                      []models.Sprint
+	getSprintsPage                     response.Pagination
+	getSprintsErr                      *response.Error
+	getSprintByIDRes                   *models.Sprint
+	getSprintByIDErr                   *response.Error
+	updateErr                          *response.Error
+	lastCreateSprint                   models.Sprint
+	lastDeleteSprint                   uuid.UUID
+	lastUpdateProject                  uuid.UUID
+	lastUpdateSprint                   uuid.UUID
+	lastUpdatePayload                  models.Sprint
+	totalStoryPoints                   int
+	totalStoryPointsErr                *response.Error
+	remainingStoryPoints               int
+	remainingStoryPointsErr            *response.Error
+	completedStoryPoints               int
+	completedStoryPointsErr            *response.Error
+	activeSprints                      []models.Sprint
+	activeSprintsErr                   *response.Error
+	snapshots                          []models.SprintSnapshot
+	snapshotsErr                       *response.Error
+	isSprintDateRangeExistsRes         bool
+	isSprintDateRangeExistsErr         *response.Error
+	lastIsSprintDateRangeExistsProject uuid.UUID
+	lastIsSprintDateRangeExistsStart   time.Time
+	lastIsSprintDateRangeExistsEnd     time.Time
+	lastIsSprintDateRangeExistsExclude uuid.UUID
+	createSnapshotErr                  *response.Error
+	lastSnapshotCreated                models.SprintSnapshot
 }
 
 func (s *sprintRepoStub) CreateSprint(row models.Sprint) *response.Error {
 	s.lastCreateSprint = row
 	return s.createErr
+}
+
+func (s *sprintRepoStub) IsSprintDateRangeExists(projectID uuid.UUID, startDate, endDate time.Time, excludeSprintID uuid.UUID) (bool, *response.Error) {
+	s.lastIsSprintDateRangeExistsProject = projectID
+	s.lastIsSprintDateRangeExistsStart = startDate
+	s.lastIsSprintDateRangeExistsEnd = endDate
+	s.lastIsSprintDateRangeExistsExclude = excludeSprintID
+	return s.isSprintDateRangeExistsRes, s.isSprintDateRangeExistsErr
 }
 
 func (s *sprintRepoStub) DeleteSprint(id uuid.UUID) *response.Error {
@@ -479,7 +493,12 @@ func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testi
 		remainingStoryPoints: 18,
 	}
 
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	projRepo := &stubProjectRepo{
+		projectRole: string(dto.ProjectRoleProjectManager),
+		project:     models.Project{OrganizationID: orgID},
+	}
+
+	service := services.InitSprintService(sprintRepo, projRepo, authRepo, logger)
 
 	err := service.TriggerDailySnapshots(uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
 	if err != nil {
@@ -496,5 +515,59 @@ func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testi
 
 	if sprintRepo.lastSnapshotCreated.RemainingStoryPoints != 18 {
 		t.Fatalf("expected remaining story points 18, got %d", sprintRepo.lastSnapshotCreated.RemainingStoryPoints)
+	}
+}
+
+func TestSprintService_CreateSprint_AllowsDuplicateDateRangeAndName(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+
+	err := service.CreateSprint(dto.CreateSprintRequest{
+		ProjectID:      uuid.Must(uuid.NewV4()),
+		UserID:         userID,
+		OrganizationID: orgID,
+		Sprints: []dto.CreateSprint{
+			{Name: "Sprint 1", StartDate: "2026-07-12", EndDate: "2026-07-18"},
+			{Name: "Sprint 1", StartDate: "2026-07-12", EndDate: "2026-07-18"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected duplicate date range and name to be allowed, got error %v", err)
+	}
+}
+
+func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Sprint 1",
+			StartDate: time.Now(),
+			EndDate:   time.Now().Add(7 * 24 * time.Hour),
+		},
+	}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+
+	err := service.UpdateSprint(dto.UpdateSprintRequest{
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		SprintID:       sprintID,
+		StartDate:      "2026-08-01",
+		EndDate:        "2026-08-08",
+		Name:           "Sprint 1",
+	})
+	if err != nil {
+		t.Fatalf("expected update to allow duplicate date range/name, got error %v", err)
 	}
 }
