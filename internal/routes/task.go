@@ -29,8 +29,8 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	tsk := api.Group("/projects/:project_id/tasks")
 	{
-		tsk.POST("/", middleware.ValidateJWT(), taskHandler.CreateTask)
-		tsk.GET("/", middleware.ValidateJWT(), taskHandler.GetTasks)
+		tsk.POST("", middleware.ValidateJWT(), taskHandler.CreateTask)
+		tsk.GET("", middleware.ValidateJWT(), taskHandler.GetTasks)
 		tsk.PATCH("/bulk", middleware.ValidateJWT(), taskHandler.BulkUpdateTasks)
 		tsk.GET("/:task_id", middleware.ValidateJWT(), taskHandler.GetTaskByID)
 		tsk.PATCH("/:task_id", middleware.ValidateJWT(), taskHandler.UpdateTask)

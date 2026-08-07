@@ -37,7 +37,7 @@ func InitTaskHandler(service services.TaskService, logger *zap.Logger) *taskHand
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/tasks/ [post]
+// @Router /projects/{project_id}/tasks [post]
 func (h *taskHandler) CreateTask(g *gin.Context) {
 	var payload requestdto.CreateTaskRequest
 
@@ -462,7 +462,7 @@ func (h *taskHandler) CloneTask(g *gin.Context) {
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/tasks/ [get]
+// @Router /projects/{project_id}/tasks [get]
 func (h *taskHandler) GetTasks(g *gin.Context) {
 	var filter requestdto.TaskFilter
 

@@ -37,7 +37,7 @@ func InitLabelHandler(service services.LabelService, logger *zap.Logger) *labelH
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 409 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/labels/ [post]
+// @Router /projects/{project_id}/labels [post]
 func (h *labelHandler) CreateLabel(g *gin.Context) {
 	var payload requestdto.CreateLabelRequest
 
@@ -106,7 +106,7 @@ func (h *labelHandler) CreateLabel(g *gin.Context) {
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/labels/ [get]
+// @Router /projects/{project_id}/labels [get]
 func (h *labelHandler) GetLabels(g *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
