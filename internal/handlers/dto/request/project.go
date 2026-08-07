@@ -61,8 +61,9 @@ type UpdateProjectRequest struct {
 type ProjectFilterRequest struct {
 	response.PaginationQuery
 	response.SortQuery
-	Name   string        `form:"name"`
-	Status ProjectStatus `form:"status"`
+	Name      string        `form:"name"`
+	Status    ProjectStatus `form:"status"`
+	FieldName string        `form:"fieldName"`
 }
 
 type ProjectFilter struct {
