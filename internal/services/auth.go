@@ -552,8 +552,8 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	if otpRecord.ExpiresAt.Before(time.Now()) || otpRecord.UsedAt != nil || !utils.IsValidPassword(otpRecord.OTPHash, credentials.OTP) {
 		s.logger.Error("Verification OTP rejected", zap.String("email", credentials.Email))
 		return nil, &response.Error{
-			Code:       response.ErrUnauthorized,
-			StatusCode: http.StatusUnauthorized,
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
 			Message:    "The provided OTP is invalid or expired",
 		}
 	}
