@@ -270,7 +270,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
 				return err
 			}
-		} else if userErr.StatusCode != http.StatusNotFound && userErr.StatusCode != http.StatusUnauthorized {
+		} else if userErr.StatusCode != http.StatusNotFound && userErr.StatusCode != http.StatusInternalServerError {
 			return userErr
 		}
 
