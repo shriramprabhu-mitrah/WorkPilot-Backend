@@ -21,7 +21,6 @@ type OrganizationRepository interface {
 	GetPendingInvitationByEmail(orgID uuid.UUID, email string) (models.OrganizationInvitation, *response.Error)
 	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
 	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
-	CreateAuditLog(log models.AuditLog) *response.Error
 	GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	DeleteUser(id uuid.UUID) *response.Error
 }

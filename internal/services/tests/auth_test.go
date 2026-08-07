@@ -37,7 +37,6 @@ type stubAuthRepository struct {
 	createdOrganization     models.Organization
 	invitation              models.OrganizationInvitation
 	invitationErr           *response.Error
-	auditLogs               []models.AuditLog
 }
 
 func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Error) {
@@ -244,14 +243,6 @@ func (s *stubAuthRepository) UpdateInvitation(invitation models.OrganizationInvi
 	return nil
 }
 
-func (s *stubAuthRepository) CreateAuditLog(log models.AuditLog) *response.Error {
-	if s.err != nil {
-		return s.err
-	}
-	s.auditLogs = append(s.auditLogs, log)
-	return nil
-}
-
 func TestSignInReturnsUnauthorizedForInvalidPassword(t *testing.T) {
 	hash, err := utils.HashPassword("correct-password")
 	if err != nil {
@@ -266,7 +257,7 @@ func TestSignInReturnsUnauthorizedForInvalidPassword(t *testing.T) {
 			IsActive:     true,
 		},
 	}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "wrong-password"})
 	if authErr == nil {
@@ -287,7 +278,7 @@ func TestSignInRejectsInactiveUser(t *testing.T) {
 	}
 
 	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: false, IsVerified: true}}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
 	if authErr == nil {
@@ -308,7 +299,7 @@ func TestSignInRejectsUnverifiedUser(t *testing.T) {
 	}
 
 	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true, IsVerified: false}}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
 	if authErr == nil {
@@ -329,7 +320,7 @@ func TestSignInReturnsAuthTokensForValidCredentials(t *testing.T) {
 	}
 
 	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, Role: "developer", IsActive: true, IsVerified: true}}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
 	if authErr != nil {
@@ -351,7 +342,7 @@ func TestSignInReturnsAuthTokensForValidCredentials(t *testing.T) {
 
 func TestSignUpCreatesUnverifiedAccountAndSendsVerificationOTP(t *testing.T) {
 	repo := &stubAuthRepository{}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPass123!", FullName: "Jane Doe", UserName: "janedoe"})
 	if err != nil {
@@ -370,7 +361,7 @@ func TestSignUpCreatesUnverifiedAccountAndSendsVerificationOTP(t *testing.T) {
 
 func TestSignUpDoesNotCreateOrganizationDuringInitialRegistration(t *testing.T) {
 	repo := &stubAuthRepository{}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPass123!", FullName: "Jane Doe", UserName: "janedoe"})
 	if err != nil {
@@ -401,7 +392,7 @@ func TestRefreshTokenReturnsNewAccessTokenForValidRefreshToken(t *testing.T) {
 			ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 		},
 	}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.RefreshToken(dto.RefreshTokenRequest{RefreshToken: tokenID.String() + ".valid-refresh"})
 	if authErr != nil {
@@ -428,7 +419,7 @@ func TestResetPasswordUpdatesHashAndRevokesTokens(t *testing.T) {
 		user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", IsActive: true},
 		otp:  models.PasswordResetOTP{UserID: uuid.Must(uuid.NewV7()), OTPHash: hashedOTP, ExpiresAt: time.Now().Add(15 * time.Minute)},
 	}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	resetErr := service.ResetPassword(dto.ResetPasswordRequest{Email: "user@example.com", OTP: "123456", NewPassword: "NewPassword123!"})
 	if resetErr != nil {
@@ -447,7 +438,7 @@ func TestResetPasswordUpdatesHashAndRevokesTokens(t *testing.T) {
 
 func TestIsEmailAvailableReturnsTrueWhenEmailDoesNotExist(t *testing.T) {
 	repo := &stubAuthRepository{emailExists: false}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	available, err := service.IsEmailAvailable("new@example.com")
 	if err != nil {
@@ -460,7 +451,7 @@ func TestIsEmailAvailableReturnsTrueWhenEmailDoesNotExist(t *testing.T) {
 
 func TestIsUsernameAvailableReturnsFalseWhenUsernameAlreadyExists(t *testing.T) {
 	repo := &stubAuthRepository{usernameExists: true}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	available, err := service.IsUsernameAvailable("existinguser")
 	if err != nil {
@@ -473,7 +464,7 @@ func TestIsUsernameAvailableReturnsFalseWhenUsernameAlreadyExists(t *testing.T) 
 
 func TestSignUpReturnsConflictForDuplicateEmail(t *testing.T) {
 	repo := &stubAuthRepository{emailExists: true}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	err := service.SignUp(dto.SignUpRequest{Email: "existing@example.com", Password: "StrongPassword123!", FullName: "John", UserName: "johnny"})
 	if err == nil {
@@ -489,7 +480,7 @@ func TestSignUpReturnsConflictForDuplicateEmail(t *testing.T) {
 
 func TestSignUpReturnsConflictForDuplicateUsername(t *testing.T) {
 	repo := &stubAuthRepository{emailExists: false, usernameExists: true}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "StrongPassword123!", FullName: "John", UserName: "existinguser"})
 	if err == nil {
@@ -505,7 +496,7 @@ func TestSignUpReturnsConflictForDuplicateUsername(t *testing.T) {
 
 func TestSignUpRejectsShortPassword(t *testing.T) {
 	repo := &stubAuthRepository{}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	err := service.SignUp(dto.SignUpRequest{Email: "new@example.com", Password: "short", FullName: "John", UserName: "johnny"})
 	if err == nil {
@@ -525,7 +516,7 @@ func TestChangePasswordVerifiesOldPassword(t *testing.T) {
 	repo := &stubAuthRepository{
 		user: models.User{ID: userUUID, PasswordHash: correctHash},
 	}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	// Test incorrect old password
 	wrongErr := service.ChangePassword(dto.ChangePasswordRequest{UserID: userUUID, OldPassword: "WrongPassword123", NewPassword: "NewPassword123!"})
@@ -570,7 +561,8 @@ func TestSignIn_AutoActivatesUserWithPendingInvitation(t *testing.T) {
 			Token:          "invite-token-abc",
 		},
 	}
-	service := InitAuthService(repo, zap.NewNop())
+	auditRepo := &stubAuditLogRepo{}
+	service := InitAuthService(repo, auditRepo, zap.NewNop())
 
 	resp, err := service.SignIn(dto.SignInRequest{
 		Email:    "inactive-invited@example.com",
@@ -590,8 +582,8 @@ func TestSignIn_AutoActivatesUserWithPendingInvitation(t *testing.T) {
 	if repo.invitation.Status != models.InvitationStatusAccepted {
 		t.Fatalf("expected invitation status to be accepted, got %s", repo.invitation.Status)
 	}
-	if len(repo.auditLogs) != 1 {
-		t.Fatalf("expected 1 audit log to be created, got %d", len(repo.auditLogs))
+	if len(auditRepo.createdLogs) != 1 {
+		t.Fatalf("expected 1 audit log to be created, got %d", len(auditRepo.createdLogs))
 	}
 }
 
@@ -608,7 +600,7 @@ func TestSignIn_RejectsInactiveUserWithoutPendingInvitation(t *testing.T) {
 			IsActive:     false,
 		},
 	}
-	service := InitAuthService(repo, zap.NewNop())
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	_, err := service.SignIn(dto.SignInRequest{
 		Email:    "inactive-blocked@example.com",

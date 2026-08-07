@@ -20,7 +20,6 @@ type ProjectRepository interface {
 	RemoveProjectMember(projectID, userID uuid.UUID) *response.Error
 	GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
 	IsUserProjectMember(projectID, userID uuid.UUID) (bool, *response.Error)
-	CreateAuditLog(log models.AuditLog) *response.Error
 	DeleteProject(projectID, organizationID uuid.UUID) *response.Error
 	GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error)
 	GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error)

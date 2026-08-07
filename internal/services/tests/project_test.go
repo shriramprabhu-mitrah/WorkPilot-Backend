@@ -149,9 +149,6 @@ func (d *dummyAuthRepo) GetPendingInvitationByEmail(email string) (models.Organi
 func (d *dummyAuthRepo) UpdateInvitation(invitation models.OrganizationInvitation) *response.Error {
 	return nil
 }
-func (d *dummyAuthRepo) CreateAuditLog(log models.AuditLog) *response.Error {
-	return nil
-}
 
 type stubProjectRepo struct {
 	project            models.Project
@@ -213,9 +210,6 @@ func (s *stubProjectRepo) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 func (s *stubProjectRepo) IsUserProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
 	return s.isMember, nil
 }
-func (s *stubProjectRepo) CreateAuditLog(log models.AuditLog) *response.Error {
-	return nil
-}
 
 func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 	logger := zap.NewNop()
@@ -234,7 +228,8 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 		isMember: true,
 	}
 
-	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, logger)
+	auditRepo := &stubAuditLogRepo{}
+	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, auditRepo, logger)
 
 	t.Run("Valid UserID Filter", func(t *testing.T) {
 		filterUserID := uuid.Must(uuid.NewV4())
@@ -303,4 +298,14 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+}
+
+type stubAuditLogRepo struct {
+	createdLogs []models.AuditLog
+	err         *response.Error
+}
+
+func (s *stubAuditLogRepo) CreateAuditLog(log models.AuditLog) *response.Error {
+	s.createdLogs = append(s.createdLogs, log)
+	return s.err
 }

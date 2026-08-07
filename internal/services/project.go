@@ -12,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
 	"go.uber.org/zap"
@@ -31,11 +32,12 @@ type ProjectService interface {
 	UpdateProjectMember(req requestdto.UpdateProjectMemberRequest) *response.Error
 }
 
-func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, logger *zap.Logger) ProjectService {
+func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) ProjectService {
 	return &projectService{
 		authRepo:    authRepo,
 		projectRepo: projectRepo,
 		sprintRepo:  sprintRepo,
+		auditRepo:   auditRepo,
 		logger:      logger,
 	}
 }
@@ -44,6 +46,7 @@ type projectService struct {
 	authRepo    authrepo.AuthRepository
 	projectRepo projectrepo.ProjectRepository
 	sprintRepo  sprintrepo.SprintRepository
+	auditRepo   auditrepo.AuditLogRepository
 	logger      *zap.Logger
 }
 
@@ -143,7 +146,7 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) *res
 	}
 
 	// if error occurred just warn it do not return error
-	err = s.projectRepo.CreateAuditLog(auditLog)
+	err = s.auditRepo.CreateAuditLog(auditLog)
 	if err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
@@ -218,7 +221,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		Details:        fmt.Sprintf("Project updated: %s", req.Name),
 		CreatedAt:      time.Now(),
 	}
-	err = s.projectRepo.CreateAuditLog(auditLog)
+	err = s.auditRepo.CreateAuditLog(auditLog)
 	if err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
@@ -344,7 +347,7 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 			CreatedAt:      time.Now(),
 		}
 
-		if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 		}
 	}
@@ -403,7 +406,7 @@ func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember)
 		Details:        fmt.Sprintf("User %s removed from project", req.TargetUserID.String()),
 		CreatedAt:      time.Now(),
 	}
-	err = s.projectRepo.CreateAuditLog(auditLog)
+	err = s.auditRepo.CreateAuditLog(auditLog)
 	if err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
@@ -704,7 +707,7 @@ func (s *projectService) UpdateProjectMember(req requestdto.UpdateProjectMemberR
 		Details:        fmt.Sprintf("Changed user %s role  to %s", req.MemberID, req.ProjectRole),
 		CreatedAt:      time.Now(),
 	}
-	err = s.projectRepo.CreateAuditLog(auditLog)
+	err = s.auditRepo.CreateAuditLog(auditLog)
 	if err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	labelrepo "github.com/ms-kanban-server/internal/repository/label-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	"go.uber.org/zap"
@@ -28,6 +29,7 @@ type labelService struct {
 	labelRepo   labelrepo.LabelRepository
 	projectRepo projectrepo.ProjectRepository
 	authRepo    authrepo.AuthRepository
+	auditRepo   auditrepo.AuditLogRepository
 	logger      *zap.Logger
 }
 
@@ -35,12 +37,14 @@ func InitLabelService(
 	labelRepo labelrepo.LabelRepository,
 	projectRepo projectrepo.ProjectRepository,
 	authRepo authrepo.AuthRepository,
+	auditRepo auditrepo.AuditLogRepository,
 	logger *zap.Logger,
 ) LabelService {
 	return &labelService{
 		labelRepo:   labelRepo,
 		projectRepo: projectRepo,
 		authRepo:    authRepo,
+		auditRepo:   auditRepo,
 		logger:      logger,
 	}
 }
@@ -166,7 +170,7 @@ func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*response
 		Details:        fmt.Sprintf("Label '%s' created", label.Name),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -283,7 +287,7 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 			Details:        fmt.Sprintf("Label '%s' updated", label.Name),
 			CreatedAt:      time.Now(),
 		}
-		if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 		}
 	}
@@ -329,7 +333,7 @@ func (s *labelService) DeleteLabel(labelID, projectID, userID, orgID uuid.UUID) 
 		Details:        fmt.Sprintf("Label '%s' deleted", label.Name),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.projectRepo.CreateAuditLog(auditLog); err != nil {
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 

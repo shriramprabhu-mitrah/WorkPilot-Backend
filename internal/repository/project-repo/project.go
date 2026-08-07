@@ -301,18 +301,6 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 	return logs, pagination, nil
 }
 
-func (d *projectDatabase) CreateAuditLog(log models.AuditLog) *response.Error {
-	if err := d.db.Create(&log).Error; err != nil {
-		d.logger.Error("Database error creating audit log", zap.Error(err))
-		return &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Something went wrong. Please try again later.",
-		}
-	}
-	return nil
-}
-
 func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
 
 	result := d.db.
