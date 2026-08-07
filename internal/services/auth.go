@@ -84,12 +84,47 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	}
 
 	if !result.IsActive {
-		s.logger.Error("The account is deactivated or locked",
-			zap.String("email", credentials.Email))
-		return nil, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "Your account has been deactivated. Please contact support.",
+		invitation, invErr := s.authRepo.GetPendingInvitationByEmail(result.Email)
+		if invErr == nil && invitation.ID != uuid.Nil && invitation.ExpiresAt.After(time.Now()) {
+			result.IsActive = true
+			now := time.Now()
+			result.JoinedAt = now
+			if result.OrganizationID == nil || *result.OrganizationID == uuid.Nil {
+				result.OrganizationID = &invitation.OrganizationID
+			}
+			result.Role = invitation.Role
+
+			if updateErr := s.authRepo.UpdateUser(result.ID, result); updateErr != nil {
+				return nil, updateErr
+			}
+
+			invitation.Status = models.InvitationStatusAccepted
+			invitation.AcceptedAt = &now
+			invitation.UpdatedAt = now
+			if updateInvErr := s.authRepo.UpdateInvitation(invitation); updateInvErr != nil {
+				return nil, updateInvErr
+			}
+
+			auditLog := models.AuditLog{
+				UserID:         &result.ID,
+				OrganizationID: &invitation.OrganizationID,
+				Action:         "organization_invitation_accepted",
+				ResourceType:   "organization_invitation",
+				ResourceID:     invitation.Token,
+				Details:        fmt.Sprintf("Accepted invitation for %s via Sign-in", invitation.Email),
+				CreatedAt:      now,
+			}
+			_ = s.authRepo.CreateAuditLog(auditLog)
+
+			organizationID = invitation.OrganizationID
+		} else {
+			s.logger.Error("The account is deactivated or locked",
+				zap.String("email", credentials.Email))
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "Your account has been deactivated. Please contact support.",
+			}
 		}
 	}
 

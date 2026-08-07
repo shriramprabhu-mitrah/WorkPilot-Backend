@@ -493,7 +493,12 @@ func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testi
 		remainingStoryPoints: 18,
 	}
 
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	projRepo := &stubProjectRepo{
+		projectRole: string(dto.ProjectRoleProjectManager),
+		project:     models.Project{OrganizationID: orgID},
+	}
+
+	service := services.InitSprintService(sprintRepo, projRepo, authRepo, logger)
 
 	err := service.TriggerDailySnapshots(uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
 	if err != nil {
@@ -513,7 +518,7 @@ func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testi
 	}
 }
 
-func TestSprintService_CreateSprint_RejectsDuplicateDateRangeInBatch(t *testing.T) {
+func TestSprintService_CreateSprint_AllowsDuplicateDateRangeAndName(t *testing.T) {
 	logger := zap.NewNop()
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())
@@ -527,47 +532,15 @@ func TestSprintService_CreateSprint_RejectsDuplicateDateRangeInBatch(t *testing.
 		OrganizationID: orgID,
 		Sprints: []dto.CreateSprint{
 			{Name: "Sprint 1", StartDate: "2026-07-12", EndDate: "2026-07-18"},
-			{Name: "Sprint 2", StartDate: "2026-07-12", EndDate: "2026-07-18"},
-		},
-	})
-	if err == nil {
-		t.Fatal("expected error for duplicate date range in batch, got nil")
-	}
-	if err.Code != response.ErrConflict {
-		t.Fatalf("expected ErrConflict, got %s", err.Code)
-	}
-	if err.Message != "Multiple sprints in the request have the same date range" {
-		t.Fatalf("unexpected message: %s", err.Message)
-	}
-}
-
-func TestSprintService_CreateSprint_RejectsDuplicateDateRangeInDB(t *testing.T) {
-	logger := zap.NewNop()
-	orgID := uuid.Must(uuid.NewV4())
-	userID := uuid.Must(uuid.NewV4())
-	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
-	sprintRepo := &sprintRepoStub{
-		isSprintDateRangeExistsRes: true,
-	}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
-
-	err := service.CreateSprint(dto.CreateSprintRequest{
-		ProjectID:      uuid.Must(uuid.NewV4()),
-		UserID:         userID,
-		OrganizationID: orgID,
-		Sprints: []dto.CreateSprint{
 			{Name: "Sprint 1", StartDate: "2026-07-12", EndDate: "2026-07-18"},
 		},
 	})
-	if err == nil {
-		t.Fatal("expected error for duplicate date range in DB, got nil")
-	}
-	if err.Code != response.ErrConflict {
-		t.Fatalf("expected ErrConflict, got %s", err.Code)
+	if err != nil {
+		t.Fatalf("expected duplicate date range and name to be allowed, got error %v", err)
 	}
 }
 
-func TestSprintService_UpdateSprint_RejectsDuplicateDateRangeInDB(t *testing.T) {
+func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T) {
 	logger := zap.NewNop()
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())
@@ -582,7 +555,6 @@ func TestSprintService_UpdateSprint_RejectsDuplicateDateRangeInDB(t *testing.T) 
 			StartDate: time.Now(),
 			EndDate:   time.Now().Add(7 * 24 * time.Hour),
 		},
-		isSprintDateRangeExistsRes: true,
 	}
 	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
 
@@ -593,14 +565,10 @@ func TestSprintService_UpdateSprint_RejectsDuplicateDateRangeInDB(t *testing.T) 
 		SprintID:       sprintID,
 		StartDate:      "2026-08-01",
 		EndDate:        "2026-08-08",
+		Name:           "Sprint 1",
 	})
-	if err == nil {
-		t.Fatal("expected error for duplicate date range in DB update, got nil")
-	}
-	if err.Code != response.ErrConflict {
-		t.Fatalf("expected ErrConflict, got %s", err.Code)
-	}
-	if err.Message != "A sprint with the same date range already exists in this project" {
-		t.Fatalf("unexpected message: %s", err.Message)
+	if err != nil {
+		t.Fatalf("expected update to allow duplicate date range/name, got error %v", err)
 	}
 }
+

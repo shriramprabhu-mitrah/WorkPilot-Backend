@@ -35,6 +35,9 @@ type AuthRepository interface {
 	UpdateUser(userID uuid.UUID, req models.User) *response.Error
 	StoreUserTemp(row models.User) *response.Error
 	GetUserFromRedis(email string) (*models.User, *response.Error)
+	GetPendingInvitationByEmail(email string) (models.OrganizationInvitation, *response.Error)
+	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
+	CreateAuditLog(log models.AuditLog) *response.Error
 }
 
 func InitAuthRepository(deps models.Config) AuthRepository {

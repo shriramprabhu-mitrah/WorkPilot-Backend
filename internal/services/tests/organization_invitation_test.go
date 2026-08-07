@@ -207,7 +207,7 @@ func TestAcceptInvitationMarksMembershipAndStatus(t *testing.T) {
 
 	repo.invite = models.OrganizationInvitation{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "member@example.com", Role: string(dto.RoleMember), Status: models.InvitationStatusPending, Token: "token-123", ExpiresAt: time.Now().Add(24 * time.Hour)}
 
-	inviteErr := service.AcceptInvitation("token-123")
+	inviteErr := service.AcceptInvitation(userID, "token-123")
 	if inviteErr != nil {
 		t.Fatalf("expected invite acceptance to succeed, got %v", inviteErr)
 	}
@@ -262,7 +262,7 @@ func TestGetUserInOrganizationSupportsAdminsExclusion(t *testing.T) {
 	}
 }
 
-func TestInviteOrganizationMemberDoesNotDirectlyAddUser(t *testing.T) {
+func TestInviteOrganizationMemberDeactivatesAndUpdatesUser(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	inviterID := uuid.Must(uuid.NewV4())
 	existingUserID := uuid.Must(uuid.NewV4())
@@ -295,8 +295,16 @@ func TestInviteOrganizationMemberDoesNotDirectlyAddUser(t *testing.T) {
 		t.Fatalf("expected invitation to succeed, got %v", inviteErr)
 	}
 
-	if authRepo.updateUserCalls != 0 {
-		t.Fatalf("expected UpdateUser to not be called, but it was called %d times", authRepo.updateUserCalls)
+	if authRepo.updateUserCalls != 1 {
+		t.Fatalf("expected UpdateUser to be called once, but was called %d times", authRepo.updateUserCalls)
+	}
+
+	if authRepo.user.OrganizationID == nil || *authRepo.user.OrganizationID != orgID {
+		t.Fatal("expected user organization to be updated to orgID")
+	}
+
+	if authRepo.user.IsActive {
+		t.Fatal("expected user to be deactivated (IsActive=false) upon invite")
 	}
 
 	if len(repo.invites) != 1 {

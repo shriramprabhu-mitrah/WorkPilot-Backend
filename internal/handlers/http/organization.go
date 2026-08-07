@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
@@ -694,19 +696,16 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 		Message:    "Invitation sent successfully"})
 }
 
-// AcceptInvitation godoc
+// AcceptInvitationPage godoc
 //
-// @Summary      Accept organization invitation
-// @Description  Accepts a pending organization invitation using the provided token.
+// @Summary      Show accept invitation page or redirect to login
+// @Description  Validates the token, checks login status, and renders acceptance page or redirects to login.
 // @Tags         Organizations
-// @Accept       json
-// @Produce      json
-// @Param        request body requestdto.AcceptInvitationRequest true "Accept invitation"
-// @Success      200 {object} response.SuccessResponse
-// @Failure      400 {object} response.ErrorResponse
-// @Failure      500 {object} response.ErrorResponse
+// @Produce      html
+// @Param        token query string true "Invitation token"
+// @Success      200 {string} string "HTML Confirmation Page"
 // @Router       /organization/invitations/accept [get]
-func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
+func (h *OrganizationHandler) AcceptInvitationPage(g *gin.Context) {
 	token := g.Query("token")
 	if token == "" {
 		g.JSON(http.StatusBadRequest, response.ErrorResponse{
@@ -720,11 +719,182 @@ func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
 		return
 	}
 
-	if err := h.service.AcceptInvitation(token); err != nil {
-		redirectURL := fmt.Sprintf("%s?error=%s", config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"), err.Message)
-		g.Redirect(http.StatusFound, redirectURL)
+	rawURL := config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000")
+	baseURL := "http://localhost:3000"
+	if parsed, err := url.Parse(rawURL); err == nil && parsed.Host != "" {
+		baseURL = parsed.Scheme + "://" + parsed.Host
+	}
+	dashboardURL := baseURL + "/dashboard"
+	loginURL := baseURL + "/signin"
+
+	dataMap := map[string]any{
+		"DashboardURL": dashboardURL,
+		"LoginURL":     loginURL,
+	}
+
+	invitation, err := h.service.GetInvitationByToken(token)
+	if err != nil {
+		htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_error.html", map[string]any{
+			"Message":      err.Message,
+			"DashboardURL": dashboardURL,
+		})
+		if renderErr != nil {
+			g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: err.Message}})
+			return
+		}
+		g.Header("Content-Type", "text/html")
+		g.String(http.StatusOK, htmlString)
 		return
 	}
 
-	g.Redirect(http.StatusFound, config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000"))
+	if invitation.ID == uuid.Nil {
+		htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_not_found.html", dataMap)
+		if renderErr != nil {
+			g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Invitation not found"}})
+			return
+		}
+		g.Header("Content-Type", "text/html")
+		g.String(http.StatusOK, htmlString)
+		return
+	}
+
+	if invitation.Status == models.InvitationStatusAccepted {
+		htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_already_accepted.html", dataMap)
+		if renderErr != nil {
+			g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Invitation has already been accepted"}})
+			return
+		}
+		g.Header("Content-Type", "text/html")
+		g.String(http.StatusOK, htmlString)
+		return
+	}
+
+	if invitation.Status == models.InvitationStatusExpired || invitation.ExpiresAt.Before(time.Now()) {
+		htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_expired.html", dataMap)
+		if renderErr != nil {
+			g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Invitation has expired"}})
+			return
+		}
+		g.Header("Content-Type", "text/html")
+		g.String(http.StatusOK, htmlString)
+		return
+	}
+
+	_, cookieErr := g.Cookie("access_token")
+	if cookieErr != nil {
+		htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_login_required.html", dataMap)
+		if renderErr != nil {
+			g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Login required"}})
+			return
+		}
+		g.Header("Content-Type", "text/html")
+		g.String(http.StatusOK, htmlString)
+		return
+	}
+
+	htmlString, renderErr := utils.RenderEmbeddedTemplate("accept_invitation.html", map[string]any{
+		"Token": token,
+	})
+	if renderErr != nil {
+		h.logger.Error("Failed to render AcceptInvitationPage template", zap.Error(renderErr))
+		g.JSON(http.StatusInternalServerError, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to render invitation acceptance page",
+			}},
+		)
+		return
+	}
+
+	g.Header("Content-Type", "text/html")
+	g.String(http.StatusOK, htmlString)
+}
+
+// AcceptInvitation godoc
+//
+// @Summary      Accept organization invitation
+// @Description  Accepts a pending organization invitation using the provided token.
+// @Tags         Organizations
+// @Accept       json
+// @Produce      json
+// @Param        request body requestdto.AcceptInvitationRequest true "Accept invitation"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /organization/invitations/accept [post]
+func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {
+	var payload requestdto.AcceptInvitationRequest
+	if err := g.ShouldBind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		if g.ContentType() == "application/x-www-form-urlencoded" {
+			htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_error.html", map[string]any{
+				"Message": message,
+			})
+			if renderErr != nil {
+				g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: message}})
+				return
+			}
+			g.Header("Content-Type", "text/html")
+			g.String(http.StatusOK, htmlString)
+			return
+		}
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			}},
+		)
+		return
+	}
+
+	userID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		if g.ContentType() == "application/x-www-form-urlencoded" {
+			htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_login_required.html", nil)
+			if renderErr != nil {
+				g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: "Unauthorized"}})
+				return
+			}
+			g.Header("Content-Type", "text/html")
+			g.String(http.StatusOK, htmlString)
+			return
+		}
+		return
+	}
+
+	if err := h.service.AcceptInvitation(userID, payload.Token); err != nil {
+		if g.ContentType() == "application/x-www-form-urlencoded" {
+			htmlString, renderErr := utils.RenderEmbeddedTemplate("invitation_error.html", map[string]any{
+				"Message": err.Message,
+			})
+			if renderErr != nil {
+				g.JSON(http.StatusInternalServerError, response.ErrorResponse{Success: false, Error: response.Error{Code: response.ErrInternalServerError, StatusCode: http.StatusInternalServerError, Message: err.Message}})
+				return
+			}
+			g.Header("Content-Type", "text/html")
+			g.String(http.StatusOK, htmlString)
+			return
+		}
+		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
+		return
+	}
+
+	if g.ContentType() == "application/x-www-form-urlencoded" {
+		rawURL := config.GetEnv("FRONTEND_DASHBOARD_URL", "http://localhost:3000")
+		baseURL := "http://localhost:3000"
+		if parsed, err := url.Parse(rawURL); err == nil && parsed.Host != "" {
+			baseURL = parsed.Scheme + "://" + parsed.Host
+		}
+		g.Redirect(http.StatusFound, baseURL+"/teams")
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Invitation accepted successfully"})
 }

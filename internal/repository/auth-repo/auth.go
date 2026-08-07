@@ -137,8 +137,14 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 }
 
 func (d *authDatabase) CreateUser(row models.User) *response.Error {
+	if row.Role == "" {
+		row.Role = "developer"
+	}
+	if row.Timezone == "" {
+		row.Timezone = "UTC"
+	}
 
-	if err := d.db.Create(&row).Error; err != nil {
+	if err := d.db.Select("*").Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
 			d.logger.Error("Duplicated Key conflict", zap.Error(err))
 			return utils.ParseUserDuplicateError(err)
@@ -401,11 +407,19 @@ func (d *authDatabase) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 }
 
 func (d *authDatabase) UpdateUser(userID uuid.UUID, req models.User) *response.Error {
-
-	result := d.db.
-		Model(&models.User{}).
-		Where("id = ?", userID).
-		Updates(req)
+	var result *gorm.DB
+	if req.ID != uuid.Nil {
+		result = d.db.
+			Model(&models.User{}).
+			Where("id = ?", userID).
+			Select("*").
+			Updates(req)
+	} else {
+		result = d.db.
+			Model(&models.User{}).
+			Where("id = ?", userID).
+			Updates(req)
+	}
 
 	if result.Error != nil {
 		if utils.IsDuplicateKeyError(result.Error) {
@@ -435,5 +449,48 @@ func (d *authDatabase) UpdateUser(userID uuid.UUID, req models.User) *response.E
 		}
 	}
 
+	return nil
+}
+
+func (d *authDatabase) GetPendingInvitationByEmail(email string) (models.OrganizationInvitation, *response.Error) {
+	var invitation models.OrganizationInvitation
+	result := d.db.Where("email = ? AND status = ?", strings.ToLower(strings.TrimSpace(email)), models.InvitationStatusPending).First(&invitation)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return models.OrganizationInvitation{}, nil
+		}
+		d.logger.Error("Database error occurred while fetching invitation", zap.Error(result.Error))
+		return models.OrganizationInvitation{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+	return invitation, nil
+}
+
+func (d *authDatabase) UpdateInvitation(invitation models.OrganizationInvitation) *response.Error {
+	result := d.db.Save(&invitation)
+	if result.Error != nil {
+		d.logger.Error("Database error occurred while updating invitation", zap.Error(result.Error))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+	return nil
+}
+
+func (d *authDatabase) CreateAuditLog(log models.AuditLog) *response.Error {
+	result := d.db.Create(&log)
+	if result.Error != nil {
+		d.logger.Error("Database error occurred while creating audit log", zap.Error(result.Error))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
 	return nil
 }

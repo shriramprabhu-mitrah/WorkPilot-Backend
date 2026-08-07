@@ -30,7 +30,8 @@ type OrganizationService interface {
 	UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error
 	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
 	InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error
-	AcceptInvitation(token string) *response.Error
+	AcceptInvitation(userID uuid.UUID, token string) *response.Error
+	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
 	GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	RemoveUser(payload dto.RemoveUser) *response.Error
 }
@@ -257,21 +258,18 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		existingUser, userErr := s.AuthRepo.GetByEmail(inviteEmail)
 		if userErr == nil {
 			if existingUser.OrganizationID != nil && *existingUser.OrganizationID != uuid.Nil {
-				if *existingUser.OrganizationID == organizationID && existingUser.IsActive {
-					return &response.Error{
-						Code:       response.ErrConflict,
-						StatusCode: http.StatusConflict,
-						Message:    "User is already an active member of the organization",
-					}
-				}
 				return &response.Error{
 					Code:       response.ErrConflict,
 					StatusCode: http.StatusConflict,
-					Message:    "User is already assigned to an organization",
+					Message:    "User is already in an organization",
 				}
 			}
-			// Do not add the user directly to the organization here.
-			// The user is added only after accepting the invitation.
+			existingUser.OrganizationID = &organizationID
+			existingUser.Role = string(dto.RoleMember)
+			existingUser.IsActive = false
+			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
+				return err
+			}
 		} else if userErr.StatusCode != http.StatusNotFound && userErr.StatusCode != http.StatusUnauthorized {
 			return userErr
 		}
@@ -475,16 +473,18 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 	}
 
 	user := models.User{
-		ID:           uuid.Must(uuid.NewV7()),
-		Email:        strings.ToLower(strings.TrimSpace(email)),
-		FullName:     s.generateFullNameFromEmail(email),
-		UserName:     username,
-		PasswordHash: passwordHash,
-		Timezone:     "UTC",
-		IsActive:     true,
-		IsVerified:   true,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:             uuid.Must(uuid.NewV7()),
+		Email:          strings.ToLower(strings.TrimSpace(email)),
+		FullName:       s.generateFullNameFromEmail(email),
+		UserName:       username,
+		PasswordHash:   passwordHash,
+		Timezone:       "UTC",
+		IsActive:       false,
+		IsVerified:     true,
+		OrganizationID: &organizationID,
+		Role:           string(dto.RoleMember),
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	if err := s.AuthRepo.CreateUser(user); err != nil {
@@ -493,7 +493,7 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 	return tempPassword, nil
 }
 
-func (s *organizationService) AcceptInvitation(token string) *response.Error {
+func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *response.Error {
 	if token == "" {
 		return &response.Error{
 			Code:       response.ErrValidation,
@@ -533,9 +533,20 @@ func (s *organizationService) AcceptInvitation(token string) *response.Error {
 		}
 	}
 
-	user, userErr := s.AuthRepo.GetByEmail(invitation.Email)
+	user, userErr := s.AuthRepo.GetUserByID(userID)
 	if userErr != nil {
 		return userErr
+	}
+
+	if !strings.EqualFold(user.Email, invitation.Email) {
+		s.logger.Error("Invitation email does not match authenticated user",
+			zap.String("user_email", user.Email),
+			zap.String("invitation_email", invitation.Email))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You are not authorized to accept this invitation",
+		}
 	}
 
 	if user.OrganizationID != nil && *user.OrganizationID != uuid.Nil && *user.OrganizationID != invitation.OrganizationID {
@@ -550,7 +561,7 @@ func (s *organizationService) AcceptInvitation(token string) *response.Error {
 	user.Role = invitation.Role
 	user.IsActive = true
 	user.JoinedAt = time.Now()
-	if err := s.AuthRepo.UpdateUser(user.ID, user); err != nil {
+	if err := s.AuthRepo.UpdateUser(userID, user); err != nil {
 		return err
 	}
 
@@ -563,7 +574,7 @@ func (s *organizationService) AcceptInvitation(token string) *response.Error {
 	}
 
 	auditErr := s.OrganizationRepo.CreateAuditLog(models.AuditLog{
-		UserID:         &user.ID,
+		UserID:         &userID,
 		OrganizationID: &invitation.OrganizationID,
 		Action:         "organization_invitation_accepted",
 		ResourceType:   "organization_invitation",
@@ -575,6 +586,10 @@ func (s *organizationService) AcceptInvitation(token string) *response.Error {
 		return auditErr
 	}
 	return nil
+}
+
+func (s *organizationService) GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error) {
+	return s.OrganizationRepo.GetInvitationByToken(token)
 }
 
 func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
