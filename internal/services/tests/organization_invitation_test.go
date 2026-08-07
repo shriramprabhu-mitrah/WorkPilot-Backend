@@ -89,7 +89,7 @@ func (s *stubOrganizationRepository) DeleteUser(id uuid.UUID) *response.Error {
 func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
 	var items []models.User
 	for _, inv := range s.invites {
-		if filter.Role != "" && strings.ToLower(inv.Role) != strings.ToLower(filter.Role) {
+		if filter.Role != "" && !strings.EqualFold(inv.Role, filter.Role) {
 			continue
 		}
 		if filter.Email != "" && !strings.Contains(strings.ToLower(inv.Email), strings.ToLower(filter.Email)) {
