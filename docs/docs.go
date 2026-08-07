@@ -2244,7 +2244,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects/{project_id}/labels/": {
+        "/projects/{project_id}/labels": {
             "get": {
                 "description": "Get all labels for a project",
                 "produces": [
@@ -2587,9 +2587,7 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/projects/{project_id}/sprint/": {
+            },
             "post": {
                 "description": "Create one or more sprints under a project",
                 "consumes": [
@@ -2998,7 +2996,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/projects/{project_id}/tasks/": {
+        "/projects/{project_id}/tasks": {
             "get": {
                 "description": "Retrieve tasks for a project with search, filter, sort and pagination options",
                 "produces": [

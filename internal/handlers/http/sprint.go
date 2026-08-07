@@ -39,7 +39,7 @@ type sprintHandler struct {
 // @Failure 403 {object} response.ErrorResponse "Forbidden"
 // @Failure 409 {object} response.ErrorResponse "Conflict"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Router /projects/{project_id}/sprint/ [post]
+// @Router /projects/{project_id}/sprint [post]
 func (h *sprintHandler) CreateSprint(g *gin.Context) {
 
 	var payload requestdto.CreateSprintRequest

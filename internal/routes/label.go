@@ -29,8 +29,8 @@ func LabelRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	lbl := api.Group("/projects/:project_id/labels")
 	{
-		lbl.POST("/", middleware.ValidateJWT(), labelHandler.CreateLabel)
-		lbl.GET("/", middleware.ValidateJWT(), labelHandler.GetLabels)
+		lbl.POST("", middleware.ValidateJWT(), labelHandler.CreateLabel)
+		lbl.GET("", middleware.ValidateJWT(), labelHandler.GetLabels)
 		lbl.PATCH("/:label_id", middleware.ValidateJWT(), labelHandler.UpdateLabel)
 		lbl.DELETE("/:label_id", middleware.ValidateJWT(), labelHandler.DeleteLabel)
 	}
