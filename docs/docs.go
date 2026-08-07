@@ -1038,6 +1038,33 @@ const docTemplate = `{
         },
         "/organization/invitations/accept": {
             "get": {
+                "description": "Validates the token, checks login status, and renders acceptance page or redirects to login.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Organizations"
+                ],
+                "summary": "Show accept invitation page or redirect to login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Invitation token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "HTML Confirmation Page",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
                 "description": "Accepts a pending organization invitation using the provided token.",
                 "consumes": [
                     "application/json"
@@ -1566,6 +1593,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Project Status",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields to return (comma separated)",
+                        "name": "fieldName",
                         "in": "query"
                     }
                 ],
@@ -2513,6 +2546,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search sprint by name",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields to return (comma separated)",
+                        "name": "fieldName",
                         "in": "query"
                     }
                 ],
