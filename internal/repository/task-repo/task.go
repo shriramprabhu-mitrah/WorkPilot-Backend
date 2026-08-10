@@ -81,7 +81,7 @@ func (d *taskDatabase) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*
 }
 
 func (d *taskDatabase) UpdateTask(task *models.Task) *response.Error {
-	if err := d.db.Updates(task).Error; err != nil {
+	if err := d.db.Debug().Save(task).Error; err != nil {
 		d.logger.Error("Failed to update task", zap.Error(err))
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
@@ -396,7 +396,7 @@ func (d *taskDatabase) UpdateTaskWithLabels(task *models.Task, labels []models.L
 		if err := tx.Model(task).Association("Labels").Replace(labels); err != nil {
 			return err
 		}
-		if err := tx.Updates(task).Error; err != nil {
+		if err := tx.Debug().Save(task).Error; err != nil {
 			return err
 		}
 		return nil
