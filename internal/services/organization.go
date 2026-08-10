@@ -17,8 +17,8 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	organizationrepo "github.com/ms-kanban-server/internal/repository/organization-repo"
 	"go.uber.org/zap"
 )
@@ -617,13 +617,26 @@ func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.Org
 }
 
 func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error {
-
 	result, err := s.AuthRepo.GetUserByID(payload.UserID)
 	if err != nil {
 		return err
 	}
 
+	if result.Role == string(dto.RoleOrgAdmin) {
+		s.logger.Error("Unauthorized access: cannot remove organization admin",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Unauthorized access: cannot remove organization admin",
+		}
+	}
+
 	if result.OrganizationID == nil || payload.OrganizationID == nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
