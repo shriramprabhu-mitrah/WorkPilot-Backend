@@ -29,16 +29,16 @@ import (
 
 type AttachmentService interface {
 	// Task attachments
-	UploadAttachments(taskID, userID, projectID, orgID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error)
-	GetAttachments(taskID, userID, projectID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error)
-	DownloadAttachment(taskID, attachmentID, userID, projectID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
-	DeleteAttachment(taskID, attachmentID, userID, projectID, orgID uuid.UUID) *response.Error
+	UploadAttachments(ctx context.Context, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error)
+	GetAttachments(ctx context.Context, taskID, userID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error)
+	DownloadAttachment(ctx context.Context, attachmentID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
+	DeleteAttachment(ctx context.Context, attachmentID, userID uuid.UUID) *response.Error
 
 	// Comment attachments
-	UploadCommentAttachments(commentID, taskID, userID, orgID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
-	GetCommentAttachments(commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error)
-	DownloadCommentAttachment(commentID, attachmentID, userID, taskID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
-	DeleteCommentAttachment(commentID, attachmentID, userID, orgID, taskID uuid.UUID) *response.Error
+	UploadCommentAttachments(ctx context.Context, commentID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
+	GetCommentAttachments(ctx context.Context, commentID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error)
+	DownloadCommentAttachment(ctx context.Context, attachmentID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
+	DeleteCommentAttachment(ctx context.Context, attachmentID, userID uuid.UUID) *response.Error
 }
 
 type attachmentService struct {
@@ -77,15 +77,9 @@ func InitAttachmentService(
 	}
 }
 
-func (s *attachmentService) checkAuthorization(projectID, userID uuid.UUID) (bool, *response.Error) {
-	project, err := s.projectRepo.GetProjectByID(projectID)
-	if err != nil {
-		return false, err
-	}
-	user, err := s.authRepo.GetUserByID(userID)
-	if err != nil {
-		return false, err
-	}
+// Single Consolidated Authorization Policy helper methods
+
+func (s *attachmentService) CanAccessTask(user *models.User, task *models.Task) (bool, *response.Error) {
 	if user.Role == string(dto.RoleSuperAdmin) {
 		return false, &response.Error{
 			Code:       response.ErrForbidden,
@@ -93,14 +87,98 @@ func (s *attachmentService) checkAuthorization(projectID, userID uuid.UUID) (boo
 			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
+
+	project, err := s.projectRepo.GetProjectByID(task.ProjectID)
+	if err != nil {
+		return false, err
+	}
+
 	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
 		return true, nil
 	}
-	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
+
+	if user.OrganizationID == nil || *user.OrganizationID != project.OrganizationID {
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You are not authorized to access this organization",
+		}
+	}
+
+	isMember, err := s.projectRepo.IsUserProjectMember(task.ProjectID, user.ID)
 	if err != nil {
 		return false, err
 	}
 	return isMember, nil
+}
+
+func (s *attachmentService) CanAccessComment(user *models.User, comment *models.Comments, task *models.Task) (bool, *response.Error) {
+	if comment.TaskID != task.ID {
+		return false, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Comment does not belong to the specified task",
+		}
+	}
+	return s.CanAccessTask(user, task)
+}
+
+func (s *attachmentService) CanDeleteAttachment(user *models.User, attachment *models.TaskAttachment, task *models.Task) (bool, *response.Error) {
+	canAccess, err := s.CanAccessTask(user, task)
+	if err != nil || !canAccess {
+		return false, err
+	}
+
+	if attachment.UploadedBy == user.ID {
+		return true, nil
+	}
+
+	project, err := s.projectRepo.GetProjectByID(task.ProjectID)
+	if err != nil {
+		return false, err
+	}
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+		return true, nil
+	}
+
+	member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(user.ID, task.ProjectID)
+	if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (s *attachmentService) CanDeleteCommentAttachment(user *models.User, attachment *models.CommentAttachment, comment *models.Comments, task *models.Task) (bool, *response.Error) {
+	canAccess, err := s.CanAccessComment(user, comment, task)
+	if err != nil || !canAccess {
+		return false, err
+	}
+
+	if attachment.UploadedBy == user.ID {
+		return true, nil
+	}
+
+	// Note: Comment authors are allowed to delete attachments uploaded by other users to their comments because they own the comment resource.
+	// This is a deliberate policy design difference from task attachments.
+	if comment.UserID == user.ID {
+		return true, nil
+	}
+
+	project, err := s.projectRepo.GetProjectByID(task.ProjectID)
+	if err != nil {
+		return false, err
+	}
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+		return true, nil
+	}
+
+	member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(user.ID, task.ProjectID)
+	if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 var allowedAttachmentExtensions = map[string]bool{
@@ -113,9 +191,18 @@ var allowedAttachmentExtensions = map[string]bool{
 	".zip":  true,
 }
 
-func (s *attachmentService) UploadAttachments(taskID, userID, projectID, orgID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
-	// Validate project membership
-	authorized, err := s.checkAuthorization(projectID, userID)
+func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	task, err := s.taskRepo.GetTaskDetailsByID(taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	authorized, err := s.CanAccessTask(&user, task)
 	if err != nil {
 		return nil, err
 	}
@@ -127,21 +214,21 @@ func (s *attachmentService) UploadAttachments(taskID, userID, projectID, orgID u
 		}
 	}
 
-	// Verify task exists in the project
-	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
+	project, err := s.projectRepo.GetProjectByID(task.ProjectID)
 	if err != nil {
 		return nil, err
 	}
+	orgID := project.OrganizationID
 
 	maxSizeMB, valErr := s.validateFiles(files)
 	if valErr != nil {
 		return nil, valErr
 	}
 
-	// 2. Upload and save files
 	var uploadedKeys []string
 	var createdIDs []uuid.UUID
 	var createdAttachments []models.TaskAttachment
+	var auditLogs []models.AuditLog
 
 	for _, header := range files {
 		file, openErr := header.Open()
@@ -155,7 +242,7 @@ func (s *attachmentService) UploadAttachments(taskID, userID, projectID, orgID u
 			}
 		}
 
-		_, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadAttachment(file, header, task.ID, maxSizeMB)
+		key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadAttachment(ctx, file, header, task.ID, maxSizeMB)
 		file.Close()
 		if uploadErr != nil {
 			s.rollbackUploads(uploadedKeys, createdIDs)
@@ -182,18 +269,22 @@ func (s *attachmentService) UploadAttachments(taskID, userID, projectID, orgID u
 		createdIDs = append(createdIDs, attachment.ID)
 		createdAttachments = append(createdAttachments, attachment)
 
-		// Log audit activity for each file
 		auditLog := models.AuditLog{
 			UserID:         &userID,
 			OrganizationID: &orgID,
-			ProjectID:      &projectID,
+			ProjectID:      &task.ProjectID,
 			Action:         "attachment_uploaded",
 			ResourceType:   "attachment",
 			ResourceID:     attachment.ID.String(),
 			Details:        fmt.Sprintf("Attachment %s uploaded to task %s", attachment.OriginalFilename, task.Key),
 			CreatedAt:      time.Now(),
 		}
-		if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		auditLogs = append(auditLogs, auditLog)
+	}
+
+	// Write audit logs only when the entire transaction has succeeded
+	for _, log := range auditLogs {
+		if auditErr := s.auditRepo.CreateAuditLog(log); auditErr != nil {
 			s.logger.Warn("Failed to create audit log", zap.Any("error", auditErr))
 		}
 	}
@@ -216,8 +307,18 @@ func (s *attachmentService) rollbackUploads(keys []string, ids []uuid.UUID) {
 	}
 }
 
-func (s *attachmentService) GetAttachments(taskID, userID, projectID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error) {
-	authorized, err := s.checkAuthorization(projectID, userID)
+func (s *attachmentService) GetAttachments(ctx context.Context, taskID, userID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error) {
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	task, err := s.taskRepo.GetTaskDetailsByID(taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	authorized, err := s.CanAccessTask(&user, task)
 	if err != nil {
 		return nil, err
 	}
@@ -227,12 +328,6 @@ func (s *attachmentService) GetAttachments(taskID, userID, projectID uuid.UUID) 
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to access this project",
 		}
-	}
-
-	// Verify task exists in the project
-	_, err = s.taskRepo.GetTaskByID(taskID, projectID)
-	if err != nil {
-		return nil, err
 	}
 
 	attachments, dbErr := s.attachmentRepo.GetAttachmentsByTaskID(taskID)
@@ -248,21 +343,8 @@ func (s *attachmentService) GetAttachments(taskID, userID, projectID uuid.UUID) 
 	return res, nil
 }
 
-func (s *attachmentService) DownloadAttachment(taskID, attachmentID, userID, projectID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
-	authorized, err := s.checkAuthorization(projectID, userID)
-	if err != nil {
-		return nil, "", "", 0, err
-	}
-	if !authorized {
-		return nil, "", "", 0, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to access this project",
-		}
-	}
-
-	// Verify task exists in the project
-	_, err = s.taskRepo.GetTaskByID(taskID, projectID)
+func (s *attachmentService) DownloadAttachment(ctx context.Context, attachmentID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
+	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
 		return nil, "", "", 0, err
 	}
@@ -272,15 +354,23 @@ func (s *attachmentService) DownloadAttachment(taskID, attachmentID, userID, pro
 		return nil, "", "", 0, dbErr
 	}
 
-	if attachment.TaskID != taskID {
+	task, err := s.taskRepo.GetTaskDetailsByID(attachment.TaskID)
+	if err != nil {
+		return nil, "", "", 0, err
+	}
+
+	authorized, err := s.CanAccessTask(&user, task)
+	if err != nil {
+		return nil, "", "", 0, err
+	}
+	if !authorized {
 		return nil, "", "", 0, &response.Error{
-			Code:       response.ErrNotFound,
-			StatusCode: http.StatusNotFound,
-			Message:    "Attachment does not belong to the specified task",
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to access this project",
 		}
 	}
 
-	ctx := context.Background()
 	stream, size, getErr := s.storageClient.GetObject(ctx, attachment.StoragePath)
 	if getErr != nil {
 		return nil, "", "", 0, getErr
@@ -289,21 +379,8 @@ func (s *attachmentService) DownloadAttachment(taskID, attachmentID, userID, pro
 	return stream, attachment.OriginalFilename, attachment.MIMEType, size, nil
 }
 
-func (s *attachmentService) DeleteAttachment(taskID, attachmentID, userID, projectID, orgID uuid.UUID) *response.Error {
-	authorized, err := s.checkAuthorization(projectID, userID)
-	if err != nil {
-		return err
-	}
-	if !authorized {
-		return &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to access this project",
-		}
-	}
-
-	// Verify task exists in the project
-	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
+func (s *attachmentService) DeleteAttachment(ctx context.Context, attachmentID, userID uuid.UUID) *response.Error {
+	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
 		return err
 	}
@@ -313,32 +390,15 @@ func (s *attachmentService) DeleteAttachment(taskID, attachmentID, userID, proje
 		return dbErr
 	}
 
-	if attachment.TaskID != taskID {
-		return &response.Error{
-			Code:       response.ErrNotFound,
-			StatusCode: http.StatusNotFound,
-			Message:    "Attachment does not belong to the specified task",
-		}
+	task, err := s.taskRepo.GetTaskDetailsByID(attachment.TaskID)
+	if err != nil {
+		return err
 	}
 
-	// Check permissions: Only the uploader, Project Managers, or Organization Administrators can delete attachments
-	allowed := false
-	if attachment.UploadedBy == userID {
-		allowed = true
-	} else {
-		// Get requester details
-		requester, reqErr := s.authRepo.GetUserByID(userID)
-		if reqErr == nil && requester.Role == string(dto.RoleOrgAdmin) {
-			allowed = true
-		} else {
-			// Check project roles
-			member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
-			if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
-				allowed = true
-			}
-		}
+	allowed, authErr := s.CanDeleteAttachment(&user, attachment, task)
+	if authErr != nil {
+		return authErr
 	}
-
 	if !allowed {
 		return &response.Error{
 			Code:       response.ErrForbidden,
@@ -347,21 +407,35 @@ func (s *attachmentService) DeleteAttachment(taskID, attachmentID, userID, proje
 		}
 	}
 
-	// Delete from Supabase Storage
-	ctx := context.Background()
-	_ = s.storageClient.DeleteObject(ctx, attachment.StoragePath)
-
-	// Delete metadata from DB
+	// 1. Delete DB metadata first to ensure reverse consistency
 	dbErr = s.attachmentRepo.DeleteAttachment(attachmentID)
 	if dbErr != nil {
 		return dbErr
 	}
 
+	project, err := s.projectRepo.GetProjectByID(task.ProjectID)
+	if err != nil {
+		return err
+	}
+	orgID := project.OrganizationID
+
+	// 2. Delete from storage asynchronously in a background goroutine
+	go func() {
+		err := s.storageClient.DeleteObject(context.Background(), attachment.StoragePath)
+		if err != nil {
+			s.logger.Error("Failed to delete attachment from storage during asynchronous cleanup",
+				zap.Error(err),
+				zap.String("storagePath", attachment.StoragePath),
+				zap.String("attachmentID", attachmentID.String()),
+			)
+		}
+	}()
+
 	// Log audit activity
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
-		ProjectID:      &projectID,
+		ProjectID:      &task.ProjectID,
 		Action:         "attachment_deleted",
 		ResourceType:   "attachment",
 		ResourceID:     attachmentID.String(),
@@ -405,38 +479,23 @@ func (s *attachmentService) validateFiles(files []*multipart.FileHeader) (int64,
 	return maxSizeMB, nil
 }
 
-func (s *attachmentService) checkCommentAuthorization(userID, taskID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
+func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commentID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error) {
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	task, err := s.taskRepo.GetTaskDetailsByID(taskID)
-	if err != nil {
-		return nil, false, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Task does not belong to the specified project",
-		}
-	}
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == task.Project.OrganizationID {
-		return &task.ProjectID, true, nil
-	}
-	if user.OrganizationID == nil || *user.OrganizationID != task.Project.OrganizationID {
-		return &task.ProjectID, false, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You are not authorized to access this organization",
-		}
-	}
-	isMember, err := s.projectRepo.IsUserProjectMember(task.ProjectID, userID)
-	if err != nil {
-		return nil, false, err
-	}
-	return &task.ProjectID, isMember, nil
-}
 
-func (s *attachmentService) UploadCommentAttachments(commentID, taskID, userID, orgID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error) {
-	projectID, authorized, err := s.checkCommentAuthorization(userID, taskID)
+	comment, err := s.commentsRepo.GetCommentByID(commentID)
+	if err != nil {
+		return nil, err
+	}
+
+	task, err := s.taskRepo.GetTaskDetailsByID(comment.TaskID)
+	if err != nil {
+		return nil, err
+	}
+
+	authorized, err := s.CanAccessComment(&user, comment, task)
 	if err != nil {
 		return nil, err
 	}
@@ -448,34 +507,17 @@ func (s *attachmentService) UploadCommentAttachments(commentID, taskID, userID, 
 		}
 	}
 
-	comment, err := s.commentsRepo.GetCommentByID(commentID)
-	if err != nil {
-		return nil, err
-	}
-	if comment.TaskID != taskID {
-		return nil, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Comment does not belong to the specified task",
-		}
-	}
-
-	if comment.UserID != userID {
-		return nil, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You can only upload attachments to your own comments",
-		}
-	}
-
 	maxSizeMB, valErr := s.validateFiles(files)
 	if valErr != nil {
 		return nil, valErr
 	}
 
+	orgID := task.Project.OrganizationID
+
 	var uploadedKeys []string
 	var createdIDs []uuid.UUID
 	var createdAttachments []models.CommentAttachment
+	var auditLogs []models.AuditLog
 
 	for _, header := range files {
 		file, openErr := header.Open()
@@ -489,7 +531,7 @@ func (s *attachmentService) UploadCommentAttachments(commentID, taskID, userID, 
 			}
 		}
 
-		_, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadCommentAttachment(file, header, comment.ID, maxSizeMB)
+		key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadCommentAttachment(ctx, file, header, comment.ID, maxSizeMB)
 		file.Close()
 		if uploadErr != nil {
 			s.rollbackCommentUploads(uploadedKeys, createdIDs)
@@ -519,14 +561,19 @@ func (s *attachmentService) UploadCommentAttachments(commentID, taskID, userID, 
 		auditLog := models.AuditLog{
 			UserID:         &userID,
 			OrganizationID: &orgID,
-			ProjectID:      projectID,
+			ProjectID:      &task.ProjectID,
 			Action:         "comment_attachment_uploaded",
 			ResourceType:   "attachment",
 			ResourceID:     attachment.ID.String(),
 			Details:        fmt.Sprintf("Attachment %s uploaded to comment %s", attachment.OriginalFilename, comment.ID),
 			CreatedAt:      time.Now(),
 		}
-		if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		auditLogs = append(auditLogs, auditLog)
+	}
+
+	// Persist audit logs after batch success
+	for _, log := range auditLogs {
+		if auditErr := s.auditRepo.CreateAuditLog(log); auditErr != nil {
 			s.logger.Warn("Failed to create audit log", zap.Any("error", auditErr))
 		}
 	}
@@ -549,8 +596,23 @@ func (s *attachmentService) rollbackCommentUploads(keys []string, ids []uuid.UUI
 	}
 }
 
-func (s *attachmentService) GetCommentAttachments(commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error) {
-	_, authorized, err := s.checkCommentAuthorization(userID, taskID)
+func (s *attachmentService) GetCommentAttachments(ctx context.Context, commentID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error) {
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	comment, err := s.commentsRepo.GetCommentByID(commentID)
+	if err != nil {
+		return nil, err
+	}
+
+	task, err := s.taskRepo.GetTaskDetailsByID(comment.TaskID)
+	if err != nil {
+		return nil, err
+	}
+
+	authorized, err := s.CanAccessComment(&user, comment, task)
 	if err != nil {
 		return nil, err
 	}
@@ -559,18 +621,6 @@ func (s *attachmentService) GetCommentAttachments(commentID, taskID, userID uuid
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to access this project",
-		}
-	}
-
-	comment, err := s.commentsRepo.GetCommentByID(commentID)
-	if err != nil {
-		return nil, err
-	}
-	if comment.TaskID != taskID {
-		return nil, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Comment does not belong to the specified task",
 		}
 	}
 
@@ -587,8 +637,28 @@ func (s *attachmentService) GetCommentAttachments(commentID, taskID, userID uuid
 	return res, nil
 }
 
-func (s *attachmentService) DownloadCommentAttachment(commentID, attachmentID, userID, taskID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
-	_, authorized, err := s.checkCommentAuthorization(userID, taskID)
+func (s *attachmentService) DownloadCommentAttachment(ctx context.Context, attachmentID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, "", "", 0, err
+	}
+
+	attachment, dbErr := s.commentAttachmentRepo.GetAttachmentByID(attachmentID)
+	if dbErr != nil {
+		return nil, "", "", 0, dbErr
+	}
+
+	comment, err := s.commentsRepo.GetCommentByID(attachment.CommentID)
+	if err != nil {
+		return nil, "", "", 0, err
+	}
+
+	task, err := s.taskRepo.GetTaskDetailsByID(comment.TaskID)
+	if err != nil {
+		return nil, "", "", 0, err
+	}
+
+	authorized, err := s.CanAccessComment(&user, comment, task)
 	if err != nil {
 		return nil, "", "", 0, err
 	}
@@ -600,32 +670,6 @@ func (s *attachmentService) DownloadCommentAttachment(commentID, attachmentID, u
 		}
 	}
 
-	comment, err := s.commentsRepo.GetCommentByID(commentID)
-	if err != nil {
-		return nil, "", "", 0, err
-	}
-	if comment.TaskID != taskID {
-		return nil, "", "", 0, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Comment does not belong to the specified task",
-		}
-	}
-
-	attachment, dbErr := s.commentAttachmentRepo.GetAttachmentByID(attachmentID)
-	if dbErr != nil {
-		return nil, "", "", 0, dbErr
-	}
-
-	if attachment.CommentID != commentID {
-		return nil, "", "", 0, &response.Error{
-			Code:       response.ErrNotFound,
-			StatusCode: http.StatusNotFound,
-			Message:    "Attachment does not belong to the specified comment",
-		}
-	}
-
-	ctx := context.Background()
 	stream, size, getErr := s.storageClient.GetObject(ctx, attachment.StoragePath)
 	if getErr != nil {
 		return nil, "", "", 0, getErr
@@ -634,29 +678,10 @@ func (s *attachmentService) DownloadCommentAttachment(commentID, attachmentID, u
 	return stream, attachment.OriginalFilename, attachment.MIMEType, size, nil
 }
 
-func (s *attachmentService) DeleteCommentAttachment(commentID, attachmentID, userID, orgID, taskID uuid.UUID) *response.Error {
-	projectID, authorized, err := s.checkCommentAuthorization(userID, taskID)
+func (s *attachmentService) DeleteCommentAttachment(ctx context.Context, attachmentID, userID uuid.UUID) *response.Error {
+	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
 		return err
-	}
-	if !authorized {
-		return &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to access this project",
-		}
-	}
-
-	comment, err := s.commentsRepo.GetCommentByID(commentID)
-	if err != nil {
-		return err
-	}
-	if comment.TaskID != taskID {
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Comment does not belong to the specified task",
-		}
 	}
 
 	attachment, dbErr := s.commentAttachmentRepo.GetAttachmentByID(attachmentID)
@@ -664,29 +689,20 @@ func (s *attachmentService) DeleteCommentAttachment(commentID, attachmentID, use
 		return dbErr
 	}
 
-	if attachment.CommentID != commentID {
-		return &response.Error{
-			Code:       response.ErrNotFound,
-			StatusCode: http.StatusNotFound,
-			Message:    "Attachment does not belong to the specified comment",
-		}
+	comment, err := s.commentsRepo.GetCommentByID(attachment.CommentID)
+	if err != nil {
+		return err
 	}
 
-	allowed := false
-	if attachment.UploadedBy == userID || comment.UserID == userID {
-		allowed = true
-	} else {
-		requester, reqErr := s.authRepo.GetUserByID(userID)
-		if reqErr == nil && requester.Role == string(dto.RoleOrgAdmin) {
-			allowed = true
-		} else {
-			member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, *projectID)
-			if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
-				allowed = true
-			}
-		}
+	task, err := s.taskRepo.GetTaskDetailsByID(comment.TaskID)
+	if err != nil {
+		return err
 	}
 
+	allowed, authErr := s.CanDeleteCommentAttachment(&user, attachment, comment, task)
+	if authErr != nil {
+		return authErr
+	}
 	if !allowed {
 		return &response.Error{
 			Code:       response.ErrForbidden,
@@ -695,22 +711,35 @@ func (s *attachmentService) DeleteCommentAttachment(commentID, attachmentID, use
 		}
 	}
 
-	ctx := context.Background()
-	_ = s.storageClient.DeleteObject(ctx, attachment.StoragePath)
-
+	// 1. Delete DB metadata first
 	dbErr = s.commentAttachmentRepo.DeleteAttachment(attachmentID)
 	if dbErr != nil {
 		return dbErr
 	}
 
+	orgID := task.Project.OrganizationID
+
+	// 2. Delete S3 asynchronously using background context
+	go func() {
+		err := s.storageClient.DeleteObject(context.Background(), attachment.StoragePath)
+		if err != nil {
+			s.logger.Error("Failed to delete comment attachment from storage during asynchronous cleanup",
+				zap.Error(err),
+				zap.String("storagePath", attachment.StoragePath),
+				zap.String("attachmentID", attachmentID.String()),
+			)
+		}
+	}()
+
+	// Log audit activity
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
-		ProjectID:      projectID,
+		ProjectID:      &task.ProjectID,
 		Action:         "comment_attachment_deleted",
 		ResourceType:   "attachment",
 		ResourceID:     attachmentID.String(),
-		Details:        fmt.Sprintf("Attachment %s deleted from comment %s", attachment.OriginalFilename, commentID),
+		Details:        fmt.Sprintf("Attachment %s deleted from comment %s", attachment.OriginalFilename, comment.ID),
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {

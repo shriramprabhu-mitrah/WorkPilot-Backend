@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
@@ -40,21 +42,19 @@ func InitAttachmentHandler(service services.AttachmentService, logger *zap.Logge
 // @Failure 500 {object} response.ErrorResponse
 // @Router /projects/{project_id}/tasks/{task_id}/attachments [post]
 func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
+	// Enforce request-level limits at the HTTP layer.
+	maxSizeMB := int64(10)
+	if v := config.GetEnv("ATTACHMENT_MAX_FILE_SIZE_MB", ""); v != "" {
+		var parsed int64
+		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
+			maxSizeMB = parsed
+		}
+	}
+	maxRequestSize := (maxSizeMB * 1024 * 1024 * 5) + (10 * 1024 * 1024)
+	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
+
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
-		return
-	}
-
-	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
-	if !ok {
-		return
-	}
-
-	projectIDParam := g.Param("project_id")
-	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the project ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UploadAttachments(taskUUID, userUUID, projectUUID, organizationUUID, allHeaders)
+	res, err := h.service.UploadAttachments(g.Request.Context(), taskUUID, userUUID, allHeaders)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -125,14 +125,6 @@ func (h *attachmentHandler) GetAttachments(g *gin.Context) {
 		return
 	}
 
-	projectIDParam := g.Param("project_id")
-	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the project ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
 	taskIDParam := g.Param("task_id")
 	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
 	if errorResponse != nil {
@@ -141,7 +133,7 @@ func (h *attachmentHandler) GetAttachments(g *gin.Context) {
 		return
 	}
 
-	attachments, err := h.service.GetAttachments(taskUUID, userUUID, projectUUID)
+	attachments, err := h.service.GetAttachments(g.Request.Context(), taskUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -173,22 +165,6 @@ func (h *attachmentHandler) DownloadAttachment(g *gin.Context) {
 		return
 	}
 
-	projectIDParam := g.Param("project_id")
-	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the project ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
 	attachmentIDParam := g.Param("attachment_id")
 	attachmentUUID, errorResponse := utils.StringToUUID(attachmentIDParam)
 	if errorResponse != nil {
@@ -197,7 +173,7 @@ func (h *attachmentHandler) DownloadAttachment(g *gin.Context) {
 		return
 	}
 
-	stream, filename, mimeType, size, err := h.service.DownloadAttachment(taskUUID, attachmentUUID, userUUID, projectUUID)
+	stream, filename, mimeType, size, err := h.service.DownloadAttachment(g.Request.Context(), attachmentUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -229,27 +205,6 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 		return
 	}
 
-	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
-	if !ok {
-		return
-	}
-
-	projectIDParam := g.Param("project_id")
-	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the project ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
 	attachmentIDParam := g.Param("attachment_id")
 	attachmentUUID, errorResponse := utils.StringToUUID(attachmentIDParam)
 	if errorResponse != nil {
@@ -258,7 +213,7 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 		return
 	}
 
-	err := h.service.DeleteAttachment(taskUUID, attachmentUUID, userUUID, projectUUID, organizationUUID)
+	err := h.service.DeleteAttachment(g.Request.Context(), attachmentUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -287,21 +242,19 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /task/{task_id}/comments/{comment_id}/attachments [post]
 func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
+	// Enforce request-level limits at the HTTP layer.
+	maxSizeMB := int64(10)
+	if v := config.GetEnv("ATTACHMENT_MAX_FILE_SIZE_MB", ""); v != "" {
+		var parsed int64
+		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
+			maxSizeMB = parsed
+		}
+	}
+	maxRequestSize := (maxSizeMB * 1024 * 1024 * 5) + (10 * 1024 * 1024)
+	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
+
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
-		return
-	}
-
-	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
-	if !ok {
-		return
-	}
-
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
@@ -340,7 +293,7 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UploadCommentAttachments(commentUUID, taskUUID, userUUID, organizationUUID, allHeaders)
+	res, err := h.service.UploadCommentAttachments(g.Request.Context(), commentUUID, userUUID, allHeaders)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -372,14 +325,6 @@ func (h *attachmentHandler) GetCommentAttachments(g *gin.Context) {
 		return
 	}
 
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
 	commentIDParam := g.Param("comment_id")
 	commentUUID, errorResponse := utils.StringToUUID(commentIDParam)
 	if errorResponse != nil {
@@ -388,7 +333,7 @@ func (h *attachmentHandler) GetCommentAttachments(g *gin.Context) {
 		return
 	}
 
-	attachments, err := h.service.GetCommentAttachments(commentUUID, taskUUID, userUUID)
+	attachments, err := h.service.GetCommentAttachments(g.Request.Context(), commentUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -420,22 +365,6 @@ func (h *attachmentHandler) DownloadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
-	commentIDParam := g.Param("comment_id")
-	commentUUID, errorResponse := utils.StringToUUID(commentIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the comment ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
 	attachmentIDParam := g.Param("attachment_id")
 	attachmentUUID, errorResponse := utils.StringToUUID(attachmentIDParam)
 	if errorResponse != nil {
@@ -444,7 +373,7 @@ func (h *attachmentHandler) DownloadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	stream, filename, mimeType, size, err := h.service.DownloadCommentAttachment(commentUUID, attachmentUUID, userUUID, taskUUID)
+	stream, filename, mimeType, size, err := h.service.DownloadCommentAttachment(g.Request.Context(), attachmentUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -476,36 +405,14 @@ func (h *attachmentHandler) DeleteCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
-	if !ok {
-		return
-	}
-
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
-	commentIDParam := g.Param("comment_id")
-	commentUUID, errorResponse := utils.StringToUUID(commentIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the comment ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
-	attachmentIDParam := g.Param("attachment_id")
-	attachmentUUID, errorResponse := utils.StringToUUID(attachmentIDParam)
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the attachment ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
-	err := h.service.DeleteCommentAttachment(commentUUID, attachmentUUID, userUUID, organizationUUID, taskUUID)
+	err := h.service.DeleteCommentAttachment(g.Request.Context(), attachmentUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
