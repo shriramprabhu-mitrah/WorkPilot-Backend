@@ -70,6 +70,11 @@ func SprintFromModel(sprint models.Sprint) Sprint {
 }
 
 func CommentsFromModel(comment models.Comments) CommentsResponse {
+	var attachments []CommentAttachmentResponse
+	for _, a := range comment.Attachments {
+		attachments = append(attachments, CommentAttachmentFromModel(a))
+	}
+
 	resp := CommentsResponse{
 		ID:              comment.ID,
 		TaskID:          comment.TaskID,
@@ -83,6 +88,7 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 		CreatedAt:       comment.CreatedAt,
 		UpdatedAt:       comment.UpdatedAt,
 		IsDeleted:       comment.IsDeleted,
+		Attachments:     attachments,
 	}
 
 	if comment.ParentComment != nil {
