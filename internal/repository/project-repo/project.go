@@ -301,15 +301,173 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 	return logs, pagination, nil
 }
 
-func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
+func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID,) *response.Error {
 
-	result := d.db.
+	tx := d.db.Begin()
+	if tx.Error != nil {
+		d.logger.Error("Failed to begin project deletion transaction",
+			zap.Error(tx.Error),
+			zap.String("project_id", projectID.String()),
+			zap.String("organization_id", organizationID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// Rollback automatically if anything panics.
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 1. Verify project exists and belongs to organization.
+	var project models.Project
+
+	result := tx.
+		Where("id = ? AND organization_id = ?", projectID, organizationID).
+		First(&project)
+
+	if result.Error != nil {
+		tx.Rollback()
+
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			d.logger.Warn("Project not found for deletion",
+				zap.String("project_id", projectID.String()),
+				zap.String("organization_id", organizationID.String()),
+			)
+
+			return &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Project not found",
+			}
+		}
+
+		d.logger.Error("Failed to find project for deletion",
+			zap.Error(result.Error),
+			zap.String("project_id", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// 2. Delete comments related to project.
+	if err := tx.
+		Where("project_id = ?", projectID).
+		Delete(&models.Comments{}).Error; err != nil {
+
+		tx.Rollback()
+
+		d.logger.Error("Failed to delete project comments",
+			zap.Error(err),
+			zap.String("project_id", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete project data",
+		}
+	}
+
+	// 3. Delete tasks related to project.
+	if err := tx.
+		Where("project_id = ?", projectID).
+		Delete(&models.Task{}).Error; err != nil {
+
+		tx.Rollback()
+
+		d.logger.Error("Failed to delete project tasks",
+			zap.Error(err),
+			zap.String("project_id", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete project data",
+		}
+	}
+
+	// 4. Delete sprints related to project.
+	if err := tx.
+		Where("project_id = ?", projectID).
+		Delete(&models.Sprint{}).Error; err != nil {
+
+		tx.Rollback()
+
+		d.logger.Error("Failed to delete project sprints",
+			zap.Error(err),
+			zap.String("project_id", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete project data",
+		}
+	}
+
+	// 5. Delete project members.
+	if err := tx.
+		Where("project_id = ?", projectID).
+		Delete(&models.ProjectMember{}).Error; err != nil {
+
+		tx.Rollback()
+
+		d.logger.Error("Failed to delete project members",
+			zap.Error(err),
+			zap.String("project_id", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete project data",
+		}
+	}
+
+	// 6. Delete labels.
+	if err := tx.
+		Where("project_id = ?", projectID).
+		Delete(&models.Label{}).Error; err != nil {
+
+		tx.Rollback()
+
+		d.logger.Error("Failed to delete project labels",
+			zap.Error(err),
+			zap.String("project_id", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete project data",
+		}
+	}
+
+	// 7. Delete the project itself.
+	result = tx.
 		Where("id = ? AND organization_id = ?", projectID, organizationID).
 		Delete(&models.Project{})
 
 	if result.Error != nil {
+		tx.Rollback()
+
 		d.logger.Error("Failed to delete project",
-			zap.Error(result.Error))
+			zap.Error(result.Error),
+			zap.String("project_id", projectID.String()),
+			zap.String("organization_id", organizationID.String()),
+		)
 
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
@@ -319,8 +477,11 @@ func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID) *re
 	}
 
 	if result.RowsAffected == 0 {
-		d.logger.Error("Project could not be found for deletion",
-			zap.String("project_id", projectID.String()))
+		tx.Rollback()
+
+		d.logger.Warn("Project could not be found for deletion",
+			zap.String("project_id", projectID.String()),
+		)
 
 		return &response.Error{
 			Code:       response.ErrNotFound,
@@ -328,6 +489,25 @@ func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID) *re
 			Message:    "Project not found",
 		}
 	}
+
+	// 8. Commit transaction.
+	if err := tx.Commit().Error; err != nil {
+		d.logger.Error("Failed to commit project deletion",
+			zap.Error(err),
+			zap.String("project_id", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	d.logger.Info("Project deleted successfully",
+		zap.String("project_id", projectID.String()),
+		zap.String("organization_id", organizationID.String()),
+	)
 
 	return nil
 }
