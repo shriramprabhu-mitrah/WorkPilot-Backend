@@ -27,6 +27,7 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		&models.Comments{},
 		&models.TaskAttachment{},
 		&models.CommentAttachment{},
+		&models.OrphanedFile{},
 	)
 	if err != nil {
 		return err

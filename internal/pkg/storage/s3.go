@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
+	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"go.uber.org/zap"
 )
@@ -27,27 +29,25 @@ var allowedMIMETypes = map[string]string{
 	"image/webp": "webp",
 }
 
-// StorageClient defines the interface for object storage operations.
+// s3API encapsulates S3 SDK client operations for unit testing.
+type s3API interface {
+	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	DeleteObject(ctx context.Context, params *s3.DeleteObjectInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+}
+
 // StorageClient defines the interface for object storage operations.
 type StorageClient interface {
-	// UploadLogo uploads a logo file and returns the public URL and object key.
-	// Returns a 400 error for invalid file type/size, 500 for upload failures.
 	UploadLogo(file multipart.File, header *multipart.FileHeader) (url string, key string, apiErr *response.Error)
-	// UploadAvatar uploads a user avatar file and returns the public URL and object key.
-	// Returns a 400 error for invalid file type/size, 500 for upload failures.
 	UploadAvatar(file multipart.File, header *multipart.FileHeader) (url string, key string, apiErr *response.Error)
-	// DeleteObject removes an uploaded object by key (used for orphan cleanup).
 	DeleteObject(ctx context.Context, key string) error
-	// UploadAttachment uploads a task attachment and returns the object key, sanitized filename, and detected MIME type.
-	UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, maxSizeMB int64) (key string, sanitizedName string, mimeType string, apiErr *response.Error)
-	// UploadCommentAttachment uploads a comment attachment and returns the object key, sanitized filename, and detected MIME type.
-	UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, maxSizeMB int64) (key string, sanitizedName string, mimeType string, apiErr *response.Error)
-	// GetObject retrieves an object from S3.
+	UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (key string, sanitizedName string, mimeType string, apiErr *response.Error)
+	UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, cfg models.AttachmentConfig) (key string, sanitizedName string, mimeType string, apiErr *response.Error)
 	GetObject(ctx context.Context, key string) (io.ReadCloser, int64, *response.Error)
 }
 
 type s3Client struct {
-	client         *s3.Client
+	client         s3API
 	bucket         string
 	endpoint       string
 	publicEndpoint string
@@ -56,14 +56,6 @@ type s3Client struct {
 }
 
 // NewS3Client builds an S3-compatible client pointed at the Supabase S3 endpoint.
-// Configuration is read from environment variables:
-//   - S3_ENDPOINT           (e.g. https://….storage.supabase.co/storage/v1/s3)
-//   - S3_PUBLIC_ENDPOINT    (optional; e.g. https://….supabase.co/storage/v1/object/public)
-//   - S3_REGION             (e.g. ap-south-1)
-//   - S3_ACCESS_KEY_ID
-//   - S3_SECRET_ACCESS_KEY
-//   - S3_BUCKET             (e.g. work_pilot_bucket)
-//   - S3_MAX_FILE_SIZE_MB   (default: 5)
 func NewS3Client(logger *zap.Logger) StorageClient {
 	endpoint := config.GetEnv("S3_ENDPOINT", "")
 	publicEndpoint := config.GetEnv("S3_PUBLIC_ENDPOINT", "")
@@ -86,7 +78,6 @@ func NewS3Client(logger *zap.Logger) StorageClient {
 		Region:       region,
 		Credentials:  creds,
 		BaseEndpoint: aws.String(endpoint),
-		// Supabase S3 requires path-style access (not virtual-hosted).
 		UsePathStyle: true,
 	})
 
@@ -114,9 +105,7 @@ func (c *s3Client) UploadAvatar(file multipart.File, header *multipart.FileHeade
 	return c.uploadImage("users/avatars", file, header)
 }
 
-// uploadImage handles common validation, unique key generation, S3 upload, and public URL construction.
 func (c *s3Client) uploadImage(folder string, file multipart.File, header *multipart.FileHeader) (string, string, *response.Error) {
-	// 1. Enforce maximum file size.
 	maxBytes := c.maxSizeMB * 1024 * 1024
 	if header.Size > maxBytes {
 		return "", "", &response.Error{
@@ -126,7 +115,6 @@ func (c *s3Client) uploadImage(folder string, file multipart.File, header *multi
 		}
 	}
 
-	// 2. Read file bytes for MIME detection and upload.
 	fileBytes, readErr := io.ReadAll(file)
 	if readErr != nil {
 		c.logger.Error("Failed to read uploaded file", zap.Error(readErr))
@@ -137,7 +125,6 @@ func (c *s3Client) uploadImage(folder string, file multipart.File, header *multi
 		}
 	}
 
-	// 3. Detect MIME type from first 512 bytes (ignores client Content-Type).
 	detectedMIME := http.DetectContentType(fileBytes[:min(512, len(fileBytes))])
 	mimeBase := strings.Split(detectedMIME, ";")[0]
 	mimeBase = strings.TrimSpace(strings.ToLower(mimeBase))
@@ -151,7 +138,6 @@ func (c *s3Client) uploadImage(folder string, file multipart.File, header *multi
 		}
 	}
 
-	// 4. Generate a unique object key.
 	id, uuidErr := uuid.NewV7()
 	if uuidErr != nil {
 		c.logger.Error("Failed to generate UUID for file key", zap.Error(uuidErr))
@@ -163,7 +149,6 @@ func (c *s3Client) uploadImage(folder string, file multipart.File, header *multi
 	}
 	key := fmt.Sprintf("%s/%s.%s", folder, id.String(), ext)
 
-	// 5. Upload to S3.
 	_, putErr := c.client.PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:        aws.String(c.bucket),
 		Key:           aws.String(key),
@@ -180,7 +165,6 @@ func (c *s3Client) uploadImage(folder string, file multipart.File, header *multi
 		}
 	}
 
-	// 6. Build the public URL using the Supabase object public endpoint.
 	cleanEndpoint := strings.TrimRight(c.publicEndpoint, "/")
 	publicURL := fmt.Sprintf("%s/%s/%s", cleanEndpoint, c.bucket, key)
 
@@ -195,7 +179,7 @@ func (c *s3Client) DeleteObject(ctx context.Context, key string) error {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		c.logger.Error("Failed to delete orphaned logo from S3", zap.Error(err), zap.String("key", key))
+		c.logger.Error("Failed to delete object from S3", zap.Error(err), zap.String("key", key))
 	}
 	return err
 }
@@ -233,22 +217,18 @@ func SanitizeFilename(filename string) string {
 	ext := filepath.Ext(base)
 	nameWithoutExt := strings.TrimSuffix(base, ext)
 
-	// Keep only alphanumeric characters, underscore, hyphen, and dot
 	reg := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 	sanitized := reg.ReplaceAllString(nameWithoutExt, "_")
 
-	// Collapse multiple underscores
 	regMultiple := regexp.MustCompile(`_+`)
 	sanitized = regMultiple.ReplaceAllString(sanitized, "_")
 
-	// Trim underscores/hyphens from ends
 	sanitized = strings.Trim(sanitized, "_-")
 
 	if sanitized == "" {
 		sanitized = "attachment"
 	}
 
-	// Limit length
 	if len(sanitized) > 100 {
 		sanitized = sanitized[:100]
 	}
@@ -256,18 +236,23 @@ func SanitizeFilename(filename string) string {
 	return sanitized + strings.ToLower(ext)
 }
 
-func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string, maxSizeMB int64) (string, string, string, *response.Error) {
-	// 1. Enforce maximum file size.
-	maxBytes := maxSizeMB * 1024 * 1024
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
+	maxBytes := cfg.MaxFileSizeMB * 1024 * 1024
 	if header.Size > maxBytes {
 		return "", "", "", &response.Error{
 			Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
 			StatusCode: http.StatusRequestEntityTooLarge,
-			Message:    fmt.Sprintf("File exceeds the maximum allowed size of %d MB.", maxSizeMB),
+			Message:    fmt.Sprintf("File exceeds the maximum allowed size of %d MB.", cfg.MaxFileSizeMB),
 		}
 	}
 
-	// 2. Validate file type by extension
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedAttachmentExtensions[ext] {
 		return "", "", "", &response.Error{
@@ -277,59 +262,178 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 		}
 	}
 
-	// 3. Read first 512 bytes for sniffing
-	sniffBuf := make([]byte, 512)
-	n, readErr := io.ReadFull(file, sniffBuf)
-	if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
-		c.logger.Error("Failed to read uploaded file header", zap.Error(readErr))
-		return "", "", "", &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to process uploaded file header. Please try again.",
-		}
-	}
-	sniffBuf = sniffBuf[:n]
-
-	// 4. Validate content type
-	detectedMIME := http.DetectContentType(sniffBuf)
-	mimeBase := strings.Split(detectedMIME, ";")[0]
-	mimeBase = strings.TrimSpace(strings.ToLower(mimeBase))
-
+	var bodyReader io.Reader
 	var finalMIME string
+	var finalSize int64
 	isValid := false
-	switch ext {
-	case ".png":
-		isValid = mimeBase == "image/png"
-		finalMIME = "image/png"
-	case ".jpg", ".jpeg":
-		isValid = mimeBase == "image/jpeg"
-		finalMIME = "image/jpeg"
-	case ".pdf":
-		isValid = mimeBase == "application/pdf"
-		finalMIME = "application/pdf"
-	case ".docx":
-		isValid = mimeBase == "application/zip"
-		finalMIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-	case ".xlsx":
-		isValid = mimeBase == "application/zip"
-		finalMIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-	case ".zip":
-		isValid = mimeBase == "application/zip"
-		finalMIME = "application/zip"
-	}
 
-	if !isValid {
-		return "", "", "", &response.Error{
-			Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
-			StatusCode: http.StatusUnsupportedMediaType,
-			Message:    "Unsupported file content type.",
+	// Validate archives (ZIP, DOCX, XLSX) against ZIP bombs, traversal, and structural requirements
+	if ext == ".docx" || ext == ".xlsx" || ext == ".zip" {
+		fileBytes, readErr := io.ReadAll(io.LimitReader(file, maxBytes+1))
+		if readErr != nil {
+			c.logger.Error("Failed to read archive file", zap.Error(readErr))
+			return "", "", "", &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to process uploaded archive.",
+			}
 		}
+
+		if int64(len(fileBytes)) > maxBytes {
+			return "", "", "", &response.Error{
+				Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
+				StatusCode: http.StatusRequestEntityTooLarge,
+				Message:    fmt.Sprintf("File exceeds the maximum allowed size of %d MB.", cfg.MaxFileSizeMB),
+			}
+		}
+
+		// Sniff MIME type
+		sniffLen := min(512, len(fileBytes))
+		detectedMIME := http.DetectContentType(fileBytes[:sniffLen])
+		mimeBase := strings.Split(detectedMIME, ";")[0]
+		mimeBase = strings.TrimSpace(strings.ToLower(mimeBase))
+
+		if mimeBase != "application/zip" {
+			return "", "", "", &response.Error{
+				Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
+				StatusCode: http.StatusUnsupportedMediaType,
+				Message:    "Invalid file format. File is not a valid ZIP container.",
+			}
+		}
+
+		zipReader, zipErr := zip.NewReader(bytes.NewReader(fileBytes), int64(len(fileBytes)))
+		if zipErr != nil {
+			return "", "", "", &response.Error{
+				Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
+				StatusCode: http.StatusUnsupportedMediaType,
+				Message:    "Invalid zip file structure.",
+			}
+		}
+
+		const maxEntries = 1000
+		const maxRatio = 100
+		maxUncompressedTotal := int64(50 * 1024 * 1024) // 50MB uncompressed limit
+
+		if len(zipReader.File) > maxEntries {
+			return "", "", "", &response.Error{
+				Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
+				StatusCode: http.StatusUnsupportedMediaType,
+				Message:    "ZIP archive contains too many files.",
+			}
+		}
+
+		var totalUncompressedSize int64
+		hasContentTypes := false
+		hasWordDoc := false
+		hasWorkbook := false
+
+		for _, f := range zipReader.File {
+			cleanedPath := filepath.Clean(f.Name)
+			if strings.HasPrefix(f.Name, "/") || strings.HasPrefix(cleanedPath, "..") || strings.Contains(f.Name, "..") {
+				return "", "", "", &response.Error{
+					Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
+					StatusCode: http.StatusUnsupportedMediaType,
+					Message:    "ZIP archive contains unsafe file paths.",
+				}
+			}
+
+			totalUncompressedSize += int64(f.UncompressedSize64)
+			if totalUncompressedSize > maxUncompressedTotal {
+				return "", "", "", &response.Error{
+					Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
+					StatusCode: http.StatusRequestEntityTooLarge,
+					Message:    "ZIP archive uncompressed size exceeds maximum limit.",
+				}
+			}
+
+			if f.CompressedSize64 > 0 {
+				ratio := float64(f.UncompressedSize64) / float64(f.CompressedSize64)
+				if ratio > maxRatio {
+					return "", "", "", &response.Error{
+						Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
+						StatusCode: http.StatusUnsupportedMediaType,
+						Message:    "ZIP archive contains excessively compressed files (potential zip-bomb).",
+					}
+				}
+			}
+
+			if f.Name == "[Content_Types].xml" {
+				hasContentTypes = true
+			}
+			if f.Name == "word/document.xml" {
+				hasWordDoc = true
+			}
+			if f.Name == "xl/workbook.xml" {
+				hasWorkbook = true
+			}
+		}
+
+		if ext == ".docx" {
+			isValid = hasContentTypes && hasWordDoc
+			finalMIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+		} else if ext == ".xlsx" {
+			isValid = hasContentTypes && hasWorkbook
+			finalMIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+		} else if ext == ".zip" {
+			isValid = true
+			finalMIME = "application/zip"
+		}
+
+		if !isValid {
+			return "", "", "", &response.Error{
+				Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
+				StatusCode: http.StatusUnsupportedMediaType,
+				Message:    fmt.Sprintf("Invalid OOXML document structure for %s extension.", ext),
+			}
+		}
+
+		bodyReader = bytes.NewReader(fileBytes)
+		finalSize = int64(len(fileBytes))
+	} else {
+		// Images and PDF validation (streaming, read first 512 bytes)
+		sniffBuf := make([]byte, 512)
+		n, readErr := io.ReadFull(file, sniffBuf)
+		if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
+			c.logger.Error("Failed to read uploaded file header", zap.Error(readErr))
+			return "", "", "", &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to process uploaded file header. Please try again.",
+			}
+		}
+		sniffBuf = sniffBuf[:n]
+
+		detectedMIME := http.DetectContentType(sniffBuf)
+		mimeBase := strings.Split(detectedMIME, ";")[0]
+		mimeBase = strings.TrimSpace(strings.ToLower(mimeBase))
+
+		switch ext {
+		case ".png":
+			isValid = mimeBase == "image/png"
+			finalMIME = "image/png"
+		case ".jpg", ".jpeg":
+			isValid = mimeBase == "image/jpeg"
+			finalMIME = "image/jpeg"
+		case ".pdf":
+			isValid = mimeBase == "application/pdf"
+			finalMIME = "application/pdf"
+		}
+
+		if !isValid {
+			return "", "", "", &response.Error{
+				Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
+				StatusCode: http.StatusUnsupportedMediaType,
+				Message:    "Unsupported file content type.",
+			}
+		}
+
+		limitedReader := io.LimitReader(file, maxBytes-int64(n))
+		bodyReader = io.MultiReader(bytes.NewReader(sniffBuf), limitedReader)
+		finalSize = header.Size
 	}
 
-	// 5. Sanitize Filename
 	sanitizedName := SanitizeFilename(header.Filename)
 
-	// 6. Generate unique key
 	id, uuidErr := uuid.NewV7()
 	if uuidErr != nil {
 		c.logger.Error("Failed to generate UUID for file key", zap.Error(uuidErr))
@@ -341,16 +445,12 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 	}
 	key := fmt.Sprintf("%s/%s-%s", folder, id.String(), sanitizedName)
 
-	// 7. Stream upload to S3 with bounded reader
-	limitedReader := io.LimitReader(file, maxBytes-int64(n))
-	bodyReader := io.MultiReader(bytes.NewReader(sniffBuf), limitedReader)
-
 	_, putErr := c.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(c.bucket),
 		Key:           aws.String(key),
 		Body:          bodyReader,
 		ContentType:   aws.String(finalMIME),
-		ContentLength: aws.Int64(header.Size),
+		ContentLength: aws.Int64(finalSize),
 	})
 	if putErr != nil {
 		c.logger.Error("Failed to upload attachment to S3", zap.Error(putErr), zap.String("key", key))
@@ -365,14 +465,14 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 	return key, sanitizedName, finalMIME, nil
 }
 
-func (c *s3Client) UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, maxSizeMB int64) (string, string, string, *response.Error) {
+func (c *s3Client) UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
 	folder := fmt.Sprintf("tasks/%s/attachments", taskID.String())
-	return c.uploadAttachmentStream(ctx, file, header, folder, maxSizeMB)
+	return c.uploadAttachmentStream(ctx, file, header, folder, cfg)
 }
 
-func (c *s3Client) UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, maxSizeMB int64) (string, string, string, *response.Error) {
+func (c *s3Client) UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
 	folder := fmt.Sprintf("comments/%s/attachments", commentID.String())
-	return c.uploadAttachmentStream(ctx, file, header, folder, maxSizeMB)
+	return c.uploadAttachmentStream(ctx, file, header, folder, cfg)
 }
 
 func (c *s3Client) GetObject(ctx context.Context, key string) (io.ReadCloser, int64, *response.Error) {

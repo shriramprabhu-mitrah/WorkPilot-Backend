@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	_ "github.com/ms-kanban-server/docs"
 
@@ -65,6 +71,10 @@ func main() {
 			zap.String("port", config.Redis.Port))
 	}
 
+	// Create root lifecycle context
+	rootCtx, cancelRoot := context.WithCancel(context.Background())
+	defer cancelRoot()
+
 	//Initialize the Gin router and set up routes
 	router := gin.Default()
 
@@ -74,6 +84,7 @@ func main() {
 		Router:   router,
 		Redis:    redisClient,
 		Logger:   Logger,
+		Context:  rootCtx,
 	}
 
 	// Set up routes
@@ -82,12 +93,33 @@ func main() {
 	// Start background scheduler
 	go scheduler.Start(dbConn, Logger)
 
-	// Start the server
-	Logger.Info("Server is running",
-		zap.String("port", config.HTTP.Port))
-	err = router.Run(fmt.Sprintf(":%s", config.HTTP.Port))
-	if err != nil {
-		Logger.Fatal("Failed to start server ",
-			zap.String("ERROR", err.Error()))
+	// Start the server gracefully
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%s", config.HTTP.Port),
+		Handler: router,
 	}
+
+	go func() {
+		Logger.Info("Server is running", zap.String("port", config.HTTP.Port))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			Logger.Fatal("Failed to start server", zap.Error(err))
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	Logger.Info("Shutting down API server gracefully...")
+	cancelRoot() // Cancel context to stop background workers
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelShutdown()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		Logger.Fatal("Server forced to shutdown", zap.Error(err))
+	}
+
+	Logger.Info("Server exited cleanly")
 }

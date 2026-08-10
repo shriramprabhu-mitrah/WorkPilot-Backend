@@ -30,7 +30,7 @@ func CommentsRoutes(deps models.Config, api *gin.RouterGroup) {
 	// initialize services
 	commentsService := services.InitCommentsService(commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
-	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger)
+	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
 
 	// initialize handlers
 	commentsHandler := handlers.InitCommentsHandler(commentsService, deps.Logger)

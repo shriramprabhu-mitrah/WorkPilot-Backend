@@ -29,7 +29,7 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 	// initialize services
 	taskService := services.InitTaskService(authRepo, projectRepo, taskRepo, auditRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
-	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger)
+	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
 
 	// initialize handlers
 	taskHandler := handlers.InitTaskHandler(taskService, deps.Logger)

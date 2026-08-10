@@ -13,6 +13,7 @@ type CommentAttachmentRepository interface {
 	GetAttachmentByID(id uuid.UUID) (*models.CommentAttachment, *response.Error)
 	GetAttachmentsByCommentID(commentID uuid.UUID) ([]models.CommentAttachment, *response.Error)
 	DeleteAttachment(id uuid.UUID) *response.Error
+	DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error
 }
 
 type commentAttachmentDatabase struct {

@@ -1,6 +1,8 @@
 package attachmentrepo
 
 import (
+	"time"
+
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
@@ -13,6 +15,14 @@ type AttachmentRepository interface {
 	GetAttachmentByID(id uuid.UUID) (*models.TaskAttachment, *response.Error)
 	GetAttachmentsByTaskID(taskID uuid.UUID) ([]models.TaskAttachment, *response.Error)
 	DeleteAttachment(id uuid.UUID) *response.Error
+
+	// Transactional outbox pattern
+	DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error
+	CreateOrphanedFile(file *models.OrphanedFile) *response.Error
+	GetOrphanedFiles() ([]models.OrphanedFile, *response.Error)
+	DeleteOrphanedFile(id uuid.UUID) *response.Error
+	ClaimOrphanedFiles(now time.Time, claimedUntil time.Time, limit int) ([]models.OrphanedFile, *response.Error)
+	ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time) *response.Error
 }
 
 type attachmentDatabase struct {

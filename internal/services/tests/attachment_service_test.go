@@ -67,7 +67,7 @@ func createTestMultipartFileHeader(filename string, content []byte) (*multipart.
 type mockStorageClient struct {
 	uploadErr     *response.Error
 	getObjectErr  *response.Error
-	uploadFunc    func(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, maxSizeMB int64) (string, string, string, *response.Error)
+	uploadFunc    func(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error)
 	getObjectFunc func(ctx context.Context, key string) (io.ReadCloser, int64, *response.Error)
 	deleteFunc    func(ctx context.Context, key string) error
 	deletedKeys   []string
@@ -89,17 +89,17 @@ func (m *mockStorageClient) DeleteObject(ctx context.Context, key string) error 
 	return nil
 }
 
-func (m *mockStorageClient) UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, maxSizeMB int64) (string, string, string, *response.Error) {
+func (m *mockStorageClient) UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
 	if m.uploadErr != nil {
 		return "", "", "", m.uploadErr
 	}
 	if m.uploadFunc != nil {
-		return m.uploadFunc(ctx, file, header, taskID, maxSizeMB)
+		return m.uploadFunc(ctx, file, header, taskID, cfg)
 	}
 	return "tasks/taskid/file.png", "file.png", "image/png", nil
 }
 
-func (m *mockStorageClient) UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, maxSizeMB int64) (string, string, string, *response.Error) {
+func (m *mockStorageClient) UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
 	if m.uploadErr != nil {
 		return "", "", "", m.uploadErr
 	}
@@ -118,10 +118,11 @@ func (m *mockStorageClient) GetObject(ctx context.Context, key string) (io.ReadC
 
 // Define stub repositories
 type stubAttachmentRepo struct {
-	attachments map[uuid.UUID]*models.TaskAttachment
-	createErr   *response.Error
-	getErr      *response.Error
-	deleteErr   *response.Error
+	attachments  map[uuid.UUID]*models.TaskAttachment
+	orphanedLogs []string
+	createErr    *response.Error
+	getErr       *response.Error
+	deleteErr    *response.Error
 }
 
 func (s *stubAttachmentRepo) CreateAttachment(a *models.TaskAttachment) *response.Error {
@@ -167,6 +168,35 @@ func (s *stubAttachmentRepo) DeleteAttachment(id uuid.UUID) *response.Error {
 		return s.deleteErr
 	}
 	delete(s.attachments, id)
+	return nil
+}
+
+func (s *stubAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	delete(s.attachments, attachmentID)
+	s.orphanedLogs = append(s.orphanedLogs, storagePath)
+	return nil
+}
+
+func (s *stubAttachmentRepo) CreateOrphanedFile(file *models.OrphanedFile) *response.Error {
+	return nil
+}
+
+func (s *stubAttachmentRepo) GetOrphanedFiles() ([]models.OrphanedFile, *response.Error) {
+	return nil, nil
+}
+
+func (s *stubAttachmentRepo) DeleteOrphanedFile(id uuid.UUID) *response.Error {
+	return nil
+}
+
+func (s *stubAttachmentRepo) ClaimOrphanedFiles(now time.Time, claimedUntil time.Time, limit int) ([]models.OrphanedFile, *response.Error) {
+	return nil, nil
+}
+
+func (s *stubAttachmentRepo) ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time) *response.Error {
 	return nil
 }
 
@@ -228,6 +258,19 @@ func (s *stubAttachmentTaskRepo) GetTaskByID(id uuid.UUID, projectID uuid.UUID) 
 	}
 	if s.task != nil && s.task.ID == id && s.task.ProjectID == projectID {
 		return s.task, nil
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
+}
+func (s *stubAttachmentTaskRepo) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.task != nil {
+		return &models.TaskAccessContext{
+			TaskID:         s.task.ID,
+			ProjectID:      s.task.ProjectID,
+			OrganizationID: s.task.Project.OrganizationID,
+		}, nil
 	}
 	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
 }
@@ -311,13 +354,18 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 
 	t.Run("Success Upload", func(t *testing.T) {
 		attachmentRepo := &stubAttachmentRepo{attachments: make(map[uuid.UUID]*models.TaskAttachment)}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID, Key: "TASK-1"}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Key:       "TASK-1",
+			Project:   models.Project{ID: projectID, OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		auditRepo := &stubAttachmentAuditLogRepo{}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
 
 		fileData := []byte("image content")
 		fileHeader, headerErr := createTestMultipartFileHeader("test.png", fileData)
@@ -325,7 +373,7 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 			t.Fatalf("failed to create mock file header: %v", headerErr)
 		}
 
-		res, apiErr := service.UploadAttachments(context.Background(), taskID, userID, []*multipart.FileHeader{fileHeader})
+		res, apiErr := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if apiErr != nil {
 			t.Fatalf("expected nil error, got %v", apiErr)
 		}
@@ -345,15 +393,19 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 
 	t.Run("Storage Upload S3 Failure", func(t *testing.T) {
 		attachmentRepo := &stubAttachmentRepo{attachments: make(map[uuid.UUID]*models.TaskAttachment)}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{uploadErr: &response.Error{StatusCode: 500, Message: "S3 Error"}}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("content"))
-		_, apiErr := service.UploadAttachments(context.Background(), taskID, userID, []*multipart.FileHeader{fileHeader})
+		_, apiErr := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if apiErr == nil || apiErr.StatusCode != 500 {
 			t.Fatalf("expected S3 500 failure, got %v", apiErr)
 		}
@@ -365,15 +417,19 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 
 	t.Run("DB Failure After S3 Upload Rollback", func(t *testing.T) {
 		attachmentRepo := &stubAttachmentRepo{createErr: &response.Error{StatusCode: 500, Message: "DB error"}}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
-		_, apiErr := service.UploadAttachments(context.Background(), taskID, userID, []*multipart.FileHeader{fileHeader})
+		_, apiErr := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if apiErr == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -401,14 +457,18 @@ func TestAttachmentService_DownloadAttachment(t *testing.T) {
 				StoragePath:      "tasks/task/doc.pdf",
 			},
 		}}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
-		stream, filename, mime, _, err := service.DownloadAttachment(context.Background(), attachmentID, userID)
+		stream, filename, mime, _, err := service.DownloadAttachment(context.Background(), attachmentID, projectID, userID)
 		if err != nil {
 			t.Fatalf("expected nil error, got %v", err)
 		}
@@ -428,14 +488,18 @@ func TestAttachmentService_DownloadAttachment(t *testing.T) {
 				StoragePath:      "path",
 			},
 		}}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{getObjectErr: &response.Error{StatusCode: 500, Message: "S3 Error"}}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
-		_, _, _, _, err := service.DownloadAttachment(context.Background(), attachmentID, userID)
+		_, _, _, _, err := service.DownloadAttachment(context.Background(), attachmentID, projectID, userID)
 		if err == nil || err.StatusCode != 500 {
 			t.Fatalf("expected 500 error, got %v", err)
 		}
@@ -450,23 +514,30 @@ func TestAttachmentService_DeleteAttachment(t *testing.T) {
 	attachmentID := uuid.Must(uuid.NewV4())
 
 	t.Run("Uploader Delete Success", func(t *testing.T) {
-		attachmentRepo := &stubAttachmentRepo{attachments: map[uuid.UUID]*models.TaskAttachment{
-			attachmentID: {
-				ID:          attachmentID,
-				TaskID:      taskID,
-				StoragePath: "path",
-				UploadedBy:  userID,
+		attachmentRepo := &stubAttachmentRepo{
+			attachments: map[uuid.UUID]*models.TaskAttachment{
+				attachmentID: {
+					ID:          attachmentID,
+					TaskID:      taskID,
+					StoragePath: "path",
+					UploadedBy:  userID,
+				},
 			},
+		}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Key:       "TASK-1",
+			Project:   models.Project{ID: projectID, OrganizationID: orgID},
 		}}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID, Key: "TASK-1"}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		auditRepo := &stubAttachmentAuditLogRepo{}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
 
-		err := service.DeleteAttachment(context.Background(), attachmentID, userID)
+		err := service.DeleteAttachment(context.Background(), attachmentID, projectID, userID)
 		if err != nil {
 			t.Fatalf("expected nil error, got %v", err)
 		}
@@ -475,15 +546,12 @@ func TestAttachmentService_DeleteAttachment(t *testing.T) {
 			t.Errorf("expected DB deletion, got %d attachments remaining", len(attachmentRepo.attachments))
 		}
 
-		// Wait briefly for the async goroutine to execute DeleteObject
-		time.Sleep(20 * time.Millisecond)
-
-		if len(storageClient.deletedKeys) != 1 || storageClient.deletedKeys[0] != "path" {
-			t.Errorf("expected S3 delete call for path, got %v", storageClient.deletedKeys)
+		if len(attachmentRepo.orphanedLogs) != 1 || attachmentRepo.orphanedLogs[0] != "path" {
+			t.Errorf("expected DB transaction to write to orphaned file cleanup log, got: %v", attachmentRepo.orphanedLogs)
 		}
 	})
 
-	t.Run("DB Failure Prevents S3 Delete", func(t *testing.T) {
+	t.Run("DB Failure Prevents S3 Delete Record", func(t *testing.T) {
 		attachmentRepo := &stubAttachmentRepo{
 			deleteErr: &response.Error{StatusCode: 500, Message: "DB error"},
 			attachments: map[uuid.UUID]*models.TaskAttachment{
@@ -495,32 +563,36 @@ func TestAttachmentService_DeleteAttachment(t *testing.T) {
 				},
 			},
 		}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
-		err := service.DeleteAttachment(context.Background(), attachmentID, userID)
+		err := service.DeleteAttachment(context.Background(), attachmentID, projectID, userID)
 		if err == nil || err.StatusCode != 500 {
 			t.Fatalf("expected 500 error, got %v", err)
 		}
 
-		// Storage should NOT be deleted if DB deletion fails
-		time.Sleep(20 * time.Millisecond)
-		if len(storageClient.deletedKeys) != 0 {
-			t.Errorf("expected 0 S3 deletions, got %v", storageClient.deletedKeys)
+		// Storage outbox should NOT be written if DB transaction fails
+		if len(attachmentRepo.orphanedLogs) != 0 {
+			t.Errorf("expected 0 orphaned logs, got %v", attachmentRepo.orphanedLogs)
 		}
 	})
 }
 
 // Stub structures for Comment Attachment tests
 type stubCommentAttachmentRepo struct {
-	attachments map[uuid.UUID]*models.CommentAttachment
-	createErr   *response.Error
-	getErr      *response.Error
-	deleteErr   *response.Error
+	attachments  map[uuid.UUID]*models.CommentAttachment
+	orphanedLogs []string
+	createErr    *response.Error
+	getErr       *response.Error
+	deleteErr    *response.Error
 }
 
 func (s *stubCommentAttachmentRepo) CreateAttachment(a *models.CommentAttachment) *response.Error {
@@ -566,6 +638,15 @@ func (s *stubCommentAttachmentRepo) DeleteAttachment(id uuid.UUID) *response.Err
 		return s.deleteErr
 	}
 	delete(s.attachments, id)
+	return nil
+}
+
+func (s *stubCommentAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	delete(s.attachments, attachmentID)
+	s.orphanedLogs = append(s.orphanedLogs, storagePath)
 	return nil
 }
 
@@ -649,14 +730,14 @@ func TestCommentAttachmentService_UploadAttachments(t *testing.T) {
 		auditRepo := &stubAttachmentAuditLogRepo{}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(nil, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop())
+		service := services.InitAttachmentService(nil, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
 
 		fileHeader, err := createTestMultipartFileHeader("test.png", []byte("fake content"))
 		if err != nil {
 			t.Fatalf("failed to create test file header: %v", err)
 		}
 
-		res, uploadErr := service.UploadCommentAttachments(context.Background(), commentID, userID, []*multipart.FileHeader{fileHeader})
+		res, uploadErr := service.UploadCommentAttachments(context.Background(), commentID, taskID, userID, []*multipart.FileHeader{fileHeader})
 		if uploadErr != nil {
 			t.Fatalf("expected no error, got %v", uploadErr)
 		}
@@ -682,49 +763,61 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		attachmentRepo := &stubAttachmentRepo{attachments: map[uuid.UUID]*models.TaskAttachment{
 			attachmentID: {ID: attachmentID, TaskID: taskID},
 		}}
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: false, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop())
+		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
 
-		_, err := service.UploadAttachments(context.Background(), taskID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden for upload, got %v", err)
 		}
 
-		_, _, _, _, err = service.DownloadAttachment(context.Background(), attachmentID, userID)
+		_, _, _, _, err = service.DownloadAttachment(context.Background(), attachmentID, projectID, userID)
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden for download, got %v", err)
 		}
 
-		err = service.DeleteAttachment(context.Background(), attachmentID, userID)
+		err = service.DeleteAttachment(context.Background(), attachmentID, projectID, userID)
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden for delete, got %v", err)
 		}
 	})
 
 	t.Run("Super Admin Denied Org-level Activity", func(t *testing.T) {
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: string(dto.RoleSuperAdmin)}}
 
-		service := services.InitAttachmentService(nil, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop())
+		service := services.InitAttachmentService(nil, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
 
-		_, err := service.UploadAttachments(context.Background(), taskID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden for super admin, got %v", err)
 		}
 	})
 
 	t.Run("Org Admin From Another Org Denied", func(t *testing.T) {
-		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{ID: taskID, ProjectID: projectID}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{OrganizationID: orgID},
+		}}
 		projectRepo := &stubAttachmentProjectRepo{isMember: false, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: string(dto.RoleOrgAdmin), OrganizationID: &anotherOrgID}}
 
-		service := services.InitAttachmentService(nil, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop())
+		service := services.InitAttachmentService(nil, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
 
-		_, err := service.UploadAttachments(context.Background(), taskID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden, got %v", err)
 		}
@@ -738,7 +831,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 					ID:          attachmentID,
 					CommentID:   commentID,
 					StoragePath: "path",
-					UploadedBy:  userID, // Uploaded by userID
+					UploadedBy:  userID,
 				},
 			},
 		}
@@ -747,7 +840,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 				commentID: {
 					ID:     commentID,
 					TaskID: taskID,
-					UserID: commentAuthorID, // Owned by commentAuthorID
+					UserID: commentAuthorID,
 				},
 			},
 		}
@@ -763,10 +856,9 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: commentAuthorID, Role: "member", OrganizationID: &orgID}}
 
-		service := services.InitAttachmentService(nil, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, &stubAttachmentAuditLogRepo{}, &mockStorageClient{}, zap.NewNop())
+		service := services.InitAttachmentService(nil, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, &stubAttachmentAuditLogRepo{}, &mockStorageClient{}, zap.NewNop(), nil)
 
-		// Deleting comment attachment by commentAuthorID (who is NOT the uploader userID)
-		err := service.DeleteCommentAttachment(context.Background(), attachmentID, commentAuthorID)
+		err := service.DeleteCommentAttachment(context.Background(), attachmentID, taskID, commentAuthorID)
 		if err != nil {
 			t.Fatalf("expected comment author to successfully delete another user's comment attachment, got %v", err)
 		}

@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"fmt"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ms-kanban-server/config"
@@ -42,7 +44,7 @@ func InitAttachmentHandler(service services.AttachmentService, logger *zap.Logge
 // @Failure 500 {object} response.ErrorResponse
 // @Router /projects/{project_id}/tasks/{task_id}/attachments [post]
 func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
-	// Enforce request-level limits at the HTTP layer.
+	// Configure limits from environment variables to prevent coupling with service internals.
 	maxSizeMB := int64(10)
 	if v := config.GetEnv("ATTACHMENT_MAX_FILE_SIZE_MB", ""); v != "" {
 		var parsed int64
@@ -50,7 +52,15 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 			maxSizeMB = parsed
 		}
 	}
-	maxRequestSize := (maxSizeMB * 1024 * 1024 * 5) + (10 * 1024 * 1024)
+	maxFiles := 5
+	if v := config.GetEnv("ATTACHMENT_MAX_FILES_COUNT", ""); v != "" {
+		var parsed int
+		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
+			maxFiles = parsed
+		}
+	}
+
+	maxRequestSize := (maxSizeMB * 1024 * 1024 * int64(maxFiles)) + (10 * 1024 * 1024)
 	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
 
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
@@ -58,10 +68,16 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 		return
 	}
 
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
+		h.logger.Error("Failed to convert project ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert task ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
@@ -93,7 +109,27 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UploadAttachments(g.Request.Context(), taskUUID, userUUID, allHeaders)
+	if len(allHeaders) > maxFiles {
+		writeErrorResponse(g, h.logger, response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    fmt.Sprintf("Maximum of %d files can be uploaded per request.", maxFiles),
+		}, "Too many files in request")
+		return
+	}
+
+	for _, header := range allHeaders {
+		if header.Size > maxSizeMB*1024*1024 {
+			writeErrorResponse(g, h.logger, response.Error{
+				Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
+				StatusCode: http.StatusRequestEntityTooLarge,
+				Message:    fmt.Sprintf("File %s exceeds the maximum allowed size of %d MB.", header.Filename, maxSizeMB),
+			}, "File size limit exceeded")
+			return
+		}
+	}
+
+	res, err := h.service.UploadAttachments(g.Request.Context(), taskUUID, projectUUID, userUUID, allHeaders)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -125,15 +161,21 @@ func (h *attachmentHandler) GetAttachments(g *gin.Context) {
 		return
 	}
 
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the task ID string into UUID")
+		h.logger.Error("Failed to convert project ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
-	attachments, err := h.service.GetAttachments(g.Request.Context(), taskUUID, userUUID)
+	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert task ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	attachments, err := h.service.GetAttachments(g.Request.Context(), taskUUID, projectUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -165,22 +207,34 @@ func (h *attachmentHandler) DownloadAttachment(g *gin.Context) {
 		return
 	}
 
-	attachmentIDParam := g.Param("attachment_id")
-	attachmentUUID, errorResponse := utils.StringToUUID(attachmentIDParam)
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the attachment ID string into UUID")
+		h.logger.Error("Failed to convert project ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
-	stream, filename, mimeType, size, err := h.service.DownloadAttachment(g.Request.Context(), attachmentUUID, userUUID)
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	stream, filename, mimeType, size, err := h.service.DownloadAttachment(g.Request.Context(), attachmentUUID, projectUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
 	}
 	defer stream.Close()
 
-	g.Header("Content-Disposition", "attachment; filename="+filename)
+	// Sanitize original filename to prevent CR/LF header injection
+	filename = strings.ReplaceAll(filename, "\n", "")
+	filename = strings.ReplaceAll(filename, "\r", "")
+
+	// Use RFC 6266 Content-Disposition formatting to handle special characters securely
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
+	g.Header("Content-Disposition", disposition)
 	g.Header("Content-Type", mimeType)
 	g.Header("Content-Length", strconv.FormatInt(size, 10))
 
@@ -205,15 +259,21 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 		return
 	}
 
-	attachmentIDParam := g.Param("attachment_id")
-	attachmentUUID, errorResponse := utils.StringToUUID(attachmentIDParam)
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the attachment ID string into UUID")
+		h.logger.Error("Failed to convert project ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
-	err := h.service.DeleteAttachment(g.Request.Context(), attachmentUUID, userUUID)
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	err := h.service.DeleteAttachment(g.Request.Context(), attachmentUUID, projectUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -242,7 +302,6 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /task/{task_id}/comments/{comment_id}/attachments [post]
 func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
-	// Enforce request-level limits at the HTTP layer.
 	maxSizeMB := int64(10)
 	if v := config.GetEnv("ATTACHMENT_MAX_FILE_SIZE_MB", ""); v != "" {
 		var parsed int64
@@ -250,7 +309,15 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 			maxSizeMB = parsed
 		}
 	}
-	maxRequestSize := (maxSizeMB * 1024 * 1024 * 5) + (10 * 1024 * 1024)
+	maxFiles := 5
+	if v := config.GetEnv("ATTACHMENT_MAX_FILES_COUNT", ""); v != "" {
+		var parsed int
+		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
+			maxFiles = parsed
+		}
+	}
+
+	maxRequestSize := (maxSizeMB * 1024 * 1024 * int64(maxFiles)) + (10 * 1024 * 1024)
 	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
 
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
@@ -258,10 +325,16 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	commentIDParam := g.Param("comment_id")
-	commentUUID, errorResponse := utils.StringToUUID(commentIDParam)
+	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the comment ID string into UUID")
+		h.logger.Error("Failed to convert task ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	commentUUID, errorResponse := utils.StringToUUID(g.Param("comment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert comment ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
@@ -293,7 +366,27 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UploadCommentAttachments(g.Request.Context(), commentUUID, userUUID, allHeaders)
+	if len(allHeaders) > maxFiles {
+		writeErrorResponse(g, h.logger, response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    fmt.Sprintf("Maximum of %d files can be uploaded per request.", maxFiles),
+		}, "Too many files in request")
+		return
+	}
+
+	for _, header := range allHeaders {
+		if header.Size > maxSizeMB*1024*1024 {
+			writeErrorResponse(g, h.logger, response.Error{
+				Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
+				StatusCode: http.StatusRequestEntityTooLarge,
+				Message:    fmt.Sprintf("File %s exceeds the maximum allowed size of %d MB.", header.Filename, maxSizeMB),
+			}, "File size limit exceeded")
+			return
+		}
+	}
+
+	res, err := h.service.UploadCommentAttachments(g.Request.Context(), commentUUID, taskUUID, userUUID, allHeaders)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -325,15 +418,21 @@ func (h *attachmentHandler) GetCommentAttachments(g *gin.Context) {
 		return
 	}
 
-	commentIDParam := g.Param("comment_id")
-	commentUUID, errorResponse := utils.StringToUUID(commentIDParam)
+	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the comment ID string into UUID")
+		h.logger.Error("Failed to convert task ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
-	attachments, err := h.service.GetCommentAttachments(g.Request.Context(), commentUUID, userUUID)
+	commentUUID, errorResponse := utils.StringToUUID(g.Param("comment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert comment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	attachments, err := h.service.GetCommentAttachments(g.Request.Context(), commentUUID, taskUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -365,22 +464,34 @@ func (h *attachmentHandler) DownloadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	attachmentIDParam := g.Param("attachment_id")
-	attachmentUUID, errorResponse := utils.StringToUUID(attachmentIDParam)
+	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the attachment ID string into UUID")
+		h.logger.Error("Failed to convert task ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
-	stream, filename, mimeType, size, err := h.service.DownloadCommentAttachment(g.Request.Context(), attachmentUUID, userUUID)
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	stream, filename, mimeType, size, err := h.service.DownloadCommentAttachment(g.Request.Context(), attachmentUUID, taskUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
 	}
 	defer stream.Close()
 
-	g.Header("Content-Disposition", "attachment; filename="+filename)
+	// Sanitize original filename to prevent CR/LF header injection
+	filename = strings.ReplaceAll(filename, "\n", "")
+	filename = strings.ReplaceAll(filename, "\r", "")
+
+	// Use RFC 6266 Content-Disposition formatting to handle special characters securely
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
+	g.Header("Content-Disposition", disposition)
 	g.Header("Content-Type", mimeType)
 	g.Header("Content-Length", strconv.FormatInt(size, 10))
 
@@ -405,14 +516,21 @@ func (h *attachmentHandler) DeleteCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
 	if errorResponse != nil {
-		h.logger.Error("Failed to convert the attachment ID string into UUID")
+		h.logger.Error("Failed to convert task ID string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
-	err := h.service.DeleteCommentAttachment(g.Request.Context(), attachmentUUID, userUUID)
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	err := h.service.DeleteCommentAttachment(g.Request.Context(), attachmentUUID, taskUUID, userUUID)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
