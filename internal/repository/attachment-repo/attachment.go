@@ -139,7 +139,7 @@ func (d *attachmentDatabase) ClaimOrphanedFiles(now time.Time, claimedUntil time
 	txErr := d.db.Transaction(func(tx *gorm.DB) error {
 		var temp []models.OrphanedFile
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Where("(claimed_until IS NULL OR claimed_until < ?) AND attempts < ?", now, 5).
+			Where("(claimed_until IS NULL OR claimed_until < ?) AND (next_attempt_at IS NULL OR next_attempt_at <= ?)", now, now).
 			Order("created_at asc").
 			Limit(limit).
 			Find(&temp).Error
@@ -183,13 +183,14 @@ func (d *attachmentDatabase) ClaimOrphanedFiles(now time.Time, claimedUntil time
 	return claimed, nil
 }
 
-func (d *attachmentDatabase) ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time) *response.Error {
+func (d *attachmentDatabase) ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time, nextAttempt time.Time) *response.Error {
 	err := d.db.Model(&models.OrphanedFile{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"claimed_until":   nil,
 			"last_error":      lastErr,
 			"last_attempt_at": lastAttempt,
+			"next_attempt_at": nextAttempt,
 		}).Error
 
 	if err != nil {

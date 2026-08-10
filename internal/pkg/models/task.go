@@ -47,4 +47,5 @@ type TaskAccessContext struct {
 	TaskID         uuid.UUID `gorm:"column:task_id"`
 	ProjectID      uuid.UUID `gorm:"column:project_id"`
 	OrganizationID uuid.UUID `gorm:"column:organization_id"`
+	TaskKey        string    `gorm:"column:task_key"`
 }

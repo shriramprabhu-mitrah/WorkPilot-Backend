@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
@@ -44,21 +43,9 @@ func InitAttachmentHandler(service services.AttachmentService, logger *zap.Logge
 // @Failure 500 {object} response.ErrorResponse
 // @Router /projects/{project_id}/tasks/{task_id}/attachments [post]
 func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
-	// Configure limits from environment variables to prevent coupling with service internals.
-	maxSizeMB := int64(10)
-	if v := config.GetEnv("ATTACHMENT_MAX_FILE_SIZE_MB", ""); v != "" {
-		var parsed int64
-		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
-			maxSizeMB = parsed
-		}
-	}
-	maxFiles := 5
-	if v := config.GetEnv("ATTACHMENT_MAX_FILES_COUNT", ""); v != "" {
-		var parsed int
-		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
-			maxFiles = parsed
-		}
-	}
+	cfg := h.service.GetConfig()
+	maxSizeMB := cfg.MaxFileSizeMB
+	maxFiles := cfg.MaxFiles
 
 	maxRequestSize := (maxSizeMB * 1024 * 1024 * int64(maxFiles)) + (10 * 1024 * 1024)
 	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
@@ -302,20 +289,9 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /task/{task_id}/comments/{comment_id}/attachments [post]
 func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
-	maxSizeMB := int64(10)
-	if v := config.GetEnv("ATTACHMENT_MAX_FILE_SIZE_MB", ""); v != "" {
-		var parsed int64
-		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
-			maxSizeMB = parsed
-		}
-	}
-	maxFiles := 5
-	if v := config.GetEnv("ATTACHMENT_MAX_FILES_COUNT", ""); v != "" {
-		var parsed int
-		if _, scanErr := fmt.Sscanf(v, "%d", &parsed); scanErr == nil && parsed > 0 {
-			maxFiles = parsed
-		}
-	}
+	cfg := h.service.GetConfig()
+	maxSizeMB := cfg.MaxFileSizeMB
+	maxFiles := cfg.MaxFiles
 
 	maxRequestSize := (maxSizeMB * 1024 * 1024 * int64(maxFiles)) + (10 * 1024 * 1024)
 	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)

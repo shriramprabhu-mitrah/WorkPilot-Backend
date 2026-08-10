@@ -29,3 +29,19 @@ CREATE TABLE IF NOT EXISTS comment_attachments (
 
 -- Index on comment_id
 CREATE INDEX IF NOT EXISTS idx_comment_attachments_comment_id ON comment_attachments(comment_id);
+
+-- Create orphaned_files table
+CREATE TABLE IF NOT EXISTS orphaned_files (
+    id UUID PRIMARY KEY,
+    storage_path TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at TIMESTAMPTZ,
+    last_error TEXT,
+    claimed_until TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
+    next_attempt_at TIMESTAMPTZ
+);
+
+-- Index on claimed_until, next_attempt_at, attempts, created_at
+CREATE INDEX IF NOT EXISTS idx_orphaned_files_cleanup
+ON orphaned_files (claimed_until, next_attempt_at, attempts, created_at);

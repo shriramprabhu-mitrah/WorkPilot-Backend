@@ -22,7 +22,7 @@ type AttachmentRepository interface {
 	GetOrphanedFiles() ([]models.OrphanedFile, *response.Error)
 	DeleteOrphanedFile(id uuid.UUID) *response.Error
 	ClaimOrphanedFiles(now time.Time, claimedUntil time.Time, limit int) ([]models.OrphanedFile, *response.Error)
-	ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time) *response.Error
+	ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time, nextAttempt time.Time) *response.Error
 }
 
 type attachmentDatabase struct {

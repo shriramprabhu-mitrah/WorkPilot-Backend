@@ -37,6 +37,8 @@ type AttachmentService interface {
 	GetCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error)
 	DownloadCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
 	DeleteCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) *response.Error
+
+	GetConfig() models.AttachmentConfig
 }
 
 type attachmentService struct {
@@ -103,6 +105,10 @@ func InitAttachmentService(
 	}
 
 	return s
+}
+
+func (s *attachmentService) GetConfig() models.AttachmentConfig {
+	return s.cfg
 }
 
 // Single Consolidated Authorization Policy helper methods using TaskAccessContext to prevent duplicate DB queries
@@ -210,6 +216,26 @@ func (s *attachmentService) startCleanupWorker(ctx context.Context) {
 	}
 }
 
+func calculateNextAttempt(attempts int, now time.Time) time.Time {
+	if attempts <= 0 {
+		attempts = 1
+	}
+	// exponential backoff: 30s * 2^(attempts-1) capped at 1 hour
+	// attempts=1: 30s
+	// attempts=2: 60s
+	// attempts=3: 120s
+	// ...
+	// attempts>=8: 1 hour (3600s)
+	// Avoid integer overflow by capping shifts at attempts=8
+	var seconds int64
+	if attempts >= 8 {
+		seconds = 3600
+	} else {
+		seconds = 30 * (int64(1) << (attempts - 1))
+	}
+	return now.Add(time.Duration(seconds) * time.Second)
+}
+
 func (s *attachmentService) processOrphanedFiles(ctx context.Context) {
 	now := time.Now()
 	claimedUntil := now.Add(2 * time.Minute)
@@ -228,7 +254,9 @@ func (s *attachmentService) processOrphanedFiles(ctx context.Context) {
 			if len(lastErrStr) > 500 {
 				lastErrStr = lastErrStr[:500]
 			}
-			_ = s.attachmentRepo.ReleaseOrphanedFile(file.ID, lastErrStr, time.Now())
+			newAttempts := file.Attempts + 1
+			nextAttempt := calculateNextAttempt(newAttempts, now)
+			_ = s.attachmentRepo.ReleaseOrphanedFile(file.ID, lastErrStr, now, nextAttempt)
 			s.logger.Error("Orphaned files cleanup worker failed to delete storage object, marked for retry",
 				zap.String("path", file.StoragePath),
 				zap.Error(delErr),
@@ -282,12 +310,7 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 	var createdAttachments []models.TaskAttachment
 	var auditLogs []models.AuditLog
 
-	// Retrieve task details for task key (used in audit details)
-	task, detailsErr := s.taskRepo.GetTaskDetailsByID(taskID)
-	var taskKey string
-	if detailsErr == nil && task != nil {
-		taskKey = task.Key
-	}
+	taskKey := taskCtx.TaskKey
 
 	for _, header := range files {
 		file, openErr := header.Open()
@@ -342,9 +365,10 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 	}
 
 	// Write audit logs only when the entire transaction has succeeded
+	// Note: Audit logging is best-effort by design.
 	for _, log := range auditLogs {
 		if auditErr := s.auditRepo.CreateAuditLog(log); auditErr != nil {
-			s.logger.Warn("Failed to create audit log", zap.Any("error", auditErr))
+			s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 		}
 	}
 
@@ -356,19 +380,21 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 	return res, nil
 }
 
-// rollbackUploads performs best-effort cleanup of uploaded S3 objects and database metadata
-// in case of batch upload failure. Since this is non-transactional across S3 and DB,
-// failures during rollback are explicitly logged for manual cleanup or audit reconciliation.
+// rollbackUploads performs durable cleanup of uploaded S3 objects and database metadata
+// in case of batch upload failure by leveraging the transactional outbox pattern.
 func (s *attachmentService) rollbackUploads(keys []string, ids []uuid.UUID) {
-	ctx := context.Background()
-	for _, key := range keys {
-		if err := s.storageClient.DeleteObject(ctx, key); err != nil {
-			s.logger.Error("Rollback failed to delete storage object during batch recovery", zap.String("key", key), zap.Error(err))
-		}
-	}
-	for _, id := range ids {
-		if err := s.attachmentRepo.DeleteAttachment(id); err != nil {
-			s.logger.Error("Rollback failed to delete database attachment during batch recovery", zap.String("id", id.String()), zap.Any("error", err))
+	for i, key := range keys {
+		if i < len(ids) {
+			if err := s.attachmentRepo.DeleteAttachmentAndRecordOrphan(ids[i], key); err != nil {
+				s.logger.Error("Rollback failed to delete database attachment and record orphan during batch recovery", zap.String("id", ids[i].String()), zap.Any("error", err))
+			}
+		} else {
+			orphan := &models.OrphanedFile{
+				StoragePath: key,
+			}
+			if err := s.attachmentRepo.CreateOrphanedFile(orphan); err != nil {
+				s.logger.Error("Rollback failed to record orphaned file during batch recovery", zap.String("key", key), zap.Any("error", err))
+			}
 		}
 	}
 }
@@ -503,14 +529,10 @@ func (s *attachmentService) DeleteAttachment(ctx context.Context, attachmentID, 
 		return dbErr
 	}
 
-	// Retrieve task details for task key (used in audit details)
-	task, detailsErr := s.taskRepo.GetTaskDetailsByID(attachment.TaskID)
-	var taskKey string
-	if detailsErr == nil && task != nil {
-		taskKey = task.Key
-	}
+	taskKey := taskCtx.TaskKey
 
 	// Log audit activity
+	// Note: Audit logging is best-effort by design.
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &taskCtx.OrganizationID,
@@ -522,7 +544,7 @@ func (s *attachmentService) DeleteAttachment(ctx context.Context, attachmentID, 
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
-		s.logger.Warn("Failed to create audit log", zap.Any("error", auditErr))
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 	}
 
 	return nil
@@ -630,9 +652,10 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 	}
 
 	// Persist audit logs after batch success
+	// Note: Audit logging is best-effort by design.
 	for _, log := range auditLogs {
 		if auditErr := s.auditRepo.CreateAuditLog(log); auditErr != nil {
-			s.logger.Warn("Failed to create audit log", zap.Any("error", auditErr))
+			s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 		}
 	}
 
@@ -644,16 +667,21 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 	return res, nil
 }
 
+// rollbackCommentUploads performs durable cleanup of uploaded comment S3 objects and database metadata
+// in case of batch upload failure by leveraging the transactional outbox pattern.
 func (s *attachmentService) rollbackCommentUploads(keys []string, ids []uuid.UUID) {
-	ctx := context.Background()
-	for _, key := range keys {
-		if err := s.storageClient.DeleteObject(ctx, key); err != nil {
-			s.logger.Error("Rollback failed to delete comment storage object during batch recovery", zap.String("key", key), zap.Error(err))
-		}
-	}
-	for _, id := range ids {
-		if err := s.commentAttachmentRepo.DeleteAttachment(id); err != nil {
-			s.logger.Error("Rollback failed to delete database comment attachment during batch recovery", zap.String("id", id.String()), zap.Any("error", err))
+	for i, key := range keys {
+		if i < len(ids) {
+			if err := s.commentAttachmentRepo.DeleteAttachmentAndRecordOrphan(ids[i], key); err != nil {
+				s.logger.Error("Rollback failed to delete comment database attachment and record orphan during batch recovery", zap.String("id", ids[i].String()), zap.Any("error", err))
+			}
+		} else {
+			orphan := &models.OrphanedFile{
+				StoragePath: key,
+			}
+			if err := s.attachmentRepo.CreateOrphanedFile(orphan); err != nil {
+				s.logger.Error("Rollback failed to record comment orphaned file during batch recovery", zap.String("key", key), zap.Any("error", err))
+			}
 		}
 	}
 }
@@ -804,6 +832,7 @@ func (s *attachmentService) DeleteCommentAttachment(ctx context.Context, attachm
 	}
 
 	// Log audit activity
+	// Note: Audit logging is best-effort by design.
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &taskCtx.OrganizationID,
@@ -815,7 +844,7 @@ func (s *attachmentService) DeleteCommentAttachment(ctx context.Context, attachm
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
-		s.logger.Warn("Failed to create audit log", zap.Any("error", auditErr))
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 	}
 
 	return nil

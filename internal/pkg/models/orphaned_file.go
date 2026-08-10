@@ -15,6 +15,7 @@ type OrphanedFile struct {
 	LastError     string     `json:"last_error,omitempty" gorm:"type:text"`
 	ClaimedUntil  *time.Time `json:"claimed_until,omitempty" gorm:"type:timestamptz"`
 	CreatedAt     time.Time  `json:"created_at" gorm:"type:timestamptz;not null"`
+	NextAttemptAt *time.Time `json:"next_attempt_at,omitempty" gorm:"type:timestamptz"`
 }
 
 func (o *OrphanedFile) BeforeCreate(tx *gorm.DB) (err error) {

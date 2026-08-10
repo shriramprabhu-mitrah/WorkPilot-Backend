@@ -478,7 +478,7 @@ func (d *taskDatabase) GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response
 func (d *taskDatabase) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error) {
 	var ctx models.TaskAccessContext
 	err := d.db.Table("tasks").
-		Select("tasks.id as task_id, tasks.project_id as project_id, projects.organization_id as organization_id").
+		Select("tasks.id as task_id, tasks.project_id as project_id, projects.organization_id as organization_id, tasks.key as task_key").
 		Joins("join projects on projects.id = tasks.project_id").
 		Where("tasks.id = ? AND tasks.deleted_at IS NULL", id).
 		Scan(&ctx).Error

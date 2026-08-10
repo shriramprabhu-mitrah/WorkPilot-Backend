@@ -267,7 +267,9 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 	var finalSize int64
 	isValid := false
 
-	// Validate archives (ZIP, DOCX, XLSX) against ZIP bombs, traversal, and structural requirements
+	// Validate archives (ZIP, DOCX, XLSX) against ZIP bombs, traversal, and structural requirements.
+	// Note: The DOCX/XLSX validation is structural-only (confirming key entry files exist to prevent renamed executables)
+	// and does not guarantee semantic validity or parsing correctness of the document.
 	if ext == ".docx" || ext == ".xlsx" || ext == ".zip" {
 		fileBytes, readErr := io.ReadAll(io.LimitReader(file, maxBytes+1))
 		if readErr != nil {
@@ -329,7 +331,7 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 
 		for _, f := range zipReader.File {
 			cleanedPath := filepath.Clean(f.Name)
-			if strings.HasPrefix(f.Name, "/") || strings.HasPrefix(cleanedPath, "..") || strings.Contains(f.Name, "..") {
+			if strings.HasPrefix(f.Name, "/") || strings.HasPrefix(f.Name, "\\") || strings.HasPrefix(cleanedPath, "..") || hasDotDotComponent(f.Name) {
 				return "", "", "", &response.Error{
 					Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
 					StatusCode: http.StatusUnsupportedMediaType,
@@ -493,4 +495,16 @@ func (c *s3Client) GetObject(ctx context.Context, key string) (io.ReadCloser, in
 		size = *out.ContentLength
 	}
 	return out.Body, size, nil
+}
+
+func hasDotDotComponent(path string) bool {
+	// Normalize backslashes to forward slashes for ZIP entries
+	path = strings.ReplaceAll(path, "\\", "/")
+	parts := strings.Split(path, "/")
+	for _, part := range parts {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
 }

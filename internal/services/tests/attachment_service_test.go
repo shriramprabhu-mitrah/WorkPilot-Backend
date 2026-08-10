@@ -181,6 +181,7 @@ func (s *stubAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachmentID uuid.U
 }
 
 func (s *stubAttachmentRepo) CreateOrphanedFile(file *models.OrphanedFile) *response.Error {
+	s.orphanedLogs = append(s.orphanedLogs, file.StoragePath)
 	return nil
 }
 
@@ -196,7 +197,7 @@ func (s *stubAttachmentRepo) ClaimOrphanedFiles(now time.Time, claimedUntil time
 	return nil, nil
 }
 
-func (s *stubAttachmentRepo) ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time) *response.Error {
+func (s *stubAttachmentRepo) ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time, nextAttempt time.Time) *response.Error {
 	return nil
 }
 
@@ -270,6 +271,7 @@ func (s *stubAttachmentTaskRepo) GetTaskAccessContext(id uuid.UUID) (*models.Tas
 			TaskID:         s.task.ID,
 			ProjectID:      s.task.ProjectID,
 			OrganizationID: s.task.Project.OrganizationID,
+			TaskKey:        s.task.Key,
 		}, nil
 	}
 	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
@@ -434,8 +436,12 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		if len(storageClient.deletedKeys) != 1 {
-			t.Errorf("expected S3 rollback deletion call, got: %v", storageClient.deletedKeys)
+		if len(storageClient.deletedKeys) != 0 {
+			t.Errorf("expected no immediate S3 rollback deletion call, got: %v", storageClient.deletedKeys)
+		}
+
+		if len(attachmentRepo.orphanedLogs) != 1 {
+			t.Errorf("expected 1 orphaned file record in outbox, got %d", len(attachmentRepo.orphanedLogs))
 		}
 	})
 }

@@ -73,6 +73,7 @@ func (s *stubTaskRepo) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessCon
 		TaskID:         task.ID,
 		ProjectID:      task.ProjectID,
 		OrganizationID: task.Project.OrganizationID,
+		TaskKey:        task.Key,
 	}, nil
 }
 func (s *stubTaskRepo) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
