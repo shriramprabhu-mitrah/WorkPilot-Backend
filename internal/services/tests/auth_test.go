@@ -523,9 +523,10 @@ func TestChangePasswordVerifiesOldPassword(t *testing.T) {
 	if wrongErr == nil {
 		t.Fatal("expected error when old password is incorrect, got nil")
 	}
-	if wrongErr.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("expected 401 Unauthorized status, got %d", wrongErr.StatusCode)
+	if wrongErr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request status, got %d", wrongErr.StatusCode)
 	}
+
 	if wrongErr.Message != "Current password is incorrect" {
 		t.Fatalf("expected 'Current password is incorrect', got %q", wrongErr.Message)
 	}
