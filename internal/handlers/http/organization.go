@@ -67,6 +67,8 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 		Message:    "Organization deleted successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
+		Data: map[string]uuid.UUID{
+			"organizationID": id},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
@@ -108,7 +110,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		return
 	}
 
-	id, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
 		return
 	}
@@ -163,7 +165,7 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		credentials.Country = country.Name
 	}
 
-	updateErr := h.service.UpdateOrganization(id, credentials)
+	updateErr := h.service.UpdateOrganization(organizationUUID, credentials)
 	if updateErr != nil {
 		// Clean up orphaned upload since the DB update failed.
 		if uploadedKey != "" {
@@ -177,8 +179,8 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 		Message:    "Updated Organization successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data: map[string]any{
-			"organizationID": id},
+		Data: map[string]uuid.UUID{
+			"organizationID": organizationUUID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 }
@@ -633,7 +635,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 		Message:    "Removed User Successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data: map[string]any{
+		Data: map[string]uuid.UUID{
 			"OrganizationID": organizationUUID,
 			"user_id":        userUUID},
 	}

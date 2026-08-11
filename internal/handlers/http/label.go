@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -265,5 +266,7 @@ func (h *labelHandler) DeleteLabel(g *gin.Context) {
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Label deleted successfully",
+		Data: map[string]uuid.UUID{
+			"Label_id": labelUUID},
 	})
 }

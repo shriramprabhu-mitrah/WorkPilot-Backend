@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
@@ -619,7 +620,7 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 	}
 	userIDStr := userID.(string)
 
-	id, errorResponse := utils.StringToUUID(userIDStr)
+	userUUID, errorResponse := utils.StringToUUID(userIDStr)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		g.JSON(errorResponse.StatusCode, errorResponse)
@@ -642,7 +643,7 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 	}
 	payload.AvatarURL = avatarURL
 
-	err := h.service.UpdateUser(payload, id)
+	err := h.service.UpdateUser(payload, userUUID)
 	if err != nil {
 		if uploadedKey != "" {
 			_ = h.storage.DeleteObject(context.Background(), uploadedKey)
@@ -659,8 +660,8 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 		Message:    "Updated profile successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data: map[string]any{
-			"userID": id},
+		Data: map[string]uuid.UUID{
+			"userID": userUUID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 

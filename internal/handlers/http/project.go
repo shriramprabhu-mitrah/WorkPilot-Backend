@@ -139,8 +139,8 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 		return
 	}
 
-	id := g.Param("project_id")
-	projectID, errorResponse := utils.StringToUUID(id)
+	projectID := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
 		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
@@ -152,7 +152,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 
 	payload.OrganizationID = organizationUUID
 	payload.UserID = userUUID
-	payload.ProjectID = projectID
+	payload.ProjectID = projectUUID
 
 	err := h.service.UpdateProject(payload)
 	if err != nil {
@@ -168,8 +168,8 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 		Message:    "Updated Project successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data: map[string]any{
-			"ProjectID": projectID},
+		Data: map[string]uuid.UUID{
+			"ProjectID": projectUUID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
@@ -454,6 +454,9 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Project member removed successfully.",
+		Data: map[string]uuid.UUID{
+            "ProjectID": projectUUID},
+
 	})
 }
 
@@ -803,7 +806,7 @@ func (h *ProjectHandler) UpdateProjectMember(g *gin.Context) {
 		Message:    "Project member updated successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data: map[string]any{
+		Data: map[string]uuid.UUID{
 			"ProjectID": projectID},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
