@@ -62,7 +62,7 @@ func (d *dummySprintRepo) GetSprintByID(projectID uuid.UUID, sprintID uuid.UUID)
 	return &models.Sprint{}, nil
 }
 
-func (d *dummySprintRepo) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, sprint models.Sprint) *response.Error {
+func (d *dummySprintRepo) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, updates map[string]interface{}) *response.Error {
 	return nil
 }
 
@@ -137,6 +137,9 @@ func (d *dummyAuthRepo) RevokeRefreshTokens(userID uuid.UUID) *response.Error {
 func (d *dummyAuthRepo) UpdateUser(userID uuid.UUID, req models.User) *response.Error {
 	return nil
 }
+func (d *dummyAuthRepo) UpdateUserFields(userID uuid.UUID, updates map[string]interface{}) *response.Error {
+	return nil
+}
 func (d *dummyAuthRepo) StoreUserTemp(row models.User) *response.Error {
 	return nil
 }
@@ -154,6 +157,7 @@ type stubProjectRepo struct {
 	project            models.Project
 	isMember           bool
 	getProjectActivity func(projectID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
+	updateProjectFunc  func(projectID uuid.UUID, updates map[string]interface{}) *response.Error
 	createdLogs        []models.AuditLog
 	projectRole        string
 }
@@ -166,7 +170,10 @@ func (s *stubProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, proje
 	return nil
 }
 
-func (s *stubProjectRepo) UpdateProject(projectID uuid.UUID, req models.Project) *response.Error {
+func (s *stubProjectRepo) UpdateProject(projectID uuid.UUID, req map[string]interface{}) *response.Error {
+	if s.updateProjectFunc != nil {
+		return s.updateProjectFunc(projectID, req)
+	}
 	return nil
 }
 func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter requestdto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
@@ -315,3 +322,100 @@ func (s *stubAuditLogRepo) GetAuditLogs(req requestdto.GetAudit) ([]models.Audit
 
 	return nil, response.Pagination{}, nil
 }
+
+func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	t.Run("Omitted fields resulting in empty updates map", func(t *testing.T) {
+		projectRepo := &stubProjectRepo{
+			projectRole: string(dto.ProjectRoleProjectManager),
+			isMember:    true,
+			project: models.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "Original Name",
+				Description:    "Original Description",
+			},
+			updateProjectFunc: func(pID uuid.UUID, updates map[string]interface{}) *response.Error {
+				t.Error("expected update to not be called since there are no changes")
+				return nil
+			},
+		}
+
+		dummyAuth := &dummyAuthRepo{} // embeds and stubs auth interface methods returning default values
+
+		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, &stubAuditLogRepo{}, logger)
+
+		req := dto.UpdateProjectRequest{
+			ProjectID:      projectID,
+			UserID:         userID,
+			OrganizationID: orgID,
+		}
+
+		err := service.UpdateProject(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("Updates name and sets description to empty string", func(t *testing.T) {
+		var capturedUpdates map[string]interface{}
+		projectRepo := &stubProjectRepo{
+			projectRole: string(dto.ProjectRoleProjectManager),
+			isMember:    true,
+			project: models.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "Original Name",
+				Description:    "Original Description",
+			},
+			updateProjectFunc: func(pID uuid.UUID, updates map[string]interface{}) *response.Error {
+				capturedUpdates = updates
+				return nil
+			},
+		}
+
+		dummyAuth := &dummyAuthRepo{}
+
+		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, &stubAuditLogRepo{}, logger)
+
+		// Title is pointer to "New Name"
+		newName := "New Name"
+		// Description is pointer to "" (explicitly clearing it)
+		newDesc := ""
+
+		req := dto.UpdateProjectRequest{
+			ProjectID:      projectID,
+			UserID:         userID,
+			OrganizationID: orgID,
+			Name:           &newName,
+			Description:    &newDesc,
+		}
+
+		err := service.UpdateProject(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if capturedUpdates == nil {
+			t.Fatal("expected repository UpdateProject to be called")
+		}
+
+		if name, ok := capturedUpdates["name"].(string); !ok || name != "New Name" {
+			t.Errorf("expected updates['name'] to be 'New Name', got %v", capturedUpdates["name"])
+		}
+
+		if desc, ok := capturedUpdates["description"].(string); !ok || desc != "" {
+			t.Errorf("expected updates['description'] to be empty string, got %v", capturedUpdates["description"])
+		}
+
+		// Status should not be present in updates map since it was omitted
+		if _, ok := capturedUpdates["status"]; ok {
+			t.Errorf("expected updates['status'] to be omitted, but was present")
+		}
+	})
+}
+

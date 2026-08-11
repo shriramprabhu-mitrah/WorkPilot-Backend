@@ -37,13 +37,12 @@ func (d *sprintDatabase) CreateSprint(row models.Sprint) *response.Error {
 	return nil
 }
 
-func (d *sprintDatabase) UpdateSprint(projectID, sprintID uuid.UUID, req models.Sprint) *response.Error {
+func (d *sprintDatabase) UpdateSprint(projectID, sprintID uuid.UUID, updates map[string]interface{}) *response.Error {
 
 	result := d.db.
 		Model(&models.Sprint{}).
 		Where("id = ? AND project_id = ?", sprintID, projectID).
-		Select("name", "goal", "start_date", "end_date", "status", "velocity").
-		Updates(req)
+		Updates(updates)
 
 	if result.Error != nil {
 		if utils.IsDuplicateKeyError(result.Error) {

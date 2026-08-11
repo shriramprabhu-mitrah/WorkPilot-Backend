@@ -229,8 +229,6 @@ func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 
 func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Error {
 
-	var startDate, endDate *time.Time
-
 	result, errorResponse := s.authRepo.GetUserByID(req.UserID)
 	if errorResponse != nil {
 		return errorResponse
@@ -293,12 +291,12 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		return errResp
 	}
 
-	startDate = &existingSprint.StartDate
-	endDate = &existingSprint.EndDate
+	startDate := existingSprint.StartDate
+	endDate := existingSprint.EndDate
+	updates := make(map[string]interface{})
 
-	if req.StartDate != "" {
-		d, err := utils.StringToTime(req.StartDate)
-		startDate = d
+	if req.StartDate != nil {
+		d, err := utils.StringToTime(*req.StartDate)
 		if err != nil {
 			return &response.Error{
 				Code:       response.ErrBadRequest,
@@ -306,11 +304,12 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
 			}
 		}
+		startDate = *d
+		updates["start_date"] = startDate
 	}
 
-	if req.EndDate != "" {
-		d, err := utils.StringToTime(req.EndDate)
-		endDate = d
+	if req.EndDate != nil {
+		d, err := utils.StringToTime(*req.EndDate)
 		if err != nil {
 			return &response.Error{
 				Code:       response.ErrBadRequest,
@@ -318,9 +317,11 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 				Message:    "Invalid end_date. Expected format: YYYY-MM-DD",
 			}
 		}
+		endDate = *d
+		updates["end_date"] = endDate
 	}
 
-	if startDate.After(*endDate) {
+	if startDate.After(endDate) {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
@@ -328,26 +329,25 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		}
 	}
 
-	name := req.Name
-	if name == "" {
-		name = existingSprint.Name
+	if req.Name != nil {
+		updates["name"] = *req.Name
 	}
-	goal := req.Goal
-	if goal == "" {
-		goal = existingSprint.Goal
-	}
-	newStatus := string(req.Status)
-	if newStatus == "" {
-		newStatus = existingSprint.Status
+	if req.Goal != nil {
+		updates["goal"] = *req.Goal
 	}
 
-	var velocity *int
-	if newStatus == "completed" {
+	newStatus := existingSprint.Status
+	if req.Status != nil {
+		newStatus = string(*req.Status)
+		updates["status"] = newStatus
+	}
+
+	if req.Status != nil && newStatus == "completed" && existingSprint.Status != "completed" {
 		v, err := s.sprintRepo.GetCompletedTasksStoryPoints(req.SprintID)
 		if err != nil {
 			return err
 		}
-		velocity = &v
+		updates["velocity"] = v
 
 		if existingSprint.Status != "completed" {
 			err := s.sprintRepo.MoveIncompleteTasksToBacklog(req.SprintID)
@@ -357,16 +357,11 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		}
 	}
 
-	payload := models.Sprint{
-		Name:      name,
-		Goal:      goal,
-		StartDate: *startDate,
-		EndDate:   *endDate,
-		Status:    newStatus,
-		Velocity:  velocity,
+	if len(updates) == 0 {
+		return nil
 	}
 
-	return s.sprintRepo.UpdateSprint(req.ProjectID, req.SprintID, payload)
+	return s.sprintRepo.UpdateSprint(req.ProjectID, req.SprintID, updates)
 }
 
 func (s *sprintService) GetSprints(req dto.GetSprint, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {

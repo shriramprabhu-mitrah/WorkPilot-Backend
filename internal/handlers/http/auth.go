@@ -640,8 +640,8 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 			g.JSON(uploadErr.StatusCode, &response.ErrorResponse{Success: false, Error: *uploadErr})
 			return
 		}
+		payload.AvatarURL = &avatarURL
 	}
-	payload.AvatarURL = avatarURL
 
 	err := h.service.UpdateUser(payload, userUUID)
 	if err != nil {

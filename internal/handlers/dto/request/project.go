@@ -50,12 +50,12 @@ type CreateProjectRequest struct {
 }
 
 type UpdateProjectRequest struct {
-	Name           string        `json:"name" binding:"omitempty,min=3,max=150"`
-	Description    string        `json:"description"`
-	Status         ProjectStatus `form:"status"`
-	UserID         uuid.UUID     `json:"-" swaggerignore:"true"`
-	OrganizationID uuid.UUID     `json:"-" swaggerignore:"true"`
-	ProjectID      uuid.UUID     `json:"-" swaggerignore:"true"`
+	Name           *string        `json:"name" binding:"omitempty,min=3,max=150"`
+	Description    *string        `json:"description"`
+	Status         *ProjectStatus `json:"status" form:"status"`
+	UserID         uuid.UUID      `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID      `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID      `json:"-" swaggerignore:"true"`
 }
 
 type ProjectFilterRequest struct {

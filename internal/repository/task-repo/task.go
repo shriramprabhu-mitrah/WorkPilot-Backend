@@ -80,8 +80,8 @@ func (d *taskDatabase) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*
 	return &task, nil
 }
 
-func (d *taskDatabase) UpdateTask(task *models.Task) *response.Error {
-	if err := d.db.Updates(task).Error; err != nil {
+func (d *taskDatabase) UpdateTask(taskID uuid.UUID, updates map[string]interface{}) *response.Error {
+	if err := d.db.Model(&models.Task{}).Where("id = ?", taskID).Updates(updates).Error; err != nil {
 		d.logger.Error("Failed to update task", zap.Error(err))
 		return &response.Error{
 			Code:       response.ErrInternalServerError,
@@ -391,13 +391,15 @@ func (d *taskDatabase) RemoveLabel(taskID uuid.UUID, label *models.Label) *respo
 	return nil
 }
 
-func (d *taskDatabase) UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error {
+func (d *taskDatabase) UpdateTaskWithLabels(taskID uuid.UUID, updates map[string]interface{}, labels []models.Label) *response.Error {
 	err := d.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(task).Association("Labels").Replace(labels); err != nil {
+		if err := tx.Model(&models.Task{ID: taskID}).Association("Labels").Replace(labels); err != nil {
 			return err
 		}
-		if err := tx.Updates(task).Error; err != nil {
-			return err
+		if len(updates) > 0 {
+			if err := tx.Model(&models.Task{}).Where("id = ?", taskID).Updates(updates).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})
