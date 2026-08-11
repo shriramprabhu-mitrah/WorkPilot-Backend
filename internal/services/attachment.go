@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -255,13 +256,13 @@ func calculateBackoff(attempts int, initial, max time.Duration) time.Duration {
 	if attempts <= 0 {
 		return initial
 	}
-	delay := initial
-	for i := 1; i < attempts && delay < max; i++ {
-		if delay > max/2 {
-			delay = max
-			break
-		}
-		delay *= 2
+	shift := attempts - 1
+	if shift > 7 {
+		shift = 7
+	}
+	delay := initial * time.Duration(1<<uint(shift))
+	if delay > max {
+		delay = max
 	}
 	return delay
 }
@@ -309,7 +310,16 @@ func (s *attachmentService) processOrphanedFiles(ctx context.Context) {
 
 func isS3NoSuchKey(err error) bool {
 	var noSuchKey *types.NoSuchKey
-	return errors.As(err, &noSuchKey)
+	if errors.As(err, &noSuchKey) {
+		return true
+	}
+	// S3-compatible providers (e.g. Supabase, MinIO) may return a generic smithy APIError
+	// with code "NoSuchKey" rather than the typed *types.NoSuchKey.
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "NoSuchKey"
+	}
+	return false
 }
 
 func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {

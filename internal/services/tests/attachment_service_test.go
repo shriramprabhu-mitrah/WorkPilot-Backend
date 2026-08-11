@@ -1058,3 +1058,145 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		cancel() // worker should stop cleanly on cancel
 	})
 }
+
+// TestAttachmentService_TaskProjectMismatch verifies the service rejects every operation when the
+// task does not belong to the project specified in the URL.
+// This is a security boundary: a caller must not be able to access task A by targeting project B.
+func TestAttachmentService_TaskProjectMismatch(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	projectA := uuid.Must(uuid.NewV4())
+	projectB := uuid.Must(uuid.NewV4()) // task lives here, but request targets projectA
+	taskID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	attachmentID := uuid.Must(uuid.NewV4())
+
+	attachmentRepo := &stubAttachmentRepo{attachments: map[uuid.UUID]*models.TaskAttachment{
+		attachmentID: {ID: attachmentID, TaskID: taskID, StoragePath: "path"},
+	}}
+	taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+		ID:        taskID,
+		ProjectID: projectB, // task belongs to B
+		Project:   models.Project{ID: projectB, OrganizationID: orgID},
+	}}
+	projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
+	authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+	cleanupRepo := &stubFileCleanupRepo{}
+
+	service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+
+	header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
+
+	// Upload — project mismatch must yield ErrBadRequest
+	_, err := service.UploadAttachments(context.Background(), taskID, projectA, userID, []*multipart.FileHeader{header})
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Upload: expected ErrBadRequest on project mismatch, got %v", err)
+	}
+
+	// Get
+	_, err = service.GetAttachments(context.Background(), taskID, projectA, userID)
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Get: expected ErrBadRequest on project mismatch, got %v", err)
+	}
+
+	// Download
+	_, _, _, _, err = service.DownloadAttachment(context.Background(), attachmentID, projectA, userID)
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Download: expected ErrBadRequest on project mismatch, got %v", err)
+	}
+
+	// Delete
+	err = service.DeleteAttachment(context.Background(), attachmentID, projectA, userID)
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Delete: expected ErrBadRequest on project mismatch, got %v", err)
+	}
+}
+
+// TestAttachmentService_CommentTaskMismatch verifies the service rejects every comment-attachment
+// operation when the comment does not belong to the task specified in the URL.
+func TestAttachmentService_CommentTaskMismatch(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskA := uuid.Must(uuid.NewV4())
+	taskB := uuid.Must(uuid.NewV4()) // comment lives here, but request targets taskA
+	commentID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	attachmentID := uuid.Must(uuid.NewV4())
+
+	commentAttachmentRepo := &stubCommentAttachmentRepo{attachments: map[uuid.UUID]*models.CommentAttachment{
+		attachmentID: {ID: attachmentID, CommentID: commentID, StoragePath: "path"},
+	}}
+	commentsRepo := &stubCommentRepo{comments: map[uuid.UUID]*models.Comments{
+		commentID: {ID: commentID, TaskID: taskB}, // comment belongs to task B
+	}}
+	taskRepo := &stubCommentTaskRepo{stubAttachmentTaskRepo: stubAttachmentTaskRepo{task: &models.Task{
+		ID:        taskA,
+		ProjectID: projectID,
+		Project:   models.Project{ID: projectID, OrganizationID: orgID},
+	}}}
+	projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
+	authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+	cleanupRepo := &stubFileCleanupRepo{}
+
+	service := services.InitAttachmentService(nil, commentAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+
+	header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
+
+	// Upload — task mismatch must yield ErrBadRequest
+	_, err := service.UploadCommentAttachments(context.Background(), commentID, taskA, userID, []*multipart.FileHeader{header})
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Upload: expected ErrBadRequest on comment/task mismatch, got %v", err)
+	}
+
+	// Get
+	_, err = service.GetCommentAttachments(context.Background(), commentID, taskA, userID)
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Get: expected ErrBadRequest on comment/task mismatch, got %v", err)
+	}
+
+	// Download
+	_, _, _, _, err = service.DownloadCommentAttachment(context.Background(), attachmentID, taskA, userID)
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Download: expected ErrBadRequest on comment/task mismatch, got %v", err)
+	}
+
+	// Delete
+	err = service.DeleteCommentAttachment(context.Background(), attachmentID, taskA, userID)
+	if err == nil || err.Code != response.ErrBadRequest {
+		t.Errorf("Delete: expected ErrBadRequest on comment/task mismatch, got %v", err)
+	}
+}
+
+// TestAttachmentService_NonMemberRejected verifies that a user in the correct organization but
+// not a member of the specific project is denied with ErrForbidden, not ErrBadRequest.
+func TestAttachmentService_NonMemberRejected(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+
+	taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+		ID:        taskID,
+		ProjectID: projectID,
+		Project:   models.Project{ID: projectID, OrganizationID: orgID},
+	}}
+	// getMemErr causes GetProjectMemberByUserAndProjectID to return error → non-member path
+	projectRepo := &stubAttachmentProjectRepo{
+		getMemErr: &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "not a member"},
+		project:   models.Project{OrganizationID: orgID},
+	}
+	authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+	cleanupRepo := &stubFileCleanupRepo{}
+
+	service := services.InitAttachmentService(&stubAttachmentRepo{}, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+
+	header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
+
+	_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{header})
+	if err == nil {
+		t.Fatal("expected error for non-member upload, got nil")
+	}
+	if err.Code != response.ErrForbidden {
+		t.Errorf("expected ErrForbidden for non-member, got code=%v statusCode=%d", err.Code, err.StatusCode)
+	}
+}
+
