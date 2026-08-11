@@ -5,8 +5,17 @@ import (
 	"time"
 )
 
+type mockZeroJitterSource struct{}
+
+func (m mockZeroJitterSource) Int63n(n int64) int64 {
+	return 0
+}
+
 func TestCalculateNextAttempt(t *testing.T) {
 	now := time.Date(2026, 8, 10, 20, 0, 0, 0, time.UTC)
+	s := &attachmentService{
+		jitterSource: mockZeroJitterSource{},
+	}
 
 	tests := []struct {
 		name             string
@@ -57,7 +66,7 @@ func TestCalculateNextAttempt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := calculateNextAttempt(tt.attempts, now)
+			result := s.calculateNextAttempt(tt.attempts, now)
 			actualDuration := result.Sub(now)
 			if actualDuration != tt.expectedDuration {
 				t.Errorf("calculateNextAttempt(%d) = %v; expected duration %v, got %v",

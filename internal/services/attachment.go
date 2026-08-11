@@ -2,12 +2,15 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -20,10 +23,24 @@ import (
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	commentattachmentrepo "github.com/ms-kanban-server/internal/repository/comment-attachment-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
+	filecleanuprepo "github.com/ms-kanban-server/internal/repository/file-cleanup-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	"go.uber.org/zap"
 )
+
+type JitterSource interface {
+	Int63n(n int64) int64
+}
+
+type productionJitterSource struct{}
+
+func (p productionJitterSource) Int63n(n int64) int64 {
+	if n <= 0 {
+		return 0
+	}
+	return rand.Int63n(n)
+}
 
 type AttachmentService interface {
 	// Task attachments
@@ -44,6 +61,7 @@ type AttachmentService interface {
 type attachmentService struct {
 	attachmentRepo        attachmentrepo.AttachmentRepository
 	commentAttachmentRepo commentattachmentrepo.CommentAttachmentRepository
+	cleanupRepo           filecleanuprepo.FileCleanupRepository
 	commentsRepo          commentsrepo.CommentsRepository
 	taskRepo              taskrepo.TaskRepository
 	projectRepo           projectrepo.ProjectRepository
@@ -52,11 +70,14 @@ type attachmentService struct {
 	storageClient         storage.StorageClient
 	logger                *zap.Logger
 	cfg                   models.AttachmentConfig
+	claimTTL              time.Duration
+	jitterSource          JitterSource
 }
 
 func InitAttachmentService(
 	attachmentRepo attachmentrepo.AttachmentRepository,
 	commentAttachmentRepo commentattachmentrepo.CommentAttachmentRepository,
+	cleanupRepo filecleanuprepo.FileCleanupRepository,
 	commentsRepo commentsrepo.CommentsRepository,
 	taskRepo taskrepo.TaskRepository,
 	projectRepo projectrepo.ProjectRepository,
@@ -87,9 +108,17 @@ func InitAttachmentService(
 		MaxFiles:      maxFiles,
 	}
 
+	claimTTL := 2 * time.Minute
+	if v := config.GetEnv("CLEANUP_CLAIM_TTL", ""); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil && parsed > 0 {
+			claimTTL = parsed
+		}
+	}
+
 	s := &attachmentService{
 		attachmentRepo:        attachmentRepo,
 		commentAttachmentRepo: commentAttachmentRepo,
+		cleanupRepo:           cleanupRepo,
 		commentsRepo:          commentsRepo,
 		taskRepo:              taskRepo,
 		projectRepo:           projectRepo,
@@ -98,6 +127,8 @@ func InitAttachmentService(
 		storageClient:         storageClient,
 		logger:                logger,
 		cfg:                   cfg,
+		claimTTL:              claimTTL,
+		jitterSource:          productionJitterSource{},
 	}
 
 	if appCtx != nil {
@@ -202,6 +233,10 @@ func (s *attachmentService) CanDeleteCommentAttachment(user *models.User, attach
 
 func (s *attachmentService) startCleanupWorker(ctx context.Context) {
 	s.logger.Info("Starting orphaned files cleanup outbox worker...")
+	
+	// Process once immediately before entering the ticker loop
+	s.processOrphanedFiles(ctx)
+
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -216,53 +251,65 @@ func (s *attachmentService) startCleanupWorker(ctx context.Context) {
 	}
 }
 
-func calculateNextAttempt(attempts int, now time.Time) time.Time {
+func calculateBackoff(attempts int, initial, max time.Duration) time.Duration {
 	if attempts <= 0 {
-		attempts = 1
+		return initial
 	}
-	// exponential backoff: 30s * 2^(attempts-1) capped at 1 hour
-	// attempts=1: 30s
-	// attempts=2: 60s
-	// attempts=3: 120s
-	// ...
-	// attempts>=8: 1 hour (3600s)
-	// Avoid integer overflow by capping shifts at attempts=8
-	var seconds int64
-	if attempts >= 8 {
-		seconds = 3600
-	} else {
-		seconds = 30 * (int64(1) << (attempts - 1))
+	delay := initial
+	for i := 1; i < attempts && delay < max; i++ {
+		if delay > max/2 {
+			delay = max
+			break
+		}
+		delay *= 2
 	}
-	return now.Add(time.Duration(seconds) * time.Second)
+	return delay
+}
+
+func (s *attachmentService) calculateNextAttempt(attempts int, now time.Time) time.Time {
+	base := calculateBackoff(attempts, 30*time.Second, 1*time.Hour)
+	var jitter int64
+	if base > 0 {
+		jitter = s.jitterSource.Int63n(int64(base / 3))
+	}
+	delay := base + time.Duration(jitter)
+	if delay > 1*time.Hour {
+		delay = 1 * time.Hour
+	}
+	return now.Add(delay)
 }
 
 func (s *attachmentService) processOrphanedFiles(ctx context.Context) {
 	now := time.Now()
-	claimedUntil := now.Add(2 * time.Minute)
 
-	files, err := s.attachmentRepo.ClaimOrphanedFiles(now, claimedUntil, 50)
+	files, err := s.cleanupRepo.ClaimOrphanedFiles(ctx, now, s.claimTTL, 50)
 	if err != nil {
 		return
 	}
 
 	for _, file := range files {
 		delErr := s.storageClient.DeleteObject(ctx, file.StoragePath)
-		if delErr == nil {
-			_ = s.attachmentRepo.DeleteOrphanedFile(file.ID)
+		if delErr == nil || isS3NoSuchKey(delErr) {
+			_ = s.cleanupRepo.DeleteOrphanedFile(ctx, file.ID)
 		} else {
 			lastErrStr := delErr.Error()
 			if len(lastErrStr) > 500 {
 				lastErrStr = lastErrStr[:500]
 			}
 			newAttempts := file.Attempts + 1
-			nextAttempt := calculateNextAttempt(newAttempts, now)
-			_ = s.attachmentRepo.ReleaseOrphanedFile(file.ID, lastErrStr, now, nextAttempt)
+			nextAttempt := s.calculateNextAttempt(newAttempts, now)
+			_ = s.cleanupRepo.ReleaseOrphanedFile(ctx, file.ID, lastErrStr, now, nextAttempt)
 			s.logger.Error("Orphaned files cleanup worker failed to delete storage object, marked for retry",
 				zap.String("path", file.StoragePath),
 				zap.Error(delErr),
 			)
 		}
 	}
+}
+
+func isS3NoSuchKey(err error) bool {
+	var noSuchKey *types.NoSuchKey
+	return errors.As(err, &noSuchKey)
 }
 
 func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
@@ -392,7 +439,7 @@ func (s *attachmentService) rollbackUploads(keys []string, ids []uuid.UUID) {
 			orphan := &models.OrphanedFile{
 				StoragePath: key,
 			}
-			if err := s.attachmentRepo.CreateOrphanedFile(orphan); err != nil {
+			if err := s.cleanupRepo.CreateOrphanedFile(context.Background(), orphan); err != nil {
 				s.logger.Error("Rollback failed to record orphaned file during batch recovery", zap.String("key", key), zap.Any("error", err))
 			}
 		}
@@ -679,7 +726,7 @@ func (s *attachmentService) rollbackCommentUploads(keys []string, ids []uuid.UUI
 			orphan := &models.OrphanedFile{
 				StoragePath: key,
 			}
-			if err := s.attachmentRepo.CreateOrphanedFile(orphan); err != nil {
+			if err := s.cleanupRepo.CreateOrphanedFile(context.Background(), orphan); err != nil {
 				s.logger.Error("Rollback failed to record comment orphaned file during batch recovery", zap.String("key", key), zap.Any("error", err))
 			}
 		}

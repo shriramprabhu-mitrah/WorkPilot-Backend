@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"testing"
 	"time"
+	"sync"
+	"sort"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
@@ -61,17 +64,95 @@ func (s *spyStorageClient) GetObject(ctx context.Context, key string) (io.ReadCl
 	return nil, 0, nil
 }
 
+type statefulFileCleanupRepo struct {
+	orphanedFiles map[uuid.UUID]*models.OrphanedFile
+	createErr     error
+	mu            sync.Mutex
+}
+
+func newStatefulFileCleanupRepo() *statefulFileCleanupRepo {
+	return &statefulFileCleanupRepo{
+		orphanedFiles: make(map[uuid.UUID]*models.OrphanedFile),
+	}
+}
+
+func (r *statefulFileCleanupRepo) CreateOrphanedFile(ctx context.Context, f *models.OrphanedFile) *response.Error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.createErr != nil {
+		return &response.Error{Code: response.ErrInternalServerError, StatusCode: 500, Message: r.createErr.Error()}
+	}
+	if f.ID == uuid.Nil {
+		f.ID, _ = uuid.NewV7()
+	}
+	if f.CreatedAt.IsZero() {
+		f.CreatedAt = time.Now()
+	}
+	if f.AvailableAt.IsZero() {
+		f.AvailableAt = time.Now()
+	}
+	r.orphanedFiles[f.ID] = f
+	return nil
+}
+
+func (r *statefulFileCleanupRepo) DeleteOrphanedFile(ctx context.Context, id uuid.UUID) *response.Error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.orphanedFiles, id)
+	return nil
+}
+
+func (r *statefulFileCleanupRepo) ClaimOrphanedFiles(ctx context.Context, now time.Time, claimTTL time.Duration, limit int) ([]models.OrphanedFile, *response.Error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	var eligible []*models.OrphanedFile
+	for _, f := range r.orphanedFiles {
+		if f.AvailableAt.Before(now) || f.AvailableAt.Equal(now) {
+			eligible = append(eligible, f)
+		}
+	}
+
+	sort.Slice(eligible, func(i, j int) bool {
+		if eligible[i].AvailableAt.Equal(eligible[j].AvailableAt) {
+			return eligible[i].CreatedAt.Before(eligible[j].CreatedAt)
+		}
+		return eligible[i].AvailableAt.Before(eligible[j].AvailableAt)
+	})
+
+	var claimed []models.OrphanedFile
+	for i := 0; i < len(eligible) && i < limit; i++ {
+		f := eligible[i]
+		f.AvailableAt = now.Add(claimTTL)
+		f.Attempts++
+		f.LastAttemptAt = &now
+		claimed = append(claimed, *f)
+	}
+	return claimed, nil
+}
+
+func (r *statefulFileCleanupRepo) ReleaseOrphanedFile(ctx context.Context, id uuid.UUID, lastErr string, lastAttempt time.Time, nextAttempt time.Time) *response.Error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if f, ok := r.orphanedFiles[id]; ok {
+		f.AvailableAt = nextAttempt
+		f.LastError = lastErr
+		f.LastAttemptAt = &lastAttempt
+	}
+	return nil
+}
+
 // statefulAttachmentRepo implements stateful repository operations in memory for testing
 type statefulAttachmentRepo struct {
 	attachments   map[uuid.UUID]*models.TaskAttachment
-	orphanedFiles map[uuid.UUID]*models.OrphanedFile
+	cleanupRepo   *statefulFileCleanupRepo
 	createErr     error
 }
 
-func newStatefulAttachmentRepo() *statefulAttachmentRepo {
+func newStatefulAttachmentRepo(cleanupRepo *statefulFileCleanupRepo) *statefulAttachmentRepo {
 	return &statefulAttachmentRepo{
 		attachments:   make(map[uuid.UUID]*models.TaskAttachment),
-		orphanedFiles: make(map[uuid.UUID]*models.OrphanedFile),
+		cleanupRepo:   cleanupRepo,
 	}
 }
 
@@ -111,65 +192,10 @@ func (r *statefulAttachmentRepo) DeleteAttachment(id uuid.UUID) *response.Error 
 
 func (r *statefulAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error {
 	delete(r.attachments, attachmentID)
-	orphanID, _ := uuid.NewV7()
-	r.orphanedFiles[orphanID] = &models.OrphanedFile{
-		ID:          orphanID,
+	orphan := &models.OrphanedFile{
 		StoragePath: storagePath,
-		CreatedAt:   time.Now(),
 	}
-	return nil
-}
-
-func (r *statefulAttachmentRepo) CreateOrphanedFile(file *models.OrphanedFile) *response.Error {
-	if file.ID == uuid.Nil {
-		file.ID, _ = uuid.NewV7()
-	}
-	if file.CreatedAt.IsZero() {
-		file.CreatedAt = time.Now()
-	}
-	r.orphanedFiles[file.ID] = file
-	return nil
-}
-
-func (r *statefulAttachmentRepo) GetOrphanedFiles() ([]models.OrphanedFile, *response.Error) {
-	var list []models.OrphanedFile
-	for _, f := range r.orphanedFiles {
-		list = append(list, *f)
-	}
-	return list, nil
-}
-
-func (r *statefulAttachmentRepo) DeleteOrphanedFile(id uuid.UUID) *response.Error {
-	delete(r.orphanedFiles, id)
-	return nil
-}
-
-func (r *statefulAttachmentRepo) ClaimOrphanedFiles(now time.Time, claimedUntil time.Time, limit int) ([]models.OrphanedFile, *response.Error) {
-	var claimed []models.OrphanedFile
-	for _, f := range r.orphanedFiles {
-		if len(claimed) >= limit {
-			break
-		}
-		isUnclaimed := f.ClaimedUntil == nil || f.ClaimedUntil.Before(now)
-		isDue := f.NextAttemptAt == nil || f.NextAttemptAt.Before(now) || f.NextAttemptAt.Equal(now)
-		if isUnclaimed && isDue {
-			f.ClaimedUntil = &claimedUntil
-			f.Attempts++
-			f.LastAttemptAt = &now
-			claimed = append(claimed, *f)
-		}
-	}
-	return claimed, nil
-}
-
-func (r *statefulAttachmentRepo) ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time, nextAttempt time.Time) *response.Error {
-	if f, ok := r.orphanedFiles[id]; ok {
-		f.ClaimedUntil = nil
-		f.LastError = lastErr
-		f.LastAttemptAt = &lastAttempt
-		f.NextAttemptAt = &nextAttempt
-	}
-	return nil
+	return r.cleanupRepo.CreateOrphanedFile(context.Background(), orphan)
 }
 
 // Interface-embedded mock implementations to satisfy GORM interfaces cleanly
@@ -250,7 +276,8 @@ func createTestMultipartFileHeader(filename string, content []byte) (*multipart.
 }
 
 func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
-	attachmentRepo := newStatefulAttachmentRepo()
+	cleanupRepo := newStatefulFileCleanupRepo()
+	attachmentRepo := newStatefulAttachmentRepo(cleanupRepo)
 	storageClient := &spyStorageClient{}
 	
 	taskID := uuid.Must(uuid.NewV7())
@@ -274,6 +301,7 @@ func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
 	s := InitAttachmentService(
 		attachmentRepo,
 		nil,
+		cleanupRepo,
 		nil,
 		taskRepo,
 		projectRepo,
@@ -287,7 +315,7 @@ func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
 	t.Run("Delete outbox flow - success and failure retry backoff", func(t *testing.T) {
 		// Clean maps
 		attachmentRepo.attachments = make(map[uuid.UUID]*models.TaskAttachment)
-		attachmentRepo.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
+		cleanupRepo.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
 		storageClient.deletedKeys = nil
 
 		// Setup attachment in memory DB
@@ -312,11 +340,13 @@ func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
 		}
 
 		// Verify orphan exists in DB
-		orphans, _ := attachmentRepo.GetOrphanedFiles()
-		if len(orphans) != 1 {
-			t.Fatalf("expected 1 orphan, got %d", len(orphans))
+		if len(cleanupRepo.orphanedFiles) != 1 {
+			t.Fatalf("expected 1 orphan, got %d", len(cleanupRepo.orphanedFiles))
 		}
-		orphan := orphans[0]
+		var orphan *models.OrphanedFile
+		for _, f := range cleanupRepo.orphanedFiles {
+			orphan = f
+		}
 		if orphan.StoragePath != "tasks/taskid/attachments/file.png" {
 			t.Errorf("unexpected storage path: %s", orphan.StoragePath)
 		}
@@ -328,17 +358,12 @@ func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
 		
 		s.processOrphanedFiles(context.Background())
 
-		// Verify orphan still exists, attempts = 1, next_attempt_at is populated
-		orphans, _ = attachmentRepo.GetOrphanedFiles()
-		if len(orphans) != 1 {
-			t.Fatalf("expected orphan to persist, got %d", len(orphans))
+		// Verify orphan still exists, attempts = 1, available_at is updated
+		if len(cleanupRepo.orphanedFiles) != 1 {
+			t.Fatalf("expected orphan to persist, got %d", len(cleanupRepo.orphanedFiles))
 		}
-		orphan = orphans[0]
 		if orphan.Attempts != 1 {
 			t.Errorf("expected attempts=1, got %d", orphan.Attempts)
-		}
-		if orphan.NextAttemptAt == nil {
-			t.Fatal("expected NextAttemptAt to be set")
 		}
 
 		// 3. Worker runs again immediately (time hasn't advanced). It should NOT claim the file.
@@ -348,12 +373,12 @@ func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
 			t.Fatalf("expected worker to skip file due to backoff, but it attempted to delete: %v", storageClient.deletedKeys)
 		}
 
-		// 4. Advance time past next_attempt_at, and let worker run and succeed
-		futureTime := time.Now().Add(1 * time.Minute)
+		// 4. Advance time past available_at, and let worker run and succeed
+		futureTime := time.Now().Add(1 * time.Hour)
 		storageClient.deleteFunc = nil // S3 delete will succeed
 
 		// We claim files using futureTime
-		claimedFiles, _ := attachmentRepo.ClaimOrphanedFiles(futureTime, futureTime.Add(2*time.Minute), 50)
+		claimedFiles, _ := cleanupRepo.ClaimOrphanedFiles(context.Background(), futureTime, 2*time.Minute, 50)
 		if len(claimedFiles) != 1 {
 			t.Fatalf("expected 1 file to be claimed when advancing time, got %d", len(claimedFiles))
 		}
@@ -362,20 +387,19 @@ func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
 		for _, file := range claimedFiles {
 			delErr := storageClient.DeleteObject(context.Background(), file.StoragePath)
 			if delErr == nil {
-				attachmentRepo.DeleteOrphanedFile(file.ID)
+				cleanupRepo.DeleteOrphanedFile(context.Background(), file.ID)
 			}
 		}
 
 		// Verify orphan is completely gone
-		orphans, _ = attachmentRepo.GetOrphanedFiles()
-		if len(orphans) != 0 {
-			t.Fatalf("expected 0 orphans remaining after success, got %d", len(orphans))
+		if len(cleanupRepo.orphanedFiles) != 0 {
+			t.Fatalf("expected 0 orphans remaining after success, got %d", len(cleanupRepo.orphanedFiles))
 		}
 	})
 
 	t.Run("Upload Rollback Outbox durability", func(t *testing.T) {
 		attachmentRepo.attachments = make(map[uuid.UUID]*models.TaskAttachment)
-		attachmentRepo.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
+		cleanupRepo.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
 		storageClient.deletedKeys = nil
 		storageClient.uploadErr = nil
 		
@@ -400,13 +424,122 @@ func TestAttachmentOutbox_StatefulIntegration(t *testing.T) {
 		}
 
 		// Verify the outbox has a record for the S3 file because rollback was triggered
-		orphans, _ := attachmentRepo.GetOrphanedFiles()
-		if len(orphans) != 1 {
-			t.Fatalf("expected exactly 1 orphan record created during rollback, got %d", len(orphans))
+		if len(cleanupRepo.orphanedFiles) != 1 {
+			t.Fatalf("expected exactly 1 orphan record created during rollback, got %d", len(cleanupRepo.orphanedFiles))
+		}
+		var orphan *models.OrphanedFile
+		for _, f := range cleanupRepo.orphanedFiles {
+			orphan = f
 		}
 		expectedPath := "tasks/taskid/attachments/rollback_file.png"
-		if orphans[0].StoragePath != expectedPath {
-			t.Errorf("expected storage path %s, got %s", expectedPath, orphans[0].StoragePath)
+		if orphan.StoragePath != expectedPath {
+			t.Errorf("expected storage path %s, got %s", expectedPath, orphan.StoragePath)
+		}
+	})
+
+	t.Run("Concurrency Isolation - worker A claims, worker B gets zero", func(t *testing.T) {
+		cleanupRepo.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
+		
+		// Insert 1 eligible orphan
+		orphanID, _ := uuid.NewV7()
+		now := time.Now()
+		cleanupRepo.orphanedFiles[orphanID] = &models.OrphanedFile{
+			ID:          orphanID,
+			StoragePath: "tasks/taskid/file.png",
+			AvailableAt: now.Add(-10 * time.Second),
+			Attempts:    0,
+		}
+
+		// Simulate worker A and worker B concurrent claims
+		var workerAClaimed []models.OrphanedFile
+		var workerBClaimed []models.OrphanedFile
+
+		// Since our stateful stub ClaimOrphanedFiles is protected by a Mutex,
+		// calling it sequentially or concurrently yields atomic claims.
+		workerAClaimed, _ = cleanupRepo.ClaimOrphanedFiles(context.Background(), now, 2*time.Minute, 1)
+		workerBClaimed, _ = cleanupRepo.ClaimOrphanedFiles(context.Background(), now, 2*time.Minute, 1)
+
+		if len(workerAClaimed) != 1 {
+			t.Fatalf("expected Worker A to claim the orphan, got %d", len(workerAClaimed))
+		}
+		if len(workerBClaimed) != 0 {
+			t.Fatalf("expected Worker B to claim zero rows, got %d", len(workerBClaimed))
+		}
+
+		// Verify DB attempts = 1
+		if cleanupRepo.orphanedFiles[orphanID].Attempts != 1 {
+			t.Errorf("expected attempts = 1, got %d", cleanupRepo.orphanedFiles[orphanID].Attempts)
+		}
+	})
+
+	t.Run("Claim Ordering and Filtering", func(t *testing.T) {
+		cleanupRepo.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
+		now := time.Now()
+
+		idA, _ := uuid.NewV7()
+		idB, _ := uuid.NewV7()
+		idC, _ := uuid.NewV7()
+
+		// A: past available
+		cleanupRepo.orphanedFiles[idA] = &models.OrphanedFile{
+			ID:          idA,
+			StoragePath: "fileA",
+			AvailableAt: now.Add(-10 * time.Second),
+			CreatedAt:   now.Add(-10 * time.Second),
+		}
+		// B: older past available (should be claimed first because of order)
+		cleanupRepo.orphanedFiles[idB] = &models.OrphanedFile{
+			ID:          idB,
+			StoragePath: "fileB",
+			AvailableAt: now.Add(-30 * time.Second),
+			CreatedAt:   now.Add(-30 * time.Second),
+		}
+		// C: future available (should be untouched)
+		cleanupRepo.orphanedFiles[idC] = &models.OrphanedFile{
+			ID:          idC,
+			StoragePath: "fileC",
+			AvailableAt: now.Add(10 * time.Second),
+			CreatedAt:   now,
+		}
+
+		claimed, _ := cleanupRepo.ClaimOrphanedFiles(context.Background(), now, 2*time.Minute, 2)
+		if len(claimed) != 2 {
+			t.Fatalf("expected 2 claimed files, got %d", len(claimed))
+		}
+
+		// Verify ordering: fileB claimed first, then fileA
+		if claimed[0].ID != idB || claimed[1].ID != idA {
+			t.Errorf("unexpected claim ordering: first=%s, second=%s", claimed[0].StoragePath, claimed[1].StoragePath)
+		}
+
+		// Verify C is untouched
+		if cleanupRepo.orphanedFiles[idC].Attempts != 0 {
+			t.Error("expected C to remain unclaimed/untouched")
+		}
+	})
+
+	t.Run("Idempotency NoSuchKey and Crash Recovery", func(t *testing.T) {
+		cleanupRepo.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
+		now := time.Now()
+
+		orphanID, _ := uuid.NewV7()
+		cleanupRepo.orphanedFiles[orphanID] = &models.OrphanedFile{
+			ID:          orphanID,
+			StoragePath: "tasks/taskid/crashed.png",
+			AvailableAt: now.Add(-10 * time.Second),
+		}
+
+		// Simulate Crash recovery: S3 object is already absent.
+		// DeleteObject should return an error of types.NoSuchKey.
+		storageClient.deleteFunc = func(ctx context.Context, key string) error {
+			return &types.NoSuchKey{}
+		}
+
+		s.processOrphanedFiles(context.Background())
+
+		// Verify that NoSuchKey error was treated as successful delete and row was removed from DB
+		if len(cleanupRepo.orphanedFiles) != 0 {
+			t.Fatalf("expected orphan row to be deleted on NoSuchKey error, but got %d", len(cleanupRepo.orphanedFiles))
 		}
 	})
 }

@@ -180,24 +180,36 @@ func (s *stubAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachmentID uuid.U
 	return nil
 }
 
-func (s *stubAttachmentRepo) CreateOrphanedFile(file *models.OrphanedFile) *response.Error {
+type stubFileCleanupRepo struct {
+	orphanedLogs  []string
+	createErr     *response.Error
+	orphanedFiles map[uuid.UUID]*models.OrphanedFile
+}
+
+func (s *stubFileCleanupRepo) CreateOrphanedFile(ctx context.Context, file *models.OrphanedFile) *response.Error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	if s.orphanedFiles == nil {
+		s.orphanedFiles = make(map[uuid.UUID]*models.OrphanedFile)
+	}
+	if file.ID == uuid.Nil {
+		file.ID, _ = uuid.NewV7()
+	}
+	s.orphanedFiles[file.ID] = file
 	s.orphanedLogs = append(s.orphanedLogs, file.StoragePath)
 	return nil
 }
 
-func (s *stubAttachmentRepo) GetOrphanedFiles() ([]models.OrphanedFile, *response.Error) {
+func (s *stubFileCleanupRepo) ClaimOrphanedFiles(ctx context.Context, now time.Time, claimTTL time.Duration, limit int) ([]models.OrphanedFile, *response.Error) {
 	return nil, nil
 }
 
-func (s *stubAttachmentRepo) DeleteOrphanedFile(id uuid.UUID) *response.Error {
+func (s *stubFileCleanupRepo) ReleaseOrphanedFile(ctx context.Context, id uuid.UUID, lastErr string, lastAttempt time.Time, nextAttempt time.Time) *response.Error {
 	return nil
 }
 
-func (s *stubAttachmentRepo) ClaimOrphanedFiles(now time.Time, claimedUntil time.Time, limit int) ([]models.OrphanedFile, *response.Error) {
-	return nil, nil
-}
-
-func (s *stubAttachmentRepo) ReleaseOrphanedFile(id uuid.UUID, lastErr string, lastAttempt time.Time, nextAttempt time.Time) *response.Error {
+func (s *stubFileCleanupRepo) DeleteOrphanedFile(ctx context.Context, id uuid.UUID) *response.Error {
 	return nil
 }
 
@@ -367,7 +379,8 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 		auditRepo := &stubAttachmentAuditLogRepo{}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
 
 		fileData := []byte("image content")
 		fileHeader, headerErr := createTestMultipartFileHeader("test.png", fileData)
@@ -404,7 +417,8 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{uploadErr: &response.Error{StatusCode: 500, Message: "S3 Error"}}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("content"))
 		_, apiErr := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
@@ -428,7 +442,8 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
 		_, apiErr := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
@@ -440,8 +455,8 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 			t.Errorf("expected no immediate S3 rollback deletion call, got: %v", storageClient.deletedKeys)
 		}
 
-		if len(attachmentRepo.orphanedLogs) != 1 {
-			t.Errorf("expected 1 orphaned file record in outbox, got %d", len(attachmentRepo.orphanedLogs))
+		if len(cleanupRepo.orphanedLogs) != 1 {
+			t.Errorf("expected 1 orphaned file record in outbox, got %d", len(cleanupRepo.orphanedLogs))
 		}
 	})
 }
@@ -472,7 +487,8 @@ func TestAttachmentService_DownloadAttachment(t *testing.T) {
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
 		stream, filename, mime, _, err := service.DownloadAttachment(context.Background(), attachmentID, projectID, userID)
 		if err != nil {
@@ -503,7 +519,8 @@ func TestAttachmentService_DownloadAttachment(t *testing.T) {
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{getObjectErr: &response.Error{StatusCode: 500, Message: "S3 Error"}}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
 		_, _, _, _, err := service.DownloadAttachment(context.Background(), attachmentID, projectID, userID)
 		if err == nil || err.StatusCode != 500 {
@@ -541,7 +558,8 @@ func TestAttachmentService_DeleteAttachment(t *testing.T) {
 		auditRepo := &stubAttachmentAuditLogRepo{}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
 
 		err := service.DeleteAttachment(context.Background(), attachmentID, projectID, userID)
 		if err != nil {
@@ -578,7 +596,8 @@ func TestAttachmentService_DeleteAttachment(t *testing.T) {
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, storageClient, zap.NewNop(), nil)
 
 		err := service.DeleteAttachment(context.Background(), attachmentID, projectID, userID)
 		if err == nil || err.StatusCode != 500 {
@@ -736,7 +755,8 @@ func TestCommentAttachmentService_UploadAttachments(t *testing.T) {
 		auditRepo := &stubAttachmentAuditLogRepo{}
 		storageClient := &mockStorageClient{}
 
-		service := services.InitAttachmentService(nil, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(nil, commentAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, zap.NewNop(), nil)
 
 		fileHeader, err := createTestMultipartFileHeader("test.png", []byte("fake content"))
 		if err != nil {
@@ -777,7 +797,8 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		projectRepo := &stubAttachmentProjectRepo{isMember: false, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
 
-		service := services.InitAttachmentService(attachmentRepo, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
 
 		_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
@@ -804,7 +825,8 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: string(dto.RoleSuperAdmin)}}
 
-		service := services.InitAttachmentService(nil, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(nil, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
 
 		_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
@@ -821,7 +843,8 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		projectRepo := &stubAttachmentProjectRepo{isMember: false, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: string(dto.RoleOrgAdmin), OrganizationID: &anotherOrgID}}
 
-		service := services.InitAttachmentService(nil, nil, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(nil, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
 
 		_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
@@ -862,11 +885,176 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
 		authRepo := &stubAuthRepository{user: models.User{ID: commentAuthorID, Role: "member", OrganizationID: &orgID}}
 
-		service := services.InitAttachmentService(nil, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, &stubAttachmentAuditLogRepo{}, &mockStorageClient{}, zap.NewNop(), nil)
+		cleanupRepo := &stubFileCleanupRepo{}
+		service := services.InitAttachmentService(nil, commentAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, projectRepo, authRepo, &stubAttachmentAuditLogRepo{}, &mockStorageClient{}, zap.NewNop(), nil)
 
 		err := service.DeleteCommentAttachment(context.Background(), attachmentID, taskID, commentAuthorID)
 		if err != nil {
 			t.Fatalf("expected comment author to successfully delete another user's comment attachment, got %v", err)
 		}
+	})
+
+	t.Run("Mismatched Task Project ID", func(t *testing.T) {
+		wrongProjectID := uuid.Must(uuid.NewV4())
+		attachmentRepo := &stubAttachmentRepo{attachments: map[uuid.UUID]*models.TaskAttachment{
+			attachmentID: {ID: attachmentID, TaskID: taskID, StoragePath: "path"},
+		}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{ID: projectID, OrganizationID: orgID},
+		}}
+		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
+		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+		cleanupRepo := &stubFileCleanupRepo{}
+
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+
+		// 1. Upload
+		header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
+		_, err := service.UploadAttachments(context.Background(), taskID, wrongProjectID, userID, []*multipart.FileHeader{header})
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest, got %v", err)
+		}
+
+		// 2. Get
+		_, err = service.GetAttachments(context.Background(), taskID, wrongProjectID, userID)
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest, got %v", err)
+		}
+
+		// 3. Download
+		_, _, _, _, err = service.DownloadAttachment(context.Background(), attachmentID, wrongProjectID, userID)
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest, got %v", err)
+		}
+
+		// 4. Delete
+		err = service.DeleteAttachment(context.Background(), attachmentID, wrongProjectID, userID)
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest, got %v", err)
+		}
+	})
+
+	t.Run("Mismatched Comment Task ID", func(t *testing.T) {
+		wrongTaskID := uuid.Must(uuid.NewV4())
+		commentAttachmentRepo := &stubCommentAttachmentRepo{
+			attachments: map[uuid.UUID]*models.CommentAttachment{
+				attachmentID: {ID: attachmentID, CommentID: commentID, StoragePath: "path"},
+			},
+		}
+		commentsRepo := &stubCommentRepo{
+			comments: map[uuid.UUID]*models.Comments{
+				commentID: {ID: commentID, TaskID: taskID},
+			},
+		}
+		taskRepo := &stubCommentTaskRepo{
+			stubAttachmentTaskRepo: stubAttachmentTaskRepo{
+				task: &models.Task{
+					ID:        taskID,
+					ProjectID: projectID,
+					Project:   models.Project{ID: projectID, OrganizationID: orgID},
+				},
+			},
+		}
+		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
+		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+		cleanupRepo := &stubFileCleanupRepo{}
+
+		service := services.InitAttachmentService(nil, commentAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+
+		// 1. Upload
+		header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
+		_, err := service.UploadCommentAttachments(context.Background(), commentID, wrongTaskID, userID, []*multipart.FileHeader{header})
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest for comment upload, got %v", err)
+		}
+
+		// 2. Get
+		_, err = service.GetCommentAttachments(context.Background(), commentID, wrongTaskID, userID)
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest for comment get, got %v", err)
+		}
+
+		// 3. Download
+		_, _, _, _, err = service.DownloadCommentAttachment(context.Background(), attachmentID, wrongTaskID, userID)
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest for comment download, got %v", err)
+		}
+
+		// 4. Delete
+		err = service.DeleteCommentAttachment(context.Background(), attachmentID, wrongTaskID, userID)
+		if err == nil || err.Code != response.ErrBadRequest {
+			t.Errorf("expected ErrBadRequest for comment delete, got %v", err)
+		}
+	})
+
+	t.Run("Upload Rollback Trigger and Repository Correctness", func(t *testing.T) {
+		attachmentRepo := &stubAttachmentRepo{createErr: &response.Error{Code: response.ErrInternalServerError, StatusCode: 500, Message: "DB error"}}
+		taskRepo := &stubAttachmentTaskRepo{task: &models.Task{
+			ID:        taskID,
+			ProjectID: projectID,
+			Project:   models.Project{ID: projectID, OrganizationID: orgID},
+		}}
+		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
+		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+		cleanupRepo := &stubFileCleanupRepo{}
+
+		service := services.InitAttachmentService(attachmentRepo, nil, cleanupRepo, nil, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+
+		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
+		_, err := service.UploadAttachments(context.Background(), taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		if err == nil {
+			t.Fatal("expected upload error, got nil")
+		}
+
+		// Verify task rollback records to cleanupRepo
+		if len(cleanupRepo.orphanedLogs) != 1 {
+			t.Errorf("expected 1 orphan in cleanupRepo, got %d", len(cleanupRepo.orphanedLogs))
+		}
+	})
+
+	t.Run("Comment Upload Rollback Repository Correctness", func(t *testing.T) {
+		commentAttachmentRepo := &stubCommentAttachmentRepo{createErr: &response.Error{Code: response.ErrInternalServerError, StatusCode: 500, Message: "DB error"}}
+		commentsRepo := &stubCommentRepo{
+			comments: map[uuid.UUID]*models.Comments{
+				commentID: {ID: commentID, TaskID: taskID},
+			},
+		}
+		taskRepo := &stubCommentTaskRepo{
+			stubAttachmentTaskRepo: stubAttachmentTaskRepo{
+				task: &models.Task{
+					ID:        taskID,
+					ProjectID: projectID,
+					Project:   models.Project{ID: projectID, OrganizationID: orgID},
+				},
+			},
+		}
+		projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
+		authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+		cleanupRepo := &stubFileCleanupRepo{}
+
+		service := services.InitAttachmentService(nil, commentAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, projectRepo, authRepo, nil, &mockStorageClient{}, zap.NewNop(), nil)
+
+		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
+		_, err := service.UploadCommentAttachments(context.Background(), commentID, taskID, userID, []*multipart.FileHeader{fileHeader})
+		if err == nil {
+			t.Fatal("expected comment upload error, got nil")
+		}
+
+		// Verify comment rollback explicitly records to cleanupRepo
+		if len(cleanupRepo.orphanedLogs) != 1 {
+			t.Errorf("expected 1 comment orphan in cleanupRepo, got %d", len(cleanupRepo.orphanedLogs))
+		}
+	})
+
+	t.Run("Worker Shutdown context leak test", func(t *testing.T) {
+		cleanupRepo := &stubFileCleanupRepo{}
+		ctx, cancel := context.WithCancel(context.Background())
+		
+		// Init service, starting cleanup worker goroutine
+		_ = services.InitAttachmentService(nil, nil, cleanupRepo, nil, &stubAttachmentTaskRepo{}, &stubAttachmentProjectRepo{}, &stubAuthRepository{}, nil, &mockStorageClient{}, zap.NewNop(), ctx)
+		
+		cancel() // worker should stop cleanly on cancel
 	})
 }

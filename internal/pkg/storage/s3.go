@@ -107,21 +107,21 @@ func (c *s3Client) UploadAvatar(file multipart.File, header *multipart.FileHeade
 
 func (c *s3Client) uploadImage(folder string, file multipart.File, header *multipart.FileHeader) (string, string, *response.Error) {
 	maxBytes := c.maxSizeMB * 1024 * 1024
-	if header.Size > maxBytes {
-		return "", "", &response.Error{
-			Code:       response.ErrValidation,
-			StatusCode: http.StatusBadRequest,
-			Message:    fmt.Sprintf("File exceeds the maximum allowed size of %d MB.", c.maxSizeMB),
-		}
-	}
-
-	fileBytes, readErr := io.ReadAll(file)
+	fileBytes, readErr := io.ReadAll(io.LimitReader(file, maxBytes+1))
 	if readErr != nil {
 		c.logger.Error("Failed to read uploaded file", zap.Error(readErr))
 		return "", "", &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to process uploaded file. Please try again.",
+		}
+	}
+
+	if int64(len(fileBytes)) > maxBytes {
+		return "", "", &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    fmt.Sprintf("File exceeds the maximum allowed size of %d MB.", c.maxSizeMB),
 		}
 	}
 
@@ -245,7 +245,19 @@ func min(a, b int) int {
 
 func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
 	maxBytes := cfg.MaxFileSizeMB * 1024 * 1024
-	if header.Size > maxBytes {
+
+	// Authoritative size limit check: buffer stream up to maxBytes + 1
+	fileBytes, readErr := io.ReadAll(io.LimitReader(file, maxBytes+1))
+	if readErr != nil {
+		c.logger.Error("Failed to read uploaded file stream", zap.Error(readErr))
+		return "", "", "", &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to process uploaded file.",
+		}
+	}
+
+	if int64(len(fileBytes)) > maxBytes {
 		return "", "", "", &response.Error{
 			Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
 			StatusCode: http.StatusRequestEntityTooLarge,
@@ -262,39 +274,22 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 		}
 	}
 
-	var bodyReader io.Reader
 	var finalMIME string
-	var finalSize int64
 	isValid := false
 
-	// Validate archives (ZIP, DOCX, XLSX) against ZIP bombs, traversal, and structural requirements.
-	// Note: The DOCX/XLSX validation is structural-only (confirming key entry files exist to prevent renamed executables)
-	// and does not guarantee semantic validity or parsing correctness of the document.
+	// Sniff MIME type from buffered bytes
+	sniffLen := min(512, len(fileBytes))
+	var sniffBuf []byte
+	if sniffLen > 0 {
+		sniffBuf = fileBytes[:sniffLen]
+	} else {
+		sniffBuf = []byte{}
+	}
+	detectedMIME := http.DetectContentType(sniffBuf)
+	mimeBase := strings.Split(detectedMIME, ";")[0]
+	mimeBase = strings.TrimSpace(strings.ToLower(mimeBase))
+
 	if ext == ".docx" || ext == ".xlsx" || ext == ".zip" {
-		fileBytes, readErr := io.ReadAll(io.LimitReader(file, maxBytes+1))
-		if readErr != nil {
-			c.logger.Error("Failed to read archive file", zap.Error(readErr))
-			return "", "", "", &response.Error{
-				Code:       response.ErrInternalServerError,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to process uploaded archive.",
-			}
-		}
-
-		if int64(len(fileBytes)) > maxBytes {
-			return "", "", "", &response.Error{
-				Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
-				StatusCode: http.StatusRequestEntityTooLarge,
-				Message:    fmt.Sprintf("File exceeds the maximum allowed size of %d MB.", cfg.MaxFileSizeMB),
-			}
-		}
-
-		// Sniff MIME type
-		sniffLen := min(512, len(fileBytes))
-		detectedMIME := http.DetectContentType(fileBytes[:sniffLen])
-		mimeBase := strings.Split(detectedMIME, ";")[0]
-		mimeBase = strings.TrimSpace(strings.ToLower(mimeBase))
-
 		if mimeBase != "application/zip" {
 			return "", "", "", &response.Error{
 				Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
@@ -313,8 +308,9 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 		}
 
 		const maxEntries = 1000
+		const maxTotal uint64 = 50 * 1024 * 1024
+		const maxIndividual uint64 = 10 * 1024 * 1024
 		const maxRatio = 100
-		maxUncompressedTotal := int64(50 * 1024 * 1024) // 50MB uncompressed limit
 
 		if len(zipReader.File) > maxEntries {
 			return "", "", "", &response.Error{
@@ -324,7 +320,7 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 			}
 		}
 
-		var totalUncompressedSize int64
+		var totalUncompressedSize uint64
 		hasContentTypes := false
 		hasWordDoc := false
 		hasWorkbook := false
@@ -339,14 +335,22 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 				}
 			}
 
-			totalUncompressedSize += int64(f.UncompressedSize64)
-			if totalUncompressedSize > maxUncompressedTotal {
+			// Safe unsigned bounds check to prevent individual and aggregate overflow
+			if f.UncompressedSize64 > maxIndividual {
+				return "", "", "", &response.Error{
+					Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
+					StatusCode: http.StatusRequestEntityTooLarge,
+					Message:    "ZIP archive contains an entry that exceeds the maximum size limit.",
+				}
+			}
+			if totalUncompressedSize > maxTotal-f.UncompressedSize64 {
 				return "", "", "", &response.Error{
 					Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
 					StatusCode: http.StatusRequestEntityTooLarge,
 					Message:    "ZIP archive uncompressed size exceeds maximum limit.",
 				}
 			}
+			totalUncompressedSize += f.UncompressedSize64
 
 			if f.CompressedSize64 > 0 {
 				ratio := float64(f.UncompressedSize64) / float64(f.CompressedSize64)
@@ -388,27 +392,8 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 				Message:    fmt.Sprintf("Invalid OOXML document structure for %s extension.", ext),
 			}
 		}
-
-		bodyReader = bytes.NewReader(fileBytes)
-		finalSize = int64(len(fileBytes))
 	} else {
-		// Images and PDF validation (streaming, read first 512 bytes)
-		sniffBuf := make([]byte, 512)
-		n, readErr := io.ReadFull(file, sniffBuf)
-		if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
-			c.logger.Error("Failed to read uploaded file header", zap.Error(readErr))
-			return "", "", "", &response.Error{
-				Code:       response.ErrInternalServerError,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Failed to process uploaded file header. Please try again.",
-			}
-		}
-		sniffBuf = sniffBuf[:n]
-
-		detectedMIME := http.DetectContentType(sniffBuf)
-		mimeBase := strings.Split(detectedMIME, ";")[0]
-		mimeBase = strings.TrimSpace(strings.ToLower(mimeBase))
-
+		// Images and PDF validation
 		switch ext {
 		case ".png":
 			isValid = mimeBase == "image/png"
@@ -428,10 +413,6 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 				Message:    "Unsupported file content type.",
 			}
 		}
-
-		limitedReader := io.LimitReader(file, maxBytes-int64(n))
-		bodyReader = io.MultiReader(bytes.NewReader(sniffBuf), limitedReader)
-		finalSize = header.Size
 	}
 
 	sanitizedName := SanitizeFilename(header.Filename)
@@ -446,6 +427,9 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 		}
 	}
 	key := fmt.Sprintf("%s/%s-%s", folder, id.String(), sanitizedName)
+
+	bodyReader := bytes.NewReader(fileBytes)
+	finalSize := int64(len(fileBytes))
 
 	_, putErr := c.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(c.bucket),

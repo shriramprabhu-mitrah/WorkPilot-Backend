@@ -9,6 +9,7 @@ import (
 	attachmentrepo "github.com/ms-kanban-server/internal/repository/attachment-repo"
 	commentattachmentrepo "github.com/ms-kanban-server/internal/repository/comment-attachment-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
+	filecleanuprepo "github.com/ms-kanban-server/internal/repository/file-cleanup-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
@@ -25,11 +26,12 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 	attachmentRepo := attachmentrepo.InitAttachmentRepository(deps)
 	commentsRepo := commentsrepo.InitCommentsRepository(deps)
 	commentAttachmentRepo := commentattachmentrepo.InitCommentAttachmentRepository(deps)
+	cleanupRepo := filecleanuprepo.InitFileCleanupRepository(deps)
 
 	// initialize services
 	taskService := services.InitTaskService(authRepo, projectRepo, taskRepo, auditRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
-	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
+	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
 
 	// initialize handlers
 	taskHandler := handlers.InitTaskHandler(taskService, deps.Logger)

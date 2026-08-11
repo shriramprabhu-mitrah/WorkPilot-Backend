@@ -13,9 +13,8 @@ type OrphanedFile struct {
 	Attempts      int        `json:"attempts" gorm:"type:integer;not null;default:0"`
 	LastAttemptAt *time.Time `json:"last_attempt_at,omitempty" gorm:"type:timestamptz"`
 	LastError     string     `json:"last_error,omitempty" gorm:"type:text"`
-	ClaimedUntil  *time.Time `json:"claimed_until,omitempty" gorm:"type:timestamptz"`
-	CreatedAt     time.Time  `json:"created_at" gorm:"type:timestamptz;not null"`
-	NextAttemptAt *time.Time `json:"next_attempt_at,omitempty" gorm:"type:timestamptz"`
+	AvailableAt   time.Time  `json:"available_at" gorm:"type:timestamptz;not null;index:idx_orphaned_files_available,priority:1"`
+	CreatedAt     time.Time  `json:"created_at" gorm:"type:timestamptz;not null;index:idx_orphaned_files_available,priority:2"`
 }
 
 func (o *OrphanedFile) BeforeCreate(tx *gorm.DB) (err error) {
@@ -24,6 +23,9 @@ func (o *OrphanedFile) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	if o.CreatedAt.IsZero() {
 		o.CreatedAt = time.Now()
+	}
+	if o.AvailableAt.IsZero() {
+		o.AvailableAt = time.Now()
 	}
 	return
 }
