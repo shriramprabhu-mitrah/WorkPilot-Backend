@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -269,7 +270,7 @@ func (h *taskHandler) DeleteTask(g *gin.Context) {
 	}
 
 	taskIDParam := g.Param("task_id")
-	taskID, errorResponse := utils.StringToUUID(taskIDParam)
+	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
 	if errorResponse != nil {
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
@@ -280,7 +281,7 @@ func (h *taskHandler) DeleteTask(g *gin.Context) {
 		return
 	}
 
-	err := h.service.DeleteTask(taskID, projectID, userUUID, organizationUUID)
+	err := h.service.DeleteTask(taskUUID, projectID, userUUID, organizationUUID)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -294,6 +295,8 @@ func (h *taskHandler) DeleteTask(g *gin.Context) {
 		Message:    "Successfully Deleted Task",
 		StatusCode: http.StatusOK,
 		Success:    true,
+		Data: map[string]uuid.UUID{
+			"task_id": taskUUID},
 	}
 
 	g.JSON(successResponse.StatusCode, successResponse)
@@ -734,5 +737,7 @@ func (h *taskHandler) RemoveLabelFromTask(g *gin.Context) {
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Label removed from task successfully",
+		Data: map[string]uuid.UUID{
+			"Label_id": labelUUID},
 	})
 }
