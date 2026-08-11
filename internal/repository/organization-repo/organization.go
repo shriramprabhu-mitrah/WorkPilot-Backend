@@ -236,7 +236,7 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	filter.PaginationQuery.Normalize(10)
 
 	offset := (filter.Page - 1) * filter.PageSize
-	baseQuery := d.DB.Model(&models.User{}).Where("organization_id = ?", organizationID)
+		baseQuery := d.DB.Model(&models.User{}).Where("organization_id = ? and is_active = ?", organizationID, true)
 
 	if filter.FullName != "" {
 		baseQuery = baseQuery.Where("full_name ILIKE ?", "%"+strings.TrimSpace(filter.FullName)+"%")
