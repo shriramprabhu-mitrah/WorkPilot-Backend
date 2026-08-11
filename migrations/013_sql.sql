@@ -37,11 +37,10 @@ CREATE TABLE IF NOT EXISTS orphaned_files (
     attempts INTEGER NOT NULL DEFAULT 0,
     last_attempt_at TIMESTAMPTZ,
     last_error TEXT,
-    claimed_until TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL,
-    next_attempt_at TIMESTAMPTZ
+    available_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
 );
 
--- Index on claimed_until, next_attempt_at, attempts, created_at
-CREATE INDEX IF NOT EXISTS idx_orphaned_files_cleanup
-ON orphaned_files (claimed_until, next_attempt_at, attempts, created_at);
+-- Index on available_at, created_at
+CREATE INDEX IF NOT EXISTS idx_orphaned_files_available
+ON orphaned_files (available_at, created_at);
