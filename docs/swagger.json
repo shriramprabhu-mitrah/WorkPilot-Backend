@@ -47,18 +47,6 @@
                         "description": "Number of records per page",
                         "name": "page_size",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter audit logs by project ID",
-                        "name": "project_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter audit logs by user ID",
-                        "name": "user_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {

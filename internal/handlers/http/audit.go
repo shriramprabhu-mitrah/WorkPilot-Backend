@@ -32,8 +32,6 @@ type auditHandler struct {
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Number of records per page" default(10)
-// @Param project_id query string false "Filter audit logs by project ID"
-// @Param user_id query string false "Filter audit logs by user ID"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse

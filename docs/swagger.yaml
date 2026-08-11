@@ -701,14 +701,6 @@ paths:
         in: query
         name: page_size
         type: integer
-      - description: Filter audit logs by project ID
-        in: query
-        name: project_id
-        type: string
-      - description: Filter audit logs by user ID
-        in: query
-        name: user_id
-        type: string
       produces:
       - application/json
       responses:
