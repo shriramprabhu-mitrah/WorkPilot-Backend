@@ -26,9 +26,10 @@ func TestUtilityHelpersAndParsersAdditionalCoverage(t *testing.T) {
 		if utils.ValidatePassword("short") {
 			t.Fatal("expected short password to be rejected")
 		}
-		if !utils.ValidatePassword("longer-password") {
+		if !utils.ValidatePassword("Longer-password1!") {
 			t.Fatal("expected valid password length to pass")
 		}
+
 	})
 
 	t.Run("validate key", func(t *testing.T) {

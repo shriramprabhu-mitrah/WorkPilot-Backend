@@ -34,6 +34,10 @@ export RESEND_FROM_EMAIL= # Optional fallback sender email (defaults to BREVO_FR
 # Frontend configs
 export FRONTEND_DASHBOARD_URL=http://localhost:3000
 
+# Backend configs
+export BACKEND_API_URL=http://localhost:6369
+
+
 #Cookie
 export COOKIE_SECURE= #bool
 export COOKIE_DOMAIN= #backend domain
