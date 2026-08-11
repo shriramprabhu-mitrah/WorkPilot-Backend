@@ -14,6 +14,8 @@ type AttachmentRepository interface {
 	GetAttachmentsByTaskID(taskID uuid.UUID) ([]models.TaskAttachment, *response.Error)
 	DeleteAttachment(id uuid.UUID) *response.Error
 
+	// Transactional outbox pattern
+	DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error
 }
 
 type attachmentDatabase struct {
