@@ -6,8 +6,8 @@ import (
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/storage"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	organizationrepo "github.com/ms-kanban-server/internal/repository/organization-repo"
 	publicrepo "github.com/ms-kanban-server/internal/repository/public-repo"
 	"github.com/ms-kanban-server/internal/services"
@@ -18,7 +18,7 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 	// initialize repositories
 	OrganizationRepo := organizationrepo.InitOrganizationRepository(deps)
 	AuthRepo := authrepo.InitAuthRepository(deps)
-	auditRepo := auditrepo.InitAuditLogRepository(deps)
+	auditRepo := auditrepo.InitAuditRepository(deps)
 
 	// initialize services
 	OrganizationService := services.InitOrganizationService(OrganizationRepo, AuthRepo, auditRepo, deps.Logger)

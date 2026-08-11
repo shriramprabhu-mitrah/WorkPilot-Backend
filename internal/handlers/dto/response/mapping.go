@@ -102,3 +102,13 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 
 	return resp
 }
+
+func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
+	return AuditLogResponse{
+		ProjectID:    audit.ProjectID,
+		Action:       audit.Action,
+		ResourceType: audit.ResourceType,
+		ResourceID:   audit.ResourceID,
+		CreatedAt:    audit.CreatedAt,
+	}
+}

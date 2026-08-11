@@ -15,7 +15,7 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	// initialize repositories
 	authRepo := authrepo.InitAuthRepository(deps)
-	auditRepo := auditrepo.InitAuditLogRepository(deps)
+	auditRepo := auditrepo.InitAuditRepository(deps)
 
 	// initialize services
 	authService := services.InitAuthService(authRepo, auditRepo, deps.Logger)

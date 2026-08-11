@@ -5,8 +5,8 @@ import (
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
@@ -20,7 +20,7 @@ func CommentsRoutes(deps models.Config, api *gin.RouterGroup) {
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	authRepo := authrepo.InitAuthRepository(deps)
 	taskRepo := taskrepo.InitTaskRepository(deps)
-	auditRepo := auditrepo.InitAuditLogRepository(deps)
+	auditRepo := auditrepo.InitAuditRepository(deps)
 
 	// initialize services
 	commentsService := services.InitCommentsService(commentsRepo, taskRepo, projectRepo, authRepo, auditRepo, deps.Logger)

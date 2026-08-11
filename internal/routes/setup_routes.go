@@ -9,6 +9,7 @@ func SetupRoutes(deps models.Config) {
 	//Creating the router api/v1
 	api := deps.Router.Group("/api/v1")
 	{
+		AuditRoutes(deps, api)
 		AuthRoutes(deps, api)
 		OrganizationRoutes(deps, api)
 		ProjectRoutes(deps, api)

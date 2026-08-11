@@ -11,8 +11,8 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
 	"go.uber.org/zap"
@@ -340,7 +340,7 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 			UserID:         &req.AddedByID,
 			OrganizationID: &req.OrganizationID,
 			ProjectID:      &req.ProjectID,
-			Action:         "member_added",
+			Action:         "added_member",
 			ResourceType:   "project_member",
 			ResourceID:     member.UserID.String(),
 			Details:        fmt.Sprintf("User %s added to project", member.UserID.String()),
