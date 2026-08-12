@@ -758,7 +758,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		updates["actual_hours"] = *req.ActualHours
 	}
 
-	if req.ReporterID == nil {
+	if req.ReporterID != nil {
 		updates["reporter_id"] = *req.ReporterID
 	}
 
