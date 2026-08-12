@@ -100,12 +100,11 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 			return
 		}
 
-		role, hasRole := claims["role"].(string)
+		role, _ := claims["role"].(string)
 		userID, hasUserID := claims["user_id"].(string)
-		organizationID, hasOrganizationID := claims["organization_id"].(string)
+		organizationID, _ := claims["organization_id"].(string)
 
-		if !hasRole || !hasUserID || !hasOrganizationID ||
-			role == "" || userID == "" || organizationID == "" {
+		if !hasUserID || userID == "" {
 
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
