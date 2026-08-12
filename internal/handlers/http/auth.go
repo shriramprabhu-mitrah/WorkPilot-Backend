@@ -140,6 +140,25 @@ func (h *authHandler) SignIn(g *gin.Context) {
 		return
 	}
 
+	// Extract platform from X-Client-Platform header
+	platformHeader := g.GetHeader("X-Client-Platform")
+	loginCredentials.Platform = requestdto.Platform(platformHeader)
+
+	// Validate platform
+	if err := loginCredentials.Platform.Validate(); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid or missing X-Client-Platform header. Supported platforms: web, mobile",
+			},
+		}
+		h.logger.Error("Invalid platform header", zap.String("platform", platformHeader))
+		g.JSON(http.StatusBadRequest, errorResponse)
+		return
+	}
+
 	tokens, err := h.service.SignIn(loginCredentials)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
@@ -301,6 +320,25 @@ func (h *authHandler) VerifyEmail(g *gin.Context) {
 		return
 	}
 
+	// Extract platform from X-Client-Platform header
+	platformHeader := g.GetHeader("X-Client-Platform")
+	payload.Platform = requestdto.Platform(platformHeader)
+
+	// Validate platform
+	if err := payload.Platform.Validate(); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid or missing X-Client-Platform header. Supported platforms: web, mobile",
+			},
+		}
+		h.logger.Error("Invalid platform header", zap.String("platform", platformHeader))
+		g.JSON(http.StatusBadRequest, errorResponse)
+		return
+	}
+
 	tokens, err := h.service.VerifyEmail(payload)
 	if err != nil {
 		g.JSON(err.StatusCode, &response.ErrorResponse{Success: false, Error: *err})
@@ -398,6 +436,25 @@ func (h *authHandler) RefreshToken(g *gin.Context) {
 				Message:    "Authentication required",
 			},
 		})
+		return
+	}
+
+	// Extract platform from X-Client-Platform header
+	platformHeader := g.GetHeader("X-Client-Platform")
+	payload.Platform = requestdto.Platform(platformHeader)
+
+	// Validate platform
+	if err := payload.Platform.Validate(); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid or missing X-Client-Platform header. Supported platforms: web, mobile",
+			},
+		}
+		h.logger.Error("Invalid platform header", zap.String("platform", platformHeader))
+		g.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}
 

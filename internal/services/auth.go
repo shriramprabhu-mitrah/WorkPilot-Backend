@@ -145,10 +145,11 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		Role:           result.Role,
 		UserID:         result.ID,
 		OrganizationID: &organizationID,
+		Platform:       string(credentials.Platform),
 	}
 
-	//generating the JWT token
-	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
+	//generating the JWT token with platform-specific policy
+	accessToken, tokenErr := middleware.GenerateJWTWithPlatform(tokencredentials, s.logger)
 	if tokenErr != nil {
 		return nil, tokenErr
 	}
@@ -298,10 +299,11 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		Role:           user.Role,
 		UserID:         user.ID,
 		OrganizationID: &organizationID,
+		Platform:       string(credentials.Platform),
 	}
 
-	//Generate Jwt token
-	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
+	//Generate Jwt token with platform-specific policy
+	accessToken, tokenErr := middleware.GenerateJWTWithPlatform(tokencredentials, s.logger)
 	if tokenErr != nil {
 		return nil, tokenErr
 	}
@@ -579,9 +581,10 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 		Role:           user.Role,
 		UserID:         user.ID,
 		OrganizationID: &organizationID,
+		Platform:       string(credentials.Platform),
 	}
 
-	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
+	accessToken, tokenErr := middleware.GenerateJWTWithPlatform(tokencredentials, s.logger)
 	if tokenErr != nil {
 		return nil, tokenErr
 	}

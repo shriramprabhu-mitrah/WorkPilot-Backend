@@ -16,4 +16,5 @@ type JWtcredentials struct {
 	Role           string     `json:"role"`
 	UserID         uuid.UUID  `json:"user_id"`
 	OrganizationID *uuid.UUID `json:"organization_id"`
+	Platform       string     `json:"platform"` // "web" or "mobile"
 }
