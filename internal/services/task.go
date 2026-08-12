@@ -769,6 +769,10 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		updates["actual_hours"] = *req.ActualHours
 	}
 
+	if req.ReporterID == nil {
+		updates["reporter_id"] = *req.ReporterID
+	}
+
 	if req.LabelIDs != nil {
 		verifiedLabels, verifyErr := s.taskRepo.VerifyLabelIDs(req.ProjectID, *req.LabelIDs)
 		if verifyErr != nil {
