@@ -4975,6 +4975,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.LabelResponse": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_ms-kanban-server_internal_handlers_dto_response.OrganizationSummary": {
             "type": "object",
             "properties": {
@@ -5034,6 +5048,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMember"
                     }
                 },
+                "metrics": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMetrics"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -5065,6 +5082,38 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMetrics": {
+            "type": "object",
+            "properties": {
+                "active_sprints": {
+                    "type": "integer"
+                },
+                "completed_sprints": {
+                    "type": "integer"
+                },
+                "completed_tasks": {
+                    "type": "integer"
+                },
+                "completed_tasks_percentage": {
+                    "type": "integer"
+                },
+                "overdue_tasks": {
+                    "type": "integer"
+                },
+                "pending_tasks": {
+                    "type": "integer"
+                },
+                "total_members": {
+                    "type": "integer"
+                },
+                "total_sprints": {
+                    "type": "integer"
+                },
+                "total_tasks": {
+                    "type": "integer"
                 }
             }
         },
@@ -5104,6 +5153,80 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse"
+                    }
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse": {
+            "type": "object",
+            "properties": {
+                "actual_hours": {
+                    "type": "number"
+                },
+                "assignee_id": {
+                    "type": "string"
+                },
+                "assignee_name": {
+                    "type": "string"
+                },
+                "blocked_reason": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "due_date": {
+                    "type": "string"
+                },
+                "estimated_hours": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.LabelResponse"
+                    }
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "sprint_id": {
+                    "type": "string"
+                },
+                "sprint_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "story_points": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

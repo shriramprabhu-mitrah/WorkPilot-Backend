@@ -482,6 +482,15 @@ definitions:
       user_name:
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.LabelResponse:
+    properties:
+      color:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.OrganizationSummary:
     properties:
       country:
@@ -521,6 +530,8 @@ definitions:
         items:
           $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMember'
         type: array
+      metrics:
+        $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMetrics'
       name:
         type: string
       organization_id:
@@ -542,6 +553,27 @@ definitions:
         type: string
       username:
         type: string
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMetrics:
+    properties:
+      active_sprints:
+        type: integer
+      completed_sprints:
+        type: integer
+      completed_tasks:
+        type: integer
+      completed_tasks_percentage:
+        type: integer
+      overdue_tasks:
+        type: integer
+      pending_tasks:
+        type: integer
+      total_members:
+        type: integer
+      total_sprints:
+        type: integer
+      total_tasks:
+        type: integer
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse:
     properties:
@@ -567,6 +599,55 @@ definitions:
       start_date:
         type: string
       status:
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse'
+        type: array
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse:
+    properties:
+      actual_hours:
+        type: number
+      assignee_id:
+        type: string
+      assignee_name:
+        type: string
+      blocked_reason:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      due_date:
+        type: string
+      estimated_hours:
+        type: number
+      id:
+        type: string
+      key:
+        type: string
+      labels:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.LabelResponse'
+        type: array
+      priority:
+        type: string
+      project_id:
+        type: string
+      sprint_id:
+        type: string
+      sprint_name:
+        type: string
+      status:
+        type: string
+      story_points:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+      updated_at:
         type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.UserProfile:

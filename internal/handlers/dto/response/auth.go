@@ -53,12 +53,13 @@ type ProjectMember struct {
 }
 
 type Sprint struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Goal      string    `json:"goal,omitempty"`
-	Status    string    `json:"status"`
-	StartDate time.Time `json:"start_date"`
-	EndDate   time.Time `json:"end_date"`
+	ID        uuid.UUID      `json:"id"`
+	Name      string         `json:"name"`
+	Goal      string         `json:"goal,omitempty"`
+	Status    string         `json:"status"`
+	StartDate time.Time      `json:"start_date"`
+	EndDate   time.Time      `json:"end_date"`
+	Tasks     []TaskResponse `json:"tasks,omitempty"`
 }
 
 type ProjectActivity struct {

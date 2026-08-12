@@ -17,6 +17,7 @@ type ProjectDetail struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	Members        []ProjectMember `json:"members"`
 	Sprints        []Sprint        `json:"sprints"`
+	Metrics        ProjectMetrics  `json:"metrics"`
 }
 
 type ProjectActivityResponse struct {
@@ -53,4 +54,16 @@ type GetProjectByUserIDResponse struct {
 	AvatarURL string            `json:"avatar_url,omitempty"`
 	Role      string            `json:"role,omitempty"`
 	Project   []ProjectResponse `json:"project"`
+}
+
+type ProjectMetrics struct {
+	TotalTasks               int `json:"total_tasks"`
+	CompletedTasks           int `json:"completed_tasks"`
+	PendingTasks             int `json:"pending_tasks"`
+	OverdueTasks             int `json:"overdue_tasks"`
+	CompletedTasksPercentage int `json:"completed_tasks_percentage"`
+	TotalSprints             int `json:"total_sprints"`
+	ActiveSprints            int `json:"active_sprints"`
+	CompletedSprints         int `json:"completed_sprints"`
+	TotalMembers             int `json:"total_members"`
 }

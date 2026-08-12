@@ -229,7 +229,8 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 	}
 
 	auditRepo := &stubAuditLogRepo{}
-	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, auditRepo, logger)
+	taskRepo := &stubTaskRepo{}
+	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, taskRepo, auditRepo, logger)
 
 	t.Run("Valid UserID Filter", func(t *testing.T) {
 		filterUserID := uuid.Must(uuid.NewV4())
