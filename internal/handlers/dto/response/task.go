@@ -18,6 +18,7 @@ type TaskResponse struct {
 	Priority       string          `json:"priority"`
 	Status         string          `json:"status"`
 	AssigneeID     *uuid.UUID      `json:"assignee_id,omitempty"`
+	ReporterID     *uuid.UUID      `json:"reporter_id,omitempty"`
 	AssigneeName   string          `json:"assignee_name,omitempty"`
 	StoryPoints    int             `json:"story_points"`
 	DueDate        *time.Time      `json:"due_date,omitempty"`
@@ -27,6 +28,7 @@ type TaskResponse struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Labels         []LabelResponse `json:"labels,omitempty"`
+	User           *UserSummary    `json:"reporter,omitempty"`
 }
 
 type BulkUpdateTasksResponse struct {

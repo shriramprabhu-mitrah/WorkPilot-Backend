@@ -84,6 +84,7 @@ type CreateTaskRequest struct {
 	Priority       string      `json:"priority" binding:"required,oneof=low medium high critical"`
 	Status         string      `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
 	AssigneeID     *uuid.UUID  `json:"assignee_id"`
+	ReporterID     *uuid.UUID  `json:"reporter_id"`
 	SprintID       *uuid.UUID  `json:"sprint_id"`
 	StoryPoints    int         `json:"story_points" binding:"min=0"`
 	DueDate        *time.Time  `json:"due_date"`
@@ -103,6 +104,7 @@ type UpdateTaskRequest struct {
 	Status         *string      `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
 	BlockedReason  *string      `json:"blocked_reason"`
 	AssigneeID     *uuid.UUID   `json:"assignee_id"`
+	ReporterID     *uuid.UUID   `json:"reporter_id"`
 	SprintID       *uuid.UUID   `json:"sprint_id"`
 	StoryPoints    *int         `json:"story_points" binding:"omitempty,min=0"`
 	DueDate        *time.Time   `json:"due_date"`
@@ -128,6 +130,7 @@ type TaskFilter struct {
 	response.SortQuery
 	Status    string   `form:"status"`
 	Assignee  string   `form:"assignee_id"`
+	Reporter  string   `form:"reporter_id"`
 	Sprint    string   `form:"sprint_id"`
 	Search    string   `form:"search"`
 	Type      string   `form:"type"`

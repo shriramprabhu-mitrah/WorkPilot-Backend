@@ -49,30 +49,30 @@ func InitTaskService(authRepo authrepo.AuthRepository, projectRepo projectrepo.P
 	}
 }
 
-func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (bool, *response.Error) {
+func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 	if user.Role == string(dto.RoleSuperAdmin) {
-		return false, &response.Error{
+		return models.Project{}, models.User{}, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
 	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return true, nil
+		return project, user, true, nil
 	}
 	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
-	return isMember, nil
+	return project, user, isMember, nil
 }
 
 func GenerateProjectPrefix(name string) string {
@@ -132,7 +132,7 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		labelsRes = append(labelsRes, responsedto.LabelFromModel(l))
 	}
 
-	return responsedto.TaskResponse{
+	response := responsedto.TaskResponse{
 		ID:             task.ID,
 		ProjectID:      task.ProjectID,
 		SprintID:       task.SprintID,
@@ -144,6 +144,7 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		Priority:       task.Priority,
 		Status:         task.Status,
 		AssigneeID:     task.AssigneeID,
+		ReporterID:     task.ReporterID,
 		AssigneeName:   assigneeName,
 		StoryPoints:    task.StoryPoints,
 		DueDate:        task.DueDate,
@@ -154,10 +155,21 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		UpdatedAt:      task.UpdatedAt,
 		Labels:         labelsRes,
 	}
+
+	if task.Reporter != nil {
+		response.User = &responsedto.UserSummary{
+			ID:        task.Reporter.ID,
+			FullName:  task.Reporter.FullName,
+			Email:     task.Reporter.Email,
+			AvatarURL: task.Reporter.AvatarURL,
+			Role:      task.Reporter.Role,
+		}
+	}
+	return response
 }
 
 func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskResponse, *response.Error) {
-	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	project, _, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -169,10 +181,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
-	project, err := s.projectRepo.GetProjectByID(req.ProjectID)
-	if err != nil {
-		return nil, err
-	}
+	// project is returned from checkAuthorization to avoid extra DB fetch
 
 	// Validation: Title length
 	if len([]rune(req.Title)) < 3 || len([]rune(req.Title)) > 200 {
@@ -259,6 +268,8 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	req.ReporterID = &req.UserID
+
 	projectKey := GenerateProjectPrefix(project.Name)
 
 	var task models.Task
@@ -274,6 +285,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		task.Status = string(dto.TaskStatusTodo)
 	}
 	task.AssigneeID = req.AssigneeID
+	task.ReporterID = req.ReporterID
 	task.StoryPoints = req.StoryPoints
 	task.DueDate = req.DueDate
 	task.EstimatedHours = req.EstimatedHours
@@ -329,7 +341,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 }
 
 func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error) {
-	authorized, err := s.checkAuthorization(projectID, userID)
+	_, _, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +363,7 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 }
 
 func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error) {
-	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	project, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -361,16 +373,6 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to update tasks in this project",
 		}
-	}
-
-	project, err := s.projectRepo.GetProjectByID(req.ProjectID)
-	if err != nil {
-		return nil, err
-	}
-
-	user, err := s.authRepo.GetUserByID(req.UserID)
-	if err != nil {
-		return nil, err
 	}
 
 	isPMOrAdmin := (user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
@@ -756,6 +758,10 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		updates["actual_hours"] = *req.ActualHours
 	}
 
+	if req.ReporterID != nil {
+		updates["reporter_id"] = *req.ReporterID
+	}
+
 	if req.LabelIDs != nil {
 		verifiedLabels, verifyErr := s.taskRepo.VerifyLabelIDs(req.ProjectID, *req.LabelIDs)
 		if verifyErr != nil {
@@ -841,7 +847,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 }
 
 func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error {
-	authorized, err := s.checkAuthorization(projectID, userID)
+	_, _, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return err
 	}
@@ -896,7 +902,7 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 }
 
 func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error) {
-	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	project, _, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -913,10 +919,6 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 		return nil, err
 	}
 
-	project, err := s.projectRepo.GetProjectByID(req.ProjectID)
-	if err != nil {
-		return nil, err
-	}
 	projectKey := GenerateProjectPrefix(project.Name)
 
 	var clonedTask models.Task
@@ -979,7 +981,7 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 }
 
 func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error) {
-	authorized, err := s.checkAuthorization(projectID, userID)
+	_, _, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return nil, response.Pagination{}, err
 	}
@@ -1391,7 +1393,7 @@ func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, or
 }
 
 func (s *taskService) BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*responsedto.BulkDeleteTasksResponse, *response.Error) {
-	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	_, _, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}

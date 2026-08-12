@@ -4578,6 +4578,9 @@ const docTemplate = `{
                         "critical"
                     ]
                 },
+                "reporter_id": {
+                    "type": "string"
+                },
                 "sprint_id": {
                     "type": "string"
                 },
@@ -4920,6 +4923,9 @@ const docTemplate = `{
                         "high",
                         "critical"
                     ]
+                },
+                "reporter_id": {
+                    "type": "string"
                 },
                 "sprint_id": {
                     "type": "string"
@@ -5340,6 +5346,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project_id": {
+                    "type": "string"
+                },
+                "reporter": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary"
+                },
+                "reporter_id": {
                     "type": "string"
                 },
                 "sprint_id": {

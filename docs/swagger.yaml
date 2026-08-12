@@ -175,6 +175,8 @@ definitions:
         - high
         - critical
         type: string
+      reporter_id:
+        type: string
       sprint_id:
         type: string
       status:
@@ -421,6 +423,8 @@ definitions:
         - medium
         - high
         - critical
+        type: string
+      reporter_id:
         type: string
       sprint_id:
         type: string
@@ -701,6 +705,10 @@ definitions:
       priority:
         type: string
       project_id:
+        type: string
+      reporter:
+        $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary'
+      reporter_id:
         type: string
       sprint_id:
         type: string
