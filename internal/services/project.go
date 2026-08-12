@@ -15,6 +15,7 @@ import (
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
+	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	"go.uber.org/zap"
 )
 
@@ -32,11 +33,12 @@ type ProjectService interface {
 	UpdateProjectMember(req requestdto.UpdateProjectMemberRequest) *response.Error
 }
 
-func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) ProjectService {
+func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, taskRepo taskrepo.TaskRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) ProjectService {
 	return &projectService{
 		authRepo:    authRepo,
 		projectRepo: projectRepo,
 		sprintRepo:  sprintRepo,
+		taskRepo:    taskRepo,
 		auditRepo:   auditRepo,
 		logger:      logger,
 	}
@@ -47,6 +49,7 @@ type projectService struct {
 	projectRepo projectrepo.ProjectRepository
 	sprintRepo  sprintrepo.SprintRepository
 	auditRepo   auditrepo.AuditLogRepository
+	taskRepo    taskrepo.TaskRepository
 	logger      *zap.Logger
 }
 
@@ -593,6 +596,61 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 			StartDate: sprint.StartDate,
 			EndDate:   sprint.EndDate,
 		})
+	}
+
+	taskFilter := requestdto.TaskFilter{
+		PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 10000},
+	}
+
+	tasks, _, err := s.taskRepo.GetTasks(req.ProjectID, taskFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	totalTasks := len(tasks)
+	completedTasks := 0
+	overdueTasks := 0
+	now := time.Now()
+
+	for _, task := range tasks {
+		if task.Status == string(requestdto.TaskStatusCompleted) {
+			completedTasks++
+		}
+		if task.Status != string(requestdto.TaskStatusCompleted) &&
+			task.DueDate != nil && task.DueDate.Before(now) {
+			overdueTasks++
+		}
+	}
+
+	pendingTasks := totalTasks - completedTasks
+	completedPercentage := 0
+	if totalTasks > 0 {
+		completedPercentage = int(float64(completedTasks) / float64(totalTasks) * 100)
+	}
+
+	totalMembers := len(projectMembers)
+	totalSprints := len(sprints)
+	activeSprints := 0
+	completedSprints := 0
+	for _, sprint := range sprints {
+		switch sprint.Status {
+		case string(requestdto.SprintStatusActive):
+			activeSprints++
+		case string(requestdto.SprintStatusCompleted):
+			completedSprints++
+		}
+	}
+
+	payload.Metrics = responsedto.ProjectMetrics{
+		TotalTasks:               totalTasks,
+		CompletedTasks:           completedTasks,
+		PendingTasks:             pendingTasks,
+		OverdueTasks:             overdueTasks,
+		CompletedTasksPercentage: completedPercentage,
+		TotalSprints:             totalSprints,
+		ActiveSprints:            activeSprints,
+		CompletedSprints:         completedSprints,
+		TotalMembers:             totalMembers,
 	}
 
 	return &payload, nil

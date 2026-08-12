@@ -9,6 +9,7 @@ import (
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
+	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
@@ -18,10 +19,11 @@ func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	authRepo := authrepo.InitAuthRepository(deps)
 	sprintRepo := sprintrepo.InitSprintRepository(deps)
-	auditRepo := auditrepo.InitAuditRepository(deps)
+	taskRepo := taskrepo.InitTaskRepository(deps)
+	auditRepo := auditrepo.InitAuditLogRepository(deps)
 
 	// initialize services
-	projectService := services.InitProjectService(projectRepo, authRepo, sprintRepo, auditRepo, deps.Logger)
+	projectService := services.InitProjectService(projectRepo, authRepo, sprintRepo, taskRepo, auditRepo, deps.Logger)
 
 	// initialize handlers
 	projectHandler := handlers.InitProjectHandler(projectService, deps.Logger)
