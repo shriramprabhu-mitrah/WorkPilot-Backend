@@ -18,6 +18,7 @@ type AuditLog struct {
 	ResourceID     string     `json:"resource_id" gorm:"size:255"`
 	Details        string     `json:"details" gorm:"type:text"`
 	CreatedAt      time.Time  `json:"created_at" gorm:"not null;type:timestamptz"`
+	TaskTitle      string     `json:"task_title,omitempty" gorm:"-"`
 }
 
 func (a *AuditLog) BeforeCreate(tx *gorm.DB) error {

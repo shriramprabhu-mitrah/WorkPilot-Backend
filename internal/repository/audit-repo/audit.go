@@ -3,11 +3,14 @@ package auditrepo
 import (
 	"math"
 	"net/http"
+	"strings"
 
+	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 func (d *auditDatabase) CreateAuditLog(log models.AuditLog) *response.Error {
@@ -57,6 +60,9 @@ func (d *auditDatabase) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog
 	}
 
 	if err := baseQuery.
+		Preload("User", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
 		Order("created_at DESC").
 		Limit(req.PageSize).
 		Offset(offset).
@@ -73,6 +79,39 @@ func (d *auditDatabase) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// Fetch task titles in bulk for task-related activities
+	var taskIDs []uuid.UUID
+	for _, audit := range audits {
+		if strings.ToLower(audit.ResourceType) == "task" {
+			if taskID, err := uuid.FromString(audit.ResourceID); err == nil && taskID != uuid.Nil {
+				taskIDs = append(taskIDs, taskID)
+			}
+		}
+	}
+
+	if len(taskIDs) > 0 {
+		type TaskInfo struct {
+			ID    uuid.UUID
+			Title string
+		}
+		var tasks []TaskInfo
+		if err := d.db.Unscoped().Model(&models.Task{}).Where("id IN ?", taskIDs).Select("id, title").Find(&tasks).Error; err == nil {
+			taskTitleMap := make(map[uuid.UUID]string)
+			for _, t := range tasks {
+				taskTitleMap[t.ID] = t.Title
+			}
+			for i, audit := range audits {
+				if strings.ToLower(audit.ResourceType) == "task" {
+					if taskID, err := uuid.FromString(audit.ResourceID); err == nil {
+						if title, ok := taskTitleMap[taskID]; ok {
+							audits[i].TaskTitle = title
+						}
+					}
+				}
+			}
 		}
 	}
 

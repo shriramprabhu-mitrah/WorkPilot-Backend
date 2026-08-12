@@ -271,7 +271,9 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 	}
 
 	if err := baseQuery.
-		Preload("User").
+		Preload("User", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
 		Order("created_at DESC").
 		Limit(filter.PageSize).
 		Offset(offset).
@@ -281,6 +283,39 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// Fetch task titles in bulk for task-related activities
+	var taskIDs []uuid.UUID
+	for _, log := range logs {
+		if strings.ToLower(log.ResourceType) == "task" {
+			if taskID, err := uuid.FromString(log.ResourceID); err == nil && taskID != uuid.Nil {
+				taskIDs = append(taskIDs, taskID)
+			}
+		}
+	}
+
+	if len(taskIDs) > 0 {
+		type TaskInfo struct {
+			ID    uuid.UUID
+			Title string
+		}
+		var tasks []TaskInfo
+		if err := d.db.Unscoped().Model(&models.Task{}).Where("id IN ?", taskIDs).Select("id, title").Find(&tasks).Error; err == nil {
+			taskTitleMap := make(map[uuid.UUID]string)
+			for _, t := range tasks {
+				taskTitleMap[t.ID] = t.Title
+			}
+			for i, log := range logs {
+				if strings.ToLower(log.ResourceType) == "task" {
+					if taskID, err := uuid.FromString(log.ResourceID); err == nil {
+						if title, ok := taskTitleMap[taskID]; ok {
+							logs[i].TaskTitle = title
+						}
+					}
+				}
+			}
 		}
 	}
 

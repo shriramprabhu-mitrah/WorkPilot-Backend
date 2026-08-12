@@ -1,6 +1,9 @@
 package response
 
 import (
+	"strings"
+
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 )
 
@@ -104,11 +107,33 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 }
 
 func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
-	return AuditLogResponse{
-		ProjectID:    audit.ProjectID,
-		Action:       audit.Action,
-		ResourceType: audit.ResourceType,
-		ResourceID:   audit.ResourceID,
-		CreatedAt:    audit.CreatedAt,
+	resp := AuditLogResponse{
+		ID:             audit.ID,
+		ProjectID:      audit.ProjectID,
+		OrganizationID: audit.OrganizationID,
+		Action:         audit.Action,
+		ResourceType:   audit.ResourceType,
+		ResourceID:     audit.ResourceID,
+		Details:        audit.Details,
+		CreatedAt:      audit.CreatedAt,
 	}
+
+	if audit.User.ID != uuid.Nil {
+		resp.User = &UserSummary{
+			ID:        audit.User.ID,
+			FullName:  audit.User.FullName,
+			Email:     audit.User.Email,
+			AvatarURL: audit.User.AvatarURL,
+			Role:      audit.User.Role,
+		}
+	}
+
+	if strings.ToLower(audit.ResourceType) == "task" {
+		if taskID, err := uuid.FromString(audit.ResourceID); err == nil && taskID != uuid.Nil {
+			resp.TaskID = &taskID
+			resp.TaskTitle = audit.TaskTitle
+		}
+	}
+
+	return resp
 }

@@ -516,6 +516,13 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 			}
 		}
 
+		if strings.ToLower(item.ResourceType) == "task" {
+			if taskID, err := uuid.FromString(item.ResourceID); err == nil && taskID != uuid.Nil {
+				dtoItem.TaskID = &taskID
+				dtoItem.TaskTitle = item.TaskTitle
+			}
+		}
+
 		responseDTOs = append(responseDTOs, dtoItem)
 	}
 
