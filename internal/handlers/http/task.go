@@ -242,21 +242,39 @@ func (h *taskHandler) UpdateTask(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
-// DeleteTask godoc
-// @Summary Delete Task
-// @Description Soft delete a specific task by ID
+// DeleteTasks godoc
+// @Summary Bulk Delete Tasks
+// @Description Soft delete multiple tasks in a project
 // @Tags Task
+// @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
-// @Param task_id path string true "Task ID"
+// @Param request body requestdto.BulkDeleteTasksRequest true "Bulk Delete Tasks Request Body"
 // @Success 200 {object} response.SuccessResponse
+// @Success 207 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
-// @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /projects/{project_id}/tasks/{task_id} [delete]
-func (h *taskHandler) DeleteTask(g *gin.Context) {
+// @Router /projects/{project_id}/tasks [delete]
+func (h *taskHandler) DeleteTasks(g *gin.Context) {
+	var payload requestdto.BulkDeleteTasksRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
 		return
@@ -269,37 +287,47 @@ func (h *taskHandler) DeleteTask(g *gin.Context) {
 		return
 	}
 
-	taskIDParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
 		return
 	}
 
-	err := h.service.DeleteTask(taskUUID, projectID, userUUID, organizationUUID)
+	payload.ProjectID = projectID
+	payload.UserID = userUUID
+	payload.OrganizationID = organizationUUID
+
+	res, err := h.service.BulkDeleteTasks(payload)
 	if err != nil {
-		errorResponse := &response.ErrorResponse{
+		errResp := &response.ErrorResponse{
 			Success: false,
 			Error:   *err,
 		}
-		g.JSON(err.StatusCode, errorResponse)
+		g.JSON(err.StatusCode, errResp)
 		return
 	}
 
-	successResponse := &response.SuccessResponse{
-		Message:    "Successfully Deleted Task",
-		StatusCode: http.StatusOK,
-		Success:    true,
-		Data: map[string]uuid.UUID{
-			"task_id": taskUUID},
+	statusCode := http.StatusOK
+	success := true
+	message := "Successfully deleted tasks"
+	if len(res.FailedTaskIDs) > 0 {
+		if len(res.FailedTaskIDs) == len(payload.TaskIDs) {
+			statusCode = http.StatusBadRequest
+			success = false
+			message = "Failed to delete all tasks"
+		} else {
+			statusCode = http.StatusMultiStatus // 207 Partial Success
+			message = "Bulk deletion completed with some failures"
+		}
 	}
 
-	g.JSON(successResponse.StatusCode, successResponse)
+	successResponse := &response.SuccessResponse{
+		Message:    message,
+		StatusCode: statusCode,
+		Success:    success,
+		Data:       res,
+	}
+
+	g.JSON(statusCode, successResponse)
 }
 
 // RestoreTask godoc

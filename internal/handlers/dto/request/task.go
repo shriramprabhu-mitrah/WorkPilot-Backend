@@ -151,3 +151,10 @@ type BulkUpdateTasksRequest struct {
 	UserID         uuid.UUID            `json:"-"`
 	OrganizationID uuid.UUID            `json:"-"`
 }
+
+type BulkDeleteTasksRequest struct {
+	TaskIDs        []uuid.UUID `json:"task_ids" binding:"required,min=1,dive"`
+	ProjectID      uuid.UUID   `json:"-"`
+	UserID         uuid.UUID   `json:"-"`
+	OrganizationID uuid.UUID   `json:"-"`
+}

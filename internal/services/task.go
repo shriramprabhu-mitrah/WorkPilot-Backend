@@ -22,11 +22,11 @@ type TaskService interface {
 	CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error)
 	UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error)
-	DeleteTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error)
 	BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*responsedto.BulkUpdateTasksResponse, *response.Error)
+	BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*responsedto.BulkDeleteTasksResponse, *response.Error)
 	AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
 	RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
 }
@@ -840,46 +840,6 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	return &res, nil
 }
 
-func (s *taskService) DeleteTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error {
-	authorized, err := s.checkAuthorization(projectID, userID)
-	if err != nil {
-		return err
-	}
-	if !authorized {
-		return &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to delete tasks in this project",
-		}
-	}
-
-	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
-	if err != nil {
-		return err
-	}
-
-	err = s.taskRepo.DeleteTask(taskID, projectID)
-	if err != nil {
-		return err
-	}
-
-	auditLog := models.AuditLog{
-		UserID:         &userID,
-		OrganizationID: &orgID,
-		ProjectID:      &projectID,
-		Action:         "task_deleted",
-		ResourceType:   "task",
-		ResourceID:     taskID.String(),
-		Details:        fmt.Sprintf("Task %s soft deleted", task.Key),
-		CreatedAt:      time.Now(),
-	}
-	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
-		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
-	}
-
-	return nil
-}
-
 func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error {
 	authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
@@ -1428,6 +1388,96 @@ func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, or
 	}
 
 	return nil
+}
+
+func (s *taskService) BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*responsedto.BulkDeleteTasksResponse, *response.Error) {
+	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to delete tasks in this project",
+		}
+	}
+
+	deletedCount := 0
+	deletedTaskIDs := []uuid.UUID{}
+	failedTaskIDs := []uuid.UUID{}
+	failureReasons := make(map[string]string)
+
+	for _, taskID := range req.TaskIDs {
+		// 1. Fetch task unscoped (to see if it exists at all, or if it is already soft deleted)
+		task, getErr := s.taskRepo.GetTaskByIDUnscoped(taskID, req.ProjectID)
+		if getErr != nil {
+			failedTaskIDs = append(failedTaskIDs, taskID)
+			failureReasons[taskID.String()] = getErr.Message
+			continue
+		}
+
+		// 2. Check if already soft deleted
+		if task.DeletedAt.Valid {
+			failedTaskIDs = append(failedTaskIDs, taskID)
+			failureReasons[taskID.String()] = "Task is already deleted"
+			continue
+		}
+
+		// 3. Perform soft delete
+		deleteErr := s.taskRepo.DeleteTask(taskID, req.ProjectID)
+		if deleteErr != nil {
+			failedTaskIDs = append(failedTaskIDs, taskID)
+			failureReasons[taskID.String()] = deleteErr.Message
+			continue
+		}
+
+		// 4. Create individual task audit log
+		auditLog := models.AuditLog{
+			UserID:         &req.UserID,
+			OrganizationID: &req.OrganizationID,
+			ProjectID:      &req.ProjectID,
+			Action:         "task_deleted",
+			ResourceType:   "task",
+			ResourceID:     taskID.String(),
+			Details:        fmt.Sprintf("Task %s soft deleted in bulk", task.Key),
+			CreatedAt:      time.Now(),
+		}
+		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		}
+
+		deletedCount++
+		deletedTaskIDs = append(deletedTaskIDs, taskID)
+	}
+
+	// Create bulk operation audit log
+	var bulkDetails string
+	if deletedCount > 0 {
+		bulkDetails = fmt.Sprintf("Bulk deletion completed. Successfully deleted %d tasks. Failed tasks: %d.", deletedCount, len(failedTaskIDs))
+	} else {
+		bulkDetails = fmt.Sprintf("Bulk deletion executed but 0 tasks were deleted. Failed tasks: %d.", len(failedTaskIDs))
+	}
+	bulkAuditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "tasks_bulk_deleted",
+		ResourceType:   "task",
+		ResourceID:     req.ProjectID.String(),
+		Details:        bulkDetails,
+		CreatedAt:      time.Now(),
+	}
+	if err := s.auditRepo.CreateAuditLog(bulkAuditLog); err != nil {
+		s.logger.Warn("Failed to create bulk audit log", zap.Any("error", err))
+	}
+
+	return &responsedto.BulkDeleteTasksResponse{
+		DeletedCount:   deletedCount,
+		DeletedTaskIDs: deletedTaskIDs,
+		FailedTaskIDs:  failedTaskIDs,
+		FailureReasons: failureReasons,
+	}, nil
 }
 
 func isFibonacci(n int) bool {
