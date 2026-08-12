@@ -351,7 +351,8 @@ func TestGetProjectActivity_TaskAndUserMapping(t *testing.T) {
 						AvatarURL: "http://example.com/avatar.png",
 						Role:      "member",
 					},
-					TaskTitle: "My Awesome Task",
+					Title:   "My Awesome Task",
+					TaskKey: "PROJ-123",
 				},
 			}
 			return logs, response.Pagination{}, nil
@@ -371,12 +372,12 @@ func TestGetProjectActivity_TaskAndUserMapping(t *testing.T) {
 			t.Errorf("incorrect user details mapping: %+v", log.User)
 		}
 
-		if log.TaskID == nil || *log.TaskID != taskID {
-			t.Errorf("expected TaskID to be %v, got %v", taskID, log.TaskID)
+		if log.TaskKey != "PROJ-123" {
+			t.Errorf("expected TaskKey to be 'PROJ-123', got '%s'", log.TaskKey)
 		}
 
-		if log.TaskTitle != "My Awesome Task" {
-			t.Errorf("expected TaskTitle to be 'My Awesome Task', got '%s'", log.TaskTitle)
+		if log.Title != "My Awesome Task" {
+			t.Errorf("expected Title to be 'My Awesome Task', got '%s'", log.Title)
 		}
 	})
 }

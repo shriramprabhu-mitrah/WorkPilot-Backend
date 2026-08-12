@@ -481,10 +481,17 @@ definitions:
         type: string
       resource_type:
         type: string
-      task_id:
+      task_key:
         type: string
-      task_title:
+      title:
         type: string
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper:
+    properties:
+      activities:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse'
+        type: array
       user:
         $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary'
     type: object
@@ -555,11 +562,11 @@ definitions:
         type: string
       resource_type:
         type: string
-      task_id:
-        type: string
-      task_title:
+      task_key:
         type: string
       timestamp:
+        type: string
+      title:
         type: string
       user:
         $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary'
@@ -855,9 +862,7 @@ paths:
             - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
             - properties:
                 data:
-                  items:
-                    $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse'
-                  type: array
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper'
               type: object
         "400":
           description: Bad Request

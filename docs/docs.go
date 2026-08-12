@@ -68,10 +68,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse"
-                                            }
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper"
                                         }
                                     }
                                 }
@@ -5003,11 +5000,22 @@ const docTemplate = `{
                 "resource_type": {
                     "type": "string"
                 },
-                "task_id": {
+                "task_key": {
                     "type": "string"
                 },
-                "task_title": {
+                "title": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper": {
+            "type": "object",
+            "properties": {
+                "activities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse"
+                    }
                 },
                 "user": {
                     "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary"
@@ -5116,13 +5124,13 @@ const docTemplate = `{
                 "resource_type": {
                     "type": "string"
                 },
-                "task_id": {
-                    "type": "string"
-                },
-                "task_title": {
+                "task_key": {
                     "type": "string"
                 },
                 "timestamp": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 },
                 "user": {
