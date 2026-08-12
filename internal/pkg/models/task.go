@@ -22,7 +22,9 @@ type Task struct {
 	Status         string         `json:"status" gorm:"type:varchar(50);not null;default:'todo'"`
 	BlockedReason  string         `json:"blocked_reason,omitempty" gorm:"type:text"`
 	AssigneeID     *uuid.UUID     `json:"assignee_id,omitempty" gorm:"type:uuid;index"`
+	ReporterID     *uuid.UUID     `json:"reporter_id,omitempty" gorm:"type:uuid;index"`
 	Assignee       *User          `json:"assignee,omitempty" gorm:"foreignKey:AssigneeID"`
+	Reporter       *User          `json:"reporter,omitempty" gorm:"foreignKey:ReporterID"`
 	StoryPoints    int            `json:"story_points" gorm:"type:integer;not null;default:0"`
 	DueDate        *time.Time     `json:"due_date,omitempty" gorm:"type:timestamptz"`
 	EstimatedHours *float64       `json:"estimated_hours,omitempty" gorm:"type:numeric"`

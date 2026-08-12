@@ -144,6 +144,7 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		Priority:       task.Priority,
 		Status:         task.Status,
 		AssigneeID:     task.AssigneeID,
+		ReporterID:     task.ReporterID,
 		AssigneeName:   assigneeName,
 		StoryPoints:    task.StoryPoints,
 		DueDate:        task.DueDate,
@@ -153,6 +154,13 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		CreatedAt:      task.CreatedAt,
 		UpdatedAt:      task.UpdatedAt,
 		Labels:         labelsRes,
+		User: &responsedto.UserSummary{
+			ID:        task.Reporter.ID,
+			FullName:  task.Reporter.FullName,
+			Email:     task.Reporter.Email,
+			AvatarURL: task.Reporter.AvatarURL,
+			Role:      task.Reporter.Role,
+		},
 	}
 }
 
@@ -259,6 +267,10 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	if req.ReporterID == nil {
+		req.ReporterID = &req.UserID
+	}
+
 	projectKey := GenerateProjectPrefix(project.Name)
 
 	var task models.Task
@@ -274,6 +286,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		task.Status = string(dto.TaskStatusTodo)
 	}
 	task.AssigneeID = req.AssigneeID
+	task.ReporterID = req.ReporterID
 	task.StoryPoints = req.StoryPoints
 	task.DueDate = req.DueDate
 	task.EstimatedHours = req.EstimatedHours

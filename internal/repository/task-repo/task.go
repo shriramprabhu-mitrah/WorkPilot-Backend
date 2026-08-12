@@ -36,7 +36,7 @@ func (d *taskDatabase) CreateTask(task *models.Task) *response.Error {
 
 func (d *taskDatabase) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	var task models.Task
-	err := d.db.Preload("Sprint").Preload("Assignee").Preload("Labels").
+	err := d.db.Preload("Sprint").Preload("Assignee").Preload("Reporter").Preload("Labels").
 		Where("id = ? AND project_id = ?", id, projectID).
 		First(&task).Error
 	if err != nil {
@@ -59,7 +59,7 @@ func (d *taskDatabase) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.T
 
 func (d *taskDatabase) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	var task models.Task
-	err := d.db.Unscoped().Preload("Sprint").Preload("Assignee").Preload("Labels").
+	err := d.db.Unscoped().Preload("Sprint").Preload("Assignee").Preload("Reporter").Preload("Labels").
 		Where("id = ? AND project_id = ?", id, projectID).
 		First(&task).Error
 	if err != nil {
@@ -133,6 +133,7 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		Preload("Sprint").
 		Preload("Assignee").
 		Preload("Labels").
+		Preload("Reporter").
 		Where("project_id = ?", projectID)
 
 	if filter.Status != "" {
