@@ -432,7 +432,12 @@ func TestTaskService_DeleteAndRestore_RetentionChecks(t *testing.T) {
 	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
 
 	// Delete task
-	err := service.DeleteTask(taskID, projectID, userID, orgID)
+	_, err := service.BulkDeleteTasks(dto.BulkDeleteTasksRequest{
+		TaskIDs:        []uuid.UUID{taskID},
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	})
 	if err != nil {
 		t.Fatalf("expected no error during delete, got %v", err)
 	}
@@ -1227,5 +1232,79 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	})
 	if err == nil || err.Code != response.ErrValidation {
 		t.Fatal("expected ErrValidation when changing sprint of a task in a completed sprint")
+	}
+}
+
+func TestTaskService_BulkDeleteTasks(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	taskID1 := uuid.Must(uuid.NewV4())
+	taskID2 := uuid.Must(uuid.NewV4())
+	taskID3 := uuid.Must(uuid.NewV4()) // already deleted
+	taskID4 := uuid.Must(uuid.NewV4()) // not found / invalid
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+
+	task1 := &models.Task{ID: taskID1, ProjectID: projectID, Key: "T-1", Title: "Task 1"}
+	task2 := &models.Task{ID: taskID2, ProjectID: projectID, Key: "T-2", Title: "Task 2"}
+	task3 := &models.Task{ID: taskID3, ProjectID: projectID, Key: "T-3", Title: "Task 3", DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true}}
+
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{
+			taskID1: task1,
+			taskID2: task2,
+			taskID3: task3,
+		},
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+
+	req := dto.BulkDeleteTasksRequest{
+		TaskIDs:        []uuid.UUID{taskID1, taskID2, taskID3, taskID4},
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	}
+
+	res, err := service.BulkDeleteTasks(req)
+	if err != nil {
+		t.Fatalf("expected no bulk error, got %v", err)
+	}
+
+	if res.DeletedCount != 2 {
+		t.Errorf("expected 2 deleted tasks, got %d", res.DeletedCount)
+	}
+
+	if len(res.DeletedTaskIDs) != 2 {
+		t.Errorf("expected 2 deleted task IDs, got %d", len(res.DeletedTaskIDs))
+	}
+
+	if !task1.DeletedAt.Valid {
+		t.Error("expected task1 to be soft deleted")
+	}
+	if !task2.DeletedAt.Valid {
+		t.Error("expected task2 to be soft deleted")
+	}
+
+	if len(res.FailedTaskIDs) != 2 {
+		t.Errorf("expected 2 failed task IDs, got %d", len(res.FailedTaskIDs))
+	}
+
+	// task3 is already deleted
+	reason3, ok3 := res.FailureReasons[taskID3.String()]
+	if !ok3 || reason3 != "Task is already deleted" {
+		t.Errorf("expected task3 failure reason to be 'Task is already deleted', got: %s", reason3)
+	}
+
+	// task4 is not found
+	reason4, ok4 := res.FailureReasons[taskID4.String()]
+	if !ok4 || reason4 != "Task not found" {
+		t.Errorf("expected task4 failure reason to be 'Task not found', got: %s", reason4)
 	}
 }

@@ -20,6 +20,16 @@ definitions:
       token_type:
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.BulkDeleteTasksRequest:
+    properties:
+      task_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - task_ids
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.BulkUpdateTaskItem:
     properties:
       assignee_id:
@@ -2847,6 +2857,52 @@ paths:
       tags:
       - Sprints
   /projects/{project_id}/tasks:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete multiple tasks in a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Bulk Delete Tasks Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.BulkDeleteTasksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Bulk Delete Tasks
+      tags:
+      - Task
     get:
       description: Retrieve tasks for a project with search, filter, sort and pagination
         options
@@ -2991,49 +3047,6 @@ paths:
       tags:
       - Task
   /projects/{project_id}/tasks/{task_id}:
-    delete:
-      description: Soft delete a specific task by ID
-      parameters:
-      - description: Project ID
-        in: path
-        name: project_id
-        required: true
-        type: string
-      - description: Task ID
-        in: path
-        name: task_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Delete Task
-      tags:
-      - Task
     get:
       description: Retrieve details of a specific task by ID
       parameters:

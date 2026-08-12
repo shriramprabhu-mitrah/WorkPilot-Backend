@@ -34,3 +34,10 @@ type BulkUpdateTasksResponse struct {
 	FailedTaskIDs  []uuid.UUID       `json:"failed_task_ids"`
 	FailureReasons map[string]string `json:"failure_reasons"`
 }
+
+type BulkDeleteTasksResponse struct {
+	DeletedCount   int               `json:"deleted_count"`
+	DeletedTaskIDs []uuid.UUID       `json:"deleted_task_ids"`
+	FailedTaskIDs  []uuid.UUID       `json:"failed_task_ids"`
+	FailureReasons map[string]string `json:"failure_reasons"`
+}
