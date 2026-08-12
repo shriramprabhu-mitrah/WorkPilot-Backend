@@ -20,7 +20,7 @@ func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 	authRepo := authrepo.InitAuthRepository(deps)
 	sprintRepo := sprintrepo.InitSprintRepository(deps)
 	taskRepo := taskrepo.InitTaskRepository(deps)
-	auditRepo := auditrepo.InitAuditLogRepository(deps)
+	auditRepo := auditrepo.InitAuditRepository(deps)
 
 	// initialize services
 	projectService := services.InitProjectService(projectRepo, authRepo, sprintRepo, taskRepo, auditRepo, deps.Logger)
