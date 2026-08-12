@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -22,20 +23,38 @@ func InitMiddleware(logger *zap.Logger) *Middleware {
 }
 
 func (m Middleware) ValidateJWT() gin.HandlerFunc {
-
 	return func(c *gin.Context) {
 
 		var jwtSecret = config.GetEnv("JWT_SECRET_KEY", "")
 
-		tokenString, err := c.Cookie("access_token")
-		if err != nil {
+		var tokenString string
+
+		authHeader := c.GetHeader("Authorization")
+
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+
+			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+				tokenString = parts[1]
+			}
+		}
+
+		if tokenString == "" {
+			cookieToken, err := c.Cookie("access_token")
+
+			if err == nil && cookieToken != "" {
+				tokenString = cookieToken
+			}
+		}
+
+		if tokenString == "" {
 			errorResponse := response.Error{
 				Code:       response.ErrUnauthorized,
 				StatusCode: http.StatusUnauthorized,
 				Message:    "Authentication required",
 			}
 
-			m.Logger.Error("Missing access token cookie",
+			m.Logger.Error("Missing access token",
 				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse)
@@ -43,6 +62,11 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 		}
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+
 			return []byte(jwtSecret), nil
 		})
 
@@ -61,6 +85,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
+
 		if !ok {
 			errorResponse := response.Error{
 				Code:       response.ErrInternalServerError,
@@ -68,7 +93,7 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 				Message:    "Something went wrong. Please try again later.",
 			}
 
-			m.Logger.Error("Failed parse the claims",
+			m.Logger.Error("Failed to parse claims",
 				zap.Error(fmt.Errorf("%v", errorResponse)))
 
 			c.AbortWithStatusJSON(http.StatusInternalServerError, errorResponse)
@@ -79,7 +104,9 @@ func (m Middleware) ValidateJWT() gin.HandlerFunc {
 		userID, hasUserID := claims["user_id"].(string)
 		organizationID, hasOrganizationID := claims["organization_id"].(string)
 
-		if !hasRole || !hasUserID || !hasOrganizationID || (role == "" && userID == "") {
+		if !hasRole || !hasUserID || !hasOrganizationID ||
+			role == "" || userID == "" || organizationID == "" {
+
 			errorResponse := response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,

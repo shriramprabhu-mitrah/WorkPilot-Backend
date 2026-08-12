@@ -14,6 +14,13 @@ const (
 	RoleMember     Role = "member"
 )
 
+type Platform string
+
+const (
+	PlatformWeb    Platform = "web"
+	PlatformMobile Platform = "mobile"
+)
+
 func (r Role) Validate() error {
 	switch r {
 	case RoleSuperAdmin,
@@ -22,6 +29,19 @@ func (r Role) Validate() error {
 		return nil
 	default:
 		return fmt.Errorf("Invalid role: %s", r)
+	}
+}
+
+// ValidatePlatform validates that the platform is one of the supported values.
+// Returns an error if the platform is unsupported or empty.
+func (p Platform) Validate() error {
+	switch p {
+	case PlatformWeb, PlatformMobile:
+		return nil
+	case "":
+		return fmt.Errorf("Platform is required")
+	default:
+		return fmt.Errorf("Unsupported platform: %s", p)
 	}
 }
 
@@ -34,14 +54,16 @@ type AuthTokensResponse struct {
 }
 
 type SignInRequest struct {
-	Email          string `json:"email" binding:"required,email"`
-	Password       string `json:"password" binding:"required"`
-	OrganizationID string `json:"-" swaggerignore:"true"`
+	Email          string   `json:"email" binding:"required,email"`
+	Password       string   `json:"password" binding:"required"`
+	Platform       Platform `json:"-" swaggerignore:"true"` // Populated from X-Client-Platform header
+	OrganizationID string   `json:"-" swaggerignore:"true"`
 }
 
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-	UserID       string `json:"-" swaggerignore:"true"`
+	RefreshToken string   `json:"refresh_token" binding:"required"`
+	Platform     Platform `json:"-" swaggerignore:"true"` // Populated from X-Client-Platform header
+	UserID       string   `json:"-" swaggerignore:"true"`
 }
 
 type SignUpRequest struct {
@@ -54,8 +76,9 @@ type SignUpRequest struct {
 }
 
 type VerifyEmailRequest struct {
-	Email string `json:"email" binding:"required,email"`
-	OTP   string `json:"otp" binding:"required"`
+	Email    string   `json:"email" binding:"required,email"`
+	OTP      string   `json:"otp" binding:"required"`
+	Platform Platform `json:"-" swaggerignore:"true"` // Populated from X-Client-Platform header
 }
 
 type ResendVerificationOTPRequest struct {

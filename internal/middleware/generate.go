@@ -26,12 +26,33 @@ func GenerateJWT(tokencredentials dto.JWtcredentials, logger *zap.Logger) (strin
 	return generateJWT(tokencredentials, time.Duration(expiresIn)*time.Second, logger)
 }
 
+// GenerateJWTWithPlatform generates a JWT token based on the client platform.
+// For mobile clients, generates a token without an expiration claim.
+// For web clients, generates a token with the configured expiration.
+func GenerateJWTWithPlatform(tokencredentials dto.JWtcredentials, logger *zap.Logger) (string, *response.Error) {
+	var ttl time.Duration
+
+	// Mobile clients get a token without expiration
+	if tokencredentials.Platform == string(dto.PlatformMobile) {
+		ttl = 0 // 0 means no expiration
+	} else {
+		// Web clients use the configured expiration
+		expiresIn, err := utils.StringToInt(config.GetEnv("JWT_EXPIRY", "900"))
+		if err != nil {
+			logger.Error("Failed to set the expire time",
+				zap.Error(fmt.Errorf("%v", err)))
+			return "", err
+		}
+		ttl = time.Duration(expiresIn) * time.Second
+	}
+
+	return generateJWT(tokencredentials, ttl, logger)
+}
+
 func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger *zap.Logger) (string, *response.Error) {
 
 	var organizationID uuid.UUID
 	var jwtKey = config.GetEnv("JWT_SECRET_KEY", "")
-
-	expirationTime := time.Now().Add(ttl)
 
 	if tokencredentials.OrganizationID == nil || *tokencredentials.OrganizationID == uuid.Nil {
 		organizationID = uuid.Nil
@@ -41,12 +62,16 @@ func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger 
 
 	claims := &dto.ClaimsJWT{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 		Role:           tokencredentials.Role,
 		UserID:         tokencredentials.UserID,
 		OrganizationID: organizationID,
+	}
+
+	// Only set expiration if ttl is greater than 0
+	if ttl > 0 {
+		claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(ttl))
 	}
 
 	//Generate the jwt token using the HS256

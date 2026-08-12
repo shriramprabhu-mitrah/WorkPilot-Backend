@@ -326,7 +326,8 @@ func TestGetProjectActivity_TaskAndUserMapping(t *testing.T) {
 	}
 
 	auditRepo := &stubAuditLogRepo{}
-	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, auditRepo, logger)
+	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
+	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, taskRepo, auditRepo, logger)
 
 	t.Run("Maps User Profile and Task Details correctly", func(t *testing.T) {
 		taskID := uuid.Must(uuid.NewV4())
@@ -405,7 +406,7 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 
 	t.Run("Omitted fields resulting in empty updates map", func(t *testing.T) {
 		projectRepo := &stubProjectRepo{
-			projectRole: string(dto.ProjectRoleProjectManager),
+			projectRole: string(requestdto.ProjectRoleProjectManager),
 			isMember:    true,
 			project: models.Project{
 				ID:             projectID,
@@ -420,10 +421,10 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 		}
 
 		dummyAuth := &dummyAuthRepo{} // embeds and stubs auth interface methods returning default values
+		taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
+		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, taskRepo, &stubAuditLogRepo{}, logger)
 
-		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, &stubAuditLogRepo{}, logger)
-
-		req := dto.UpdateProjectRequest{
+		req := requestdto.UpdateProjectRequest{
 			ProjectID:      projectID,
 			UserID:         userID,
 			OrganizationID: orgID,
@@ -438,7 +439,7 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 	t.Run("Updates name and sets description to empty string", func(t *testing.T) {
 		var capturedUpdates map[string]interface{}
 		projectRepo := &stubProjectRepo{
-			projectRole: string(dto.ProjectRoleProjectManager),
+			projectRole: string(requestdto.ProjectRoleProjectManager),
 			isMember:    true,
 			project: models.Project{
 				ID:             projectID,
@@ -453,15 +454,15 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 		}
 
 		dummyAuth := &dummyAuthRepo{}
-
-		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, &stubAuditLogRepo{}, logger)
+		taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
+		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, taskRepo, &stubAuditLogRepo{}, logger)
 
 		// Title is pointer to "New Name"
 		newName := "New Name"
 		// Description is pointer to "" (explicitly clearing it)
 		newDesc := ""
 
-		req := dto.UpdateProjectRequest{
+		req := requestdto.UpdateProjectRequest{
 			ProjectID:      projectID,
 			UserID:         userID,
 			OrganizationID: orgID,
@@ -492,4 +493,3 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 		}
 	})
 }
-
