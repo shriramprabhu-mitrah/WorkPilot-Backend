@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/services"
@@ -52,7 +52,7 @@ func (d *dummySprintRepo) GetActiveSprints() ([]models.Sprint, *response.Error) 
 	return nil, nil
 }
 
-func (d *dummySprintRepo) GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
+func (d *dummySprintRepo) GetSprints(projectID uuid.UUID, filter requestdto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
 func (d *dummySprintRepo) GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error) {
@@ -153,7 +153,7 @@ func (d *dummyAuthRepo) UpdateInvitation(invitation models.OrganizationInvitatio
 type stubProjectRepo struct {
 	project            models.Project
 	isMember           bool
-	getProjectActivity func(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
+	getProjectActivity func(projectID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
 	createdLogs        []models.AuditLog
 	projectRole        string
 }
@@ -169,7 +169,7 @@ func (s *stubProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, proje
 func (s *stubProjectRepo) UpdateProject(projectID uuid.UUID, req models.Project) *response.Error {
 	return nil
 }
-func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
+func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter requestdto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
 func (s *stubProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error) {
@@ -195,13 +195,13 @@ func (s *stubProjectRepo) DeleteProject(projectID, organizationID uuid.UUID) *re
 func (s *stubProjectRepo) CreateProjectMember(row models.ProjectMember) *response.Error {
 	return nil
 }
-func (s *stubProjectRepo) GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) {
+func (s *stubProjectRepo) GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
 func (s *stubProjectRepo) RemoveProjectMember(projectID, userID uuid.UUID) *response.Error {
 	return nil
 }
-func (s *stubProjectRepo) GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
+func (s *stubProjectRepo) GetProjectActivity(projectID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
 	if s.getProjectActivity != nil {
 		return s.getProjectActivity(projectID, filter)
 	}
@@ -233,29 +233,29 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 
 	t.Run("Valid UserID Filter", func(t *testing.T) {
 		filterUserID := uuid.Must(uuid.NewV4())
-		filterReq := dto.ProjectActivityFilterRequest{
+		filterReq := requestdto.ProjectActivityFilterRequest{
 			UserID: filterUserID.String(),
 		}
 
-		projectRepo.getProjectActivity = func(pID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
+		projectRepo.getProjectActivity = func(pID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
 			if filter.UserID == nil || *filter.UserID != filterUserID {
 				t.Errorf("expected filter.UserID to be %v, got %v", filterUserID, filter.UserID)
 			}
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(requestdto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("Invalid UserID Filter Format", func(t *testing.T) {
-		filterReq := dto.ProjectActivityFilterRequest{
+		filterReq := requestdto.ProjectActivityFilterRequest{
 			UserID: "invalid-uuid",
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(requestdto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error, got nil")
 		}
@@ -268,11 +268,11 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 	})
 
 	t.Run("Nil UserID Filter", func(t *testing.T) {
-		filterReq := dto.ProjectActivityFilterRequest{
+		filterReq := requestdto.ProjectActivityFilterRequest{
 			UserID: uuid.Nil.String(),
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(requestdto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err == nil {
 			t.Fatal("expected validation error for nil UUID, got nil")
 		}
@@ -282,18 +282,18 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 	})
 
 	t.Run("Empty UserID Filter", func(t *testing.T) {
-		filterReq := dto.ProjectActivityFilterRequest{
+		filterReq := requestdto.ProjectActivityFilterRequest{
 			UserID: "",
 		}
 
-		projectRepo.getProjectActivity = func(pID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
+		projectRepo.getProjectActivity = func(pID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
 			if filter.UserID != nil {
 				t.Errorf("expected filter.UserID to be nil for empty input, got %v", filter.UserID)
 			}
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
 
-		_, _, err := service.GetProjectActivity(userID, string(dto.RoleOrgAdmin), orgID, projectID, filterReq)
+		_, _, err := service.GetProjectActivity(userID, string(requestdto.RoleOrgAdmin), orgID, projectID, filterReq)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -308,4 +308,9 @@ type stubAuditLogRepo struct {
 func (s *stubAuditLogRepo) CreateAuditLog(log models.AuditLog) *response.Error {
 	s.createdLogs = append(s.createdLogs, log)
 	return s.err
+}
+
+func (s *stubAuditLogRepo) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog, response.Pagination, *response.Error) {
+
+	return nil, response.Pagination{}, nil
 }
