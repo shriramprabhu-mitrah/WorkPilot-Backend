@@ -138,7 +138,7 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 
 func (d *authDatabase) CreateUser(row models.User) *response.Error {
 	if row.Role == "" {
-		row.Role = "developer"
+		row.Role = "guest"
 	}
 	if row.Timezone == "" {
 		row.Timezone = "UTC"
