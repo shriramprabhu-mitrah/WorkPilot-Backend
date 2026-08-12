@@ -463,6 +463,38 @@ definitions:
     - email
     - otp
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse:
+    properties:
+      action:
+        type: string
+      created_at:
+        type: string
+      details:
+        type: string
+      id:
+        type: string
+      organization_id:
+        type: string
+      project_id:
+        type: string
+      resource_id:
+        type: string
+      resource_type:
+        type: string
+      task_key:
+        type: string
+      title:
+        type: string
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper:
+    properties:
+      activities:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse'
+        type: array
+      user:
+        $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary'
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse:
     properties:
       avatar_url:
@@ -513,6 +545,31 @@ definitions:
         type: string
       team_size:
         type: string
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.ProjectActivityResponse:
+    properties:
+      action:
+        type: string
+      details:
+        type: string
+      id:
+        type: string
+      organization_id:
+        type: string
+      project_id:
+        type: string
+      resource_id:
+        type: string
+      resource_type:
+        type: string
+      task_key:
+        type: string
+      timestamp:
+        type: string
+      title:
+        type: string
+      user:
+        $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary'
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.ProjectDetail:
     properties:
@@ -677,6 +734,19 @@ definitions:
       username:
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
   github_com_ms-kanban-server_internal_pkg_response.Error:
     properties:
       code:
@@ -788,7 +858,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1800,7 +1875,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectActivityResponse'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:

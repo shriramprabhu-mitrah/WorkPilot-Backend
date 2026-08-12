@@ -308,6 +308,80 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 	})
 }
 
+func TestGetProjectActivity_TaskAndUserMapping(t *testing.T) {
+	logger := zap.NewNop()
+	authRepo := &dummyAuthRepo{}
+	sprintRepo := &dummySprintRepo{}
+
+	projectID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+
+	projectRepo := &stubProjectRepo{
+		project: models.Project{
+			ID:             projectID,
+			OrganizationID: orgID,
+		},
+		isMember: true,
+	}
+
+	auditRepo := &stubAuditLogRepo{}
+	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, auditRepo, logger)
+
+	t.Run("Maps User Profile and Task Details correctly", func(t *testing.T) {
+		taskID := uuid.Must(uuid.NewV4())
+		filterReq := requestdto.ProjectActivityFilterRequest{}
+
+		projectRepo.getProjectActivity = func(pID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
+			logs := []models.AuditLog{
+				{
+					ID:             uuid.Must(uuid.NewV4()),
+					ProjectID:      &projectID,
+					OrganizationID: &orgID,
+					UserID:         &userID,
+					Action:         "task_created",
+					ResourceType:   "task",
+					ResourceID:     taskID.String(),
+					Details:        "Task created",
+					CreatedAt:      time.Now(),
+					User: models.User{
+						ID:        userID,
+						FullName:  "John Doe",
+						Email:     "john@example.com",
+						AvatarURL: "http://example.com/avatar.png",
+						Role:      "member",
+					},
+					Title:   "My Awesome Task",
+					TaskKey: "PROJ-123",
+				},
+			}
+			return logs, response.Pagination{}, nil
+		}
+
+		res, _, err := service.GetProjectActivity(userID, string(requestdto.RoleOrgAdmin), orgID, projectID, filterReq)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(res) != 1 {
+			t.Fatalf("expected 1 log, got %d", len(res))
+		}
+
+		log := res[0]
+		if log.User == nil || log.User.ID != userID || log.User.FullName != "John Doe" || log.User.Email != "john@example.com" {
+			t.Errorf("incorrect user details mapping: %+v", log.User)
+		}
+
+		if log.TaskKey != "PROJ-123" {
+			t.Errorf("expected TaskKey to be 'PROJ-123', got '%s'", log.TaskKey)
+		}
+
+		if log.Title != "My Awesome Task" {
+			t.Errorf("expected Title to be 'My Awesome Task', got '%s'", log.Title)
+		}
+	})
+}
+
 type stubAuditLogRepo struct {
 	createdLogs []models.AuditLog
 	err         *response.Error

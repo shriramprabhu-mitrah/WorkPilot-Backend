@@ -504,6 +504,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 			ResourceID:     item.ResourceID,
 			Details:        item.Details,
 			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
+			Title:          item.Title,
 		}
 
 		if item.User.ID != uuid.Nil {
@@ -514,6 +515,10 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 				AvatarURL: item.User.AvatarURL,
 				Role:      item.User.Role,
 			}
+		}
+
+		if strings.ToLower(item.ResourceType) == "task" {
+			dtoItem.TaskKey = item.TaskKey
 		}
 
 		responseDTOs = append(responseDTOs, dtoItem)

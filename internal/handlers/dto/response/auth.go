@@ -72,6 +72,8 @@ type ProjectActivity struct {
 	ResourceID     string       `json:"resource_id,omitempty"`
 	Details        string       `json:"details,omitempty"`
 	CreatedAt      string       `json:"timestamp"`
+	TaskKey        string       `json:"task_key,omitempty"`
+	Title          string       `json:"title,omitempty"`
 }
 
 type UserSummary struct {

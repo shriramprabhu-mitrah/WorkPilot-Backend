@@ -271,7 +271,9 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 	}
 
 	if err := baseQuery.
-		Preload("User").
+		Preload("User", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
 		Order("created_at DESC").
 		Limit(filter.PageSize).
 		Offset(offset).
@@ -283,6 +285,8 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 			Message:    "Something went wrong. Please try again later.",
 		}
 	}
+
+	populateAuditLogDetails(d.db, logs)
 
 	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
 	if totalPages == 0 {
@@ -568,4 +572,94 @@ func (d *projectDatabase) GetProjectMemberByUserAndProjectID(userID, projectID u
 	}
 
 	return &member, nil
+}
+
+func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
+	var taskIDs []uuid.UUID
+	var projectIDs []uuid.UUID
+	var sprintIDs []uuid.UUID
+
+	for _, log := range logs {
+		rID, err := uuid.FromString(log.ResourceID)
+		if err != nil || rID == uuid.Nil {
+			continue
+		}
+		switch strings.ToLower(log.ResourceType) {
+		case "task":
+			taskIDs = append(taskIDs, rID)
+		case "project":
+			projectIDs = append(projectIDs, rID)
+		case "sprint":
+			sprintIDs = append(sprintIDs, rID)
+		}
+	}
+
+	// Fetch task details (title, key)
+	taskMap := make(map[uuid.UUID]struct{ Title, Key string })
+	if len(taskIDs) > 0 {
+		type TaskInfo struct {
+			ID    uuid.UUID
+			Title string
+			Key   string
+		}
+		var tasks []TaskInfo
+		if err := db.Unscoped().Model(&models.Task{}).Where("id IN ?", taskIDs).Select("id, title, key").Find(&tasks).Error; err == nil {
+			for _, t := range tasks {
+				taskMap[t.ID] = struct{ Title, Key string }{Title: t.Title, Key: t.Key}
+			}
+		}
+	}
+
+	// Fetch project details (name)
+	projectMap := make(map[uuid.UUID]string)
+	if len(projectIDs) > 0 {
+		type ProjectInfo struct {
+			ID   uuid.UUID
+			Name string
+		}
+		var projects []ProjectInfo
+		if err := db.Unscoped().Model(&models.Project{}).Where("id IN ?", projectIDs).Select("id, name").Find(&projects).Error; err == nil {
+			for _, p := range projects {
+				projectMap[p.ID] = p.Name
+			}
+		}
+	}
+
+	// Fetch sprint details (name)
+	sprintMap := make(map[uuid.UUID]string)
+	if len(sprintIDs) > 0 {
+		type SprintInfo struct {
+			ID   uuid.UUID
+			Name string
+		}
+		var sprints []SprintInfo
+		if err := db.Unscoped().Model(&models.Sprint{}).Where("id IN ?", sprintIDs).Select("id, name").Find(&sprints).Error; err == nil {
+			for _, s := range sprints {
+				sprintMap[s.ID] = s.Name
+			}
+		}
+	}
+
+	// Populate transient fields
+	for i, log := range logs {
+		rID, err := uuid.FromString(log.ResourceID)
+		if err != nil {
+			continue
+		}
+		switch strings.ToLower(log.ResourceType) {
+		case "task":
+			if t, ok := taskMap[rID]; ok {
+				logs[i].Title = t.Title
+				logs[i].TaskKey = t.Key
+			}
+		case "project":
+			if name, ok := projectMap[rID]; ok {
+				logs[i].Title = name
+			}
+		case "sprint":
+			if name, ok := sprintMap[rID]; ok {
+				logs[i].Title = name
+			}
+		}
+	}
 }

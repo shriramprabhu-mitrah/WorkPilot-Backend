@@ -1,6 +1,8 @@
 package response
 
 import (
+	"strings"
+
 	"github.com/ms-kanban-server/internal/pkg/models"
 )
 
@@ -104,11 +106,21 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 }
 
 func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
-	return AuditLogResponse{
-		ProjectID:    audit.ProjectID,
-		Action:       audit.Action,
-		ResourceType: audit.ResourceType,
-		ResourceID:   audit.ResourceID,
-		CreatedAt:    audit.CreatedAt,
+	resp := AuditLogResponse{
+		ID:             audit.ID,
+		ProjectID:      audit.ProjectID,
+		OrganizationID: audit.OrganizationID,
+		Action:         audit.Action,
+		ResourceType:   audit.ResourceType,
+		ResourceID:     audit.ResourceID,
+		Details:        audit.Details,
+		CreatedAt:      audit.CreatedAt,
+		Title:          audit.Title,
 	}
+
+	if strings.ToLower(audit.ResourceType) == "task" {
+		resp.TaskKey = audit.TaskKey
+	}
+
+	return resp
 }

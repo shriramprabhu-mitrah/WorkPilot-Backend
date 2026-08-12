@@ -474,7 +474,7 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 //	@Param			entity_type	query		string	false	"Filter by entity type"
 //	@Param			action		query		string	false	"Filter by action"
 //	@Param			user_id		query		string	false	"Filter by user ID"
-//	@Success		200			{object}	response.SuccessResponse
+//	@Success		200			{object}	response.SuccessResponse{data=[]responsedto.ProjectActivityResponse}
 //	@Failure		400			{object}	response.ErrorResponse
 //	@Failure		401			{object}	response.ErrorResponse
 //	@Failure		403			{object}	response.ErrorResponse

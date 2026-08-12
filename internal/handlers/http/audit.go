@@ -5,11 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.AuditLogResponseWrapper{}
 
 func InitAuditHandler(service services.AuditService, logger *zap.Logger) *auditHandler {
 	return &auditHandler{
@@ -32,7 +35,7 @@ type auditHandler struct {
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Number of records per page" default(10)
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.AuditLogResponseWrapper}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse

@@ -60,7 +60,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -2048,7 +2060,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectActivityResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4946,6 +4973,55 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "resource_id": {
+                    "type": "string"
+                },
+                "resource_type": {
+                    "type": "string"
+                },
+                "task_key": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponseWrapper": {
+            "type": "object",
+            "properties": {
+                "activities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.AuditLogResponse"
+                    }
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary"
+                }
+            }
+        },
         "github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse": {
             "type": "object",
             "properties": {
@@ -5021,6 +5097,44 @@ const docTemplate = `{
                 },
                 "team_size": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.ProjectActivityResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "resource_id": {
+                    "type": "string"
+                },
+                "resource_type": {
+                    "type": "string"
+                },
+                "task_key": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary"
                 }
             }
         },
@@ -5268,6 +5382,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
                     "type": "string"
                 }
             }
