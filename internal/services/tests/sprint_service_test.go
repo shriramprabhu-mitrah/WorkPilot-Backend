@@ -16,6 +16,14 @@ var testProjRepo = &stubProjectRepo{
 	projectRole: string(dto.ProjectRoleProjectManager),
 }
 
+func strPtr(s string) *string {
+	return &s
+}
+
+func statusPtr(s dto.SprintStatus) *dto.SprintStatus {
+	return &s
+}
+
 type sprintAuthRepoStub struct {
 	dummyAuthRepo
 	user models.User
@@ -40,7 +48,7 @@ type sprintRepoStub struct {
 	lastDeleteSprint                   uuid.UUID
 	lastUpdateProject                  uuid.UUID
 	lastUpdateSprint                   uuid.UUID
-	lastUpdatePayload                  models.Sprint
+	lastUpdatePayload                  map[string]interface{}
 	totalStoryPoints                   int
 	totalStoryPointsErr                *response.Error
 	remainingStoryPoints               int
@@ -87,10 +95,10 @@ func (s *sprintRepoStub) GetSprintByID(projectID uuid.UUID, sprintID uuid.UUID) 
 	return s.getSprintByIDRes, s.getSprintByIDErr
 }
 
-func (s *sprintRepoStub) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, sprint models.Sprint) *response.Error {
+func (s *sprintRepoStub) UpdateSprint(projectID uuid.UUID, sprintID uuid.UUID, updates map[string]interface{}) *response.Error {
 	s.lastUpdateProject = projectID
 	s.lastUpdateSprint = sprintID
-	s.lastUpdatePayload = sprint
+	s.lastUpdatePayload = updates
 	return s.updateErr
 }
 
@@ -257,7 +265,7 @@ func TestSprintService_UpdateSprint_RejectsInvalidDateFormat(t *testing.T) {
 		OrganizationID: orgID,
 		ProjectID:      projectID,
 		SprintID:       sprintID,
-		StartDate:      "not-a-date",
+		StartDate:      strPtr("not-a-date"),
 	})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
@@ -278,13 +286,13 @@ func TestSprintService_UpdateSprint_DelegatesToRepository(t *testing.T) {
 	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
-		Name:           "Updated sprint",
-		Goal:           "Refined goal",
+		Name:           strPtr("Updated sprint"),
+		Goal:           strPtr("Refined goal"),
 		ProjectID:      projectID,
 		UserID:         userID,
 		OrganizationID: orgID,
 		SprintID:       sprintID,
-		Status:         dto.SprintStatusActive,
+		Status:         statusPtr(dto.SprintStatusActive),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -401,18 +409,20 @@ func TestSprintService_UpdateSprint_CalculatesVelocityUponCompletion(t *testing.
 		ProjectID:      projectID,
 		UserID:         userID,
 		OrganizationID: orgID,
-		Status:         dto.SprintStatusCompleted,
+		Status:         statusPtr(dto.SprintStatusCompleted),
 	})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if sprintRepo.lastUpdatePayload.Status != "completed" {
-		t.Fatalf("expected status completed, got %s", sprintRepo.lastUpdatePayload.Status)
+	statusVal, ok := sprintRepo.lastUpdatePayload["status"].(string)
+	if !ok || statusVal != "completed" {
+		t.Fatalf("expected status completed, got %v", sprintRepo.lastUpdatePayload["status"])
 	}
 
-	if sprintRepo.lastUpdatePayload.Velocity == nil || *sprintRepo.lastUpdatePayload.Velocity != 15 {
-		t.Fatalf("expected velocity 15, got %v", sprintRepo.lastUpdatePayload.Velocity)
+	velocityVal, ok := sprintRepo.lastUpdatePayload["velocity"].(int)
+	if !ok || velocityVal != 15 {
+		t.Fatalf("expected velocity 15, got %v", sprintRepo.lastUpdatePayload["velocity"])
 	}
 }
 
@@ -563,9 +573,9 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 		UserID:         userID,
 		OrganizationID: orgID,
 		SprintID:       sprintID,
-		StartDate:      "2026-08-01",
-		EndDate:        "2026-08-08",
-		Name:           "Sprint 1",
+		StartDate:      strPtr("2026-08-01"),
+		EndDate:        strPtr("2026-08-08"),
+		Name:           strPtr("Sprint 1"),
 	})
 	if err != nil {
 		t.Fatalf("expected update to allow duplicate date range/name, got error %v", err)

@@ -11,8 +11,8 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	"go.uber.org/zap"
@@ -702,6 +702,60 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	updates := make(map[string]interface{})
+	if req.Title != nil {
+		updates["title"] = *req.Title
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.Type != nil {
+		updates["type"] = *req.Type
+	}
+	if req.Priority != nil {
+		updates["priority"] = *req.Priority
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+		if *req.Status == string(dto.TaskStatusBlocked) {
+			if req.BlockedReason != nil {
+				updates["blocked_reason"] = *req.BlockedReason
+			}
+		} else {
+			updates["blocked_reason"] = ""
+		}
+	}
+	if req.AssigneeID != nil {
+		if *req.AssigneeID == uuid.Nil {
+			updates["assignee_id"] = nil
+		} else {
+			updates["assignee_id"] = *req.AssigneeID
+		}
+	}
+	if req.SprintID != nil {
+		if *req.SprintID == uuid.Nil {
+			updates["sprint_id"] = nil
+		} else {
+			updates["sprint_id"] = *req.SprintID
+		}
+	}
+	if req.StoryPoints != nil {
+		updates["story_points"] = *req.StoryPoints
+	}
+	if req.DueDate != nil {
+		if req.DueDate.IsZero() {
+			updates["due_date"] = nil
+		} else {
+			updates["due_date"] = *req.DueDate
+		}
+	}
+	if req.EstimatedHours != nil {
+		updates["estimated_hours"] = *req.EstimatedHours
+	}
+	if req.ActualHours != nil {
+		updates["actual_hours"] = *req.ActualHours
+	}
+
 	if req.LabelIDs != nil {
 		verifiedLabels, verifyErr := s.taskRepo.VerifyLabelIDs(req.ProjectID, *req.LabelIDs)
 		if verifyErr != nil {
@@ -742,9 +796,13 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			changes = append(changes, fmt.Sprintf("labels changed (%s)", strings.Join(labelChanges, " and ")))
 		}
 
-		err = s.taskRepo.UpdateTaskWithLabels(task, verifiedLabels)
+		err = s.taskRepo.UpdateTaskWithLabels(task.ID, updates, verifiedLabels)
 	} else {
-		err = s.taskRepo.UpdateTask(task)
+		if len(updates) == 0 {
+			res := mapToTaskResponse(*task)
+			return &res, nil
+		}
+		err = s.taskRepo.UpdateTask(task.ID, updates)
 	}
 	if err != nil {
 		return nil, err
@@ -1123,13 +1181,17 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 
 		// 5. Track Changes and Update Task
 		var changes []string
+		updates := make(map[string]interface{})
 		if item.Status != nil && *item.Status != task.Status {
 			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, *item.Status))
 			task.Status = *item.Status
+			updates["status"] = *item.Status
 			if *item.Status == string(dto.TaskStatusBlocked) {
 				task.BlockedReason = *item.BlockedReason
+				updates["blocked_reason"] = *item.BlockedReason
 			} else {
 				task.BlockedReason = ""
+				updates["blocked_reason"] = ""
 			}
 		}
 		if item.AssigneeID != nil {
@@ -1145,8 +1207,10 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 				changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
 				if *item.AssigneeID == uuid.Nil {
 					task.AssigneeID = nil
+					updates["assignee_id"] = nil
 				} else {
 					task.AssigneeID = item.AssigneeID
+					updates["assignee_id"] = item.AssigneeID
 				}
 			}
 		}
@@ -1163,14 +1227,16 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 				changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
 				if *item.SprintID == uuid.Nil {
 					task.SprintID = nil
+					updates["sprint_id"] = nil
 				} else {
 					task.SprintID = item.SprintID
+					updates["sprint_id"] = item.SprintID
 				}
 			}
 		}
 
 		if len(changes) > 0 {
-			updateErr := s.taskRepo.UpdateTask(task)
+			updateErr := s.taskRepo.UpdateTask(task.ID, updates)
 			if updateErr != nil {
 				failedTaskIDs = append(failedTaskIDs, item.TaskID)
 				failureReasons[item.TaskID.String()] = updateErr.Message

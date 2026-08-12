@@ -33,6 +33,7 @@ type AuthRepository interface {
 	UpdateUserPassword(userID uuid.UUID, passwordHash string) *response.Error
 	RevokeRefreshTokens(userID uuid.UUID) *response.Error
 	UpdateUser(userID uuid.UUID, req models.User) *response.Error
+	UpdateUserFields(userID uuid.UUID, updates map[string]interface{}) *response.Error
 	StoreUserTemp(row models.User) *response.Error
 	GetUserFromRedis(email string) (*models.User, *response.Error)
 	GetPendingInvitationByEmail(email string) (models.OrganizationInvitation, *response.Error)

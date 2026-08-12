@@ -482,3 +482,34 @@ func (d *authDatabase) UpdateInvitation(invitation models.OrganizationInvitation
 	return nil
 }
 
+func (d *authDatabase) UpdateUserFields(userID uuid.UUID, updates map[string]interface{}) *response.Error {
+	result := d.db.
+		Model(&models.User{}).
+		Where("id = ?", userID).
+		Updates(updates)
+
+	if result.Error != nil {
+		if utils.IsDuplicateKeyError(result.Error) {
+			d.logger.Error("Duplicate key error while updating user fields", zap.Error(result.Error))
+			return utils.ParseUserDuplicateError(result.Error)
+		}
+
+		d.logger.Error("Database error occurred while updating user fields", zap.Error(result.Error))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if result.RowsAffected == 0 {
+		d.logger.Error("User not found while updating fields", zap.String("user_id", userID.String()))
+		return &response.Error{
+			Code:       response.ErrNotFound,
+			StatusCode: http.StatusNotFound,
+			Message:    "User not found",
+		}
+	}
+
+	return nil
+}

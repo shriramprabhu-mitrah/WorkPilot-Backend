@@ -767,7 +767,7 @@ func (s *authService) ChangePassword(payload dto.ChangePasswordRequest) *respons
 
 func (s *authService) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID) *response.Error {
 
-	if len(payload.FullName) > 30 {
+	if payload.FullName != nil && len(*payload.FullName) > 30 {
 		s.logger.Error("Validation failure in Full Name")
 		return &response.Error{
 			Code:       response.ErrBadRequest,
@@ -776,7 +776,7 @@ func (s *authService) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 		}
 	}
 
-	if len(payload.UserName) > 30 {
+	if payload.UserName != nil && len(*payload.UserName) > 30 {
 		s.logger.Error("Validation failure in Username")
 		return &response.Error{
 			Code:       response.ErrBadRequest,
@@ -785,15 +785,25 @@ func (s *authService) UpdateUser(payload dto.UpdateUserRequest, userID uuid.UUID
 		}
 	}
 
-	req := models.User{
-		FullName:  payload.FullName,
-		UserName:  payload.UserName,
-		AvatarURL: payload.AvatarURL,
-		Timezone:  payload.Timezone,
+	updates := make(map[string]interface{})
+	if payload.FullName != nil {
+		updates["full_name"] = *payload.FullName
+	}
+	if payload.UserName != nil {
+		updates["username"] = *payload.UserName
+	}
+	if payload.AvatarURL != nil {
+		updates["avatar_url"] = *payload.AvatarURL
+	}
+	if payload.Timezone != nil {
+		updates["timezone"] = *payload.Timezone
 	}
 
-	return s.authRepo.UpdateUser(userID, req)
+	if len(updates) == 0 {
+		return nil
+	}
 
+	return s.authRepo.UpdateUserFields(userID, updates)
 }
 
 func (s *authService) GetUser(userID uuid.UUID) (models.User, *response.Error) {

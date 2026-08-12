@@ -14,7 +14,7 @@ type TaskRepository interface {
 	CreateTask(task *models.Task) *response.Error
 	GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error)
 	GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error)
-	UpdateTask(task *models.Task) *response.Error
+	UpdateTask(taskID uuid.UUID, updates map[string]interface{}) *response.Error
 	DeleteTask(id uuid.UUID, projectID uuid.UUID) *response.Error
 	RestoreTask(id uuid.UUID, projectID uuid.UUID) *response.Error
 	GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]models.Task, response.Pagination, *response.Error)
@@ -22,7 +22,7 @@ type TaskRepository interface {
 	IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *response.Error)
 	VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error)
 	UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error
-	UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error
+	UpdateTaskWithLabels(taskID uuid.UUID, updates map[string]interface{}, labels []models.Label) *response.Error
 	AttachLabel(taskID uuid.UUID, label *models.Label) *response.Error
 	RemoveLabel(taskID uuid.UUID, label *models.Label) *response.Error
 	MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error

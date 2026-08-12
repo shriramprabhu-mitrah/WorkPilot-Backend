@@ -191,12 +191,14 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		}
 	}
 
-	payload := models.Project{
-		Name:        req.Name,
-		Description: req.Description,
+	updates := make(map[string]interface{})
+	if req.Name != nil {
+		updates["name"] = *req.Name
 	}
-
-	if req.Status != "" {
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.Status != nil {
 		if err := req.Status.Validate(); err != nil {
 			s.logger.Error("Invalid project status", zap.Error(err))
 			return &response.Error{
@@ -205,12 +207,23 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 				Message:    "Invalid status. Allowed values: active, archived, on_hold, completed, cancelled, planning",
 			}
 		}
-		payload.Status = string(req.Status)
+		updates["status"] = string(*req.Status)
 	}
 
-	updateErr := s.projectRepo.UpdateProject(req.ProjectID, payload)
+	if len(updates) == 0 {
+		return nil
+	}
+
+	updateErr := s.projectRepo.UpdateProject(req.ProjectID, updates)
 	if updateErr != nil {
 		return updateErr
+	}
+
+	var detail string
+	if req.Name != nil {
+		detail = fmt.Sprintf("Project updated name to: %s", *req.Name)
+	} else {
+		detail = "Project details updated"
 	}
 
 	// Log project update audit event
@@ -221,7 +234,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		Action:         "project_updated",
 		ResourceType:   "project",
 		ResourceID:     req.ProjectID.String(),
-		Details:        fmt.Sprintf("Project updated: %s", req.Name),
+		Details:        detail,
 		CreatedAt:      time.Now(),
 	}
 	err = s.auditRepo.CreateAuditLog(auditLog)

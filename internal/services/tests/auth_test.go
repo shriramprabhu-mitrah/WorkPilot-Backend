@@ -137,6 +137,12 @@ func (s *stubAuthRepository) UpdateUser(userID uuid.UUID, req models.User) *resp
 	s.user = req
 	return nil
 }
+func (s *stubAuthRepository) UpdateUserFields(userID uuid.UUID, updates map[string]interface{}) *response.Error {
+	if s.err != nil {
+		return s.err
+	}
+	return nil
+}
 
 func (s *stubAuthRepository) RequestPasswordReset(email string) (models.User, *response.Error) {
 	if s.err != nil {

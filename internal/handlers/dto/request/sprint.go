@@ -31,15 +31,15 @@ type CreateSprint struct {
 }
 
 type UpdateSprintRequest struct {
-	Name           string       `json:"name" binding:"omitempty,min=2,max=100"`
-	Goal           string       `json:"goal" binding:"omitempty,max=500"`
-	StartDate      string       `json:"start_date"`
-	EndDate        string       `json:"end_date"`
-	Status         SprintStatus `json:"status" binding:"omitempty,oneof=planning active on_hold completed cancelled archived"`
-	ProjectID      uuid.UUID    `json:"-" swaggerignore:"true"`
-	UserID         uuid.UUID    `json:"-" swaggerignore:"true"`
-	OrganizationID uuid.UUID    `json:"-" swaggerignore:"true"`
-	SprintID       uuid.UUID    `json:"-" swaggerignore:"true"`
+	Name           *string       `json:"name" binding:"omitempty,min=2,max=100"`
+	Goal           *string       `json:"goal" binding:"omitempty,max=500"`
+	StartDate      *string       `json:"start_date"`
+	EndDate        *string       `json:"end_date"`
+	Status         *SprintStatus `json:"status" binding:"omitempty,oneof=planning active on_hold completed cancelled archived"`
+	ProjectID      uuid.UUID     `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID     `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID     `json:"-" swaggerignore:"true"`
+	SprintID       uuid.UUID     `json:"-" swaggerignore:"true"`
 }
 
 type SprintFilter struct {

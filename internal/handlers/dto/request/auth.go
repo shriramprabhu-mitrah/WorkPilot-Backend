@@ -79,8 +79,8 @@ type ChangePasswordRequest struct {
 }
 
 type UpdateUserRequest struct {
-	FullName  string `form:"full_name"`
-	UserName  string `form:"username"`
-	AvatarURL string `form:"-"`
-	Timezone  string `form:"timezone"`
+	FullName  *string `form:"full_name" json:"full_name"`
+	UserName  *string `form:"username" json:"username"`
+	AvatarURL *string `form:"avatar_url" json:"avatar_url"`
+	Timezone  *string `form:"timezone" json:"timezone"`
 }

@@ -72,11 +72,65 @@ func (s *stubTaskRepo) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*
 	return task, nil
 }
 
-func (s *stubTaskRepo) UpdateTask(task *models.Task) *response.Error {
+func applyUpdatesToTask(task *models.Task, updates map[string]interface{}) {
+	if val, ok := updates["title"].(string); ok {
+		task.Title = val
+	}
+	if val, ok := updates["description"].(string); ok {
+		task.Description = val
+	}
+	if val, ok := updates["type"].(string); ok {
+		task.Type = val
+	}
+	if val, ok := updates["priority"].(string); ok {
+		task.Priority = val
+	}
+	if val, ok := updates["status"].(string); ok {
+		task.Status = val
+	}
+	if val, ok := updates["blocked_reason"].(string); ok {
+		task.BlockedReason = val
+	}
+	if val, ok := updates["assignee_id"]; ok {
+		if val == nil {
+			task.AssigneeID = nil
+		} else if uid, ok := val.(uuid.UUID); ok {
+			task.AssigneeID = &uid
+		}
+	}
+	if val, ok := updates["sprint_id"]; ok {
+		if val == nil {
+			task.SprintID = nil
+		} else if uid, ok := val.(uuid.UUID); ok {
+			task.SprintID = &uid
+		}
+	}
+	if val, ok := updates["story_points"].(int); ok {
+		task.StoryPoints = val
+	}
+	if val, ok := updates["due_date"]; ok {
+		if val == nil {
+			task.DueDate = nil
+		} else if t, ok := val.(time.Time); ok {
+			task.DueDate = &t
+		}
+	}
+	if val, ok := updates["estimated_hours"].(float64); ok {
+		task.EstimatedHours = &val
+	}
+	if val, ok := updates["actual_hours"].(float64); ok {
+		task.ActualHours = &val
+	}
+}
+
+func (s *stubTaskRepo) UpdateTask(taskID uuid.UUID, updates map[string]interface{}) *response.Error {
 	if s.updateErr != nil {
 		return s.updateErr
 	}
-	s.tasks[task.ID] = task
+	task, ok := s.tasks[taskID]
+	if ok {
+		applyUpdatesToTask(task, updates)
+	}
 	return nil
 }
 
@@ -197,10 +251,11 @@ func (s *stubTaskRepo) UpdateTaskLabels(taskID uuid.UUID, labels []models.Label)
 	return nil
 }
 
-func (s *stubTaskRepo) UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error {
-	if t, ok := s.tasks[task.ID]; ok {
-		*t = *task
-		t.Labels = labels
+func (s *stubTaskRepo) UpdateTaskWithLabels(taskID uuid.UUID, updates map[string]interface{}, labels []models.Label) *response.Error {
+	task, ok := s.tasks[taskID]
+	if ok {
+		applyUpdatesToTask(task, updates)
+		task.Labels = labels
 	}
 	return nil
 }

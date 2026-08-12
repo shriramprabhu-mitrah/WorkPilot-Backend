@@ -78,12 +78,12 @@ func (d *projectDatabase) CreateProjectWithMember(project *models.Project, proje
 	return nil
 }
 
-func (d *projectDatabase) UpdateProject(projectID uuid.UUID, req models.Project) *response.Error {
+func (d *projectDatabase) UpdateProject(projectID uuid.UUID, updates map[string]interface{}) *response.Error {
 
 	result := d.db.
 		Model(&models.Project{}).
 		Where("id = ?", projectID).
-		Updates(req)
+		Updates(updates)
 	if result.Error != nil {
 
 		d.logger.Error("Database error occurred",
@@ -301,7 +301,7 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 	return logs, pagination, nil
 }
 
-func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID,) *response.Error {
+func (d *projectDatabase) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
 
 	tx := d.db.Begin()
 	if tx.Error != nil {
