@@ -28,6 +28,7 @@ type TaskRepository interface {
 	MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error
 	GetSprintStatus(sprintID uuid.UUID) (string, *response.Error)
 	GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error)
+	GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error)
 }
 
 func InitTaskRepository(deps models.Config) TaskRepository {

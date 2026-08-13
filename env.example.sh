@@ -52,3 +52,7 @@ export S3_ACCESS_KEY_ID=      # Supabase S3 access key ID
 export S3_SECRET_ACCESS_KEY=  # Supabase S3 secret access key
 export S3_BUCKET=work_pilot_bucket
 export S3_MAX_FILE_SIZE_MB=5  # Maximum logo upload size in megabytes (default: 5)
+
+# Task & Comment Attachment configurations
+export ATTACHMENT_MAX_FILE_SIZE_MB=10 # Maximum attachment size in megabytes (default: 10)
+export ATTACHMENT_MAX_FILES_COUNT=5   # Maximum number of attachments per request (default: 5)
