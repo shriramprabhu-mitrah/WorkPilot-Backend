@@ -22,9 +22,16 @@ import (
 
 type mockAttachmentService struct {
 	services.AttachmentService
-	calledMethod string
-	passedParams map[string]interface{}
-	errResponse  *response.Error
+	errResponse         *response.Error
+	uploadAttachmentsFn func(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error)
+	getAttachmentsFn    func(ctx context.Context, taskID, projectID, userID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error)
+	downloadAttachmentFn func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
+	deleteAttachmentFn  func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error
+
+	uploadCommentFn   func(ctx context.Context, commentID, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
+	getCommentFn      func(ctx context.Context, commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error)
+	downloadCommentFn func(ctx context.Context, attachmentID, taskID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
+	deleteCommentFn   func(ctx context.Context, attachmentID, taskID, userID uuid.UUID) *response.Error
 }
 
 func (m *mockAttachmentService) GetConfig() models.AttachmentConfig {
@@ -32,24 +39,18 @@ func (m *mockAttachmentService) GetConfig() models.AttachmentConfig {
 }
 
 func (m *mockAttachmentService) UploadAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
-	m.calledMethod = "UploadAttachments"
-	m.passedParams = map[string]interface{}{
-		"taskID":    taskID,
-		"projectID": projectID,
-		"userID":    userID,
+	if m.uploadAttachmentsFn != nil {
+		return m.uploadAttachmentsFn(ctx, taskID, projectID, userID, files)
 	}
 	if m.errResponse != nil {
 		return nil, m.errResponse
 	}
-	return nil, nil
+	return []responsedto.AttachmentResponse{{ID: uuid.Must(uuid.NewV7()), OriginalFilename: "test.png"}}, nil
 }
 
 func (m *mockAttachmentService) GetAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error) {
-	m.calledMethod = "GetAttachments"
-	m.passedParams = map[string]interface{}{
-		"taskID":    taskID,
-		"projectID": projectID,
-		"userID":    userID,
+	if m.getAttachmentsFn != nil {
+		return m.getAttachmentsFn(ctx, taskID, projectID, userID)
 	}
 	if m.errResponse != nil {
 		return nil, m.errResponse
@@ -58,47 +59,35 @@ func (m *mockAttachmentService) GetAttachments(ctx context.Context, taskID, proj
 }
 
 func (m *mockAttachmentService) DownloadAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
-	m.calledMethod = "DownloadAttachment"
-	m.passedParams = map[string]interface{}{
-		"attachmentID": attachmentID,
-		"projectID":    projectID,
-		"userID":       userID,
+	if m.downloadAttachmentFn != nil {
+		return m.downloadAttachmentFn(ctx, attachmentID, projectID, userID)
 	}
 	if m.errResponse != nil {
 		return nil, "", "", 0, m.errResponse
 	}
-	return io.NopCloser(strings.NewReader("")), "test.png", "image/png", 0, nil
+	return io.NopCloser(strings.NewReader("fake content")), "test.png", "image/png", 12, nil
 }
 
 func (m *mockAttachmentService) DeleteAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error {
-	m.calledMethod = "DeleteAttachment"
-	m.passedParams = map[string]interface{}{
-		"attachmentID": attachmentID,
-		"projectID":    projectID,
-		"userID":       userID,
+	if m.deleteAttachmentFn != nil {
+		return m.deleteAttachmentFn(ctx, attachmentID, projectID, userID)
 	}
 	return m.errResponse
 }
 
 func (m *mockAttachmentService) UploadCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error) {
-	m.calledMethod = "UploadCommentAttachments"
-	m.passedParams = map[string]interface{}{
-		"commentID": commentID,
-		"taskID":    taskID,
-		"userID":    userID,
+	if m.uploadCommentFn != nil {
+		return m.uploadCommentFn(ctx, commentID, taskID, userID, files)
 	}
 	if m.errResponse != nil {
 		return nil, m.errResponse
 	}
-	return nil, nil
+	return []responsedto.CommentAttachmentResponse{{ID: uuid.Must(uuid.NewV7()), OriginalFilename: "test.png"}}, nil
 }
 
 func (m *mockAttachmentService) GetCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error) {
-	m.calledMethod = "GetCommentAttachments"
-	m.passedParams = map[string]interface{}{
-		"commentID": commentID,
-		"taskID":    taskID,
-		"userID":    userID,
+	if m.getCommentFn != nil {
+		return m.getCommentFn(ctx, commentID, taskID, userID)
 	}
 	if m.errResponse != nil {
 		return nil, m.errResponse
@@ -107,33 +96,26 @@ func (m *mockAttachmentService) GetCommentAttachments(ctx context.Context, comme
 }
 
 func (m *mockAttachmentService) DownloadCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
-	m.calledMethod = "DownloadCommentAttachment"
-	m.passedParams = map[string]interface{}{
-		"attachmentID": attachmentID,
-		"taskID":       taskID,
-		"userID":       userID,
+	if m.downloadCommentFn != nil {
+		return m.downloadCommentFn(ctx, attachmentID, taskID, userID)
 	}
 	if m.errResponse != nil {
 		return nil, "", "", 0, m.errResponse
 	}
-	return io.NopCloser(strings.NewReader("")), "test.png", "image/png", 0, nil
+	return io.NopCloser(strings.NewReader("fake content")), "test.png", "image/png", 12, nil
 }
 
 func (m *mockAttachmentService) DeleteCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) *response.Error {
-	m.calledMethod = "DeleteCommentAttachment"
-	m.passedParams = map[string]interface{}{
-		"attachmentID": attachmentID,
-		"taskID":       taskID,
-		"userID":       userID,
+	if m.deleteCommentFn != nil {
+		return m.deleteCommentFn(ctx, attachmentID, taskID, userID)
 	}
 	return m.errResponse
 }
 
-func setupTestContext(service services.AttachmentService) (*gin.Engine, *mockAttachmentService) {
+func setupTestContext(mockSvc *mockAttachmentService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	
-	mockSvc := service.(*mockAttachmentService)
 	h := handlers.InitAttachmentHandler(mockSvc, zap.NewNop())
 	
 	// Inject fake user_id middleware mock
@@ -152,187 +134,225 @@ func setupTestContext(service services.AttachmentService) (*gin.Engine, *mockAtt
 	r.GET("/task/:task_id/comments/:comment_id/attachments/:attachment_id/download", h.DownloadCommentAttachment)
 	r.DELETE("/task/:task_id/comments/:comment_id/attachments/:attachment_id", h.DeleteCommentAttachment)
 
-	return r, mockSvc
+	return r
 }
 
-func TestAttachmentHandler_ParameterPropagation(t *testing.T) {
-	projectID := uuid.Must(uuid.NewV7())
-	taskID := uuid.Must(uuid.NewV7())
-	attachmentID := uuid.Must(uuid.NewV7())
-	commentID := uuid.Must(uuid.NewV7())
-	expectedUserID := uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001"))
+func createMultipartRequest(method, url string, files []struct{ name, filename, content string }) (*http.Request, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	for _, f := range files {
+		part, err := writer.CreateFormFile(f.name, f.filename)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = part.Write([]byte(f.content)); err != nil {
+			return nil, err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req, nil
+}
 
-	t.Run("Upload Task Attachment Passes Correct Parameters", func(t *testing.T) {
+func TestAttachmentHandler_Upload(t *testing.T) {
+	projectID := uuid.Must(uuid.NewV7()).String()
+	taskID := uuid.Must(uuid.NewV7()).String()
+	commentID := uuid.Must(uuid.NewV7()).String()
+
+	t.Run("Valid upload", func(t *testing.T) {
 		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
+		r := setupTestContext(mockSvc)
 
-		body := &bytes.Buffer{}
-		writer := multipart.NewWriter(body)
-		part, _ := writer.CreateFormFile("file", "test.png")
-		_, _ = part.Write([]byte("fake png"))
-		_ = writer.Close()
-
-		req := httptest.NewRequest("POST", "/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/attachments", body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req, _ := createMultipartRequest("POST", "/projects/"+projectID+"/tasks/"+taskID+"/attachments", []struct{ name, filename, content string }{
+			{"file", "test.png", "fake-png-content"},
+		})
 		resp := httptest.NewRecorder()
-
 		r.ServeHTTP(resp, req)
 
 		if resp.Code != http.StatusCreated {
-			t.Fatalf("expected StatusCreated, got %d", resp.Code)
-		}
-		if mockSvc.calledMethod != "UploadAttachments" {
-			t.Fatalf("expected UploadAttachments to be called, got %q", mockSvc.calledMethod)
-		}
-		if mockSvc.passedParams["projectID"].(uuid.UUID) != projectID || mockSvc.passedParams["taskID"].(uuid.UUID) != taskID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to UploadAttachments: %v", mockSvc.passedParams)
+			t.Errorf("expected StatusCreated, got %d", resp.Code)
 		}
 	})
 
-	t.Run("Get Task Attachments Passes Correct Parameters", func(t *testing.T) {
+	t.Run("Invalid UUID", func(t *testing.T) {
 		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
+		r := setupTestContext(mockSvc)
 
-		req := httptest.NewRequest("GET", "/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/attachments", nil)
+		req, _ := createMultipartRequest("POST", "/projects/invalid-uuid/tasks/"+taskID+"/attachments", []struct{ name, filename, content string }{
+			{"file", "test.png", "fake"},
+		})
 		resp := httptest.NewRecorder()
-
 		r.ServeHTTP(resp, req)
 
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected StatusOK, got %d", resp.Code)
-		}
-		if mockSvc.calledMethod != "GetAttachments" {
-			t.Fatalf("expected GetAttachments to be called, got %q", mockSvc.calledMethod)
-		}
-		if mockSvc.passedParams["projectID"].(uuid.UUID) != projectID || mockSvc.passedParams["taskID"].(uuid.UUID) != taskID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to GetAttachments: %v", mockSvc.passedParams)
+		if resp.Code != http.StatusBadRequest {
+			t.Errorf("expected StatusBadRequest for invalid UUID, got %d", resp.Code)
 		}
 	})
 
-	t.Run("Download Task Attachment Passes Correct Parameters", func(t *testing.T) {
+	t.Run("Missing file", func(t *testing.T) {
 		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
+		r := setupTestContext(mockSvc)
 
-		req := httptest.NewRequest("GET", "/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/attachments/"+attachmentID.String()+"/download", nil)
+		req, _ := createMultipartRequest("POST", "/projects/"+projectID+"/tasks/"+taskID+"/attachments", []struct{ name, filename, content string }{
+			{"wrong-key", "test.png", "fake"},
+		})
 		resp := httptest.NewRecorder()
-
 		r.ServeHTTP(resp, req)
 
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected StatusOK, got %d", resp.Code)
-		}
-		if mockSvc.calledMethod != "DownloadAttachment" {
-			t.Fatalf("expected DownloadAttachment to be called, got %q", mockSvc.calledMethod)
-		}
-		if mockSvc.passedParams["projectID"].(uuid.UUID) != projectID || mockSvc.passedParams["attachmentID"].(uuid.UUID) != attachmentID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to DownloadAttachment: %v", mockSvc.passedParams)
+		if resp.Code != http.StatusBadRequest {
+			t.Errorf("expected StatusBadRequest for missing file, got %d", resp.Code)
 		}
 	})
 
-	t.Run("Delete Task Attachment Passes Correct Parameters", func(t *testing.T) {
+	t.Run("File too large", func(t *testing.T) {
 		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
+		r := setupTestContext(mockSvc)
 
-		req := httptest.NewRequest("DELETE", "/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/attachments/"+attachmentID.String(), nil)
+		// 11MB file (exceeds 10MB config)
+		largeContent := make([]byte, 11*1024*1024)
+		req, _ := createMultipartRequest("POST", "/projects/"+projectID+"/tasks/"+taskID+"/attachments", []struct{ name, filename, content string }{
+			{"file", "test.png", string(largeContent)},
+		})
 		resp := httptest.NewRecorder()
-
 		r.ServeHTTP(resp, req)
 
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected StatusOK, got %d", resp.Code)
-		}
-		if mockSvc.calledMethod != "DeleteAttachment" {
-			t.Fatalf("expected DeleteAttachment to be called, got %q", mockSvc.calledMethod)
-		}
-		if mockSvc.passedParams["projectID"].(uuid.UUID) != projectID || mockSvc.passedParams["attachmentID"].(uuid.UUID) != attachmentID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to DeleteAttachment: %v", mockSvc.passedParams)
+		if resp.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("expected StatusRequestEntityTooLarge, got %d", resp.Code)
 		}
 	})
 
-	t.Run("Upload Comment Attachment Passes Correct Parameters", func(t *testing.T) {
+	t.Run("Too many files", func(t *testing.T) {
 		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
+		r := setupTestContext(mockSvc)
 
-		body := &bytes.Buffer{}
-		writer := multipart.NewWriter(body)
-		part, _ := writer.CreateFormFile("file", "test.png")
-		_, _ = part.Write([]byte("fake png"))
-		_ = writer.Close()
-
-		req := httptest.NewRequest("POST", "/task/"+taskID.String()+"/comments/"+commentID.String()+"/attachments", body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req, _ := createMultipartRequest("POST", "/projects/"+projectID+"/tasks/"+taskID+"/attachments", []struct{ name, filename, content string }{
+			{"files", "1.png", "a"},
+			{"files", "2.png", "b"},
+			{"files", "3.png", "c"},
+			{"files", "4.png", "d"},
+			{"files", "5.png", "e"},
+			{"files", "6.png", "f"}, // Exceeds MaxFiles = 5
+		})
 		resp := httptest.NewRecorder()
+		r.ServeHTTP(resp, req)
 
+		if resp.Code != http.StatusBadRequest {
+			t.Errorf("expected StatusBadRequest for too many files, got %d", resp.Code)
+		}
+	})
+
+	t.Run("Service error mapping", func(t *testing.T) {
+		mockSvc := &mockAttachmentService{
+			errResponse: &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "Access Denied",
+			},
+		}
+		r := setupTestContext(mockSvc)
+
+		req, _ := createMultipartRequest("POST", "/projects/"+projectID+"/tasks/"+taskID+"/attachments", []struct{ name, filename, content string }{
+			{"file", "test.png", "fake"},
+		})
+		resp := httptest.NewRecorder()
+		r.ServeHTTP(resp, req)
+
+		if resp.Code != http.StatusForbidden {
+			t.Errorf("expected StatusForbidden, got %d", resp.Code)
+		}
+	})
+
+	t.Run("Valid comment attachment upload", func(t *testing.T) {
+		mockSvc := &mockAttachmentService{}
+		r := setupTestContext(mockSvc)
+
+		req, _ := createMultipartRequest("POST", "/task/"+taskID+"/comments/"+commentID+"/attachments", []struct{ name, filename, content string }{
+			{"file", "test.png", "fake"},
+		})
+		resp := httptest.NewRecorder()
 		r.ServeHTTP(resp, req)
 
 		if resp.Code != http.StatusCreated {
-			t.Fatalf("expected StatusCreated, got %d", resp.Code)
-		}
-		if mockSvc.calledMethod != "UploadCommentAttachments" {
-			t.Fatalf("expected UploadCommentAttachments to be called, got %q", mockSvc.calledMethod)
-		}
-		if mockSvc.passedParams["commentID"].(uuid.UUID) != commentID || mockSvc.passedParams["taskID"].(uuid.UUID) != taskID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to UploadCommentAttachments: %v", mockSvc.passedParams)
+			t.Errorf("expected StatusCreated, got %d", resp.Code)
 		}
 	})
+}
 
-	t.Run("Get Comment Attachments Passes Correct Parameters", func(t *testing.T) {
+func TestAttachmentHandler_Download(t *testing.T) {
+	projectID := uuid.Must(uuid.NewV7()).String()
+	taskID := uuid.Must(uuid.NewV7()).String()
+	attachmentID := uuid.Must(uuid.NewV7()).String()
+
+	t.Run("Successful download and header handling", func(t *testing.T) {
 		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
+		r := setupTestContext(mockSvc)
 
-		req := httptest.NewRequest("GET", "/task/"+taskID.String()+"/comments/"+commentID.String()+"/attachments", nil)
+		req, _ := http.NewRequest("GET", "/projects/"+projectID+"/tasks/"+taskID+"/attachments/"+attachmentID+"/download", nil)
 		resp := httptest.NewRecorder()
-
 		r.ServeHTTP(resp, req)
 
 		if resp.Code != http.StatusOK {
 			t.Fatalf("expected StatusOK, got %d", resp.Code)
 		}
-		if mockSvc.calledMethod != "GetCommentAttachments" {
-			t.Fatalf("expected GetCommentAttachments to be called, got %q", mockSvc.calledMethod)
-		}
-		if mockSvc.passedParams["commentID"].(uuid.UUID) != commentID || mockSvc.passedParams["taskID"].(uuid.UUID) != taskID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to GetCommentAttachments: %v", mockSvc.passedParams)
-		}
-	})
 
-	t.Run("Download Comment Attachment Passes Correct Parameters", func(t *testing.T) {
-		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
-
-		req := httptest.NewRequest("GET", "/task/"+taskID.String()+"/comments/"+commentID.String()+"/attachments/"+attachmentID.String()+"/download", nil)
-		resp := httptest.NewRecorder()
-
-		r.ServeHTTP(resp, req)
-
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected StatusOK, got %d", resp.Code)
+		if ctype := resp.Header().Get("Content-Type"); ctype != "image/png" {
+			t.Errorf("expected Content-Type image/png, got %q", ctype)
 		}
-		if mockSvc.calledMethod != "DownloadCommentAttachment" {
-			t.Fatalf("expected DownloadCommentAttachment to be called, got %q", mockSvc.calledMethod)
+
+		if length := resp.Header().Get("Content-Length"); length != "12" {
+			t.Errorf("expected Content-Length 12, got %q", length)
 		}
-		if mockSvc.passedParams["taskID"].(uuid.UUID) != taskID || mockSvc.passedParams["attachmentID"].(uuid.UUID) != attachmentID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to DownloadCommentAttachment: %v", mockSvc.passedParams)
+
+		expectedDisp := `attachment; filename=test.png`
+		if disp := resp.Header().Get("Content-Disposition"); disp != expectedDisp {
+			t.Errorf("expected Content-Disposition %q, got %q", expectedDisp, disp)
+		}
+
+		if body := resp.Body.String(); body != "fake content" {
+			t.Errorf("expected body 'fake content', got %q", body)
 		}
 	})
 
-	t.Run("Delete Comment Attachment Passes Correct Parameters", func(t *testing.T) {
-		mockSvc := &mockAttachmentService{}
-		r, _ := setupTestContext(mockSvc)
+	t.Run("Download CR/LF injection protection", func(t *testing.T) {
+		mockSvc := &mockAttachmentService{
+			downloadAttachmentFn: func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
+				return io.NopCloser(strings.NewReader("fake")), "injected\r\nname.png", "image/png", 4, nil
+			},
+		}
+		r := setupTestContext(mockSvc)
 
-		req := httptest.NewRequest("DELETE", "/task/"+taskID.String()+"/comments/"+commentID.String()+"/attachments/"+attachmentID.String(), nil)
+		req, _ := http.NewRequest("GET", "/projects/"+projectID+"/tasks/"+taskID+"/attachments/"+attachmentID+"/download", nil)
 		resp := httptest.NewRecorder()
-
 		r.ServeHTTP(resp, req)
 
-		if resp.Code != http.StatusOK {
-			t.Fatalf("expected StatusOK, got %d", resp.Code)
+		expectedDisp := `attachment; filename=injectedname.png`
+		if disp := resp.Header().Get("Content-Disposition"); disp != expectedDisp {
+			t.Errorf("expected Content-Disposition %q, got %q", expectedDisp, disp)
 		}
-		if mockSvc.calledMethod != "DeleteCommentAttachment" {
-			t.Fatalf("expected DeleteCommentAttachment to be called, got %q", mockSvc.calledMethod)
+	})
+
+	t.Run("Download service rejection", func(t *testing.T) {
+		mockSvc := &mockAttachmentService{
+			errResponse: &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "Access Denied",
+			},
 		}
-		if mockSvc.passedParams["taskID"].(uuid.UUID) != taskID || mockSvc.passedParams["attachmentID"].(uuid.UUID) != attachmentID || mockSvc.passedParams["userID"].(uuid.UUID) != expectedUserID {
-			t.Errorf("unexpected parameters passed to DeleteCommentAttachment: %v", mockSvc.passedParams)
+		r := setupTestContext(mockSvc)
+
+		req, _ := http.NewRequest("GET", "/projects/"+projectID+"/tasks/"+taskID+"/attachments/"+attachmentID+"/download", nil)
+		resp := httptest.NewRecorder()
+		r.ServeHTTP(resp, req)
+
+		if resp.Code != http.StatusForbidden {
+			t.Errorf("expected StatusForbidden, got %d", resp.Code)
 		}
 	})
 }

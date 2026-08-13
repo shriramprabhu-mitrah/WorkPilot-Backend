@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -27,6 +28,82 @@ func InitAttachmentHandler(service services.AttachmentService, logger *zap.Logge
 	}
 }
 
+func (h *attachmentHandler) parseFiles(g *gin.Context) ([]*multipart.FileHeader, *response.Error, string) {
+	cfg := h.service.GetConfig()
+	maxSizeMB := cfg.MaxFileSizeMB
+	maxFiles := cfg.MaxFiles
+
+	maxRequestSize := (maxSizeMB * 1024 * 1024 * int64(maxFiles)) + (10 * 1024 * 1024)
+	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
+
+	form, formErr := g.MultipartForm()
+	if formErr != nil {
+		h.logger.Error("Failed to parse multipart form", zap.Error(formErr))
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Failed to parse multipart form",
+		}, "Failed to parse multipart form"
+	}
+
+	var allHeaders []*multipart.FileHeader
+	for key, headers := range form.File {
+		if key == "file" || key == "files" {
+			allHeaders = append(allHeaders, headers...)
+		}
+	}
+
+	if len(allHeaders) == 0 {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Missing file(s) in request payload (use form-data keys 'file' or 'files')",
+		}, "Missing file parameter"
+	}
+
+	if len(allHeaders) > maxFiles {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    fmt.Sprintf("Maximum of %d files can be uploaded per request.", maxFiles),
+		}, "Too many files in request"
+	}
+
+	for _, header := range allHeaders {
+		if header.Size > maxSizeMB*1024*1024 {
+			return nil, &response.Error{
+				Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
+				StatusCode: http.StatusRequestEntityTooLarge,
+				Message:    fmt.Sprintf("File %s exceeds the maximum allowed size of %d MB.", header.Filename, maxSizeMB),
+			}, "File size limit exceeded"
+		}
+	}
+
+	return allHeaders, nil, ""
+}
+
+func writeAttachmentDownload(
+	g *gin.Context,
+	stream io.ReadCloser,
+	filename string,
+	mimeType string,
+	size int64,
+) {
+	defer stream.Close()
+
+	// Sanitize original filename to prevent CR/LF header injection
+	filename = strings.ReplaceAll(filename, "\n", "")
+	filename = strings.ReplaceAll(filename, "\r", "")
+
+	// Use RFC 6266 Content-Disposition formatting to handle special characters securely
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
+	g.Header("Content-Disposition", disposition)
+	g.Header("Content-Type", mimeType)
+	g.Header("Content-Length", strconv.FormatInt(size, 10))
+
+	g.DataFromReader(http.StatusOK, size, mimeType, stream, nil)
+}
+
 // UploadAttachment godoc
 // @Summary Upload Task Attachment
 // @Description Upload a file associated with a task
@@ -43,13 +120,6 @@ func InitAttachmentHandler(service services.AttachmentService, logger *zap.Logge
 // @Failure 500 {object} response.ErrorResponse
 // @Router /projects/{project_id}/tasks/{task_id}/attachments [post]
 func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
-	cfg := h.service.GetConfig()
-	maxSizeMB := cfg.MaxFileSizeMB
-	maxFiles := cfg.MaxFiles
-
-	maxRequestSize := (maxSizeMB * 1024 * 1024 * int64(maxFiles)) + (10 * 1024 * 1024)
-	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
-
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
 		return
@@ -69,51 +139,10 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 		return
 	}
 
-	form, formErr := g.MultipartForm()
-	if formErr != nil {
-		h.logger.Error("Failed to parse multipart form", zap.Error(formErr))
-		writeErrorResponse(g, h.logger, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Failed to parse multipart form",
-		}, "Failed to parse multipart form")
+	allHeaders, apiErr, logMsg := h.parseFiles(g)
+	if apiErr != nil {
+		writeErrorResponse(g, h.logger, *apiErr, logMsg)
 		return
-	}
-
-	var allHeaders []*multipart.FileHeader
-	for key, headers := range form.File {
-		if key == "file" || key == "files" {
-			allHeaders = append(allHeaders, headers...)
-		}
-	}
-
-	if len(allHeaders) == 0 {
-		writeErrorResponse(g, h.logger, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Missing file(s) in request payload (use form-data keys 'file' or 'files')",
-		}, "Missing file parameter")
-		return
-	}
-
-	if len(allHeaders) > maxFiles {
-		writeErrorResponse(g, h.logger, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    fmt.Sprintf("Maximum of %d files can be uploaded per request.", maxFiles),
-		}, "Too many files in request")
-		return
-	}
-
-	for _, header := range allHeaders {
-		if header.Size > maxSizeMB*1024*1024 {
-			writeErrorResponse(g, h.logger, response.Error{
-				Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
-				StatusCode: http.StatusRequestEntityTooLarge,
-				Message:    fmt.Sprintf("File %s exceeds the maximum allowed size of %d MB.", header.Filename, maxSizeMB),
-			}, "File size limit exceeded")
-			return
-		}
 	}
 
 	res, err := h.service.UploadAttachments(g.Request.Context(), taskUUID, projectUUID, userUUID, allHeaders)
@@ -213,19 +242,8 @@ func (h *attachmentHandler) DownloadAttachment(g *gin.Context) {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
 	}
-	defer stream.Close()
 
-	// Sanitize original filename to prevent CR/LF header injection
-	filename = strings.ReplaceAll(filename, "\n", "")
-	filename = strings.ReplaceAll(filename, "\r", "")
-
-	// Use RFC 6266 Content-Disposition formatting to handle special characters securely
-	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
-	g.Header("Content-Disposition", disposition)
-	g.Header("Content-Type", mimeType)
-	g.Header("Content-Length", strconv.FormatInt(size, 10))
-
-	g.DataFromReader(http.StatusOK, size, mimeType, stream, nil)
+	writeAttachmentDownload(g, stream, filename, mimeType, size)
 }
 
 // DeleteAttachment godoc
@@ -289,13 +307,6 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /task/{task_id}/comments/{comment_id}/attachments [post]
 func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
-	cfg := h.service.GetConfig()
-	maxSizeMB := cfg.MaxFileSizeMB
-	maxFiles := cfg.MaxFiles
-
-	maxRequestSize := (maxSizeMB * 1024 * 1024 * int64(maxFiles)) + (10 * 1024 * 1024)
-	g.Request.Body = http.MaxBytesReader(g.Writer, g.Request.Body, maxRequestSize)
-
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
 		return
@@ -315,51 +326,10 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	form, formErr := g.MultipartForm()
-	if formErr != nil {
-		h.logger.Error("Failed to parse multipart form", zap.Error(formErr))
-		writeErrorResponse(g, h.logger, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Failed to parse multipart form",
-		}, "Failed to parse multipart form")
+	allHeaders, apiErr, logMsg := h.parseFiles(g)
+	if apiErr != nil {
+		writeErrorResponse(g, h.logger, *apiErr, logMsg)
 		return
-	}
-
-	var allHeaders []*multipart.FileHeader
-	for key, headers := range form.File {
-		if key == "file" || key == "files" {
-			allHeaders = append(allHeaders, headers...)
-		}
-	}
-
-	if len(allHeaders) == 0 {
-		writeErrorResponse(g, h.logger, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Missing file(s) in request payload (use form-data keys 'file' or 'files')",
-		}, "Missing file parameter")
-		return
-	}
-
-	if len(allHeaders) > maxFiles {
-		writeErrorResponse(g, h.logger, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    fmt.Sprintf("Maximum of %d files can be uploaded per request.", maxFiles),
-		}, "Too many files in request")
-		return
-	}
-
-	for _, header := range allHeaders {
-		if header.Size > maxSizeMB*1024*1024 {
-			writeErrorResponse(g, h.logger, response.Error{
-				Code:       response.ErrorCode("PAYLOAD_TOO_LARGE"),
-				StatusCode: http.StatusRequestEntityTooLarge,
-				Message:    fmt.Sprintf("File %s exceeds the maximum allowed size of %d MB.", header.Filename, maxSizeMB),
-			}, "File size limit exceeded")
-			return
-		}
 	}
 
 	res, err := h.service.UploadCommentAttachments(g.Request.Context(), commentUUID, taskUUID, userUUID, allHeaders)
@@ -459,19 +429,8 @@ func (h *attachmentHandler) DownloadCommentAttachment(g *gin.Context) {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
 	}
-	defer stream.Close()
 
-	// Sanitize original filename to prevent CR/LF header injection
-	filename = strings.ReplaceAll(filename, "\n", "")
-	filename = strings.ReplaceAll(filename, "\r", "")
-
-	// Use RFC 6266 Content-Disposition formatting to handle special characters securely
-	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename})
-	g.Header("Content-Disposition", disposition)
-	g.Header("Content-Type", mimeType)
-	g.Header("Content-Length", strconv.FormatInt(size, 10))
-
-	g.DataFromReader(http.StatusOK, size, mimeType, stream, nil)
+	writeAttachmentDownload(g, stream, filename, mimeType, size)
 }
 
 // DeleteCommentAttachment godoc
