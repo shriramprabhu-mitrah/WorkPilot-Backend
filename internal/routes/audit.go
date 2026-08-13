@@ -26,6 +26,6 @@ func AuditRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	aud := api.Group("/audit")
 	{
-		aud.GET("", middleware.ValidateJWT(), auditHandler.GetAuditLogs)
+		aud.GET("/:activity_type", middleware.ValidateJWT(), auditHandler.GetAuditLogs)
 	}
 }

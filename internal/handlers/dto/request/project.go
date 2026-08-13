@@ -67,8 +67,6 @@ type ProjectFilterRequest struct {
 	UserID         uuid.UUID     `form:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID     `form:"-" swaggerignore:"true"`
 	IncludeSprints bool          `form:"include_sprints"`
-	UserID         uuid.UUID     `form:"-" swaggerignore:"true"`
-	OrganizationID uuid.UUID     `form:"-" swaggerignore:"true"`
 }
 
 type ProjectFilter struct {
