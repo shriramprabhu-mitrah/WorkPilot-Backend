@@ -67,7 +67,39 @@ func (d *attachmentDatabase) DeleteAttachment(id uuid.UUID) *response.Error {
 	return nil
 }
 
+func (d *attachmentDatabase) DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error {
+	txErr := d.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("id = ?", attachmentID).Delete(&models.TaskAttachment{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
 
+		orphan := models.OrphanedFile{
+			StoragePath: storagePath,
+		}
+		return tx.Create(&orphan).Error
+	})
+
+	if txErr != nil {
+		if txErr == gorm.ErrRecordNotFound {
+			return &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Attachment not found",
+			}
+		}
+		d.logger.Error("Failed to transactionally delete attachment and record orphan", zap.Error(txErr))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to delete attachment metadata",
+		}
+	}
+	return nil
+}
 
 
 
