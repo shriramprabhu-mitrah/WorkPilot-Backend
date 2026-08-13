@@ -64,6 +64,8 @@ type ProjectFilterRequest struct {
 	Name           string        `form:"name"`
 	Status         ProjectStatus `form:"status"`
 	FieldName      string        `form:"fieldName"`
+	UserID         uuid.UUID     `form:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID     `form:"-" swaggerignore:"true"`
 	IncludeSprints bool          `form:"include_sprints"`
 	UserID         uuid.UUID     `form:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID     `form:"-" swaggerignore:"true"`
