@@ -17,6 +17,7 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		&models.ProjectMember{},
 		&models.Sprint{},
 		&models.Task{},
+		&models.UserStory{},
 		&models.SprintSnapshot{},
 		&models.Label{},
 		&models.Comments{},
