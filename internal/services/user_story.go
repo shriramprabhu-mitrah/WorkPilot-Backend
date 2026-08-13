@@ -169,7 +169,7 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		return nil, getErr
 	}
 
-	res := mapToUserStoryResponse(*createdStory, 0.0)
+	res := mapToUserStoryResponse(*createdStory, 0, 0, 0.0)
 	return &res, nil
 }
 
@@ -195,12 +195,17 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 	if statErr != nil {
 		return nil, statErr
 	}
+	var total, completed int64
 	progress := 0.0
-	if stat, ok := statsMap[userStoryID]; ok && stat.TotalTasks > 0 {
-		progress = (float64(stat.Completed) / float64(stat.TotalTasks)) * 100.0
+	if stat, ok := statsMap[userStoryID]; ok {
+		total = stat.TotalTasks
+		completed = stat.Completed
+		if total > 0 {
+			progress = (float64(completed) / float64(total)) * 100.0
+		}
 	}
 
-	res := mapToUserStoryResponse(*story, progress)
+	res := mapToUserStoryResponse(*story, total, completed, progress)
 	return &res, nil
 }
 
@@ -345,12 +350,17 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 	if statErr != nil {
 		return nil, statErr
 	}
+	var total, completed int64
 	progress := 0.0
-	if stat, ok := statsMap[req.UserStoryID]; ok && stat.TotalTasks > 0 {
-		progress = (float64(stat.Completed) / float64(stat.TotalTasks)) * 100.0
+	if stat, ok := statsMap[req.UserStoryID]; ok {
+		total = stat.TotalTasks
+		completed = stat.Completed
+		if total > 0 {
+			progress = (float64(completed) / float64(total)) * 100.0
+		}
 	}
 
-	res := mapToUserStoryResponse(*updatedStory, progress)
+	res := mapToUserStoryResponse(*updatedStory, total, completed, progress)
 	return &res, nil
 }
 
@@ -401,17 +411,22 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 
 	resList := []responsedto.UserStoryResponse{}
 	for _, story := range stories {
+		var total, completed int64
 		progress := 0.0
-		if stat, ok := statsMap[story.ID]; ok && stat.TotalTasks > 0 {
-			progress = (float64(stat.Completed) / float64(stat.TotalTasks)) * 100.0
+		if stat, ok := statsMap[story.ID]; ok {
+			total = stat.TotalTasks
+			completed = stat.Completed
+			if total > 0 {
+				progress = (float64(completed) / float64(total)) * 100.0
+			}
 		}
-		resList = append(resList, mapToUserStoryResponse(story, progress))
+		resList = append(resList, mapToUserStoryResponse(story, total, completed, progress))
 	}
 
 	return resList, pagination, nil
 }
 
-func mapToUserStoryResponse(story models.UserStory, progress float64) responsedto.UserStoryResponse {
+func mapToUserStoryResponse(story models.UserStory, totalTasks, completedTasks int64, progress float64) responsedto.UserStoryResponse {
 	var sprintName string
 	if story.Sprint != nil {
 		sprintName = story.Sprint.Name
@@ -422,22 +437,24 @@ func mapToUserStoryResponse(story models.UserStory, progress float64) responsedt
 	}
 
 	res := responsedto.UserStoryResponse{
-		ID:           story.ID,
-		ProjectID:    story.ProjectID,
-		SprintID:     story.SprintID,
-		SprintName:   sprintName,
-		Title:        story.Title,
-		Description:  story.Description,
-		Priority:     story.Priority,
-		Status:       story.Status,
-		StoryPoints:  story.StoryPoints,
-		AssigneeID:   story.AssigneeID,
-		AssigneeName: assigneeName,
-		ReporterID:   story.ReporterID,
-		ReporterName: story.Reporter.FullName,
-		BacklogOrder: story.BacklogOrder,
-		Progress:     progress,
-		CreatedAt:    story.CreatedAt,
+		ID:             story.ID,
+		ProjectID:      story.ProjectID,
+		SprintID:       story.SprintID,
+		SprintName:     sprintName,
+		Title:          story.Title,
+		Description:    story.Description,
+		Priority:       story.Priority,
+		Status:         story.Status,
+		StoryPoints:    story.StoryPoints,
+		AssigneeID:     story.AssigneeID,
+		AssigneeName:   assigneeName,
+		ReporterID:     story.ReporterID,
+		ReporterName:   story.Reporter.FullName,
+		BacklogOrder:   story.BacklogOrder,
+		TotalTasks:     totalTasks,
+		CompletedTasks: completedTasks,
+		Progress:       progress,
+		CreatedAt:      story.CreatedAt,
 		UpdatedAt:    story.UpdatedAt,
 	}
 
