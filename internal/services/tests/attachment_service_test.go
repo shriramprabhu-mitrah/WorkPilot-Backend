@@ -219,7 +219,7 @@ type stubAttachmentTaskRepo struct {
 }
 
 func (s *stubAttachmentTaskRepo) CreateTask(task *models.Task) *response.Error { return nil }
-func (s *stubAttachmentTaskRepo) UpdateTask(task *models.Task) *response.Error { return nil }
+func (s *stubAttachmentTaskRepo) UpdateTask(taskID uuid.UUID, updates map[string]interface{}) *response.Error { return nil }
 func (s *stubAttachmentTaskRepo) DeleteTask(id uuid.UUID, projectID uuid.UUID) *response.Error {
 	return nil
 }
@@ -241,7 +241,7 @@ func (s *stubAttachmentTaskRepo) VerifyLabelIDs(projectID uuid.UUID, labelIDs []
 func (s *stubAttachmentTaskRepo) UpdateTaskLabels(taskID uuid.UUID, labels []models.Label) *response.Error {
 	return nil
 }
-func (s *stubAttachmentTaskRepo) UpdateTaskWithLabels(task *models.Task, labels []models.Label) *response.Error {
+func (s *stubAttachmentTaskRepo) UpdateTaskWithLabels(taskID uuid.UUID, updates map[string]interface{}, labels []models.Label) *response.Error {
 	return nil
 }
 func (s *stubAttachmentTaskRepo) AttachLabel(taskID uuid.UUID, label *models.Label) *response.Error {
@@ -301,7 +301,7 @@ type stubAttachmentProjectRepo struct {
 func (s *stubAttachmentProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
 	return nil
 }
-func (s *stubAttachmentProjectRepo) UpdateProject(projectID uuid.UUID, req models.Project) *response.Error {
+func (s *stubAttachmentProjectRepo) UpdateProject(projectID uuid.UUID, updates map[string]interface{}) *response.Error {
 	return nil
 }
 func (s *stubAttachmentProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
@@ -356,7 +356,7 @@ func (s *stubAttachmentAuditLogRepo) CreateAuditLog(log models.AuditLog) *respon
 	s.logs = append(s.logs, log)
 	return nil
 }
-func (s *stubAttachmentAuditLogRepo) GetAuditLogByUserID(userID uuid.UUID, pagination response.PaginationQuery) ([]models.AuditLog, response.Pagination, *response.Error) {
+func (s *stubAttachmentAuditLogRepo) GetAuditLogs(req dto.GetAudit) ([]models.AuditLog, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
 

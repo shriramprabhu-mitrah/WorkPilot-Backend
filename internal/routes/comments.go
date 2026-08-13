@@ -24,7 +24,7 @@ func CommentsRoutes(deps models.Config, api *gin.RouterGroup) {
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	authRepo := authrepo.InitAuthRepository(deps)
 	taskRepo := taskrepo.InitTaskRepository(deps)
-	auditRepo := auditrepo.InitAuditLogRepository(deps)
+	auditRepo := auditrepo.InitAuditRepository(deps)
 	attachmentRepo := attachmentrepo.InitAttachmentRepository(deps)
 	commentAttachmentRepo := commentattachmentrepo.InitCommentAttachmentRepository(deps)
 	cleanupRepo := filecleanuprepo.InitFileCleanupRepository(deps)
