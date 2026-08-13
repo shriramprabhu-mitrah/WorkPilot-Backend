@@ -18,6 +18,7 @@ type SprintRepository interface {
 	DeleteSprint(id uuid.UUID) *response.Error
 	GetSprintByID(sprintID, projectID uuid.UUID) (*models.Sprint, *response.Error)
 	GetSprints(projectID uuid.UUID, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
+	GetSprintsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID][]models.Sprint, *response.Error)
 	IsSprintExists(projectID uuid.UUID, name string) (bool, *response.Error)
 	IsSprintDateRangeExists(projectID uuid.UUID, startDate, endDate time.Time, excludeSprintID uuid.UUID) (bool, *response.Error)
 	CreateSprintSnapshot(snapshot models.SprintSnapshot) *response.Error

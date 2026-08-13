@@ -91,6 +91,14 @@ func (s *sprintRepoStub) GetSprints(projectID uuid.UUID, filter dto.SprintFilter
 	return s.getSprintsRes, s.getSprintsPage, s.getSprintsErr
 }
 
+func (s *sprintRepoStub) GetSprintsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID][]models.Sprint, *response.Error) {
+	result := make(map[uuid.UUID][]models.Sprint)
+	for _, projectID := range projectIDs {
+		result[projectID] = []models.Sprint{}
+	}
+	return result, nil
+}
+
 func (s *sprintRepoStub) GetSprintByID(projectID uuid.UUID, sprintID uuid.UUID) (*models.Sprint, *response.Error) {
 	return s.getSprintByIDRes, s.getSprintByIDErr
 }
