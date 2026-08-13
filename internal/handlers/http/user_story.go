@@ -23,6 +23,20 @@ func InitUserStoryHandler(service services.UserStoryService, logger *zap.Logger)
 	}
 }
 
+// CreateUserStory godoc
+// @Summary Create a new user story
+// @Description Create a new user story in the specified project
+// @Tags UserStory
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param request body requestdto.CreateUserStoryRequest true "Create User Story Request Body"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories [post]
 func (h *userStoryHandler) CreateUserStory(g *gin.Context) {
 	var payload requestdto.CreateUserStoryRequest
 
@@ -82,6 +96,20 @@ func (h *userStoryHandler) CreateUserStory(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// GetUserStoryByID godoc
+// @Summary Get User Story By ID
+// @Description Retrieve details of a specific user story by ID
+// @Tags UserStory
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id} [get]
 func (h *userStoryHandler) GetUserStoryByID(g *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
@@ -127,6 +155,22 @@ func (h *userStoryHandler) GetUserStoryByID(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// UpdateUserStory godoc
+// @Summary Update User Story
+// @Description Update fields of a specific user story by ID
+// @Tags UserStory
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Param request body requestdto.UpdateUserStoryRequest true "Update User Story Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id} [patch]
 func (h *userStoryHandler) UpdateUserStory(g *gin.Context) {
 	var payload requestdto.UpdateUserStoryRequest
 
@@ -194,6 +238,20 @@ func (h *userStoryHandler) UpdateUserStory(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// DeleteUserStory godoc
+// @Summary Delete User Story
+// @Description Soft delete a specific user story by ID
+// @Tags UserStory
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id} [delete]
 func (h *userStoryHandler) DeleteUserStory(g *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
@@ -238,6 +296,28 @@ func (h *userStoryHandler) DeleteUserStory(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+// GetUserStories godoc
+// @Summary Get User Stories
+// @Description Retrieve a paginated and filtered list of user stories in a project
+// @Tags UserStory
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Param sort_by query string false "Sort by field" Enums(title,created_at,updated_at,priority,status)
+// @Param sort_order query string false "Sort order" Enums(ASC,DESC)
+// @Param status query string false "User Story Status" Enums(todo,in_progress,in_review,testing,completed,blocked)
+// @Param assignee_id query string false "Assignee User ID"
+// @Param reporter_id query string false "Reporter User ID"
+// @Param sprint_id query string false "Sprint ID"
+// @Param priority query string false "User Story Priority" Enums(low,medium,high,critical)
+// @Param search query string false "Search query for title or description"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories [get]
 func (h *userStoryHandler) GetUserStories(g *gin.Context) {
 	var filter requestdto.UserStoryFilter
 

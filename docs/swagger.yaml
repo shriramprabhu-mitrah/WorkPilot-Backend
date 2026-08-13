@@ -208,6 +208,41 @@ definitions:
     - title
     - type
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.CreateUserStoryRequest:
+    properties:
+      assignee_id:
+        type: string
+      description:
+        type: string
+      priority:
+        enum:
+        - low
+        - medium
+        - high
+        - critical
+        type: string
+      sprint_id:
+        type: string
+      status:
+        enum:
+        - todo
+        - in_progress
+        - in_review
+        - testing
+        - completed
+        - blocked
+        type: string
+      story_points:
+        minimum: 0
+        type: integer
+      title:
+        maxLength: 255
+        minLength: 3
+        type: string
+    required:
+    - priority
+    - title
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.InviteOrganizationMemberItem:
     properties:
       email:
@@ -451,6 +486,38 @@ definitions:
         - task
         - chore
         - story
+        type: string
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserStoryRequest:
+    properties:
+      assignee_id:
+        type: string
+      description:
+        type: string
+      priority:
+        enum:
+        - low
+        - medium
+        - high
+        - critical
+        type: string
+      sprint_id:
+        type: string
+      status:
+        enum:
+        - todo
+        - in_progress
+        - in_review
+        - testing
+        - completed
+        - blocked
+        type: string
+      story_points:
+        minimum: 0
+        type: integer
+      title:
+        maxLength: 255
+        minLength: 3
         type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UserRoleRequest:
@@ -3545,6 +3612,284 @@ paths:
       summary: Bulk Update Tasks
       tags:
       - Task
+  /projects/{project_id}/user-stories:
+    get:
+      description: Retrieve a paginated and filtered list of user stories in a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Sort by field
+        enum:
+        - title
+        - created_at
+        - updated_at
+        - priority
+        - status
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
+        type: string
+      - description: User Story Status
+        enum:
+        - todo
+        - in_progress
+        - in_review
+        - testing
+        - completed
+        - blocked
+        in: query
+        name: status
+        type: string
+      - description: Assignee User ID
+        in: query
+        name: assignee_id
+        type: string
+      - description: Reporter User ID
+        in: query
+        name: reporter_id
+        type: string
+      - description: Sprint ID
+        in: query
+        name: sprint_id
+        type: string
+      - description: User Story Priority
+        enum:
+        - low
+        - medium
+        - high
+        - critical
+        in: query
+        name: priority
+        type: string
+      - description: Search query for title or description
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get User Stories
+      tags:
+      - UserStory
+    post:
+      consumes:
+      - application/json
+      description: Create a new user story in the specified project
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Create User Story Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateUserStoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Create a new user story
+      tags:
+      - UserStory
+  /projects/{project_id}/user-stories/{user_story_id}:
+    delete:
+      description: Soft delete a specific user story by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Delete User Story
+      tags:
+      - UserStory
+    get:
+      description: Retrieve details of a specific user story by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get User Story By ID
+      tags:
+      - UserStory
+    patch:
+      consumes:
+      - application/json
+      description: Update fields of a specific user story by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      - description: Update User Story Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserStoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Update User Story
+      tags:
+      - UserStory
   /task/{task_id}/comments:
     get:
       consumes:
