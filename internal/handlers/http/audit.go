@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
+	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
@@ -59,6 +60,11 @@ func (h *auditHandler) GetAuditLogs(g *gin.Context) {
 		return
 	}
 
+	activityType := g.Param("activity_type")
+	if activityType == "" {
+		activityType = string(models.AuditLogTypeView)
+	}
+	req.ActivityType = activityType
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
 		return

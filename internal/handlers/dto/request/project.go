@@ -64,6 +64,8 @@ type ProjectFilterRequest struct {
 	Name           string        `form:"name"`
 	Status         ProjectStatus `form:"status"`
 	FieldName      string        `form:"fieldName"`
+	UserID         uuid.UUID     `form:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID     `form:"-" swaggerignore:"true"`
 	IncludeSprints bool          `form:"include_sprints"`
 }
 
@@ -89,7 +91,9 @@ type CreateProjectMemberRequest struct {
 
 type ProjectMemberFilter struct {
 	response.PaginationQuery
-	Name string `form:"name"`
+	Name           string    `form:"name"`
+	UserID         uuid.UUID `form:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `form:"-" swaggerignore:"true"`
 }
 
 type ProjectActivityFilterRequest struct {
