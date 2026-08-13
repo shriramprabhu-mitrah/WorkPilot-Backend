@@ -203,6 +203,8 @@ definitions:
         - chore
         - story
         type: string
+      user_story_id:
+        type: string
     required:
     - priority
     - title
@@ -312,6 +314,16 @@ definitions:
     - ProjectStatusCompleted
     - ProjectStatusCancelled
     - ProjectStatusArchived
+  github_com_ms-kanban-server_internal_handlers_dto_request.ReorderUserStoriesRequest:
+    properties:
+      story_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - story_ids
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.ResendVerificationOTPRequest:
     properties:
       email:
@@ -486,6 +498,8 @@ definitions:
         - task
         - chore
         - story
+        type: string
+      user_story_id:
         type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateUserStoryRequest:
@@ -790,6 +804,8 @@ definitions:
       type:
         type: string
       updated_at:
+        type: string
+      user_story_id:
         type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.UserProfile:
@@ -3888,6 +3904,49 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update User Story
+      tags:
+      - UserStory
+  /projects/{project_id}/user-stories/reorder:
+    patch:
+      consumes:
+      - application/json
+      description: Persist a new ordering for user stories in the project backlog
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Reorder User Stories Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ReorderUserStoriesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Reorder User Stories in the Product Backlog
       tags:
       - UserStory
   /task/{task_id}/comments:

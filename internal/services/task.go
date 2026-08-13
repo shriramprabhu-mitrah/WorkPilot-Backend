@@ -137,6 +137,7 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		ProjectID:      task.ProjectID,
 		SprintID:       task.SprintID,
 		SprintName:     sprintName,
+		UserStoryID:    task.UserStoryID,
 		Key:            task.Key,
 		Title:          task.Title,
 		Description:    task.Description,
@@ -268,6 +269,21 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	// Validation: User Story must belong to the same project
+	if req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
+		inProject, err := s.taskRepo.IsUserStoryInProject(*req.UserStoryID, req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		if !inProject {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "User story must belong to the same project",
+			}
+		}
+	}
+
 	req.ReporterID = &req.UserID
 
 	projectKey := GenerateProjectPrefix(project.Name)
@@ -275,6 +291,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	var task models.Task
 	task.ProjectID = req.ProjectID
 	task.SprintID = req.SprintID
+	task.UserStoryID = req.UserStoryID
 	task.Title = req.Title
 	task.Description = req.Description
 	task.Type = req.Type
@@ -449,6 +466,21 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Assignee must be a member of the project",
+			}
+		}
+	}
+
+	// Validation: User Story must belong to the same project
+	if req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
+		inProject, err := s.taskRepo.IsUserStoryInProject(*req.UserStoryID, req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		if !inProject {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "User story must belong to the same project",
 			}
 		}
 	}
@@ -656,6 +688,24 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			}
 		}
 	}
+	if req.UserStoryID != nil {
+		oldStory := "nil"
+		if task.UserStoryID != nil {
+			oldStory = task.UserStoryID.String()
+		}
+		newStory := "nil"
+		if *req.UserStoryID != uuid.Nil {
+			newStory = req.UserStoryID.String()
+		}
+		if oldStory != newStory {
+			changes = append(changes, fmt.Sprintf("user story changed from %s to %s", oldStory, newStory))
+			if *req.UserStoryID == uuid.Nil {
+				task.UserStoryID = nil
+			} else {
+				task.UserStoryID = req.UserStoryID
+			}
+		}
+	}
 	if req.StoryPoints != nil && *req.StoryPoints != task.StoryPoints {
 		changes = append(changes, fmt.Sprintf("story points changed from %d to %d", task.StoryPoints, *req.StoryPoints))
 		task.StoryPoints = *req.StoryPoints
@@ -739,6 +789,13 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			updates["sprint_id"] = nil
 		} else {
 			updates["sprint_id"] = *req.SprintID
+		}
+	}
+	if req.UserStoryID != nil {
+		if *req.UserStoryID == uuid.Nil {
+			updates["user_story_id"] = nil
+		} else {
+			updates["user_story_id"] = *req.UserStoryID
 		}
 	}
 	if req.StoryPoints != nil {

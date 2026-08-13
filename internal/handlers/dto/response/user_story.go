@@ -22,6 +22,8 @@ type UserStoryResponse struct {
 	ReporterName string       `json:"reporter_name"`
 	Reporter     *UserSummary `json:"reporter,omitempty"`
 	Assignee     *UserSummary `json:"assignee,omitempty"`
+	BacklogOrder int          `json:"backlog_order"`
+	Progress     float64      `json:"progress"`
 	CreatedAt    time.Time    `json:"created_at"`
 	UpdatedAt    time.Time    `json:"updated_at"`
 }

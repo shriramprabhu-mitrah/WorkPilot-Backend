@@ -17,6 +17,9 @@ type UserStoryRepository interface {
 	DeleteUserStory(id uuid.UUID, projectID uuid.UUID) *response.Error
 	GetUserStories(projectID uuid.UUID, filter dto.UserStoryFilter) ([]models.UserStory, response.Pagination, *response.Error)
 	IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *response.Error)
+	GetMaxBacklogOrder(projectID uuid.UUID) (int, *response.Error)
+	ReorderUserStories(projectID uuid.UUID, storyIDs []uuid.UUID) *response.Error
+	GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUID]models.StoryTaskStats, *response.Error)
 }
 
 func InitUserStoryRepository(deps models.Config) UserStoryRepository {

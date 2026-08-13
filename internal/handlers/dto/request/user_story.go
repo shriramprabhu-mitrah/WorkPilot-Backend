@@ -42,3 +42,10 @@ type UserStoryFilter struct {
 	Search   string `form:"search"`
 	Priority string `form:"priority"`
 }
+
+type ReorderUserStoriesRequest struct {
+	StoryIDs       []uuid.UUID `json:"story_ids" binding:"required,min=1"`
+	ProjectID      uuid.UUID   `json:"-"`
+	UserID         uuid.UUID   `json:"-"`
+	OrganizationID uuid.UUID   `json:"-"`
+}

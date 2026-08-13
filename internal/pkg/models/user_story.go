@@ -17,14 +17,21 @@ type UserStory struct {
 	Description string         `json:"description,omitempty" gorm:"type:text"`
 	Priority    string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`
 	Status      string         `json:"status" gorm:"type:varchar(50);not null;default:'todo'"`
-	StoryPoints int            `json:"story_points" gorm:"type:integer;not null;default:0"`
-	AssigneeID  *uuid.UUID     `json:"assignee_id,omitempty" gorm:"type:uuid;index"`
-	ReporterID  uuid.UUID      `json:"reporter_id" gorm:"type:uuid;not null;index"`
-	Assignee    *User          `json:"assignee,omitempty" gorm:"foreignKey:AssigneeID"`
-	Reporter    User           `json:"reporter" gorm:"foreignKey:ReporterID"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
+	StoryPoints  int            `json:"story_points" gorm:"type:integer;not null;default:0"`
+	BacklogOrder int            `json:"backlog_order" gorm:"type:integer;not null;default:0"`
+	AssigneeID   *uuid.UUID     `json:"assignee_id,omitempty" gorm:"type:uuid;index"`
+	ReporterID   uuid.UUID      `json:"reporter_id" gorm:"type:uuid;not null;index"`
+	Assignee     *User          `json:"assignee,omitempty" gorm:"foreignKey:AssigneeID"`
+	Reporter     User           `json:"reporter" gorm:"foreignKey:ReporterID"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+type StoryTaskStats struct {
+	UserStoryID  uuid.UUID
+	TotalTasks   int64
+	Completed    int64
 }
 
 func (u *UserStory) BeforeCreate(tx *gorm.DB) (err error) {

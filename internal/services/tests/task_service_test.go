@@ -27,6 +27,7 @@ type stubTaskRepo struct {
 	lastCreatedTask *models.Task
 	validSprints    map[uuid.UUID]bool
 	sprintStatuses  map[uuid.UUID]string
+	validUserStories map[uuid.UUID]bool
 }
 
 func (s *stubTaskRepo) CreateTask(task *models.Task) *response.Error {
@@ -118,6 +119,13 @@ func applyUpdatesToTask(task *models.Task, updates map[string]interface{}) {
 			task.SprintID = nil
 		} else if uid, ok := val.(uuid.UUID); ok {
 			task.SprintID = &uid
+		}
+	}
+	if val, ok := updates["user_story_id"]; ok {
+		if val == nil {
+			task.UserStoryID = nil
+		} else if uid, ok := val.(uuid.UUID); ok {
+			task.UserStoryID = &uid
 		}
 	}
 	if val, ok := updates["story_points"].(int); ok {
@@ -235,6 +243,13 @@ func (s *stubTaskRepo) IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *
 		return true, nil
 	}
 	return s.validSprints[sprintID], nil
+}
+
+func (s *stubTaskRepo) IsUserStoryInProject(userStoryID, projectID uuid.UUID) (bool, *response.Error) {
+	if s.validUserStories == nil {
+		return true, nil
+	}
+	return s.validUserStories[userStoryID], nil
 }
 
 func (s *stubTaskRepo) VerifyLabelIDs(projectID uuid.UUID, labelIDs []uuid.UUID) ([]models.Label, *response.Error) {
@@ -1323,3 +1338,46 @@ func TestTaskService_BulkDeleteTasks(t *testing.T) {
 		t.Errorf("expected task4 failure reason to be 'Task not found', got: %s", reason4)
 	}
 }
+
+func TestTaskService_CreateTask_WithCrossProjectUserStory(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	otherStoryID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember), IsActive: true},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+	taskRepo := &stubTaskRepo{
+		validUserStories: map[uuid.UUID]bool{
+			otherStoryID: false, // Inactive or from a different project
+		},
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+
+	req := dto.CreateTaskRequest{
+		Title:          "Task with invalid story",
+		Type:           "task",
+		Priority:       "medium",
+		UserStoryID:    &otherStoryID,
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+	}
+
+	_, err := service.CreateTask(req)
+	if err == nil {
+		t.Fatal("expected error due to cross-project User Story, got nil")
+	}
+	if err.Message != "User story must belong to the same project" {
+		t.Errorf("expected error message 'User story must belong to the same project', got '%s'", err.Message)
+	}
+}
+

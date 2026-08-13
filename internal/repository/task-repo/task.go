@@ -152,6 +152,14 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		}
 	}
 
+	if filter.UserStory != "" {
+		if filter.UserStory == "null" || filter.UserStory == "none" {
+			query = query.Where("user_story_id IS NULL")
+		} else {
+			query = query.Where("user_story_id = ?", filter.UserStory)
+		}
+	}
+
 	if filter.Type != "" {
 		query = query.Where("type = ?", filter.Type)
 	}
@@ -302,6 +310,20 @@ func (d *taskDatabase) IsSprintInProject(sprintID, projectID uuid.UUID) (bool, *
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Failed to validate sprint",
+		}
+	}
+	return count > 0, nil
+}
+
+func (d *taskDatabase) IsUserStoryInProject(userStoryID, projectID uuid.UUID) (bool, *response.Error) {
+	var count int64
+	err := d.db.Model(&models.UserStory{}).Where("id = ? AND project_id = ?", userStoryID, projectID).Count(&count).Error
+	if err != nil {
+		d.logger.Error("Failed to check if user story is in project", zap.Error(err))
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to validate user story",
 		}
 	}
 	return count > 0, nil
