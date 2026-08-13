@@ -44,6 +44,14 @@ func (d *auditDatabase) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog
 			req.UserID,
 		)
 
+	pattern := "%view%"
+	if strings.EqualFold(req.ActivityType, string(models.AuditLogTypeActivity)) {
+		baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) NOT LIKE ?)", models.AuditLogTypeActivity, pattern)
+	} else {
+		// Default to AuditLogTypeView ("view", "viewed", or empty)
+		baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) LIKE ?)", models.AuditLogTypeView, pattern)
+	}
+
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
 		d.logger.Error(
 			"Failed to count audit logs",
@@ -169,6 +177,13 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 
 	// Populate transient fields
 	for i, log := range logs {
+		if logs[i].Type == "" {
+			if strings.Contains(strings.ToLower(logs[i].Action), "view") {
+				logs[i].Type = models.AuditLogTypeView
+			} else {
+				logs[i].Type = models.AuditLogTypeActivity
+			}
+		}
 		rID, err := uuid.FromString(log.ResourceID)
 		if err != nil {
 			continue

@@ -131,7 +131,7 @@ func TestSprintService_CreateSprint_RejectsUnauthorizedUserOrganization(t *testi
 	logger := zap.NewNop()
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: nil}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.CreateSprint(dto.CreateSprintRequest{
 		ProjectID:      uuid.Must(uuid.NewV4()),
@@ -152,7 +152,7 @@ func TestSprintService_CreateSprint_ReturnsBadRequestForInvalidDateRange(t *test
 	userID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.CreateSprint(dto.CreateSprintRequest{
 		ProjectID:      uuid.Must(uuid.NewV4()),
@@ -182,7 +182,7 @@ func TestSprintService_CreateSprint_SuccessfullyPersistsSprints(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	createReq := dto.CreateSprintRequest{
 		ProjectID:      projectID,
@@ -217,7 +217,7 @@ func TestSprintService_DeleteSprint_RejectsInvalidSprintID(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.DeleteSprint(dto.DeleteSprint{
 		UserID:         userID,
@@ -239,7 +239,7 @@ func TestSprintService_DeleteSprint_DelegatesToRepository(t *testing.T) {
 	sprintID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.DeleteSprint(dto.DeleteSprint{UserID: userID, OrganizationID: orgID, SprintID: sprintID})
 	if err != nil {
@@ -258,7 +258,7 @@ func TestSprintService_UpdateSprint_RejectsInvalidDateFormat(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC), EndDate: time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)}}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
 		UserID:         userID,
@@ -283,7 +283,7 @@ func TestSprintService_UpdateSprint_DelegatesToRepository(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC), EndDate: time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)}}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
 		Name:           strPtr("Updated sprint"),
@@ -311,7 +311,7 @@ func TestSprintService_GetSprints_RejectsOrganizationMismatch(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	_, _, err := service.GetSprints(dto.GetSprint{UserID: userID, OrganizationID: uuid.Must(uuid.NewV4()), ProjectID: uuid.Must(uuid.NewV4())}, dto.SprintFilter{})
 	if err == nil {
@@ -329,7 +329,7 @@ func TestSprintService_GetSprints_DelegatesToRepository(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{getSprintsRes: []models.Sprint{{Name: "Sprint A"}}, getSprintsPage: response.Pagination{Page: 1, PageSize: 10, TotalItems: 1, TotalPages: 1}}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	sprints, pagination, err := service.GetSprints(dto.GetSprint{UserID: userID, OrganizationID: orgID, ProjectID: projectID}, dto.SprintFilter{})
 	if err != nil {
@@ -349,7 +349,7 @@ func TestSprintService_GetSprintByID_RejectsInvalidProjectID(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	_, err := service.GetSprintByID(dto.GetSprint{UserID: userID, OrganizationID: orgID, ProjectID: uuid.Nil, SprintID: uuid.Must(uuid.NewV4())})
 	if err == nil {
@@ -369,7 +369,7 @@ func TestSprintService_GetSprintByID_DelegatesToRepository(t *testing.T) {
 	want := &models.Sprint{Name: "Sprint B"}
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{getSprintByIDRes: want}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	got, err := service.GetSprintByID(dto.GetSprint{UserID: userID, OrganizationID: orgID, ProjectID: projectID, SprintID: sprintID})
 	if err != nil {
@@ -402,7 +402,7 @@ func TestSprintService_UpdateSprint_CalculatesVelocityUponCompletion(t *testing.
 		getSprintByIDRes:     existingSprint,
 		completedStoryPoints: 15,
 	}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
 		SprintID:       sprintID,
@@ -455,7 +455,7 @@ func TestSprintService_GetSprintBurndown_GeneratesCorrectMetrics(t *testing.T) {
 			{SprintID: sprintID, Date: sprintStart.Add(24 * time.Hour), TotalStoryPoints: 20, RemainingStoryPoints: 16},
 		},
 	}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	resp, err := service.GetSprintBurndown(sprintID, projectID, userID, orgID)
 	if err != nil {
@@ -508,9 +508,9 @@ func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testi
 		project:     models.Project{OrganizationID: orgID},
 	}
 
-	service := services.InitSprintService(sprintRepo, projRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, projRepo, authRepo, &stubAuditLogRepo{}, logger)
 
-	err := service.TriggerDailySnapshots(uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	err := service.TriggerDailySnapshots(uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()), orgID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -534,7 +534,7 @@ func TestSprintService_CreateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 	userID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.CreateSprint(dto.CreateSprintRequest{
 		ProjectID:      uuid.Must(uuid.NewV4()),
@@ -566,7 +566,7 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 			EndDate:   time.Now().Add(7 * 24 * time.Hour),
 		},
 	}
-	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, logger)
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
 		ProjectID:      projectID,

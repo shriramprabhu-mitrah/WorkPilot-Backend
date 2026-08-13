@@ -5507,6 +5507,9 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_models.AuditLogType"
                 }
             }
         },
@@ -5913,6 +5916,17 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "github_com_ms-kanban-server_internal_pkg_models.AuditLogType": {
+            "type": "string",
+            "enum": [
+                "view",
+                "activity"
+            ],
+            "x-enum-varnames": [
+                "AuditLogTypeView",
+                "AuditLogTypeActivity"
+            ]
         },
         "github_com_ms-kanban-server_internal_pkg_response.Error": {
             "type": "object",

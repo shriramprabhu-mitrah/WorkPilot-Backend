@@ -61,9 +61,11 @@ type UpdateProjectRequest struct {
 type ProjectFilterRequest struct {
 	response.PaginationQuery
 	response.SortQuery
-	Name      string        `form:"name"`
-	Status    ProjectStatus `form:"status"`
-	FieldName string        `form:"fieldName"`
+	Name           string        `form:"name"`
+	Status         ProjectStatus `form:"status"`
+	FieldName      string        `form:"fieldName"`
+	UserID         uuid.UUID     `form:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID     `form:"-" swaggerignore:"true"`
 }
 
 type ProjectFilter struct {
@@ -87,7 +89,9 @@ type CreateProjectMemberRequest struct {
 
 type ProjectMemberFilter struct {
 	response.PaginationQuery
-	Name string `form:"name"`
+	Name           string    `form:"name"`
+	UserID         uuid.UUID `form:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `form:"-" swaggerignore:"true"`
 }
 
 type ProjectActivityFilterRequest struct {

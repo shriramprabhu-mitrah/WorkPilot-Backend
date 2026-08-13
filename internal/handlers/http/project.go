@@ -143,10 +143,10 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 	projectUUID, errorResponse := utils.StringToUUID(projectID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-        Success: false,
-        Error: *errorResponse,
-    })
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
 		return
 	}
 
@@ -213,7 +213,15 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		return
 	}
 
-	projects, pagination, err := h.service.GetProjectsByOrganizationID(organizationUUID, filter)
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	filter.UserID = userUUID
+	filter.OrganizationID = organizationUUID
+
+	projects, pagination, err := h.service.GetProjectsByOrganizationID(filter)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -350,14 +358,27 @@ func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 		return
 	}
 
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	filter.UserID = userUUID
+	filter.OrganizationID = organizationUUID
+
 	projectIDParam := g.Param("project_id")
 	projectID, errorResponse := utils.StringToUUID(projectIDParam)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-        Success: false,
-        Error: *errorResponse,
-    })
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
 		return
 	}
 
@@ -408,10 +429,10 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	projectUUID, errorResponse := utils.StringToUUID(projectID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-        Success: false,
-        Error: *errorResponse,
-    })
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
 		return
 	}
 
@@ -419,10 +440,10 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	targetUserUUID, errorResponse := utils.StringToUUID(userID)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-        Success: false,
-        Error: *errorResponse,
-    })
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
 		return
 	}
 
@@ -455,8 +476,7 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Message:    "Project member removed successfully.",
 		Data: map[string]uuid.UUID{
-            "ProjectID": projectUUID},
-
+			"ProjectID": projectUUID},
 	})
 }
 
@@ -564,10 +584,10 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-        Success: false,
-        Error: *errorResponse,
-    })
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
 		return
 	}
 
@@ -718,6 +738,7 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 		Data:       project,
 	})
 }
+
 // UpdateProjectMember godoc
 //
 //	@Summary		Update project member role
@@ -780,10 +801,10 @@ func (h *ProjectHandler) UpdateProjectMember(g *gin.Context) {
 	projectID, errorResponse := utils.StringToUUID(id)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
-		 g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-        Success: false,
-        Error: *errorResponse,
-    })
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
 		return
 	}
 

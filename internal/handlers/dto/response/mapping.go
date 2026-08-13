@@ -122,6 +122,7 @@ func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
 		Details:        audit.Details,
 		CreatedAt:      audit.CreatedAt,
 		Title:          audit.Title,
+		Type:           audit.Type,
 	}
 
 	if strings.ToLower(audit.ResourceType) == "task" {

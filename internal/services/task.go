@@ -331,6 +331,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		ResourceID:     task.ID.String(),
 		Details:        fmt.Sprintf("Task %s created", task.Key),
 		CreatedAt:      time.Now(),
+		Type:           models.AuditLogTypeActivity,
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
@@ -359,6 +360,23 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 	}
 
 	res := mapToTaskResponse(*task)
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "task_viewed",
+		ResourceType:   "task",
+		ResourceID:     taskID.String(),
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return &res, nil
 }
 
@@ -836,6 +854,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		ResourceType:   "task",
 		ResourceID:     task.ID.String(),
 		Details:        detail,
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -892,6 +911,7 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 		ResourceType:   "task",
 		ResourceID:     taskID.String(),
 		Details:        fmt.Sprintf("Task %s restored", task.Key),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -971,8 +991,10 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 		ResourceID:     clonedTask.ID.String(),
 		Details:        fmt.Sprintf("Task %s cloned from %s", clonedTask.Key, origTask.Key),
 		CreatedAt:      time.Now(),
+		Type:           models.AuditLogTypeActivity,
 	}
-	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -1002,6 +1024,24 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 	for _, t := range tasks {
 		resList = append(resList, mapToTaskResponse(t))
 	}
+
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "tasks_viewed",
+		ResourceType:   "task",
+		ResourceID:     projectID.String(),
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return resList, pagination, nil
 }
 
@@ -1239,6 +1279,7 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 		ResourceType:   "task",
 		ResourceID:     req.ProjectID.String(),
 		Details:        bulkDetails,
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(bulkAuditLog); err != nil {
@@ -1326,9 +1367,11 @@ func (s *taskService) AttachLabelToTask(projectID, taskID, labelID, userID, orgI
 		ResourceType:   "task",
 		ResourceID:     taskID.String(),
 		Details:        fmt.Sprintf("Task %s updated: labels changed (attached '%s')", task.Key, label.Name),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
-	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -1382,10 +1425,12 @@ func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, or
 		Action:         "task_updated",
 		ResourceType:   "task",
 		ResourceID:     taskID.String(),
+		Type:           models.AuditLogTypeActivity,
 		Details:        fmt.Sprintf("Task %s updated: labels changed (removed '%s')", task.Key, label.Name),
 		CreatedAt:      time.Now(),
 	}
-	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
@@ -1443,9 +1488,11 @@ func (s *taskService) BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*response
 			ResourceType:   "task",
 			ResourceID:     taskID.String(),
 			Details:        fmt.Sprintf("Task %s soft deleted in bulk", task.Key),
+			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
-		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+		err = s.auditRepo.CreateAuditLog(auditLog)
+		if err != nil {
 			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 		}
 
@@ -1468,9 +1515,11 @@ func (s *taskService) BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*response
 		ResourceType:   "task",
 		ResourceID:     req.ProjectID.String(),
 		Details:        bulkDetails,
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
-	if err := s.auditRepo.CreateAuditLog(bulkAuditLog); err != nil {
+	err = s.auditRepo.CreateAuditLog(bulkAuditLog)
+	if err != nil {
 		s.logger.Warn("Failed to create bulk audit log", zap.Any("error", err))
 	}
 
