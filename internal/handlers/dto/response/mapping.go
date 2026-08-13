@@ -39,6 +39,11 @@ func UserProfileFromModel(user models.User) UserProfile {
 }
 
 func ProjectSummaryFromModel(project models.Project) ProjectSummary {
+	sprints := make([]Sprint, 0, len(project.Sprints))
+	for _, sprint := range project.Sprints {
+		sprints = append(sprints, SprintFromModel(sprint))
+	}
+
 	return ProjectSummary{
 		ID:             project.ID,
 		OrganizationID: project.OrganizationID,
@@ -48,6 +53,7 @@ func ProjectSummaryFromModel(project models.Project) ProjectSummary {
 		CreatedBy:      project.CreatedBy,
 		CreatedAt:      project.CreatedAt,
 		SprintCount:    project.SprintCount,
+		Sprints:        sprints,
 	}
 }
 

@@ -344,3 +344,32 @@ func (d *sprintDatabase) GetSprintCountByProjectIDs(projectIDs []uuid.UUID) (map
 
 	return counts, nil
 }
+
+func (d *sprintDatabase) GetSprintsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID][]models.Sprint, *response.Error) {
+	if len(projectIDs) == 0 {
+		return make(map[uuid.UUID][]models.Sprint), nil
+	}
+
+	var sprints []models.Sprint
+	err := d.db.Where("project_id IN (?)", projectIDs).
+		Order("project_id ASC, created_at DESC").
+		Find(&sprints).Error
+	if err != nil {
+		d.logger.Error("Database error occurred while fetching project sprints", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	result := make(map[uuid.UUID][]models.Sprint, len(projectIDs))
+	for _, projectID := range projectIDs {
+		result[projectID] = []models.Sprint{}
+	}
+	for _, sprint := range sprints {
+		result[sprint.ProjectID] = append(result[sprint.ProjectID], sprint)
+	}
+
+	return result, nil
+}

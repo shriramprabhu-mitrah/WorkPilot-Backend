@@ -263,6 +263,7 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 		SortQuery:       filterPayload.SortQuery,
 		Name:            filterPayload.Name,
 		Status:          string(filterPayload.Status),
+		IncludeSprints:  filterPayload.IncludeSprints,
 	}
 
 	projects, pagination, err := s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
@@ -282,6 +283,20 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 
 	for i := range projects {
 		projects[i].SprintCount = sprintCounts[projects[i].ID]
+	}
+
+	if filterPayload.IncludeSprints {
+		sprintsByProjectID, err := s.sprintRepo.GetSprintsByProjectIDs(projectIDs)
+		if err != nil {
+			return nil, response.Pagination{}, err
+		}
+
+		for i := range projects {
+			projects[i].Sprints = sprintsByProjectID[projects[i].ID]
+			if projects[i].Sprints == nil {
+				projects[i].Sprints = []models.Sprint{}
+			}
+		}
 	}
 
 	return projects, pagination, nil

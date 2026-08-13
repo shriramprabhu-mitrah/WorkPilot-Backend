@@ -61,16 +61,18 @@ type UpdateProjectRequest struct {
 type ProjectFilterRequest struct {
 	response.PaginationQuery
 	response.SortQuery
-	Name      string        `form:"name"`
-	Status    ProjectStatus `form:"status"`
-	FieldName string        `form:"fieldName"`
+	Name           string        `form:"name"`
+	Status         ProjectStatus `form:"status"`
+	FieldName      string        `form:"fieldName"`
+	IncludeSprints bool          `form:"include_sprints"`
 }
 
 type ProjectFilter struct {
 	response.PaginationQuery
 	response.SortQuery
-	Name   string `form:"name"`
-	Status string `form:"status"`
+	Name           string `form:"name"`
+	Status         string `form:"status"`
+	IncludeSprints bool   `form:"include_sprints"`
 }
 
 type ProjectMemberRequest struct {

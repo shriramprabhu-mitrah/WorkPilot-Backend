@@ -19,6 +19,7 @@ type Project struct {
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	SprintCount    int            `json:"sprint_count" gorm:"-"`
+	Sprints        []Sprint       `json:"sprints" gorm:"-"`
 	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
 }
 

@@ -14,7 +14,10 @@ import (
 )
 
 type dummyAuthRepo struct{}
-type dummySprintRepo struct{}
+type dummySprintRepo struct {
+	sprintCountsByProject map[uuid.UUID]int
+	sprintsByProjectID    map[uuid.UUID][]models.Sprint
+}
 
 func (d *dummySprintRepo) CreateSprint(sprint models.Sprint) *response.Error {
 	return nil
@@ -55,6 +58,14 @@ func (d *dummySprintRepo) GetActiveSprints() ([]models.Sprint, *response.Error) 
 func (d *dummySprintRepo) GetSprints(projectID uuid.UUID, filter requestdto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
+
+func (d *dummySprintRepo) GetSprintsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID][]models.Sprint, *response.Error) {
+	if d.sprintsByProjectID != nil {
+		return d.sprintsByProjectID, nil
+	}
+	return make(map[uuid.UUID][]models.Sprint), nil
+}
+
 func (d *dummySprintRepo) GetSprintSnapshots(sprintID uuid.UUID) ([]models.SprintSnapshot, *response.Error) {
 	return nil, nil
 }
