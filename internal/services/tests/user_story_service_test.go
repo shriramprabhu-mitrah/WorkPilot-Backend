@@ -527,5 +527,11 @@ func TestUserStoryService_ProgressCalculation(t *testing.T) {
 	if res.Progress != 50.0 {
 		t.Errorf("expected progress to be 50.0, got %.2f", res.Progress)
 	}
+	if res.TotalTasks != 4 {
+		t.Errorf("expected total tasks to be 4, got %d", res.TotalTasks)
+	}
+	if res.CompletedTasks != 2 {
+		t.Errorf("expected completed tasks to be 2, got %d", res.CompletedTasks)
+	}
 }
 
