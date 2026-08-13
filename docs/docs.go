@@ -4298,6 +4298,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{project_id}/user-stories/reorder": {
+            "patch": {
+                "description": "Persist a new ordering for user stories in the project backlog",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "UserStory"
+                ],
+                "summary": "Reorder User Stories in the Product Backlog",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reorder User Stories Request Body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ReorderUserStoriesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{project_id}/user-stories/{user_story_id}": {
             "get": {
                 "description": "Retrieve details of a specific user story by ID",
@@ -5498,6 +5563,9 @@ const docTemplate = `{
                         "chore",
                         "story"
                     ]
+                },
+                "user_story_id": {
+                    "type": "string"
                 }
             }
         },
@@ -5644,6 +5712,21 @@ const docTemplate = `{
                 "ProjectStatusCancelled",
                 "ProjectStatusArchived"
             ]
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.ReorderUserStoriesRequest": {
+            "type": "object",
+            "required": [
+                "story_ids"
+            ],
+            "properties": {
+                "story_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.ResendVerificationOTPRequest": {
             "type": "object",
@@ -5891,6 +5974,9 @@ const docTemplate = `{
                         "chore",
                         "story"
                     ]
+                },
+                "user_story_id": {
+                    "type": "string"
                 }
             }
         },
@@ -6348,6 +6434,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "user_story_id": {
                     "type": "string"
                 }
             }

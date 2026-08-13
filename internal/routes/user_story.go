@@ -28,6 +28,7 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 	us := api.Group("/projects/:project_id/user-stories")
 	{
 		us.POST("", middleware.ValidateJWT(), userStoryHandler.CreateUserStory)
+		us.PATCH("/reorder", middleware.ValidateJWT(), userStoryHandler.ReorderUserStories)
 		us.GET("", middleware.ValidateJWT(), userStoryHandler.GetUserStories)
 		us.GET("/:user_story_id", middleware.ValidateJWT(), userStoryHandler.GetUserStoryByID)
 		us.PATCH("/:user_story_id", middleware.ValidateJWT(), userStoryHandler.UpdateUserStory)

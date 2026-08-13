@@ -192,3 +192,78 @@ func (d *userStoryDatabase) IsSprintInProject(sprintID, projectID uuid.UUID) (bo
 	}
 	return count > 0, nil
 }
+
+func (d *userStoryDatabase) GetMaxBacklogOrder(projectID uuid.UUID) (int, *response.Error) {
+	var maxOrder int64
+	err := d.db.Model(&models.UserStory{}).Unscoped().
+		Where("project_id = ?", projectID).
+		Select("COALESCE(MAX(backlog_order), 0)").
+		Scan(&maxOrder).Error
+	if err != nil {
+		d.logger.Error("Failed to get max backlog order", zap.Error(err))
+		return 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to count backlog order",
+		}
+	}
+	return int(maxOrder), nil
+}
+
+func (d *userStoryDatabase) ReorderUserStories(projectID uuid.UUID, storyIDs []uuid.UUID) *response.Error {
+	err := d.db.Transaction(func(tx *gorm.DB) error {
+		for idx, id := range storyIDs {
+			// Update the order (1-indexed) for each story belonging to the project
+			res := tx.Model(&models.UserStory{}).
+				Where("id = ? AND project_id = ?", id, projectID).
+				Update("backlog_order", idx+1)
+			if res.Error != nil {
+				return res.Error
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		d.logger.Error("Failed to reorder user stories", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to persist user stories reordering",
+		}
+	}
+	return nil
+}
+
+func (d *userStoryDatabase) GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUID]models.StoryTaskStats, *response.Error) {
+	type QueryResult struct {
+		UserStoryID uuid.UUID `gorm:"column:user_story_id"`
+		TotalTasks  int64     `gorm:"column:total_tasks"`
+		Completed   int64     `gorm:"column:completed_tasks"`
+	}
+	var results []QueryResult
+
+	err := d.db.Model(&models.Task{}).
+		Select("user_story_id, COUNT(*) as total_tasks, COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tasks").
+		Where("project_id = ? AND user_story_id IS NOT NULL", projectID).
+		Group("user_story_id").
+		Scan(&results).Error
+
+	if err != nil {
+		d.logger.Error("Failed to query task statistics for user stories", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve user story progress",
+		}
+	}
+
+	statsMap := make(map[uuid.UUID]models.StoryTaskStats)
+	for _, res := range results {
+		statsMap[res.UserStoryID] = models.StoryTaskStats{
+			UserStoryID: res.UserStoryID,
+			TotalTasks:  res.TotalTasks,
+			Completed:   res.Completed,
+		}
+	}
+	return statsMap, nil
+}

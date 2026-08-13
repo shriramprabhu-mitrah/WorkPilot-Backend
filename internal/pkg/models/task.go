@@ -13,6 +13,8 @@ type Task struct {
 	Project        Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
 	SprintID       *uuid.UUID     `json:"sprint_id,omitempty" gorm:"type:uuid;index"`
 	Sprint         *Sprint        `json:"sprint,omitempty" gorm:"foreignKey:SprintID"`
+	UserStoryID    *uuid.UUID     `json:"user_story_id,omitempty" gorm:"type:uuid;index"`
+	UserStory      *UserStory     `json:"user_story,omitempty" gorm:"foreignKey:UserStoryID"`
 	Key            string         `json:"key" gorm:"type:varchar(50);not null;uniqueIndex:idx_project_task_key"`
 	SequenceNumber int            `json:"sequence_number" gorm:"type:integer;not null;index"`
 	Title          string         `json:"title" gorm:"type:varchar(255);not null"`

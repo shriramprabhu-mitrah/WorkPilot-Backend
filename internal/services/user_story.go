@@ -20,6 +20,7 @@ type UserStoryService interface {
 	UpdateUserStory(req dto.UpdateUserStoryRequest) (*responsedto.UserStoryResponse, *response.Error)
 	DeleteUserStory(userStoryID, projectID, userID, orgID uuid.UUID) *response.Error
 	GetUserStories(projectID, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error)
+	ReorderUserStories(projectID, userID, orgID uuid.UUID, storyIDs []uuid.UUID) *response.Error
 }
 
 type userStoryService struct {
@@ -136,6 +137,11 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		}
 	}
 
+	maxOrder, orderErr := s.userStoryRepo.GetMaxBacklogOrder(req.ProjectID)
+	if orderErr != nil {
+		return nil, orderErr
+	}
+
 	var story models.UserStory
 	story.ProjectID = req.ProjectID
 	story.SprintID = req.SprintID
@@ -148,6 +154,7 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		story.Status = "todo"
 	}
 	story.StoryPoints = req.StoryPoints
+	story.BacklogOrder = maxOrder + 1
 	story.AssigneeID = req.AssigneeID
 	story.ReporterID = req.ReporterID
 
@@ -162,7 +169,7 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		return nil, getErr
 	}
 
-	res := mapToUserStoryResponse(*createdStory)
+	res := mapToUserStoryResponse(*createdStory, 0.0)
 	return &res, nil
 }
 
@@ -184,7 +191,16 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		return nil, err
 	}
 
-	res := mapToUserStoryResponse(*story)
+	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(projectID)
+	if statErr != nil {
+		return nil, statErr
+	}
+	progress := 0.0
+	if stat, ok := statsMap[userStoryID]; ok && stat.TotalTasks > 0 {
+		progress = (float64(stat.Completed) / float64(stat.TotalTasks)) * 100.0
+	}
+
+	res := mapToUserStoryResponse(*story, progress)
 	return &res, nil
 }
 
@@ -325,7 +341,16 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 		return nil, getErr
 	}
 
-	res := mapToUserStoryResponse(*updatedStory)
+	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(req.ProjectID)
+	if statErr != nil {
+		return nil, statErr
+	}
+	progress := 0.0
+	if stat, ok := statsMap[req.UserStoryID]; ok && stat.TotalTasks > 0 {
+		progress = (float64(stat.Completed) / float64(stat.TotalTasks)) * 100.0
+	}
+
+	res := mapToUserStoryResponse(*updatedStory, progress)
 	return &res, nil
 }
 
@@ -369,15 +394,24 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 		return nil, response.Pagination{}, getErr
 	}
 
+	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(projectID)
+	if statErr != nil {
+		return nil, response.Pagination{}, statErr
+	}
+
 	resList := []responsedto.UserStoryResponse{}
 	for _, story := range stories {
-		resList = append(resList, mapToUserStoryResponse(story))
+		progress := 0.0
+		if stat, ok := statsMap[story.ID]; ok && stat.TotalTasks > 0 {
+			progress = (float64(stat.Completed) / float64(stat.TotalTasks)) * 100.0
+		}
+		resList = append(resList, mapToUserStoryResponse(story, progress))
 	}
 
 	return resList, pagination, nil
 }
 
-func mapToUserStoryResponse(story models.UserStory) responsedto.UserStoryResponse {
+func mapToUserStoryResponse(story models.UserStory, progress float64) responsedto.UserStoryResponse {
 	var sprintName string
 	if story.Sprint != nil {
 		sprintName = story.Sprint.Name
@@ -401,6 +435,8 @@ func mapToUserStoryResponse(story models.UserStory) responsedto.UserStoryRespons
 		AssigneeName: assigneeName,
 		ReporterID:   story.ReporterID,
 		ReporterName: story.Reporter.FullName,
+		BacklogOrder: story.BacklogOrder,
+		Progress:     progress,
 		CreatedAt:    story.CreatedAt,
 		UpdatedAt:    story.UpdatedAt,
 	}
@@ -424,4 +460,20 @@ func mapToUserStoryResponse(story models.UserStory) responsedto.UserStoryRespons
 	}
 
 	return res
+}
+
+func (s *userStoryService) ReorderUserStories(projectID, userID, orgID uuid.UUID, storyIDs []uuid.UUID) *response.Error {
+	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+	if err != nil {
+		return err
+	}
+	if !authorized {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to reorder user stories in this project",
+		}
+	}
+
+	return s.userStoryRepo.ReorderUserStories(projectID, storyIDs)
 }

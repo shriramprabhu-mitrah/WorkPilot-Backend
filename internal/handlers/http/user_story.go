@@ -372,3 +372,76 @@ func (h *userStoryHandler) GetUserStories(g *gin.Context) {
 
 	g.JSON(successResponse.StatusCode, successResponse)
 }
+
+// ReorderUserStories godoc
+// @Summary Reorder User Stories in the Product Backlog
+// @Description Persist a new ordering for user stories in the project backlog
+// @Tags UserStory
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param request body requestdto.ReorderUserStoriesRequest true "Reorder User Stories Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/reorder [patch]
+func (h *userStoryHandler) ReorderUserStories(g *gin.Context) {
+	var payload requestdto.ReorderUserStoriesRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	payload.UserID = userUUID
+	payload.ProjectID = projectID
+	payload.OrganizationID = organizationUUID
+
+	err := h.service.ReorderUserStories(projectID, userUUID, organizationUUID, payload.StoryIDs)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "User Stories reordered successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+

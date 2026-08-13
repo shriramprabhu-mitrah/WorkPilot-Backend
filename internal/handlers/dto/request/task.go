@@ -86,6 +86,7 @@ type CreateTaskRequest struct {
 	AssigneeID     *uuid.UUID  `json:"assignee_id"`
 	ReporterID     *uuid.UUID  `json:"reporter_id"`
 	SprintID       *uuid.UUID  `json:"sprint_id"`
+	UserStoryID    *uuid.UUID  `json:"user_story_id"`
 	StoryPoints    int         `json:"story_points" binding:"min=0"`
 	DueDate        *time.Time  `json:"due_date"`
 	EstimatedHours *float64    `json:"estimated_hours" binding:"omitempty,min=0"`
@@ -106,6 +107,7 @@ type UpdateTaskRequest struct {
 	AssigneeID     *uuid.UUID   `json:"assignee_id"`
 	ReporterID     *uuid.UUID   `json:"reporter_id"`
 	SprintID       *uuid.UUID   `json:"sprint_id"`
+	UserStoryID    *uuid.UUID   `json:"user_story_id"`
 	StoryPoints    *int         `json:"story_points" binding:"omitempty,min=0"`
 	DueDate        *time.Time   `json:"due_date"`
 	EstimatedHours *float64     `json:"estimated_hours" binding:"omitempty,min=0"`
@@ -132,6 +134,7 @@ type TaskFilter struct {
 	Assignee  string   `form:"assignee_id"`
 	Reporter  string   `form:"reporter_id"`
 	Sprint    string   `form:"sprint_id"`
+	UserStory string   `form:"user_story_id"`
 	Search    string   `form:"search"`
 	Type      string   `form:"type"`
 	Priority  string   `form:"priority"`

@@ -29,14 +29,14 @@ func (s *userStoryAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *respons
 	}
 	return user, nil
 }
-
 type stubUserStoryRepo struct {
-	stories      map[uuid.UUID]*models.UserStory
-	validSprints map[uuid.UUID]bool
-	createErr    *response.Error
-	getErr       *response.Error
-	updateErr    *response.Error
-	deleteErr    *response.Error
+	stories        map[uuid.UUID]*models.UserStory
+	validSprints   map[uuid.UUID]bool
+	storyTaskStats map[uuid.UUID]models.StoryTaskStats
+	createErr      *response.Error
+	getErr         *response.Error
+	updateErr      *response.Error
+	deleteErr      *response.Error
 }
 
 func (s *stubUserStoryRepo) CreateUserStory(userStory *models.UserStory) *response.Error {
@@ -136,6 +136,26 @@ func (s *stubUserStoryRepo) IsSprintInProject(sprintID, projectID uuid.UUID) (bo
 		return true, nil
 	}
 	return s.validSprints[sprintID], nil
+}
+
+func (s *stubUserStoryRepo) GetMaxBacklogOrder(projectID uuid.UUID) (int, *response.Error) {
+	return len(s.stories), nil
+}
+
+func (s *stubUserStoryRepo) ReorderUserStories(projectID uuid.UUID, storyIDs []uuid.UUID) *response.Error {
+	for idx, id := range storyIDs {
+		if story, ok := s.stories[id]; ok {
+			story.BacklogOrder = idx + 1
+		}
+	}
+	return nil
+}
+
+func (s *stubUserStoryRepo) GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUID]models.StoryTaskStats, *response.Error) {
+	if s.storyTaskStats == nil {
+		return make(map[uuid.UUID]models.StoryTaskStats), nil
+	}
+	return s.storyTaskStats, nil
 }
 
 func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
@@ -426,3 +446,86 @@ func TestUserStoryService_DeleteUserStory_Success(t *testing.T) {
 		t.Errorf("expected story to be soft-deleted")
 	}
 }
+
+func TestUserStoryService_ReorderUserStories_Success(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	story1ID := uuid.Must(uuid.NewV4())
+	story2ID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+
+	story1 := &models.UserStory{ID: story1ID, ProjectID: projectID, Title: "Story 1", BacklogOrder: 1}
+	story2 := &models.UserStory{ID: story2ID, ProjectID: projectID, Title: "Story 2", BacklogOrder: 2}
+
+	userStoryRepo := &stubUserStoryRepo{
+		stories: map[uuid.UUID]*models.UserStory{
+			story1ID: story1,
+			story2ID: story2,
+		},
+	}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+
+	// Reorder them: story2 first, then story1
+	err := service.ReorderUserStories(projectID, userID, orgID, []uuid.UUID{story2ID, story1ID})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if story2.BacklogOrder != 1 || story1.BacklogOrder != 2 {
+		t.Errorf("reordering did not persist: story1 order=%d, story2 order=%d", story1.BacklogOrder, story2.BacklogOrder)
+	}
+}
+
+func TestUserStoryService_ProgressCalculation(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	storyID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+
+	story := &models.UserStory{ID: storyID, ProjectID: projectID, Title: "User Story with tasks"}
+
+	userStoryRepo := &stubUserStoryRepo{
+		stories: map[uuid.UUID]*models.UserStory{storyID: story},
+		storyTaskStats: map[uuid.UUID]models.StoryTaskStats{
+			storyID: {
+				UserStoryID: storyID,
+				TotalTasks:  4,
+				Completed:   2,
+			},
+		},
+	}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+
+	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// 2 completed out of 4 total tasks should result in 50% progress
+	if res.Progress != 50.0 {
+		t.Errorf("expected progress to be 50.0, got %.2f", res.Progress)
+	}
+}
+
