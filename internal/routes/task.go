@@ -22,7 +22,7 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 	taskRepo := taskrepo.InitTaskRepository(deps)
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	authRepo := authrepo.InitAuthRepository(deps)
-	auditRepo := auditrepo.InitAuditLogRepository(deps)
+	auditRepo := auditrepo.InitAuditRepository(deps)
 	attachmentRepo := attachmentrepo.InitAttachmentRepository(deps)
 	commentsRepo := commentsrepo.InitCommentsRepository(deps)
 	commentAttachmentRepo := commentattachmentrepo.InitCommentAttachmentRepository(deps)
