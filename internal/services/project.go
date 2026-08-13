@@ -22,7 +22,7 @@ import (
 type ProjectService interface {
 	CreateProject(req requestdto.CreateProjectRequest) *response.Error
 	UpdateProject(req requestdto.UpdateProjectRequest) *response.Error
-	GetProjectsByOrganizationID(organizationID uuid.UUID, filter requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
+	GetProjectsByOrganizationID(filter requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
 	CreateProjectMemeber(req requestdto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
 	RemoveProjectMember(req requestdto.RemoveProjectMember) *response.Error
@@ -144,7 +144,9 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) *res
 		Action:         "project_created",
 		ResourceType:   "project",
 		ResourceID:     project.ID.String(),
+		Title:          project.Name,
 		Details:        fmt.Sprintf("Project '%s' created", req.Name),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 
@@ -236,6 +238,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		ResourceID:     req.ProjectID.String(),
 		Details:        detail,
 		CreatedAt:      time.Now(),
+		Type:           models.AuditLogTypeActivity,
 	}
 	err = s.auditRepo.CreateAuditLog(auditLog)
 	if err != nil {
@@ -245,7 +248,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 	return nil
 }
 
-func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, filterPayload requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
+func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
 
 	if filterPayload.Status != "" {
 		if err := filterPayload.Status.Validate(); err != nil {
@@ -266,7 +269,7 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 		IncludeSprints:  filterPayload.IncludeSprints,
 	}
 
-	projects, pagination, err := s.projectRepo.GetProjectsByOrganizationID(organizationID, filter)
+	projects, pagination, err := s.projectRepo.GetProjectsByOrganizationID(filterPayload.OrganizationID, filter)
 	if err != nil {
 		return nil, response.Pagination{}, err
 	}
@@ -297,6 +300,20 @@ func (s *projectService) GetProjectsByOrganizationID(organizationID uuid.UUID, f
 				projects[i].Sprints = []models.Sprint{}
 			}
 		}
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &filterPayload.UserID,
+		OrganizationID: &filterPayload.OrganizationID,
+		Action:         "project_list_viewed",
+		ResourceType:   "project",
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return projects, pagination, nil
@@ -376,6 +393,7 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 			ResourceID:     member.UserID.String(),
 			Details:        fmt.Sprintf("User %s added to project", member.UserID.String()),
 			CreatedAt:      time.Now(),
+			Type:           models.AuditLogTypeActivity,
 		}
 
 		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -396,7 +414,23 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 
 func (s *projectService) GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) {
 
-	return s.projectRepo.GetProjectsMembersByProjectID(projectID, filter)
+	members, pagination, err := s.projectRepo.GetProjectsMembersByProjectID(projectID, filter)
+
+	auditLog := models.AuditLog{
+		UserID:         &filter.UserID,
+		OrganizationID: &filter.OrganizationID,
+		ProjectID:      &projectID,
+		Action:         "project_members_list_viewed",
+		ResourceType:   "project_member",
+		CreatedAt:      time.Now(),
+		Type:           models.AuditLogTypeView,
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+	return members, pagination, nil
 }
 
 func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember) *response.Error {
@@ -436,6 +470,7 @@ func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember)
 		ResourceID:     req.PerformingUserID.String(),
 		Details:        fmt.Sprintf("User %s removed from project", req.TargetUserID.String()),
 		CreatedAt:      time.Now(),
+		Type:           models.AuditLogTypeActivity,
 	}
 	err = s.auditRepo.CreateAuditLog(auditLog)
 	if err != nil {
@@ -686,6 +721,22 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 		TotalMembers:             totalMembers,
 	}
 
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		Action:         "project_detail_viewed",
+		ResourceType:   "project",
+		ResourceID:     req.ProjectID.String(),
+		Details:        "Project details viewed",
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return &payload, nil
 }
 
@@ -697,6 +748,50 @@ func (s *projectService) DeleteProject(req requestdto.DeleteProject) *response.E
 			StatusCode: http.StatusBadRequest,
 			Message:    "Invalid project id",
 		}
+	}
+
+	result, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		return err
+	}
+
+	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		Action:         "project_deleted",
+		ResourceType:   "project",
+		ResourceID:     req.ProjectID.String(),
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return s.projectRepo.DeleteProject(req.ProjectID, req.OrganizationID)
@@ -759,6 +854,20 @@ func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) 
 			ProjectName: member.Project.Name,
 			Status:      member.Project.Status,
 		})
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		Action:         "project_list_viewed",
+		ResourceType:   "project",
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return resp, nil

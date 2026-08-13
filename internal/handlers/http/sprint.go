@@ -118,27 +118,8 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 
 	var payload requestdto.DeleteSprint
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Internal server error: missing organization context")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -224,27 +205,8 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Internal server error: missing organization context")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -328,27 +290,8 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 		return
 	}
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -421,27 +364,8 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 // @Router /projects/{project_id}/sprint/{sprint_id} [get]
 func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-
-		h.logger.Error("Organization Id Invalid/Missing ")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -506,25 +430,8 @@ func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /projects/{project_id}/sprint/{sprint_id}/burndown [get]
 func (h *sprintHandler) GetSprintBurndown(g *gin.Context) {
-	organizationID, exist := g.Get("organization_id")
-	if !exist {
-		errorResponse := &response.ErrorResponse{
-			Success: false,
-			Error: response.Error{
-				Code:       response.ErrUnauthorized,
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal server error: missing organization context",
-			},
-		}
-		h.logger.Error("Organization Id Invalid/Missing")
-		g.JSON(errorResponse.Error.StatusCode, errorResponse)
-		return
-	}
-	organizationIDStr := organizationID.(string)
-
-	organizationUUID, errorResponse := utils.StringToUUID(organizationIDStr)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
 		return
 	}
 
@@ -591,7 +498,12 @@ func (h *sprintHandler) TriggerSnapshot(g *gin.Context) {
 		return
 	}
 
-	err := h.service.TriggerDailySnapshots(projectUUID, userUUID)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	err := h.service.TriggerDailySnapshots(projectUUID, userUUID, organizationUUID)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,

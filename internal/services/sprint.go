@@ -10,6 +10,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
@@ -23,14 +24,15 @@ type SprintService interface {
 	GetSprints(req dto.GetSprint, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
 	GetSprintByID(req dto.GetSprint) (*models.Sprint, *response.Error)
 	GetSprintBurndown(sprintID, projectID, userID, orgID uuid.UUID) (*dto.SprintBurndownResponse, *response.Error)
-	TriggerDailySnapshots(projectUUID, userUUID uuid.UUID) *response.Error
+	TriggerDailySnapshots(projectUUID, userUUID, orgUUID uuid.UUID) *response.Error
 }
 
-func InitSprintService(sprintRepo sprintrepo.SprintRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) SprintService {
+func InitSprintService(sprintRepo sprintrepo.SprintRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) SprintService {
 	return &sprintService{
 		sprintRepo:  sprintRepo,
 		projectRepo: projectRepo,
 		authRepo:    authRepo,
+		auditRepo:   auditRepo,
 		logger:      logger,
 	}
 }
@@ -39,6 +41,7 @@ type sprintService struct {
 	sprintRepo  sprintrepo.SprintRepository
 	projectRepo projectrepo.ProjectRepository
 	authRepo    authrepo.AuthRepository
+	auditRepo   auditrepo.AuditLogRepository
 	logger      *zap.Logger
 }
 
@@ -162,6 +165,22 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		}
 	}
 
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "sprint_created",
+		ResourceType:   "sprint",
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return nil
 }
 
@@ -222,6 +241,23 @@ func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 			StatusCode: http.StatusBadRequest,
 			Message:    "Invalid sprint id",
 		}
+	}
+
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "sprint_deleted",
+		ResourceType:   "sprint",
+		ResourceID:     req.SprintID.String(),
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return s.sprintRepo.DeleteSprint(req.SprintID)
@@ -361,6 +397,23 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		return nil
 	}
 
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "sprint_updated",
+		ResourceType:   "sprint",
+		ResourceID:     req.SprintID.String(),
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return s.sprintRepo.UpdateSprint(req.ProjectID, req.SprintID, updates)
 }
 
@@ -398,7 +451,28 @@ func (s *sprintService) GetSprints(req dto.GetSprint, filter dto.SprintFilter) (
 		}
 	}
 
-	return s.sprintRepo.GetSprints(req.ProjectID, filter)
+	sprints, pagination, err := s.sprintRepo.GetSprints(req.ProjectID, filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "sprint_created",
+		ResourceType:   "sprint",
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return sprints, pagination, nil
 }
 
 func (s *sprintService) GetSprintByID(req dto.GetSprint) (*models.Sprint, *response.Error) {
@@ -443,7 +517,29 @@ func (s *sprintService) GetSprintByID(req dto.GetSprint) (*models.Sprint, *respo
 		}
 	}
 
-	return s.sprintRepo.GetSprintByID(req.SprintID, req.ProjectID)
+	sprint, errorResponse := s.sprintRepo.GetSprintByID(req.SprintID, req.ProjectID)
+	if errorResponse != nil {
+		return nil, errorResponse
+	}
+
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "sprint_created",
+		ResourceType:   "sprint",
+		ResourceID:     req.SprintID.String(),
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err := s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return sprint, nil
 }
 
 func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uuid.UUID) (*dto.SprintBurndownResponse, *response.Error) {
@@ -554,6 +650,23 @@ func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uui
 		})
 	}
 
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "sprint_burndown",
+		ResourceType:   "sprint",
+		ResourceID:     sprintID.String(),
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err := s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return &dto.SprintBurndownResponse{
 		SprintID:         sprint.ID.String(),
 		SprintName:       sprint.Name,
@@ -562,7 +675,7 @@ func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uui
 	}, nil
 }
 
-func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID uuid.UUID) *response.Error {
+func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID, orgUUID uuid.UUID) *response.Error {
 
 	user, userErr := s.authRepo.GetUserByID(userUUID)
 	if userErr != nil {
@@ -640,6 +753,22 @@ func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID uuid.UUID) *
 		if err != nil {
 			s.logger.Error("Failed to save daily snapshot", zap.String("sprint_id", sprint.ID.String()), zap.Any("error", err))
 		}
+	}
+
+	// audit log creation
+	auditLog := models.AuditLog{
+		UserID:         &userUUID,
+		OrganizationID: &orgUUID,
+		ProjectID:      &projectUUID,
+		Action:         "sprint_snapshot_triggered",
+		ResourceType:   "sprint",
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 	return nil
 }

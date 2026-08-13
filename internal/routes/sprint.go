@@ -5,6 +5,7 @@ import (
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	sprintrepo "github.com/ms-kanban-server/internal/repository/sprint-repo"
@@ -17,9 +18,10 @@ func SprintRoutes(deps models.Config, api *gin.RouterGroup) {
 	sprintRepo := sprintrepo.InitSprintRepository(deps)
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	authRepo := authrepo.InitAuthRepository(deps)
+	auditrepo := auditrepo.InitAuditRepository(deps)
 
 	// initialize services
-	sprintService := services.InitSprintService(sprintRepo, projectRepo, authRepo, deps.Logger)
+	sprintService := services.InitSprintService(sprintRepo, projectRepo, authRepo, auditrepo, deps.Logger)
 
 	// initialize handlers
 	sprintHandler := handlers.InitSprintHandler(sprintService, deps.Logger)
@@ -28,11 +30,11 @@ func SprintRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	spr := api.Group("/projects/:project_id/sprint")
 	{
-		spr.POST("", middleware.ValidateJWT(),  sprintHandler.CreateSprint)
+		spr.POST("", middleware.ValidateJWT(), sprintHandler.CreateSprint)
 		spr.GET("", middleware.ValidateJWT(), sprintHandler.GetSprints)
 		spr.GET("/:sprint_id", middleware.ValidateJWT(), sprintHandler.GetSprintByID)
 		spr.PATCH("/:sprint_id", middleware.ValidateJWT(), sprintHandler.UpdateSprint)
-		spr.DELETE("/:sprint_id", middleware.ValidateJWT(),  sprintHandler.DeleteSprint)
+		spr.DELETE("/:sprint_id", middleware.ValidateJWT(), sprintHandler.DeleteSprint)
 		spr.GET("/:sprint_id/burndown", middleware.ValidateJWT(), sprintHandler.GetSprintBurndown)
 		spr.POST("/:sprint_id/snapshot", middleware.ValidateJWT(), sprintHandler.TriggerSnapshot)
 	}

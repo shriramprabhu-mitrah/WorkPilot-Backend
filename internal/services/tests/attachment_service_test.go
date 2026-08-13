@@ -17,21 +17,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// mockMultipartFile wraps bytes.Reader to satisfy multipart.File interface
-type mockMultipartFile struct {
-	*bytes.Reader
-}
-
-func (m *mockMultipartFile) Close() error {
-	return nil
-}
-
-func newMockMultipartFile(data []byte) multipart.File {
-	return &mockMultipartFile{
-		Reader: bytes.NewReader(data),
-	}
-}
-
 // createTestMultipartFileHeader builds a fully-functional *multipart.FileHeader for unit tests.
 func createTestMultipartFileHeader(filename string, content []byte) (*multipart.FileHeader, error) {
 	body := &bytes.Buffer{}
