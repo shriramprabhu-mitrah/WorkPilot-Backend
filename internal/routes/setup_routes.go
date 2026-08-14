@@ -19,6 +19,7 @@ func SetupRoutes(deps models.Config) {
 		UserStoryRoutes(deps, api)
 		LabelRoutes(deps, api)
 		CommentsRoutes(deps, api)
+		CustomStatusRoutes(deps, api)
 	}
 
 }

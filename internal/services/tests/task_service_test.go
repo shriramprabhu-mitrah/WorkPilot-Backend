@@ -104,6 +104,131 @@ func (s *stubTaskRepo) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*
 	return task, nil
 }
 
+func (s *stubTaskRepo) CountTasksByStatus(projectID uuid.UUID, status string) (int64, *response.Error) {
+	var count int64
+	for _, t := range s.tasks {
+		if t.ProjectID == projectID && models.NormalizeTaskStatus(t.Status) == models.NormalizeTaskStatus(status) && !t.DeletedAt.Valid {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s *stubTaskRepo) UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newStatus string) *response.Error {
+	for _, t := range s.tasks {
+		if t.ProjectID == projectID && models.NormalizeTaskStatus(t.Status) == models.NormalizeTaskStatus(oldStatus) {
+			t.Status = newStatus
+		}
+	}
+	return nil
+}
+
+type stubCustomStatusRepo struct {
+	statuses map[uuid.UUID]map[string]*models.CustomStatus
+}
+
+func (s *stubCustomStatusRepo) ensureDefaultStatuses(projectID uuid.UUID) {
+	if s.statuses == nil {
+		s.statuses = make(map[uuid.UUID]map[string]*models.CustomStatus)
+	}
+	if s.statuses[projectID] == nil {
+		s.statuses[projectID] = make(map[string]*models.CustomStatus)
+	}
+	defaults := []struct {
+		name  string
+		color string
+		order int
+	}{
+		{"Todo", "#808080", 0},
+		{"In Progress", "#1E90FF", 1},
+		{"In Review", "#FF8C00", 2},
+		{"Testing", "#8A2BE2", 3},
+		{"Completed", "#228B22", 4},
+		{"Blocked", "#DC143C", 5},
+	}
+	for _, d := range defaults {
+		norm := models.NormalizeTaskStatus(d.name)
+		if _, exists := s.statuses[projectID][norm]; !exists {
+			id := uuid.Must(uuid.NewV4())
+			s.statuses[projectID][norm] = &models.CustomStatus{
+				ID:           id,
+				ProjectID:    projectID,
+				Name:         d.name,
+				Color:        d.color,
+				DisplayOrder: d.order,
+				IsDefault:    true,
+			}
+		}
+	}
+}
+
+func (s *stubCustomStatusRepo) CreateStatus(status *models.CustomStatus) *response.Error {
+	s.ensureDefaultStatuses(status.ProjectID)
+	s.statuses[status.ProjectID][models.NormalizeTaskStatus(status.Name)] = status
+	return nil
+}
+
+func (s *stubCustomStatusRepo) GetStatusByID(id, projectID uuid.UUID) (*models.CustomStatus, *response.Error) {
+	s.ensureDefaultStatuses(projectID)
+	if projStatuses, ok := s.statuses[projectID]; ok {
+		for _, st := range projStatuses {
+			if st.ID == id {
+				return st, nil
+			}
+		}
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Status not found"}
+}
+
+func (s *stubCustomStatusRepo) GetStatusByName(projectID uuid.UUID, name string) (*models.CustomStatus, *response.Error) {
+	s.ensureDefaultStatuses(projectID)
+	if projStatuses, ok := s.statuses[projectID]; ok {
+		if st, ok := projStatuses[models.NormalizeTaskStatus(name)]; ok {
+			return st, nil
+		}
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Status not found"}
+}
+
+func (s *stubCustomStatusRepo) UpdateStatus(status *models.CustomStatus) *response.Error {
+	s.ensureDefaultStatuses(status.ProjectID)
+	s.statuses[status.ProjectID][models.NormalizeTaskStatus(status.Name)] = status
+	return nil
+}
+
+func (s *stubCustomStatusRepo) DeleteStatus(id, projectID uuid.UUID) *response.Error {
+	s.ensureDefaultStatuses(projectID)
+	if projStatuses, ok := s.statuses[projectID]; ok {
+		for name, st := range projStatuses {
+			if st.ID == id {
+				delete(projStatuses, name)
+				return nil
+			}
+		}
+	}
+	return &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Status not found"}
+}
+
+func (s *stubCustomStatusRepo) GetStatusesByProjectID(projectID uuid.UUID) ([]models.CustomStatus, *response.Error) {
+	s.ensureDefaultStatuses(projectID)
+	var result []models.CustomStatus
+	if projStatuses, ok := s.statuses[projectID]; ok {
+		for _, st := range projStatuses {
+			result = append(result, *st)
+		}
+	}
+	return result, nil
+}
+
+func (s *stubCustomStatusRepo) IsStatusNameExists(projectID uuid.UUID, name string) (bool, *response.Error) {
+	s.ensureDefaultStatuses(projectID)
+	if projStatuses, ok := s.statuses[projectID]; ok {
+		_, exists := projStatuses[models.NormalizeTaskStatus(name)]
+		return exists, nil
+	}
+	return false, nil
+}
+
 func applyUpdatesToTask(task *models.Task, updates map[string]interface{}) {
 	if val, ok := updates["title"].(string); ok {
 		task.Title = val
@@ -363,7 +488,7 @@ func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 	}
 	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	req := dto.CreateTaskRequest{
 		Title:       "Setup database connections",
@@ -418,7 +543,7 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	newTitle := "New Title"
 	newPriority := string(dto.TaskPriorityCritical)
@@ -445,7 +570,7 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 	if updated.Priority != string(dto.TaskPriorityCritical) {
 		t.Fatalf("expected priority critical, got %s", updated.Priority)
 	}
-	if updated.Status != string(dto.TaskStatusInProgress) {
+	if updated.Status != "In Progress" {
 		t.Fatalf("expected status in_progress, got %s", updated.Status)
 	}
 	if updated.StoryPoints != 8 {
@@ -475,7 +600,7 @@ func TestTaskService_DeleteAndRestore_RetentionChecks(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// Delete task
 	_, err := service.BulkDeleteTasks(dto.BulkDeleteTasksRequest{
@@ -542,7 +667,7 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 		seqNumber: 1,
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// Clone task with keep_assignee = false
 	cloned, err := service.CloneTask(dto.CloneTaskRequest{
@@ -611,7 +736,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// Test 1: Developer valid sequential transition (todo -> in_progress)
 	inProgressStatus := string(dto.TaskStatusInProgress)
@@ -624,7 +749,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected developer to transition to in_progress successfully, got %v", err)
 	}
-	if existingTask.Status != string(dto.TaskStatusInProgress) {
+	if existingTask.Status != "In Progress" {
 		t.Fatalf("expected task status to be in_progress, got %s", existingTask.Status)
 	}
 
@@ -660,7 +785,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected project manager to successfully transition from in_progress to completed, got %v", err)
 	}
-	if existingTask.Status != string(dto.TaskStatusCompleted) {
+	if existingTask.Status != "Completed" {
 		t.Fatalf("expected task status to be completed, got %s", existingTask.Status)
 	}
 
@@ -692,7 +817,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected transition to blocked with reason to succeed, got %v", err)
 	}
-	if existingTask.Status != string(dto.TaskStatusBlocked) {
+	if existingTask.Status != "Blocked" {
 		t.Fatalf("expected status to be blocked, got %s", existingTask.Status)
 	}
 	if existingTask.BlockedReason != blockedReason {
@@ -865,7 +990,7 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 		validSprints: make(map[uuid.UUID]bool),
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// Test 1: Non-PM/Admin user (Developer) gets 403 Forbidden
 	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
@@ -980,7 +1105,7 @@ func TestTaskService_CreateAndUpdateTask_WithLabels(t *testing.T) {
 	}
 	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// Create Task with Labels
 	labelID := uuid.Must(uuid.NewV4())
@@ -1063,7 +1188,7 @@ func TestTaskService_GetTasks_LabelFiltering(t *testing.T) {
 		task3.ID: &task3,
 	}}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// 1. Filter by label1 ID
 	res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
@@ -1135,7 +1260,7 @@ func TestTaskService_AttachAndRemoveLabel(t *testing.T) {
 		taskID: &task,
 	}}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// Attach Label (should succeed)
 	err := service.AttachLabelToTask(projectID, taskID, labelID, userID, orgID)
@@ -1181,7 +1306,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 		tasks:          make(map[uuid.UUID]*models.Task),
 		sprintStatuses: make(map[uuid.UUID]string),
 	}
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, logger)
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, logger)
 
 	// Case 1: Title too short
 	_, _, err := service.CreateTask(dto.CreateTaskRequest{
@@ -1309,7 +1434,7 @@ func TestTaskService_BulkDeleteTasks(t *testing.T) {
 		},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	req := dto.BulkDeleteTasksRequest{
 		TaskIDs:        []uuid.UUID{taskID1, taskID2, taskID3, taskID4},
@@ -1376,7 +1501,7 @@ func TestTaskService_CreateTask_WithCrossProjectUserStory(t *testing.T) {
 		},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	req := dto.CreateTaskRequest{
 		Title:          "Task with invalid story",

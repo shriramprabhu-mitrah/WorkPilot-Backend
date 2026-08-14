@@ -82,7 +82,7 @@ type CreateTaskRequest struct {
 	Description    string      `json:"description"`
 	Type           string      `json:"type" binding:"required,oneof=bug feature task chore story"`
 	Priority       string      `json:"priority" binding:"required,oneof=low medium high critical"`
-	Status         string      `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
+	Status         string      `json:"status" binding:"omitempty"`
 	AssigneeID     *uuid.UUID  `json:"assignee_id"`
 	ReporterID     *uuid.UUID  `json:"reporter_id"`
 	SprintID       *uuid.UUID  `json:"sprint_id"`
@@ -102,7 +102,7 @@ type UpdateTaskRequest struct {
 	Description    *string      `json:"description"`
 	Type           *string      `json:"type" binding:"omitempty,oneof=bug feature task chore story"`
 	Priority       *string      `json:"priority" binding:"omitempty,oneof=low medium high critical"`
-	Status         *string      `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
+	Status         *string      `json:"status" binding:"omitempty"`
 	BlockedReason  *string      `json:"blocked_reason"`
 	AssigneeID     *uuid.UUID   `json:"assignee_id"`
 	ReporterID     *uuid.UUID   `json:"reporter_id"`
@@ -145,7 +145,7 @@ type TaskFilter struct {
 
 type BulkUpdateTaskItem struct {
 	TaskID        uuid.UUID  `json:"task_id" binding:"required"`
-	Status        *string    `json:"status" binding:"omitempty,oneof=todo in_progress in_review testing completed blocked"`
+	Status        *string    `json:"status" binding:"omitempty"`
 	BlockedReason *string    `json:"blocked_reason"`
 	SprintID      *uuid.UUID `json:"sprint_id"`
 	AssigneeID    *uuid.UUID `json:"assignee_id"`

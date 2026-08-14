@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -53,3 +54,23 @@ type TaskAccessContext struct {
 	OrganizationID uuid.UUID `gorm:"column:organization_id"`
 	TaskKey        string    `gorm:"column:task_key"`
 }
+
+var DefaultStatusColors = map[string]string{
+	"todo":        "#808080",
+	"in_progress": "#1E90FF",
+	"in_review":   "#FF8C00",
+	"testing":     "#8A2BE2",
+	"completed":   "#228B22",
+	"blocked":     "#DC143C",
+}
+
+func NormalizeTaskStatus(status string) string {
+	s := strings.ToLower(strings.TrimSpace(status))
+	return strings.ReplaceAll(s, " ", "_")
+}
+
+func IsDefaultTaskStatus(status string) bool {
+	_, exists := DefaultStatusColors[NormalizeTaskStatus(status)]
+	return exists
+}
+
