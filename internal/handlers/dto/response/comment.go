@@ -35,3 +35,11 @@ type ParentUserResponse struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	IsDeleted bool      `json:"is_deleted"`
 }
+
+type CommentedUserResponse struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	UserName  string    `json:"user_name"`
+	FullName  string    `json:"full_name"`
+	AvatarURL string    `json:"avatar_url,omitempty"`
+}

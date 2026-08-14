@@ -10,10 +10,10 @@ import (
 )
 
 type CommentsRepository interface {
-	CreateComment(comment models.Comments) *response.Error
+	CreateComment(comment *models.Comments) *response.Error
 	GetCommentByID(commentID uuid.UUID) (*models.Comments, *response.Error)
 	GetCommentsByTaskID(req requestdto.GetComments) ([]models.Comments, response.Pagination, *response.Error)
-	UpdateComment(commentID uuid.UUID, req models.Comments) *response.Error
+	UpdateComment(commentID uuid.UUID, req *models.Comments) *response.Error
 	DeleteComment(commentID uuid.UUID) *response.Error
 	GetCommentsByParentID(req requestdto.GetComments) ([]models.Comments, response.Pagination, *response.Error)
 	HasReplies(commentID uuid.UUID) (bool, *response.Error)
