@@ -441,7 +441,7 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 			OrganizationID: orgID,
 		}
 
-		_, err := service.UpdateProject(req)
+		err := service.UpdateProject(req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -481,7 +481,7 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 			Description:    &newDesc,
 		}
 
-		_, err := service.UpdateProject(req)
+		err := service.UpdateProject(req)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

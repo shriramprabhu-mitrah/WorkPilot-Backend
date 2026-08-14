@@ -157,7 +157,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 	payload.UserID = userUUID
 	payload.ProjectID = projectUUID
 
-	projectid, err := h.service.UpdateProject(payload)
+	err := h.service.UpdateProject(payload)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -172,7 +172,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]any{
-			"project_id": projectid,
+			"project_id": projectUUID,
 		},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
