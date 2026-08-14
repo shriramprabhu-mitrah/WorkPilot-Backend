@@ -18,7 +18,7 @@ import (
 )
 
 type SprintService interface {
-	CreateSprint(req dto.CreateSprintRequest) *response.Error
+	CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *response.Error)
 	DeleteSprint(req dto.DeleteSprint) *response.Error
 	UpdateSprint(req dto.UpdateSprintRequest) *response.Error
 	GetSprints(req dto.GetSprint, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
@@ -45,11 +45,11 @@ type sprintService struct {
 	logger      *zap.Logger
 }
 
-func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Error {
-
+func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *response.Error) {
+	
 	result, errResp := s.authRepo.GetUserByID(req.UserID)
 	if errResp != nil {
-		return errResp
+		return uuid.Nil, errResp
 	}
 
 	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
@@ -57,7 +57,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 			zap.String("Organization ID", req.OrganizationID.String()),
 			zap.Any("User Organization ID", result.OrganizationID))
 
-		return &response.Error{
+		return uuid.Nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
@@ -69,7 +69,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 			zap.String("Organization ID", req.OrganizationID.String()),
 			zap.String("User Organization ID", result.OrganizationID.String()))
 
-		return &response.Error{
+		return uuid.Nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
@@ -81,7 +81,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 
 	if err != nil {
 		if !isOrgAdmin {
-			return err
+			return uuid.Nil, err
 		}
 	} else {
 		if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
@@ -93,7 +93,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 				zap.String("Project ID", req.ProjectID.String()),
 				zap.String("Project Role", string(member.ProjectRole)))
 
-			return &response.Error{
+			return uuid.Nil, &response.Error{
 				Code:       response.ErrForbidden,
 				StatusCode: http.StatusForbidden,
 				Message:    "You do not have permission to update this project",
@@ -116,7 +116,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		if startErr != nil {
 			s.logger.Error("Invalid start_date",
 				zap.Error(startErr))
-			return &response.Error{
+			return uuid.Nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
@@ -127,7 +127,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		if endErr != nil {
 			s.logger.Error("Invalid end_date",
 				zap.Error(endErr))
-			return &response.Error{
+			return uuid.Nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid end_date. Expected format: YYYY-MM-DD",
@@ -135,7 +135,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		}
 
 		if endDate.Before(*startDate) {
-			return &response.Error{
+			return uuid.Nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "end_date cannot be before start_date",
@@ -150,8 +150,10 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		})
 	}
 
+	var sprint *models.Sprint
+
 	for _, vSpr := range validatedList {
-		sprint := models.Sprint{
+		sprint = &models.Sprint{
 			Name:        vSpr.Name,
 			Goal:        vSpr.Goal,
 			StartDate:   vSpr.StartDate,
@@ -160,9 +162,11 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 			CreatedByID: req.UserID,
 		}
 
-		if err := s.sprintRepo.CreateSprint(sprint); err != nil {
-			return err
+		err = s.sprintRepo.CreateSprint(sprint)
+		if err != nil {
+			return uuid.Nil, err
 		}
+		
 	}
 
 	// audit log creation
@@ -181,7 +185,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) *response.Erro
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return nil
+	return sprint.ID, nil
 }
 
 func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {

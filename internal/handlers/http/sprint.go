@@ -81,7 +81,7 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 	payload.ProjectID = projectUUID
 	payload.OrganizationID = organizationUUID
 
-	err := h.service.CreateSprint(payload)
+	sprintid, err := h.service.CreateSprint(payload)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -95,6 +95,9 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 		Message:    "Successfully Created Sprint",
 		StatusCode: http.StatusCreated,
 		Success:    true,
+		Data: map[string]any{
+			"sprint_id": sprintid,
+		},
 	}
 
 	g.JSON(successResponse.StatusCode, successResponse)

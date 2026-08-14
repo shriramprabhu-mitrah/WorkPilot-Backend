@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (d *sprintDatabase) CreateSprint(row models.Sprint) *response.Error {
+func (d *sprintDatabase) CreateSprint(row *models.Sprint) (*response.Error) {
 
 	if err := d.db.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
@@ -27,7 +27,7 @@ func (d *sprintDatabase) CreateSprint(row models.Sprint) *response.Error {
 
 		d.logger.Error("Database error occurred",
 			zap.Error(err))
-		return &response.Error{
+		return  &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Something went wrong. Please try again later.",

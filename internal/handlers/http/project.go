@@ -73,7 +73,7 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 	payload.OrganizationID = organizationUUID
 	payload.UserID = userUUID
 
-	err := h.service.CreateProject(payload)
+	projectid, err := h.service.CreateProject(payload)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -87,6 +87,9 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 		Message:    "Successfully Created Project",
 		StatusCode: http.StatusCreated,
 		Success:    true,
+		Data: map[string]any{
+			"project_id": projectid,
+		},
 	}
 
 	g.JSON(successResponse.StatusCode, successResponse)
@@ -168,8 +171,9 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 		Message:    "Updated Project successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data: map[string]uuid.UUID{
-			"ProjectID": projectUUID},
+		Data: map[string]any{
+			"project_id": projectUUID,
+		},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 

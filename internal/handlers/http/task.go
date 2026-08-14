@@ -79,7 +79,7 @@ func (h *taskHandler) CreateTask(g *gin.Context) {
 	payload.ProjectID = projectID
 	payload.OrganizationID = organizationUUID
 
-	_, err := h.service.CreateTask(payload)
+	taskid, _, err := h.service.CreateTask(payload)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -93,6 +93,9 @@ func (h *taskHandler) CreateTask(g *gin.Context) {
 		Message:    "Successfully Created Task",
 		StatusCode: http.StatusCreated,
 		Success:    true,
+		Data: map[string]any{
+			"task_id": taskid,
+		},
 	}
 
 	g.JSON(successResponse.StatusCode, successResponse)

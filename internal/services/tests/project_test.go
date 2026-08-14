@@ -19,7 +19,7 @@ type dummySprintRepo struct {
 	sprintsByProjectID    map[uuid.UUID][]models.Sprint
 }
 
-func (d *dummySprintRepo) CreateSprint(sprint models.Sprint) *response.Error {
+func (d *dummySprintRepo) CreateSprint(sprint *models.Sprint) *response.Error {
 	return nil
 }
 

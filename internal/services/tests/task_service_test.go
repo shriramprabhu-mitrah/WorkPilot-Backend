@@ -16,17 +16,17 @@ import (
 )
 
 type stubTaskRepo struct {
-	tasks           map[uuid.UUID]*models.Task
-	seqNumber       int
-	createErr       *response.Error
-	getErr          *response.Error
-	updateErr       *response.Error
-	deleteErr       *response.Error
-	restoreErr      *response.Error
-	listErr         *response.Error
-	lastCreatedTask *models.Task
-	validSprints    map[uuid.UUID]bool
-	sprintStatuses  map[uuid.UUID]string
+	tasks            map[uuid.UUID]*models.Task
+	seqNumber        int
+	createErr        *response.Error
+	getErr           *response.Error
+	updateErr        *response.Error
+	deleteErr        *response.Error
+	restoreErr       *response.Error
+	listErr          *response.Error
+	lastCreatedTask  *models.Task
+	validSprints     map[uuid.UUID]bool
+	sprintStatuses   map[uuid.UUID]string
 	validUserStories map[uuid.UUID]bool
 }
 
@@ -358,7 +358,7 @@ func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 		UserID:      userID,
 	}
 
-	task1, err := service.CreateTask(req)
+	_, task1, err := service.CreateTask(req)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -366,7 +366,7 @@ func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 		t.Fatalf("expected key WB-1, got %s", task1.Key)
 	}
 
-	task2, err := service.CreateTask(req)
+	_, task2, err := service.CreateTask(req)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -419,7 +419,7 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 		StoryPoints: &newPoints,
 	}
 
-	updated, err := service.UpdateTask(req)
+	 updated, err := service.UpdateTask(req)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -599,7 +599,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 1: Developer valid sequential transition (todo -> in_progress)
 	inProgressStatus := string(dto.TaskStatusInProgress)
-	_, err := service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err := service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    userID,
@@ -614,7 +614,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 2: Developer invalid transition (in_progress -> completed directly)
 	completedStatus := string(dto.TaskStatusCompleted)
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    userID,
@@ -635,7 +635,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 	authRepo.user = pmUser
 	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    pmUser.ID,
@@ -666,7 +666,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 
 	blockedReason := "API dependency not ready"
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:        taskID,
 		ProjectID:     projectID,
 		UserID:        userID,
@@ -685,7 +685,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 5: Transition out of blocked clears blocked reason
 	todoStatus := string(dto.TaskStatusTodo)
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    userID,
@@ -701,7 +701,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	// Test 6: Non-assignee Developer cannot increment actual hours
 	authRepo.user = nonAssigneeMember
 	actualHrs := 5.0
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      nonAssigneeMember.ID,
@@ -713,7 +713,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 7: Assignee Developer can increment actual hours
 	authRepo.user = globalMemberUser
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      userID,
@@ -728,7 +728,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 8: Assignee Developer cannot decrement actual hours
 	lowerHrs := 4.0
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      userID,
@@ -741,7 +741,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	// Test 9: PM can update/decrement actual hours
 	authRepo.user = pmUser
 	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      pmUser.ID,
@@ -758,7 +758,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	projectRepo.isMember = false // mock assignee is not project member
 	nonMemberUUID := uuid.Must(uuid.NewV4())
 	authRepo.user = pmUser // update by PM
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:     taskID,
 		ProjectID:  projectID,
 		UserID:     pmUser.ID,
@@ -776,7 +776,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 	authRepo.user = viewerUser
 	projectRepo.projectRole = string(dto.ProjectRoleViewer)
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    viewerUser.ID,
@@ -796,7 +796,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 		Role:           string(dto.RoleSuperAdmin),
 	}
 	authRepo.user = superAdminUser
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    superAdminUser.ID,
@@ -978,7 +978,7 @@ func TestTaskService_CreateAndUpdateTask_WithLabels(t *testing.T) {
 		LabelIDs:       []uuid.UUID{labelID},
 	}
 
-	res, err := service.CreateTask(createReq)
+	_, res, err := service.CreateTask(createReq)
 	if err != nil {
 		t.Fatalf("expected create task with labels to succeed, got: %v", err)
 	}
@@ -1168,7 +1168,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, logger)
 
 	// Case 1: Title too short
-	_, err := service.CreateTask(dto.CreateTaskRequest{
+	_, _, err := service.CreateTask(dto.CreateTaskRequest{
 		Title:          "ab",
 		ProjectID:      projectID,
 		UserID:         userID,
@@ -1179,7 +1179,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	}
 
 	// Case 2: Title too long
-	_, err = service.CreateTask(dto.CreateTaskRequest{
+	_, _, err = service.CreateTask(dto.CreateTaskRequest{
 		Title:          string(make([]byte, 201)),
 		ProjectID:      projectID,
 		UserID:         userID,
@@ -1190,7 +1190,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	}
 
 	// Case 3: Story points not Fibonacci
-	_, err = service.CreateTask(dto.CreateTaskRequest{
+	_, _, err = service.CreateTask(dto.CreateTaskRequest{
 		Title:          "Valid Title",
 		StoryPoints:    4,
 		ProjectID:      projectID,
@@ -1203,7 +1203,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 
 	// Case 4: Backdated due date for non-PM/Admin
 	backdated := time.Now().Add(-5 * 24 * time.Hour)
-	_, err = service.CreateTask(dto.CreateTaskRequest{
+	_, _, err = service.CreateTask(dto.CreateTaskRequest{
 		Title:          "Valid Title",
 		DueDate:        &backdated,
 		ProjectID:      projectID,
@@ -1216,7 +1216,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 
 	// Case 5: Backdated due date allowed for PM/Admin
 	authRepo.user.Role = string(dto.RoleOrgAdmin)
-	createdTask, err := service.CreateTask(dto.CreateTaskRequest{
+	_, createdTask, err := service.CreateTask(dto.CreateTaskRequest{
 		Title:          "Valid Title",
 		DueDate:        &backdated,
 		ProjectID:      projectID,
@@ -1232,7 +1232,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	taskRepo.tasks[taskID].Status = string(dto.TaskStatusCompleted)
 	authRepo.user.Role = string(dto.RoleMember)
 
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:         taskID,
 		ProjectID:      projectID,
 		UserID:         userID,
@@ -1253,7 +1253,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	taskRepo.tasks[taskID].SprintID = &completedSprintID
 	taskRepo.tasks[taskID].Sprint = &models.Sprint{ID: completedSprintID, Status: "completed"}
 
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
+	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:         taskID,
 		ProjectID:      projectID,
 		UserID:         userID,
@@ -1372,7 +1372,7 @@ func TestTaskService_CreateTask_WithCrossProjectUserStory(t *testing.T) {
 		OrganizationID: orgID,
 	}
 
-	_, err := service.CreateTask(req)
+	_, _, err := service.CreateTask(req)
 	if err == nil {
 		t.Fatal("expected error due to cross-project User Story, got nil")
 	}
@@ -1380,4 +1380,3 @@ func TestTaskService_CreateTask_WithCrossProjectUserStory(t *testing.T) {
 		t.Errorf("expected error message 'User story must belong to the same project', got '%s'", err.Message)
 	}
 }
-
