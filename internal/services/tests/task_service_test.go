@@ -42,6 +42,22 @@ func (s *stubTaskRepo) CreateTask(task *models.Task) *response.Error {
 	return nil
 }
 
+func (s *stubTaskRepo) GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Task, *response.Error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	var tasks []models.Task
+	for _, t := range s.tasks {
+		if t.UserStoryID != nil && *t.UserStoryID == userStoryID {
+			tasks = append(tasks, *t)
+		}
+	}
+	if tasks == nil {
+		return []models.Task{}, nil
+	}
+	return tasks, nil
+}
+
 func (s *stubTaskRepo) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	if s.getErr != nil {
 		return nil, s.getErr
@@ -419,7 +435,7 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 		StoryPoints: &newPoints,
 	}
 
-	 updated, err := service.UpdateTask(req)
+	updated, err := service.UpdateTask(req)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -599,7 +615,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 1: Developer valid sequential transition (todo -> in_progress)
 	inProgressStatus := string(dto.TaskStatusInProgress)
-	 _, err := service.UpdateTask(dto.UpdateTaskRequest{
+	_, err := service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    userID,
@@ -614,7 +630,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 2: Developer invalid transition (in_progress -> completed directly)
 	completedStatus := string(dto.TaskStatusCompleted)
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    userID,
@@ -635,7 +651,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 	authRepo.user = pmUser
 	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    pmUser.ID,
@@ -666,7 +682,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 
 	blockedReason := "API dependency not ready"
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:        taskID,
 		ProjectID:     projectID,
 		UserID:        userID,
@@ -685,7 +701,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 5: Transition out of blocked clears blocked reason
 	todoStatus := string(dto.TaskStatusTodo)
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    userID,
@@ -701,7 +717,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	// Test 6: Non-assignee Developer cannot increment actual hours
 	authRepo.user = nonAssigneeMember
 	actualHrs := 5.0
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      nonAssigneeMember.ID,
@@ -713,7 +729,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 7: Assignee Developer can increment actual hours
 	authRepo.user = globalMemberUser
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      userID,
@@ -728,7 +744,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 
 	// Test 8: Assignee Developer cannot decrement actual hours
 	lowerHrs := 4.0
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      userID,
@@ -741,7 +757,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	// Test 9: PM can update/decrement actual hours
 	authRepo.user = pmUser
 	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:      taskID,
 		ProjectID:   projectID,
 		UserID:      pmUser.ID,
@@ -758,7 +774,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	projectRepo.isMember = false // mock assignee is not project member
 	nonMemberUUID := uuid.Must(uuid.NewV4())
 	authRepo.user = pmUser // update by PM
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:     taskID,
 		ProjectID:  projectID,
 		UserID:     pmUser.ID,
@@ -776,7 +792,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 	authRepo.user = viewerUser
 	projectRepo.projectRole = string(dto.ProjectRoleViewer)
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    viewerUser.ID,
@@ -796,7 +812,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 		Role:           string(dto.RoleSuperAdmin),
 	}
 	authRepo.user = superAdminUser
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    superAdminUser.ID,
@@ -1232,7 +1248,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	taskRepo.tasks[taskID].Status = string(dto.TaskStatusCompleted)
 	authRepo.user.Role = string(dto.RoleMember)
 
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:         taskID,
 		ProjectID:      projectID,
 		UserID:         userID,
@@ -1253,7 +1269,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	taskRepo.tasks[taskID].SprintID = &completedSprintID
 	taskRepo.tasks[taskID].Sprint = &models.Sprint{ID: completedSprintID, Status: "completed"}
 
-	 _, err = service.UpdateTask(dto.UpdateTaskRequest{
+	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:         taskID,
 		ProjectID:      projectID,
 		UserID:         userID,

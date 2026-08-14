@@ -7,6 +7,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
+	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
@@ -16,9 +17,10 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 	userStoryRepo := userstoryrepo.InitUserStoryRepository(deps)
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	authRepo := authrepo.InitAuthRepository(deps)
+	taskRepo := taskrepo.InitTaskRepository(deps)
 
 	// initialize services
-	userStoryService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, deps.Logger)
+	userStoryService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, deps.Logger)
 
 	// initialize handlers
 	userStoryHandler := handlers.InitUserStoryHandler(userStoryService, deps.Logger)
