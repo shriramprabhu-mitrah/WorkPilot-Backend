@@ -87,7 +87,8 @@ func (h *commentsHandler) CreateComments(g *gin.Context) {
 	payload.UserID = userUUID
 	payload.OrganizationID = organizationUUID
 
-	if err := h.commentService.CreateComments(payload); err != nil {
+	commentResponse, err := h.commentService.CreateComments(payload)
+	if err != nil {
 		g.JSON(err.StatusCode, response.ErrorResponse{
 			Success: false,
 			Error:   *err,
@@ -99,6 +100,7 @@ func (h *commentsHandler) CreateComments(g *gin.Context) {
 		Success:    true,
 		StatusCode: http.StatusCreated,
 		Message:    "Comment created successfully",
+		Data:       commentResponse,
 	})
 }
 
@@ -252,7 +254,8 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 	req.UserID = userUUID
 	req.OrganizationID = organizationUUID
 
-	if err := h.commentService.UpdateComments(req); err != nil {
+	commentResponse, err := h.commentService.UpdateComments(req);
+	if err != nil {
 		g.JSON(err.StatusCode, err)
 		return
 	}
@@ -261,9 +264,7 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 		Success:    true,
 		Message:    "Comment updated successfully",
 		StatusCode: http.StatusOK,
-		Data: map[string]uuid.UUID{
-			"comment_id": commentUUID,
-		},
+		Data: commentResponse,
 	})
 }
 

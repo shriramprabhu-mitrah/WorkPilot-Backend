@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (d *commentsDatabase) CreateComment(comment models.Comments) *response.Error {
+func (d *commentsDatabase) CreateComment(comment *models.Comments) *response.Error {
 
 	if err := d.db.Create(&comment).Error; err != nil {
 
@@ -130,7 +130,7 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 	return comments, pagination, nil
 }
 
-func (d *commentsDatabase) UpdateComment(commentID uuid.UUID, req models.Comments) *response.Error {
+func (d *commentsDatabase) UpdateComment(commentID uuid.UUID, req *models.Comments) *response.Error {
 
 	result := d.db.
 		Model(&models.Comments{}).

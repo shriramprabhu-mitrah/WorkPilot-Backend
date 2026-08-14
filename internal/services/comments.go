@@ -11,8 +11,8 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
@@ -20,9 +20,9 @@ import (
 )
 
 type CommentsService interface {
-	CreateComments(req requestdto.CreateCommentsRequest) *response.Error
+	CreateComments(req requestdto.CreateCommentsRequest) (responsedto.CommentedUserResponse, *response.Error)
 	GetCommentByID(req requestdto.GetComments) (*responsedto.CommentsResponse, *response.Error)
-	UpdateComments(req requestdto.UpdateCommentsRequest) *response.Error
+	UpdateComments(req requestdto.UpdateCommentsRequest) (responsedto.CommentedUserResponse, *response.Error)
 	DeleteComments(req requestdto.DeleteComments) *response.Error
 	GetCommentsByTaskID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error)
 	GetCommentsByParentID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error)
@@ -142,19 +142,19 @@ func (s *commentsService) validateParentComment(parentCommentID, taskID, project
 	return nil
 }
 
-func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *response.Error {
+func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (responsedto.CommentedUserResponse, *response.Error) {
 
 	projectID, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
 	if err != nil {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
-		return err
+		return responsedto.CommentedUserResponse{}, err
 	}
 
 	if !authorized {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
-		return &response.Error{
+		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to add comments to this project",
@@ -164,20 +164,20 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *
 	if req.ParentCommentID != nil {
 		err := s.validateParentComment(*req.ParentCommentID, req.TaskID, *projectID, req.OrganizationID)
 		if err != nil {
-			return err
+			return responsedto.CommentedUserResponse{}, err
 		}
 	}
 
 	req.Content = strings.TrimSpace(req.Content)
 	if req.Content == "" {
-		return &response.Error{
+		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Content cannot be empty",
 		}
 	}
 
-	comment := models.Comments{
+	comment := &models.Comments{
 		TaskID:          req.TaskID,
 		UserID:          req.UserID,
 		ProjectID:       *projectID,
@@ -188,7 +188,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *
 	}
 
 	if err := s.commentsRepo.CreateComment(comment); err != nil {
-		return err
+		return responsedto.CommentedUserResponse{}, err
 	}
 
 	action := fmt.Sprintf("Comment created on Task : %v ", req.TaskID)
@@ -209,7 +209,21 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) *
 
 	s.auditRepo.CreateAuditLog(auditLog)
 
-	return nil
+	user, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		s.logger.Error("Failed to fetch user details after creating comment", zap.String("user_id", req.UserID.String()))
+		return responsedto.CommentedUserResponse{}, err
+	}
+
+	response := responsedto.CommentedUserResponse{
+		ID:        comment.ID,
+		UserID:    user.ID,
+		UserName:  user.UserName,
+		FullName:  user.FullName,
+		AvatarURL: user.AvatarURL,
+	}
+
+	return response, nil
 }
 
 func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsedto.CommentsResponse, *response.Error) {
@@ -254,19 +268,19 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 	return &commentResponse, nil
 }
 
-func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *response.Error {
+func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (responsedto.CommentedUserResponse, *response.Error) {
 
 	projectID, authorized, err := s.checkAuthorization(req.UserID, req.TaskID)
 	if err != nil {
 		s.logger.Error("You do not have permission to update comments to this project",
 			zap.String("user_id", req.UserID.String()))
-		return err
+		return responsedto.CommentedUserResponse{}, err
 	}
 
 	if !authorized {
 		s.logger.Error("You do not have permission to update comments to this project",
 			zap.String("user_id", req.UserID.String()))
-		return &response.Error{
+		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to view this comment",
@@ -275,7 +289,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *
 
 	req.Content = strings.TrimSpace(req.Content)
 	if req.Content == "" {
-		return &response.Error{
+		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Content cannot be empty",
@@ -284,13 +298,13 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *
 
 	comment, err := s.commentsRepo.GetCommentByID(req.CommentID)
 	if err != nil {
-		return err
+		return responsedto.CommentedUserResponse{}, err
 	}
 
 	if comment.UserID != req.UserID {
 		s.logger.Error("You can only update your own comments",
 			zap.String("user_id", req.UserID.String()))
-		return &response.Error{
+		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You can only update your own comments",
@@ -313,7 +327,21 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) *
 	}
 	s.auditRepo.CreateAuditLog(auditLog)
 
-	return s.commentsRepo.UpdateComment(req.CommentID, updateComment)
+	user, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		s.logger.Error("Failed to fetch user details after creating comment", zap.String("user_id", req.UserID.String()))
+		return responsedto.CommentedUserResponse{}, err
+	}
+
+	response := responsedto.CommentedUserResponse{
+		ID:        req.CommentID,
+		UserID:    user.ID,
+		UserName:  user.UserName,
+		FullName:  user.FullName,
+		AvatarURL: user.AvatarURL,
+	}
+
+	return response, s.commentsRepo.UpdateComment(req.CommentID, &updateComment)
 }
 
 func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *response.Error {

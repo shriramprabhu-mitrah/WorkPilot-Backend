@@ -368,7 +368,7 @@ type stubCommentRepo struct {
 	getErr   *response.Error
 }
 
-func (s *stubCommentRepo) CreateComment(comment models.Comments) *response.Error { return nil }
+func (s *stubCommentRepo) CreateComment(comment *models.Comments) *response.Error { return nil }
 func (s *stubCommentRepo) GetCommentByID(commentID uuid.UUID) (*models.Comments, *response.Error) {
 	if s.getErr != nil {
 		return nil, s.getErr
@@ -380,7 +380,7 @@ func (s *stubCommentRepo) GetCommentByID(commentID uuid.UUID) (*models.Comments,
 	return c, nil
 }
 func (s *stubCommentRepo) GetCommentsByTaskID(req dto.GetComments) ([]models.Comments, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
-func (s *stubCommentRepo) UpdateComment(commentID uuid.UUID, req models.Comments) *response.Error { return nil }
+func (s *stubCommentRepo) UpdateComment(commentID uuid.UUID, req *models.Comments) *response.Error { return nil }
 func (s *stubCommentRepo) DeleteComment(commentID uuid.UUID) *response.Error { return nil }
 func (s *stubCommentRepo) GetCommentsByParentID(req dto.GetComments) ([]models.Comments, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
 func (s *stubCommentRepo) HasReplies(commentID uuid.UUID) (bool, *response.Error)   { return false, nil }
@@ -432,7 +432,7 @@ func newTestFixture(orgID, projectID, taskID, userID uuid.UUID) *testFixture {
 		attachmentRepo,
 		commentAttachmentRepo,
 		cleanupRepo,
-		commentsRepo,
+		commentsRepo, 
 		taskRepo,
 		projectRepo,
 		authRepo,
