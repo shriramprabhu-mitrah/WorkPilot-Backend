@@ -946,13 +946,21 @@ info:
   title: PMT API
   version: "1.0"
 paths:
-  /audit:
+  /audit/{activity_type}:
     get:
       consumes:
       - application/json
       description: Get paginated audit/activity logs for the authenticated user's
         organization.
       parameters:
+      - description: Activity Type
+        enum:
+        - view
+        - activity
+        in: path
+        name: activity_type
+        required: true
+        type: string
       - default: 1
         description: Page number
         in: query

@@ -22,7 +22,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/audit": {
+        "/audit/{activity_type}": {
             "get": {
                 "security": [
                     {
@@ -41,6 +41,17 @@ const docTemplate = `{
                 ],
                 "summary": "Get audit logs",
                 "parameters": [
+                    {
+                        "enum": [
+                            "view",
+                            "activity"
+                        ],
+                        "type": "string",
+                        "description": "Activity Type",
+                        "name": "activity_type",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "integer",
                         "default": 1,
