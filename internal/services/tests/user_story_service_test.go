@@ -174,7 +174,7 @@ func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:       "User Story Title",
@@ -219,7 +219,7 @@ func TestUserStoryService_CreateUserStory_ForbiddenIfNoAccess(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Some title",
@@ -257,7 +257,7 @@ func TestUserStoryService_CreateUserStory_InvalidSprintID(t *testing.T) {
 		validSprints: map[uuid.UUID]bool{sprintID: false}, // Sprint does not belong to the project
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Title",
@@ -295,7 +295,7 @@ func TestUserStoryService_CreateUserStory_InvalidAssigneeID(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Title",
@@ -341,7 +341,7 @@ func TestUserStoryService_GetUserStoryByID_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -380,7 +380,7 @@ func TestUserStoryService_UpdateUserStory_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	newTitle := "New Title"
 	newPriority := "critical"
@@ -433,7 +433,7 @@ func TestUserStoryService_DeleteUserStory_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	err := service.DeleteUserStory(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -474,7 +474,7 @@ func TestUserStoryService_ReorderUserStories_Success(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	// Reorder them: story2 first, then story1
 	err := service.ReorderUserStories(projectID, userID, orgID, []uuid.UUID{story2ID, story1ID})
@@ -516,7 +516,7 @@ func TestUserStoryService_ProgressCalculation(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -534,4 +534,103 @@ func TestUserStoryService_ProgressCalculation(t *testing.T) {
 		t.Errorf("expected completed tasks to be 2, got %d", res.CompletedTasks)
 	}
 }
+
+func TestUserStoryService_GetUserStoryByID_IncludesTasks(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	storyID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+	story := &models.UserStory{ID: storyID, ProjectID: projectID, Title: "User Story with tasks"}
+	userStoryRepo := &stubUserStoryRepo{
+		stories: map[uuid.UUID]*models.UserStory{storyID: story},
+	}
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{
+			taskID: {
+				ID:          taskID,
+				ProjectID:   projectID,
+				UserStoryID: &storyID,
+				Title:       "Sub-task 1",
+				Status:      "todo",
+			},
+		},
+	}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, zap.NewNop())
+
+	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(res.Tasks) != 1 {
+		t.Fatalf("expected 1 task in response, got %d", len(res.Tasks))
+	}
+	if res.Tasks[0].ID != taskID || res.Tasks[0].Title != "Sub-task 1" {
+		t.Errorf("unexpected task response: %+v", res.Tasks[0])
+	}
+}
+
+func TestUserStoryService_GetUserStories_IncludesTasks(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	storyID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+	story := &models.UserStory{ID: storyID, ProjectID: projectID, Title: "Story in list"}
+	userStoryRepo := &stubUserStoryRepo{
+		stories: map[uuid.UUID]*models.UserStory{storyID: story},
+	}
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{
+			taskID: {
+				ID:          taskID,
+				ProjectID:   projectID,
+				UserStoryID: &storyID,
+				Title:       "Task in story list",
+				Status:      "todo",
+			},
+		},
+	}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, zap.NewNop())
+
+	stories, _, err := service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(stories) != 1 {
+		t.Fatalf("expected 1 user story, got %d", len(stories))
+	}
+	if len(stories[0].Tasks) != 1 {
+		t.Fatalf("expected 1 task in user story response, got %d", len(stories[0].Tasks))
+	}
+	if stories[0].Tasks[0].ID != taskID || stories[0].Tasks[0].Title != "Task in story list" {
+		t.Errorf("unexpected task in story list: %+v", stories[0].Tasks[0])
+	}
+}
+
+
 

@@ -10,6 +10,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
+	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	"go.uber.org/zap"
 )
@@ -27,14 +28,16 @@ type userStoryService struct {
 	authRepo      authrepo.AuthRepository
 	projectRepo   projectrepo.ProjectRepository
 	userStoryRepo userstoryrepo.UserStoryRepository
+	taskRepo      taskrepo.TaskRepository
 	logger        *zap.Logger
 }
 
-func InitUserStoryService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, userStoryRepo userstoryrepo.UserStoryRepository, logger *zap.Logger) UserStoryService {
+func InitUserStoryService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, userStoryRepo userstoryrepo.UserStoryRepository, taskRepo taskrepo.TaskRepository, logger *zap.Logger) UserStoryService {
 	return &userStoryService{
 		authRepo:      authRepo,
 		projectRepo:   projectRepo,
 		userStoryRepo: userStoryRepo,
+		taskRepo:      taskRepo,
 		logger:        logger,
 	}
 }
@@ -205,7 +208,18 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		}
 	}
 
+	tasks, taskErr := s.taskRepo.GetTasksByUserStoryID(userStoryID)
+	if taskErr != nil {
+		return nil, taskErr
+	}
+
+	taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
+	for _, t := range tasks {
+		taskResponses = append(taskResponses, mapToTaskResponse(t))
+	}
+
 	res := mapToUserStoryResponse(*story, total, completed, progress)
+	res.Tasks = taskResponses
 	return &res, nil
 }
 
@@ -420,7 +434,19 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 				progress = (float64(completed) / float64(total)) * 100.0
 			}
 		}
-		resList = append(resList, mapToUserStoryResponse(story, total, completed, progress))
+		tasks, taskErr := s.taskRepo.GetTasksByUserStoryID(story.ID)
+		if taskErr != nil {
+			return nil, response.Pagination{}, taskErr
+		}
+
+		taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
+		for _, t := range tasks {
+			taskResponses = append(taskResponses, mapToTaskResponse(t))
+		}
+
+		storyRes := mapToUserStoryResponse(story, total, completed, progress)
+		storyRes.Tasks = taskResponses
+		resList = append(resList, storyRes)
 	}
 
 	return resList, pagination, nil

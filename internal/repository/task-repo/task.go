@@ -524,3 +524,27 @@ func (d *taskDatabase) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessCon
 	}
 	return &ctx, nil
 }
+
+func (d *taskDatabase) GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Task, *response.Error) {
+	var tasks []models.Task
+	err := d.db.Where("user_story_id = ?", userStoryID).Find(&tasks).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			d.logger.Warn("No tasks found for user story id",
+				zap.String("user_story_id", userStoryID.String()))
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Task not found",
+			}
+		}
+		d.logger.Error("Failed to fetch tasks by user story id", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch tasks",
+		}
+	}
+
+	return tasks, nil
+}

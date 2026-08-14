@@ -30,6 +30,7 @@ type TaskRepository interface {
 	GetSprintStatus(sprintID uuid.UUID) (string, *response.Error)
 	GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error)
 	GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error)
+	GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Task, *response.Error)
 }
 
 func InitTaskRepository(deps models.Config) TaskRepository {

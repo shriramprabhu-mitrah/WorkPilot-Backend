@@ -28,4 +28,5 @@ type UserStoryResponse struct {
 	Progress       float64      `json:"progress"`
 	CreatedAt      time.Time    `json:"created_at"`
 	UpdatedAt      time.Time    `json:"updated_at"`
+	Tasks          []TaskResponse `json:"tasks,omitempty"`
 }

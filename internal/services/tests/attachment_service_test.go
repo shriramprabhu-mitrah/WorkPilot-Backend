@@ -314,6 +314,13 @@ func (s *stubAttachmentTaskRepo) GetTaskAccessContext(id uuid.UUID) (*models.Tas
 	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
 }
 
+func (s *stubAttachmentTaskRepo) GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Task, *response.Error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return nil, nil
+}
+
 type stubAttachmentProjectRepo struct {
 	project     models.Project
 	isMember    bool
