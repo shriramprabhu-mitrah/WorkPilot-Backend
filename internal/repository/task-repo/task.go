@@ -548,3 +548,31 @@ func (d *taskDatabase) GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Ta
 
 	return tasks, nil
 }
+
+func (d *taskDatabase) CountTasksByStatus(projectID uuid.UUID, status string) (int64, *response.Error) {
+	var count int64
+	err := d.db.Model(&models.Task{}).Where("project_id = ? AND status = ?", projectID, status).Count(&count).Error
+	if err != nil {
+		d.logger.Error("Failed to count tasks by status", zap.Error(err))
+		return 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to count tasks by status",
+		}
+	}
+	return count, nil
+}
+
+func (d *taskDatabase) UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newStatus string) *response.Error {
+	err := d.db.Model(&models.Task{}).Where("project_id = ? AND LOWER(status) = LOWER(?)", projectID, oldStatus).Update("status", newStatus).Error
+	if err != nil {
+		d.logger.Error("Failed to update task statuses", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update task statuses",
+		}
+	}
+	return nil
+}
+

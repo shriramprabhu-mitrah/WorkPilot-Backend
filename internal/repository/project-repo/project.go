@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -62,6 +63,82 @@ func (d *projectDatabase) CreateProjectWithMember(project *models.Project, proje
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	// Create default statuses for the project
+	defaultStatuses := []models.CustomStatus{
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Todo",
+			Color:        "#808080",
+			DisplayOrder: 0,
+			IsDefault:    true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "In Progress",
+			Color:        "#1E90FF",
+			DisplayOrder: 1,
+			IsDefault:    true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "In Review",
+			Color:        "#FF8C00",
+			DisplayOrder: 2,
+			IsDefault:    true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Testing",
+			Color:        "#8A2BE2",
+			DisplayOrder: 3,
+			IsDefault:    true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Completed",
+			Color:        "#228B22",
+			DisplayOrder: 4,
+			IsDefault:    true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Blocked",
+			Color:        "#DC143C",
+			DisplayOrder: 5,
+			IsDefault:    true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+	}
+
+	for _, ds := range defaultStatuses {
+		if err := tx.Create(&ds).Error; err != nil {
+			tx.Rollback()
+			d.logger.Error("Failed to create default status", zap.Error(err))
+			return &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Something went wrong. Please try again later.",
+			}
 		}
 	}
 

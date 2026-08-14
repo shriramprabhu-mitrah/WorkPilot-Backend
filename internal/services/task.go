@@ -13,6 +13,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/response"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ import (
 type TaskService interface {
 	CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *responsedto.TaskResponse, *response.Error)
 	GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error)
-	UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskResponse, *response.Error)
+	UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error)
@@ -32,20 +33,29 @@ type TaskService interface {
 }
 
 type taskService struct {
-	authRepo    authrepo.AuthRepository
-	projectRepo projectrepo.ProjectRepository
-	taskRepo    taskrepo.TaskRepository
-	auditRepo   auditrepo.AuditLogRepository
-	logger      *zap.Logger
+	authRepo         authrepo.AuthRepository
+	projectRepo      projectrepo.ProjectRepository
+	taskRepo         taskrepo.TaskRepository
+	auditRepo        auditrepo.AuditLogRepository
+	customStatusRepo customstatusrepo.CustomStatusRepository
+	logger           *zap.Logger
 }
 
-func InitTaskService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, taskRepo taskrepo.TaskRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) TaskService {
+func InitTaskService(
+	authRepo authrepo.AuthRepository,
+	projectRepo projectrepo.ProjectRepository,
+	taskRepo taskrepo.TaskRepository,
+	auditRepo auditrepo.AuditLogRepository,
+	customStatusRepo customstatusrepo.CustomStatusRepository,
+	logger *zap.Logger,
+) TaskService {
 	return &taskService{
-		authRepo:    authRepo,
-		projectRepo: projectRepo,
-		taskRepo:    taskRepo,
-		auditRepo:   auditRepo,
-		logger:      logger,
+		authRepo:         authRepo,
+		projectRepo:      projectRepo,
+		taskRepo:         taskRepo,
+		auditRepo:        auditRepo,
+		customStatusRepo: customStatusRepo,
+		logger:           logger,
 	}
 }
 
@@ -117,7 +127,7 @@ func GenerateProjectPrefix(name string) string {
 	return cleaned
 }
 
-func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
+func mapToTaskResponse(task models.Task, colorMap map[string]string) responsedto.TaskResponse {
 	var sprintName string
 	if task.Sprint != nil {
 		sprintName = task.Sprint.Name
@@ -132,6 +142,11 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		labelsRes = append(labelsRes, responsedto.LabelFromModel(l))
 	}
 
+	statusColor := colorMap[models.NormalizeTaskStatus(task.Status)]
+	if statusColor == "" {
+		statusColor = "#808080"
+	}
+
 	response := responsedto.TaskResponse{
 		ID:             task.ID,
 		ProjectID:      task.ProjectID,
@@ -144,6 +159,7 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		Type:           task.Type,
 		Priority:       task.Priority,
 		Status:         task.Status,
+		StatusColor:    statusColor,
 		AssigneeID:     task.AssigneeID,
 		ReporterID:     task.ReporterID,
 		AssigneeName:   assigneeName,
@@ -167,6 +183,38 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 		}
 	}
 	return response
+}
+
+func (s *taskService) getStatusColorMap(projectID uuid.UUID) map[string]string {
+	colorMap := make(map[string]string)
+	for k, v := range models.DefaultStatusColors {
+		colorMap[k] = v
+	}
+	customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+	if err == nil {
+		for _, cs := range customStatuses {
+			colorMap[models.NormalizeTaskStatus(cs.Name)] = cs.Color
+		}
+	}
+	return colorMap
+}
+
+func (s *taskService) validateAndNormalizeStatus(projectID uuid.UUID, status string) (string, *response.Error) {
+	normalized := models.NormalizeTaskStatus(status)
+
+	customStatus, err := s.customStatusRepo.GetStatusByName(projectID, normalized)
+	if err != nil {
+		if err.StatusCode == http.StatusNotFound {
+			return "", &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusUnprocessableEntity,
+				Message:    "Invalid task status value",
+			}
+		}
+		return "", err
+	}
+
+	return customStatus.Name, nil
 }
 
 func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *responsedto.TaskResponse, *response.Error) {
@@ -296,11 +344,16 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	task.Description = req.Description
 	task.Type = req.Type
 	task.Priority = req.Priority
+	statusVal := "todo"
 	if req.Status != "" {
-		task.Status = req.Status
-	} else {
-		task.Status = string(dto.TaskStatusTodo)
+		normalized, valErr := s.validateAndNormalizeStatus(req.ProjectID, req.Status)
+		if valErr != nil {
+			return uuid.Nil, nil, valErr
+		}
+		statusVal = normalized
 	}
+
+	task.Status = statusVal
 	task.AssigneeID = req.AssigneeID
 	task.ReporterID = req.ReporterID
 	task.StoryPoints = req.StoryPoints
@@ -322,7 +375,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	for attempt := 0; attempt < 3; attempt++ {
 		seq, err := s.taskRepo.GetNextSequenceNumber(req.ProjectID)
 		if err != nil {
-			return uuid.Nil,nil, err
+			return uuid.Nil, nil, err
 		}
 		task.SequenceNumber = seq
 		task.Key = fmt.Sprintf("%s-%d", projectKey, seq)
@@ -354,7 +407,8 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	res := mapToTaskResponse(task)
+	colorMap := s.getStatusColorMap(req.ProjectID)
+	res := mapToTaskResponse(task, colorMap)
 	return task.ID, &res, nil
 }
 
@@ -376,7 +430,9 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 		return nil, err
 	}
 
-	res := mapToTaskResponse(*task)
+	colorMap := s.getStatusColorMap(projectID)
+	res := mapToTaskResponse(*task, colorMap)
+
 	// audit log creation
 	auditLog := models.AuditLog{
 		UserID:         &userID,
@@ -397,7 +453,7 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 	return &res, nil
 }
 
-func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskResponse, *response.Error) {
+func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error) {
 	project, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
@@ -599,11 +655,18 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskR
 	}
 
 	// 3. Validate Status Transition
+	var newNormalizedStatus string
 	if req.Status != nil && *req.Status != task.Status {
-		newStatus := *req.Status
-		oldStatus := task.Status
+		normalized, valErr := s.validateAndNormalizeStatus(req.ProjectID, *req.Status)
+		if valErr != nil {
+			return nil, valErr
+		}
+		newNormalizedStatus = normalized
 
-		if newStatus == string(dto.TaskStatusBlocked) {
+		newStatus := newNormalizedStatus
+		oldStatus := models.NormalizeTaskStatus(task.Status)
+
+		if models.NormalizeTaskStatus(newStatus) == string(dto.TaskStatusBlocked) {
 			if req.BlockedReason == nil || strings.TrimSpace(*req.BlockedReason) == "" {
 				return nil, &response.Error{
 					Code:       response.ErrBadRequest,
@@ -615,21 +678,26 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskR
 
 		if !isPMOrAdmin {
 			allowedTransition := false
-			switch oldStatus {
-			case string(dto.TaskStatusTodo):
-				allowedTransition = newStatus == string(dto.TaskStatusInProgress) || newStatus == string(dto.TaskStatusBlocked)
-			case string(dto.TaskStatusInProgress):
-				allowedTransition = newStatus == string(dto.TaskStatusInReview) || newStatus == string(dto.TaskStatusBlocked)
-			case string(dto.TaskStatusInReview):
-				allowedTransition = newStatus == string(dto.TaskStatusTesting) || newStatus == string(dto.TaskStatusBlocked)
-			case string(dto.TaskStatusTesting):
-				allowedTransition = newStatus == string(dto.TaskStatusCompleted) || newStatus == string(dto.TaskStatusBlocked)
-			case string(dto.TaskStatusCompleted):
-				allowedTransition = newStatus == string(dto.TaskStatusBlocked)
-			case string(dto.TaskStatusBlocked):
-				allowedTransition = newStatus == string(dto.TaskStatusInProgress) || newStatus == string(dto.TaskStatusTodo)
-			default:
-				allowedTransition = false
+			if models.IsDefaultTaskStatus(oldStatus) && models.IsDefaultTaskStatus(newStatus) {
+				normOld := models.NormalizeTaskStatus(oldStatus)
+				normNew := models.NormalizeTaskStatus(newStatus)
+				switch normOld {
+				case string(dto.TaskStatusTodo):
+					allowedTransition = normNew == string(dto.TaskStatusInProgress) || normNew == string(dto.TaskStatusBlocked)
+				case string(dto.TaskStatusInProgress):
+					allowedTransition = normNew == string(dto.TaskStatusInReview) || normNew == string(dto.TaskStatusBlocked)
+				case string(dto.TaskStatusInReview):
+					allowedTransition = normNew == string(dto.TaskStatusTesting) || normNew == string(dto.TaskStatusBlocked)
+				case string(dto.TaskStatusTesting):
+					allowedTransition = normNew == string(dto.TaskStatusCompleted) || normNew == string(dto.TaskStatusBlocked)
+				case string(dto.TaskStatusCompleted):
+					allowedTransition = normNew == string(dto.TaskStatusBlocked)
+				case string(dto.TaskStatusBlocked):
+					allowedTransition = normNew == string(dto.TaskStatusInProgress) || normNew == string(dto.TaskStatusTodo)
+				}
+			} else {
+				// Transition involving at least one custom status is allowed
+				allowedTransition = true
 			}
 
 			if !allowedTransition {
@@ -662,9 +730,9 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskR
 		task.Priority = *req.Priority
 	}
 	if req.Status != nil && *req.Status != task.Status {
-		changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, *req.Status))
-		task.Status = *req.Status
-		if *req.Status == string(dto.TaskStatusBlocked) {
+		changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, newNormalizedStatus))
+		task.Status = newNormalizedStatus
+		if models.NormalizeTaskStatus(newNormalizedStatus) == string(dto.TaskStatusBlocked) {
 			task.BlockedReason = *req.BlockedReason
 		} else {
 			task.BlockedReason = ""
@@ -786,8 +854,8 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskR
 		updates["priority"] = *req.Priority
 	}
 	if req.Status != nil {
-		updates["status"] = *req.Status
-		if *req.Status == string(dto.TaskStatusBlocked) {
+		updates["status"] = newNormalizedStatus
+		if models.NormalizeTaskStatus(newNormalizedStatus) == string(dto.TaskStatusBlocked) {
 			if req.BlockedReason != nil {
 				updates["blocked_reason"] = *req.BlockedReason
 			}
@@ -840,7 +908,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskR
 	if req.LabelIDs != nil {
 		verifiedLabels, verifyErr := s.taskRepo.VerifyLabelIDs(req.ProjectID, *req.LabelIDs)
 		if verifyErr != nil {
-			return  nil, verifyErr
+			return nil, verifyErr
 		}
 
 		existingMap := make(map[uuid.UUID]string)
@@ -880,13 +948,14 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskR
 		err = s.taskRepo.UpdateTaskWithLabels(task.ID, updates, verifiedLabels)
 	} else {
 		if len(updates) == 0 {
-			res := mapToTaskResponse(*task)
-			return  &res, nil
+			colorMap := s.getStatusColorMap(req.ProjectID)
+			res := mapToTaskResponse(*task, colorMap)
+			return &res, nil
 		}
 		err = s.taskRepo.UpdateTask(task.ID, updates)
 	}
 	if err != nil {
-		return  nil, err
+		return nil, err
 	}
 
 	// Refetch to ensure GORM relations are preloaded
@@ -918,8 +987,9 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskR
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	res := mapToTaskResponse(*updatedTask)
-	return  &res, nil
+	colorMap := s.getStatusColorMap(req.ProjectID)
+	res := mapToTaskResponse(*updatedTask, colorMap)
+	return &res, nil
 }
 
 func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error {
@@ -1055,7 +1125,8 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	res := mapToTaskResponse(clonedTask)
+	colorMap := s.getStatusColorMap(req.ProjectID)
+	res := mapToTaskResponse(clonedTask, colorMap)
 	return &res, nil
 }
 
@@ -1077,9 +1148,10 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 		return nil, response.Pagination{}, err
 	}
 
+	colorMap := s.getStatusColorMap(projectID)
 	resList := []responsedto.TaskResponse{}
 	for _, t := range tasks {
-		resList = append(resList, mapToTaskResponse(t))
+		resList = append(resList, mapToTaskResponse(t, colorMap))
 	}
 
 	// audit log creation
@@ -1137,6 +1209,17 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to bulk update tasks in this project",
+		}
+	}
+
+	validStatuses := make(map[string]struct{})
+	for status := range models.DefaultStatusColors {
+		validStatuses[status] = struct{}{}
+	}
+	customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(req.ProjectID)
+	if err == nil {
+		for _, cs := range customStatuses {
+			validStatuses[models.NormalizeTaskStatus(cs.Name)] = struct{}{}
 		}
 	}
 
@@ -1229,8 +1312,19 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 			}
 		}
 
-		// 4. Validate Status Transition to Blocked
-		if item.Status != nil && *item.Status == string(dto.TaskStatusBlocked) {
+		// 4. Validate Status Value
+		var normalizedStatus string
+		if item.Status != nil {
+			normalizedStatus = models.NormalizeTaskStatus(*item.Status)
+			if _, ok := validStatuses[normalizedStatus]; !ok {
+				failedTaskIDs = append(failedTaskIDs, item.TaskID)
+				failureReasons[item.TaskID.String()] = fmt.Sprintf("Invalid status value: '%s'", *item.Status)
+				continue
+			}
+		}
+
+		// 5. Validate Status Transition to Blocked
+		if item.Status != nil && normalizedStatus == string(dto.TaskStatusBlocked) {
 			if item.BlockedReason == nil || strings.TrimSpace(*item.BlockedReason) == "" {
 				failedTaskIDs = append(failedTaskIDs, item.TaskID)
 				failureReasons[item.TaskID.String()] = "Moving to Blocked requires a blocked reason"
@@ -1238,14 +1332,14 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 			}
 		}
 
-		// 5. Track Changes and Update Task
+		// 6. Track Changes and Update Task
 		var changes []string
 		updates := make(map[string]interface{})
-		if item.Status != nil && *item.Status != task.Status {
-			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, *item.Status))
-			task.Status = *item.Status
-			updates["status"] = *item.Status
-			if *item.Status == string(dto.TaskStatusBlocked) {
+		if item.Status != nil && normalizedStatus != task.Status {
+			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, normalizedStatus))
+			task.Status = normalizedStatus
+			updates["status"] = normalizedStatus
+			if normalizedStatus == string(dto.TaskStatusBlocked) {
 				task.BlockedReason = *item.BlockedReason
 				updates["blocked_reason"] = *item.BlockedReason
 			} else {
