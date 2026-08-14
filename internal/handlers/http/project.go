@@ -754,6 +754,7 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 //	@Param			project_id	path		string									true	"Project ID"	Format(uuid)
 //	@Param			user_id		path		string									true	"User ID"		Format(uuid)
 //	@Param			request		body		requestdto.UpdateProjectMemberRequest	true	"Update Project Member Request"
+//	@Success		200		{object}	response.SuccessResponse	"Project member updated successfully"
 //	@Failure		400			{object}	response.ErrorResponse	"Invalid request payload or validation error"
 //	@Failure		401			{object}	response.ErrorResponse	"Unauthorized"
 //	@Failure		403			{object}	response.ErrorResponse	"Forbidden"

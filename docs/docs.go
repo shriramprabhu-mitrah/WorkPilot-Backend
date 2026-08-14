@@ -2311,6 +2311,12 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "Project member updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
                     "400": {
                         "description": "Invalid request payload or validation error",
                         "schema": {

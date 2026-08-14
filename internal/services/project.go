@@ -21,7 +21,7 @@ import (
 
 type ProjectService interface {
 	CreateProject(req requestdto.CreateProjectRequest) (uuid.UUID, *response.Error)
-	UpdateProject(req requestdto.UpdateProjectRequest)  *response.Error
+	UpdateProject(req requestdto.UpdateProjectRequest) *response.Error
 	GetProjectsByOrganizationID(filter requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
 	CreateProjectMemeber(req requestdto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
@@ -159,14 +159,14 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uui
 	return project.ID, nil
 }
 
-func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest)  *response.Error {
+func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *response.Error {
 
 	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
-		return  err
+		return err
 	}
 	if !authorized {
-		return  &response.Error{
+		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to update project",
@@ -175,7 +175,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest)  *re
 
 	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
@@ -186,7 +186,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest)  *re
 			zap.String("Project ID", req.ProjectID.String()),
 			zap.String("Project Role", string(member.ProjectRole)))
 
-		return  &response.Error{
+		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to update this project",
@@ -203,7 +203,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest)  *re
 	if req.Status != nil {
 		if err := req.Status.Validate(); err != nil {
 			s.logger.Error("Invalid project status", zap.Error(err))
-			return  &response.Error{
+			return &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid status. Allowed values: active, archived, on_hold, completed, cancelled, planning",
@@ -213,7 +213,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest)  *re
 	}
 
 	if len(updates) == 0 {
-		return  &response.Error{
+		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
 			Message:    "No changes to update",
@@ -222,7 +222,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest)  *re
 
 	updateErr := s.projectRepo.UpdateProject(req.ProjectID, updates)
 	if updateErr != nil {
-		return 	 updateErr
+		return updateErr
 	}
 
 	var detail string
@@ -249,7 +249,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest)  *re
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return  nil
+	return nil
 }
 
 func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
