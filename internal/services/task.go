@@ -19,9 +19,9 @@ import (
 )
 
 type TaskService interface {
-	CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskResponse, *response.Error)
+	CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *responsedto.TaskResponse, *response.Error)
 	GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error)
-	UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error)
+	UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskResponse, *response.Error)
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	GetTasks(projectID, userID, orgID uuid.UUID, filter dto.TaskFilter) ([]responsedto.TaskResponse, response.Pagination, *response.Error)
@@ -169,13 +169,13 @@ func mapToTaskResponse(task models.Task) responsedto.TaskResponse {
 	return response
 }
 
-func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskResponse, *response.Error) {
+func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *responsedto.TaskResponse, *response.Error) {
 	project, _, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, nil, err
 	}
 	if !authorized {
-		return nil, &response.Error{
+		return uuid.Nil, nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to create tasks in this project",
@@ -186,7 +186,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 
 	// Validation: Title length
 	if len([]rune(req.Title)) < 3 || len([]rune(req.Title)) > 200 {
-		return nil, &response.Error{
+		return uuid.Nil, nil, &response.Error{
 			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Task title must be between 3 and 200 characters",
@@ -195,7 +195,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 
 	// Validation: Story Points (Fibonacci)
 	if !isFibonacci(req.StoryPoints) {
-		return nil, &response.Error{
+		return uuid.Nil, nil, &response.Error{
 			Code:       response.ErrValidation,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Story points must follow the Fibonacci scale",
@@ -206,14 +206,14 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	if req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
 		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
 		if err != nil {
-			return nil, &response.Error{
+			return uuid.Nil, nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Assignee user not found",
 			}
 		}
 		if !assigneeUser.IsActive {
-			return nil, &response.Error{
+			return uuid.Nil, nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Assignee must be an active user",
@@ -221,7 +221,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		}
 		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
 		if err != nil {
-			return nil, err
+			return uuid.Nil, nil, err
 		}
 		if !isMember {
 			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
@@ -229,7 +229,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 			}
 		}
 		if !isMember {
-			return nil, &response.Error{
+			return uuid.Nil, nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Assignee must be a member of the project",
@@ -242,10 +242,10 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		if isBackdated(*req.DueDate) {
 			isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
 			if checkErr != nil {
-				return nil, checkErr
+				return uuid.Nil, nil, checkErr
 			}
 			if !isPMOrAdmin {
-				return nil, &response.Error{
+				return uuid.Nil, nil, &response.Error{
 					Code:       response.ErrValidation,
 					StatusCode: http.StatusBadRequest,
 					Message:    "Due date cannot be backdated unless set by a PM or Admin",
@@ -258,10 +258,10 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	if req.SprintID != nil && *req.SprintID != uuid.Nil {
 		sprintStatus, err := s.taskRepo.GetSprintStatus(*req.SprintID)
 		if err != nil {
-			return nil, err
+			return uuid.Nil, nil, err
 		}
 		if sprintStatus == string(dto.SprintStatusCompleted) {
-			return nil, &response.Error{
+			return uuid.Nil, nil, &response.Error{
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Cannot assign a task to a completed sprint",
@@ -273,10 +273,10 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	if req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
 		inProject, err := s.taskRepo.IsUserStoryInProject(*req.UserStoryID, req.ProjectID)
 		if err != nil {
-			return nil, err
+			return uuid.Nil, nil, err
 		}
 		if !inProject {
-			return nil, &response.Error{
+			return uuid.Nil, nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "User story must belong to the same project",
@@ -313,7 +313,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 		var verifyErr *response.Error
 		labels, verifyErr = s.taskRepo.VerifyLabelIDs(req.ProjectID, req.LabelIDs)
 		if verifyErr != nil {
-			return nil, verifyErr
+			return uuid.Nil, nil, verifyErr
 		}
 	}
 	task.Labels = labels
@@ -322,7 +322,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	for attempt := 0; attempt < 3; attempt++ {
 		seq, err := s.taskRepo.GetNextSequenceNumber(req.ProjectID)
 		if err != nil {
-			return nil, err
+			return uuid.Nil,nil, err
 		}
 		task.SequenceNumber = seq
 		task.Key = fmt.Sprintf("%s-%d", projectKey, seq)
@@ -332,11 +332,11 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 			break
 		}
 		if lastErr.Code != response.ErrConflict {
-			return nil, lastErr
+			return uuid.Nil, nil, lastErr
 		}
 	}
 	if lastErr != nil {
-		return nil, lastErr
+		return uuid.Nil, nil, lastErr
 	}
 
 	auditLog := models.AuditLog{
@@ -355,7 +355,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (*responsedto.TaskRe
 	}
 
 	res := mapToTaskResponse(task)
-	return &res, nil
+	return task.ID, &res, nil
 }
 
 func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error) {
@@ -397,7 +397,7 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 	return &res, nil
 }
 
-func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error) {
+func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) ( *responsedto.TaskResponse, *response.Error) {
 	project, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
@@ -840,7 +840,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	if req.LabelIDs != nil {
 		verifiedLabels, verifyErr := s.taskRepo.VerifyLabelIDs(req.ProjectID, *req.LabelIDs)
 		if verifyErr != nil {
-			return nil, verifyErr
+			return  nil, verifyErr
 		}
 
 		existingMap := make(map[uuid.UUID]string)
@@ -881,12 +881,12 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	} else {
 		if len(updates) == 0 {
 			res := mapToTaskResponse(*task)
-			return &res, nil
+			return  &res, nil
 		}
 		err = s.taskRepo.UpdateTask(task.ID, updates)
 	}
 	if err != nil {
-		return nil, err
+		return  nil, err
 	}
 
 	// Refetch to ensure GORM relations are preloaded
@@ -919,7 +919,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 
 	res := mapToTaskResponse(*updatedTask)
-	return &res, nil
+	return  &res, nil
 }
 
 func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error {

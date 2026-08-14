@@ -13,7 +13,7 @@ import (
 )
 
 type SprintRepository interface {
-	CreateSprint(row models.Sprint) *response.Error
+	CreateSprint(row *models.Sprint)  *response.Error
 	UpdateSprint(projectID, sprintID uuid.UUID, updates map[string]interface{}) *response.Error
 	DeleteSprint(id uuid.UUID) *response.Error
 	GetSprintByID(sprintID, projectID uuid.UUID) (*models.Sprint, *response.Error)

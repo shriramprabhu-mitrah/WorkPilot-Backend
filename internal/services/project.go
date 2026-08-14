@@ -20,8 +20,8 @@ import (
 )
 
 type ProjectService interface {
-	CreateProject(req requestdto.CreateProjectRequest) *response.Error
-	UpdateProject(req requestdto.UpdateProjectRequest) *response.Error
+	CreateProject(req requestdto.CreateProjectRequest) (uuid.UUID, *response.Error)
+	UpdateProject(req requestdto.UpdateProjectRequest) (uuid.UUID, *response.Error)
 	GetProjectsByOrganizationID(filter requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
 	CreateProjectMemeber(req requestdto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
@@ -80,11 +80,11 @@ func (s *projectService) checkAuthorization(projectID, userID uuid.UUID) (bool, 
 	return isMember, nil
 }
 
-func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) *response.Error {
+func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uuid.UUID, *response.Error) {
 
 	result, err := s.authRepo.GetUserByID(req.UserID)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
@@ -92,7 +92,7 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) *res
 			zap.String("Organization ID", req.OrganizationID.String()),
 			zap.String("User Organization ID", result.OrganizationID.String()),
 			zap.String("User ID", req.UserID.String()))
-		return &response.Error{
+		return uuid.Nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
@@ -103,7 +103,7 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) *res
 		s.logger.Error("Unauthorized Access",
 			zap.String("Organization Id", req.OrganizationID.String()),
 			zap.String("User Organization Id", result.OrganizationID.String()))
-		return &response.Error{
+		return uuid.Nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
@@ -127,13 +127,13 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) *res
 
 	err = s.projectRepo.CreateProjectWithMember(projectPayload, projectMemberPayload)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	// get the project details
 	project, err := s.projectRepo.GetProjectByID(projectPayload.ID)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	// Log project creation audit event
@@ -156,17 +156,17 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) *res
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return nil
+	return project.ID, nil
 }
 
-func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *response.Error {
+func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) (uuid.UUID, *response.Error) {
 
 	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 	if !authorized {
-		return &response.Error{
+		return uuid.Nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to update project",
@@ -175,7 +175,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 
 	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	if member.ProjectRole != string(requestdto.ProjectRoleOrgAdmin) &&
@@ -186,7 +186,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 			zap.String("Project ID", req.ProjectID.String()),
 			zap.String("Project Role", string(member.ProjectRole)))
 
-		return &response.Error{
+		return uuid.Nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to update this project",
@@ -203,7 +203,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 	if req.Status != nil {
 		if err := req.Status.Validate(); err != nil {
 			s.logger.Error("Invalid project status", zap.Error(err))
-			return &response.Error{
+			return uuid.Nil, &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid status. Allowed values: active, archived, on_hold, completed, cancelled, planning",
@@ -213,12 +213,16 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 	}
 
 	if len(updates) == 0 {
-		return nil
+		return uuid.Nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "No changes to update",
+		}
 	}
 
 	updateErr := s.projectRepo.UpdateProject(req.ProjectID, updates)
 	if updateErr != nil {
-		return updateErr
+		return uuid.Nil, updateErr
 	}
 
 	var detail string
@@ -245,7 +249,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return nil
+	return req.ProjectID, nil
 }
 
 func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
