@@ -34,13 +34,14 @@ type auditHandler struct {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param activity_type path string true "Activity Type" Enums(view, activity)
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Number of records per page" default(10)
 // @Success 200 {object} response.SuccessResponse{data=responsedto.AuditLogResponseWrapper}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /audit [get]
+// @Router /audit/{activity_type} [get]
 func (h *auditHandler) GetAuditLogs(g *gin.Context) {
 	var req requestdto.GetAudit
 
