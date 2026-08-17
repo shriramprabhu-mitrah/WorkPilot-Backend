@@ -2426,6 +2426,46 @@ paths:
       summary: Get project members
       tags:
       - Project Members
+  /project/recent:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve projects assigned to the user that have at least one valid
+        task.
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: user_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse'
+              type: object
+        "400":
+          description: Validation Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get recent projects with tasks assigned to user
+      tags:
+      - Projects
   /project/update/{project_id}:
     patch:
       consumes:

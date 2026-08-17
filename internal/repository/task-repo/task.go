@@ -576,3 +576,34 @@ func (d *taskDatabase) UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newS
 	return nil
 }
 
+func (d *taskDatabase) GetTaskCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	counts := make(map[uuid.UUID]int64)
+	if len(projectIDs) == 0 {
+		return counts, nil
+	}
+
+	type result struct {
+		ProjectID uuid.UUID `gorm:"column:project_id"`
+		Count     int64     `gorm:"column:count"`
+	}
+
+	var results []result
+	if err := d.db.Model(&models.Task{}).
+		Select("project_id, count(*) as count").
+		Where("project_id IN ? AND deleted_at IS NULL", projectIDs).
+		Group("project_id").
+		Scan(&results).Error; err != nil {
+		d.logger.Error("Failed to count tasks by project IDs", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to count tasks by project IDs",
+		}
+	}
+
+	for _, r := range results {
+		counts[r.ProjectID] = r.Count
+	}
+
+	return counts, nil
+}

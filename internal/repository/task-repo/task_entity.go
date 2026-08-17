@@ -33,6 +33,7 @@ type TaskRepository interface {
 	GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Task, *response.Error)
 	CountTasksByStatus(projectID uuid.UUID, status string) (int64, *response.Error)
 	UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newStatus string) *response.Error
+	GetTaskCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
 }
 
 func InitTaskRepository(deps models.Config) TaskRepository {

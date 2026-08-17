@@ -123,6 +123,20 @@ func (s *stubTaskRepo) UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newS
 	return nil
 }
 
+func (s *stubTaskRepo) GetTaskCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	counts := make(map[uuid.UUID]int64)
+	for _, id := range projectIDs {
+		var count int64
+		for _, t := range s.tasks {
+			if t.ProjectID == id && !t.DeletedAt.Valid {
+				count++
+			}
+		}
+		counts[id] = count
+	}
+	return counts, nil
+}
+
 type stubCustomStatusRepo struct {
 	statuses map[uuid.UUID]map[string]*models.CustomStatus
 }

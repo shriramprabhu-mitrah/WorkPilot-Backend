@@ -30,6 +30,7 @@ type ProjectService interface {
 	GetProjectDetails(req requestdto.GetProjectDetails) (*responsedto.ProjectDetail, *response.Error)
 	DeleteProject(req requestdto.DeleteProject) *response.Error
 	GetProjectsByUserID(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error)
+	GetRecentProjects(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error)
 	UpdateProjectMember(req requestdto.UpdateProjectMemberRequest) *response.Error
 }
 
@@ -213,7 +214,11 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 	}
 
 	if len(updates) == 0 {
-		return nil
+		return &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "No changes to update",
+		}
 	}
 
 	updateErr := s.projectRepo.UpdateProject(req.ProjectID, updates)
@@ -863,6 +868,94 @@ func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) 
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		Action:         "project_list_viewed",
+		ResourceType:   "project",
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return resp, nil
+}
+
+func (s *projectService) GetRecentProjects(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error) {
+
+	result, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", result.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	projectMembers, err := s.projectRepo.GetProjectsByUserID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	projectIDs := make([]uuid.UUID, 0, len(projectMembers))
+	for _, member := range projectMembers {
+		projectIDs = append(projectIDs, member.ProjectID)
+	}
+
+	taskCounts, taskErr := s.taskRepo.GetTaskCountsByProjectIDs(projectIDs)
+	if taskErr != nil {
+		return nil, taskErr
+	}
+
+	resp := &responsedto.GetProjectByUserIDResponse{
+		UserID:    req.UserID,
+		FullName:  result.FullName,
+		UserName:  result.UserName,
+		AvatarURL: result.AvatarURL,
+		Email:     result.Email,
+		Role:      result.Role,
+		Project:   make([]responsedto.ProjectResponse, 0, len(projectMembers)),
+	}
+
+	for _, member := range projectMembers {
+		projectID := member.ProjectID
+
+		if count, exists := taskCounts[projectID]; exists && count > 0 {
+			resp.Project = append(resp.Project, responsedto.ProjectResponse{
+				ProjectID:   projectID,
+				Role:        member.ProjectRole,
+				ProjectName: member.Project.Name,
+				Status:      member.Project.Status,
+			})
+		}
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		Action:         "recent_projects_viewed",
 		ResourceType:   "project",
 		Type:           models.AuditLogTypeView,
 		CreatedAt:      time.Now(),

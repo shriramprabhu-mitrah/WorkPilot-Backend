@@ -1836,6 +1836,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/project/recent": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve projects assigned to the user that have at least one valid task.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Get recent projects with tasks assigned to user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID (UUID)",
+                        "name": "user_id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Validation Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/project/update/{project_id}": {
             "patch": {
                 "description": "Update project details such as name, description, and status.",
