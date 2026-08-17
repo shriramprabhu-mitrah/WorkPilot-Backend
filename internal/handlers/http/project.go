@@ -749,6 +749,54 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 	})
 }
 
+// GetRecentProjects godoc
+//
+//	@Summary		Get recent projects
+//	@Description	Retrieve the recent projects assigned to the user that have at least one valid task.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Success		200		{object}	response.SuccessResponse{data=responsedto.GetProjectByUserIDResponse}
+//	@Failure		400		{object}	response.ErrorResponse	"Validation Error"
+//	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
+//	@Failure		500		{object}	response.ErrorResponse	"Internal Server Error"
+//	@Security		BearerAuth
+//	@Router			/project/recent [get]
+func (h *ProjectHandler) GetRecentProjects(g *gin.Context) {
+
+	var payload requestdto.GetProjectByUserID
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	payload.UserID = userUUID
+	payload.OrganizationID = organizationUUID
+
+	project, err := h.service.GetRecentProjects(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Recent projects retrieved successfully.",
+		Data:       project,
+	})
+}
+
 // UpdateProjectMember godoc
 //
 //	@Summary		Update project member role

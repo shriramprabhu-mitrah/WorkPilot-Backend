@@ -147,6 +147,10 @@ func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) respons
 	if task.Assignee != nil {
 		assigneeName = task.Assignee.FullName
 	}
+	var reporterName string
+	if task.Reporter != nil {
+		reporterName = task.Reporter.FullName
+	}
 
 	labelsRes := []responsedto.LabelResponse{}
 	for _, l := range task.Labels {
@@ -175,6 +179,7 @@ func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) respons
 		AssigneeID:     task.AssigneeID,
 		ReporterID:     task.ReporterID,
 		AssigneeName:   assigneeName,
+		ReporterName:   reporterName,
 		StoryPoints:    task.StoryPoints,
 		DueDate:        task.DueDate,
 		EstimatedHours: task.EstimatedHours,

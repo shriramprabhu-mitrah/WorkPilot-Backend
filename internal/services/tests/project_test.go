@@ -13,7 +13,9 @@ import (
 	"go.uber.org/zap"
 )
 
-type dummyAuthRepo struct{}
+type dummyAuthRepo struct {
+	orgID *uuid.UUID
+}
 type dummySprintRepo struct {
 	sprintCountsByProject map[uuid.UUID]int
 	sprintsByProjectID    map[uuid.UUID][]models.Sprint
@@ -89,6 +91,12 @@ func (d *dummyAuthRepo) GetByEmail(email string) (models.User, *response.Error) 
 	return models.User{}, nil
 }
 func (d *dummyAuthRepo) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
+	if d.orgID != nil {
+		return models.User{
+			ID:             id,
+			OrganizationID: d.orgID,
+		}, nil
+	}
 	return models.User{}, nil
 }
 func (d *dummyAuthRepo) ExistsByEmail(email string) (bool, *response.Error) {
@@ -165,12 +173,13 @@ func (d *dummyAuthRepo) UpdateInvitation(invitation models.OrganizationInvitatio
 }
 
 type stubProjectRepo struct {
-	project            models.Project
-	isMember           bool
-	getProjectActivity func(projectID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
-	updateProjectFunc  func(projectID uuid.UUID, updates map[string]interface{}) *response.Error
-	createdLogs        []models.AuditLog
-	projectRole        string
+	project                 models.Project
+	isMember                bool
+	getProjectActivity      func(projectID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
+	updateProjectFunc       func(projectID uuid.UUID, updates map[string]interface{}) *response.Error
+	getProjectsByUserIDFunc func(userID uuid.UUID) ([]models.ProjectMember, *response.Error)
+	createdLogs             []models.AuditLog
+	projectRole             string
 }
 
 func (s *stubProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
@@ -191,6 +200,9 @@ func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 	return nil, response.Pagination{}, nil
 }
 func (s *stubProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error) {
+	if s.getProjectsByUserIDFunc != nil {
+		return s.getProjectsByUserIDFunc(userID)
+	}
 	return nil, nil
 }
 func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
@@ -431,7 +443,7 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 			},
 		}
 
-		dummyAuth := &dummyAuthRepo{} // embeds and stubs auth interface methods returning default values
+		dummyAuth := &dummyAuthRepo{orgID: &orgID} // embeds and stubs auth interface methods returning default values
 		taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
 		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, taskRepo, &stubAuditLogRepo{}, logger)
 
@@ -464,7 +476,7 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 			},
 		}
 
-		dummyAuth := &dummyAuthRepo{}
+		dummyAuth := &dummyAuthRepo{orgID: &orgID}
 		taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
 		service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, taskRepo, &stubAuditLogRepo{}, logger)
 
@@ -504,3 +516,83 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 		}
 	})
 }
+
+func TestGetRecentProjects_TaskFiltering(t *testing.T) {
+	logger := zap.NewNop()
+	userID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+
+	projectA := uuid.Must(uuid.NewV4())
+	projectB := uuid.Must(uuid.NewV4())
+	projectC := uuid.Must(uuid.NewV4()) // user not assigned to C
+	projectD := uuid.Must(uuid.NewV4())
+
+	dummyAuth := &dummyAuthRepo{orgID: &orgID}
+	projectRepo := &stubProjectRepo{
+		getProjectsByUserIDFunc: func(uID uuid.UUID) ([]models.ProjectMember, *response.Error) {
+			return []models.ProjectMember{
+				{ProjectID: projectA, UserID: userID, ProjectRole: "developer", Project: models.Project{ID: projectA, Name: "Project A", Status: "active"}},
+				{ProjectID: projectB, UserID: userID, ProjectRole: "developer", Project: models.Project{ID: projectB, Name: "Project B", Status: "active"}},
+				{ProjectID: projectD, UserID: userID, ProjectRole: "developer", Project: models.Project{ID: projectD, Name: "Project D", Status: "active"}},
+			}, nil
+		},
+	}
+
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{
+			uuid.Must(uuid.NewV4()): {ID: uuid.Must(uuid.NewV4()), ProjectID: projectA, Title: "Task A1"},
+			uuid.Must(uuid.NewV4()): {ID: uuid.Must(uuid.NewV4()), ProjectID: projectA, Title: "Task A2"},
+			uuid.Must(uuid.NewV4()): {ID: uuid.Must(uuid.NewV4()), ProjectID: projectA, Title: "Task A3"},
+			uuid.Must(uuid.NewV4()): {ID: uuid.Must(uuid.NewV4()), ProjectID: projectC, Title: "Task C1"},
+			uuid.Must(uuid.NewV4()): {ID: uuid.Must(uuid.NewV4()), ProjectID: projectD, Title: "Task D1"},
+		},
+	}
+
+	service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, taskRepo, &stubAuditLogRepo{}, logger)
+
+	req := requestdto.GetProjectByUserID{
+		UserID:         userID,
+		OrganizationID: orgID,
+	}
+
+	t.Run("GetRecentProjects filters projects with 0 tasks", func(t *testing.T) {
+		resp, err := service.GetRecentProjects(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(resp.Project) != 2 {
+			t.Fatalf("expected 2 projects, got %d", len(resp.Project))
+		}
+
+		projectIDs := make(map[uuid.UUID]bool)
+		for _, p := range resp.Project {
+			projectIDs[p.ProjectID] = true
+		}
+
+		if !projectIDs[projectA] {
+			t.Errorf("expected Project A to be included")
+		}
+		if projectIDs[projectB] {
+			t.Errorf("expected Project B to be excluded (0 tasks)")
+		}
+		if projectIDs[projectC] {
+			t.Errorf("expected Project C to be excluded (user not assigned)")
+		}
+		if !projectIDs[projectD] {
+			t.Errorf("expected Project D to be included")
+		}
+	})
+
+	t.Run("GetProjectsByUserID returns all assigned projects", func(t *testing.T) {
+		resp, err := service.GetProjectsByUserID(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(resp.Project) != 3 {
+			t.Fatalf("expected 3 assigned projects, got %d", len(resp.Project))
+		}
+	})
+}
+
