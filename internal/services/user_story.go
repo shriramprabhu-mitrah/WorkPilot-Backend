@@ -481,7 +481,7 @@ func mapToUserStoryResponse(story models.UserStory, totalTasks, completedTasks i
 		CompletedTasks: completedTasks,
 		Progress:       progress,
 		CreatedAt:      story.CreatedAt,
-		UpdatedAt:    story.UpdatedAt,
+		UpdatedAt:      story.UpdatedAt,
 	}
 
 	res.Reporter = &responsedto.UserSummary{

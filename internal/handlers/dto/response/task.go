@@ -17,6 +17,7 @@ type TaskResponse struct {
 	Description    string          `json:"description,omitempty"`
 	Type           string          `json:"type"`
 	Priority       string          `json:"priority"`
+	StatusID       uuid.UUID       `json:"status_id"`
 	Status         string          `json:"status"`
 	StatusColor    string          `json:"status_color"`
 	AssigneeID     *uuid.UUID      `json:"assignee_id,omitempty"`

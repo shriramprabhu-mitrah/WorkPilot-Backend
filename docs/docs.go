@@ -5697,6 +5697,9 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "status_id": {
+                    "type": "string"
+                },
                 "task_id": {
                     "type": "string"
                 }
@@ -5914,6 +5917,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "status_id": {
                     "type": "string"
                 },
                 "story_points": {
@@ -6334,6 +6340,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "status_id": {
                     "type": "string"
                 },
                 "story_points": {
@@ -6808,6 +6817,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status_color": {
+                    "type": "string"
+                },
+                "status_id": {
                     "type": "string"
                 },
                 "story_points": {

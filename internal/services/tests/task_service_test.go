@@ -245,6 +245,9 @@ func applyUpdatesToTask(task *models.Task, updates map[string]interface{}) {
 	if val, ok := updates["status"].(string); ok {
 		task.Status = val
 	}
+	if val, ok := updates["status_id"].(uuid.UUID); ok {
+		task.StatusID = val
+	}
 	if val, ok := updates["blocked_reason"].(string); ok {
 		task.BlockedReason = val
 	}
@@ -1081,8 +1084,8 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 
 	// Verify task1 actually updated
 	updatedTask1 := taskRepo.tasks[taskID1]
-	if updatedTask1.Status != "completed" {
-		t.Fatalf("expected task1 status to be completed, got %s", updatedTask1.Status)
+	if updatedTask1.Status != "Completed" {
+		t.Fatalf("expected task1 status to be Completed, got %s", updatedTask1.Status)
 	}
 	if updatedTask1.SprintID == nil || *updatedTask1.SprintID != sprintID {
 		t.Fatalf("expected task1 sprint ID to be updated")

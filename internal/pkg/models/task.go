@@ -22,6 +22,7 @@ type Task struct {
 	Description    string         `json:"description,omitempty" gorm:"type:text"`
 	Type           string         `json:"type" gorm:"type:varchar(50);not null;default:'task'"`
 	Priority       string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`
+	StatusID       uuid.UUID      `json:"status_id" gorm:"type:uuid;not null;index"`
 	Status         string         `json:"status" gorm:"type:varchar(50);not null;default:'todo'"`
 	BlockedReason  string         `json:"blocked_reason,omitempty" gorm:"type:text"`
 	AssigneeID     *uuid.UUID     `json:"assignee_id,omitempty" gorm:"type:uuid;index"`
@@ -73,4 +74,3 @@ func IsDefaultTaskStatus(status string) bool {
 	_, exists := DefaultStatusColors[NormalizeTaskStatus(status)]
 	return exists
 }
-
