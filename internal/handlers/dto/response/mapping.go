@@ -121,6 +121,7 @@ func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
 	resp := AuditLogResponse{
 		ID:             audit.ID,
 		ProjectID:      audit.ProjectID,
+		ProjectName:    audit.ProjectName,
 		OrganizationID: audit.OrganizationID,
 		Action:         audit.Action,
 		ResourceType:   audit.ResourceType,

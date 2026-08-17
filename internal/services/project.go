@@ -548,6 +548,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		dtoItem := responsedto.ProjectActivityResponse{
 			ID:             item.ID,
 			ProjectID:      item.ProjectID,
+			ProjectName:    item.ProjectName,
 			OrganizationID: item.OrganizationID,
 			Action:         item.Action,
 			ResourceType:   item.ResourceType,
@@ -555,6 +556,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 			Details:        item.Details,
 			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 			Title:          item.Title,
+			TaskKey:        item.TaskKey,
 		}
 
 		if item.User.ID != uuid.Nil {
@@ -724,6 +726,7 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
 		Action:         "project_detail_viewed",
 		ResourceType:   "project",
 		ResourceID:     req.ProjectID.String(),

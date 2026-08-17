@@ -657,17 +657,31 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 	var sprintIDs []uuid.UUID
 
 	for _, log := range logs {
-		rID, err := uuid.FromString(log.ResourceID)
-		if err != nil || rID == uuid.Nil {
-			continue
+		if log.TaskID != nil && *log.TaskID != uuid.Nil {
+			taskIDs = append(taskIDs, *log.TaskID)
 		}
-		switch strings.ToLower(log.ResourceType) {
-		case "task":
-			taskIDs = append(taskIDs, rID)
-		case "project":
-			projectIDs = append(projectIDs, rID)
-		case "sprint":
-			sprintIDs = append(sprintIDs, rID)
+		if log.ProjectID != nil && *log.ProjectID != uuid.Nil {
+			projectIDs = append(projectIDs, *log.ProjectID)
+		}
+		if log.SprintID != nil && *log.SprintID != uuid.Nil {
+			sprintIDs = append(sprintIDs, *log.SprintID)
+		}
+
+		rID, err := uuid.FromString(log.ResourceID)
+		if err == nil && rID != uuid.Nil {
+			switch strings.ToLower(log.ResourceType) {
+			case "task":
+				taskIDs = append(taskIDs, rID)
+				projectIDs = append(projectIDs, rID)
+			case "project", "project_member":
+				projectIDs = append(projectIDs, rID)
+			case "sprint":
+				sprintIDs = append(sprintIDs, rID)
+			default:
+				taskIDs = append(taskIDs, rID)
+				projectIDs = append(projectIDs, rID)
+				sprintIDs = append(sprintIDs, rID)
+			}
 		}
 	}
 
@@ -719,23 +733,70 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 
 	// Populate transient fields
 	for i, log := range logs {
-		rID, err := uuid.FromString(log.ResourceID)
-		if err != nil {
-			continue
+		if logs[i].Type == "" {
+			if strings.Contains(strings.ToLower(logs[i].Action), "view") {
+				logs[i].Type = models.AuditLogTypeView
+			} else {
+				logs[i].Type = models.AuditLogTypeActivity
+			}
 		}
-		switch strings.ToLower(log.ResourceType) {
-		case "task":
+
+		rID, err := uuid.FromString(log.ResourceID)
+		hasRID := (err == nil && rID != uuid.Nil)
+
+		// Always set ProjectName if project is known
+		if log.ProjectID != nil {
+			if name, ok := projectMap[*log.ProjectID]; ok {
+				logs[i].ProjectName = name
+			}
+		}
+		if logs[i].ProjectName == "" && hasRID {
+			if name, ok := projectMap[rID]; ok {
+				logs[i].ProjectName = name
+			}
+		}
+
+		// 1. Try matching task (by ResourceID or TaskID)
+		if hasRID {
 			if t, ok := taskMap[rID]; ok {
 				logs[i].Title = t.Title
 				logs[i].TaskKey = t.Key
+				continue
 			}
-		case "project":
+		}
+		if log.TaskID != nil {
+			if t, ok := taskMap[*log.TaskID]; ok {
+				logs[i].Title = t.Title
+				logs[i].TaskKey = t.Key
+				continue
+			}
+		}
+
+		// 2. Try matching project (by ResourceID or ProjectID)
+		if hasRID {
 			if name, ok := projectMap[rID]; ok {
 				logs[i].Title = name
+				continue
 			}
-		case "sprint":
+		}
+		if log.ProjectID != nil {
+			if name, ok := projectMap[*log.ProjectID]; ok {
+				logs[i].Title = name
+				continue
+			}
+		}
+
+		// 3. Try matching sprint (by ResourceID or SprintID)
+		if hasRID {
 			if name, ok := sprintMap[rID]; ok {
 				logs[i].Title = name
+				continue
+			}
+		}
+		if log.SprintID != nil {
+			if name, ok := sprintMap[*log.SprintID]; ok {
+				logs[i].Title = name
+				continue
 			}
 		}
 	}

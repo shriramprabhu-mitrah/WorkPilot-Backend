@@ -23,6 +23,7 @@ type ProjectDetail struct {
 type ProjectActivityResponse struct {
 	ID             uuid.UUID    `json:"id"`
 	ProjectID      *uuid.UUID   `json:"project_id,omitempty"`
+	ProjectName    string       `json:"project_name,omitempty"`
 	OrganizationID *uuid.UUID   `json:"organization_id,omitempty"`
 	User           *UserSummary `json:"user,omitempty"`
 	Action         string       `json:"action"`
