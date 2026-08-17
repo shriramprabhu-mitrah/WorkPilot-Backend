@@ -86,6 +86,7 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 	resp := CommentsResponse{
 		ID:              comment.ID,
 		TaskID:          comment.TaskID,
+		UserStoryID:     comment.UserStoryID,
 		UserID:          comment.UserID,
 		UserName:        comment.User.UserName,
 		FullName:        comment.User.FullName,

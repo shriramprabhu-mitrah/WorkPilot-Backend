@@ -43,3 +43,10 @@ func (u *UserStory) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	return
 }
+
+type UserStoryAccessContext struct {
+	UserStoryID    uuid.UUID `gorm:"column:user_story_id"`
+	ProjectID      uuid.UUID `gorm:"column:project_id"`
+	OrganizationID uuid.UUID `gorm:"column:organization_id"`
+	Title          string    `gorm:"column:title"`
+}

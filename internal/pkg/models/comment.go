@@ -9,7 +9,8 @@ import (
 
 type Comments struct {
 	ID              uuid.UUID           `json:"id" gorm:"type:uuid;primaryKey"`
-	TaskID          uuid.UUID           `json:"task_id" gorm:"type:uuid;not null;index"`
+	TaskID          *uuid.UUID          `json:"task_id,omitempty" gorm:"type:uuid;index"`
+	UserStoryID     *uuid.UUID          `json:"user_story_id,omitempty" gorm:"type:uuid;index"`
 	UserID          uuid.UUID           `json:"user_id" gorm:"type:uuid;not null;index"`
 	User            User                `json:"user,omitempty" gorm:"foreignKey:UserID"`
 	ProjectID       uuid.UUID           `json:"project_id" gorm:"type:uuid;not null;index"`

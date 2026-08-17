@@ -23,6 +23,7 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		&models.Comments{},
 		&models.TaskAttachment{},
 		&models.CommentAttachment{},
+		&models.UserStoryAttachment{},
 		&models.OrphanedFile{},
 		&models.CustomStatus{},
 	)

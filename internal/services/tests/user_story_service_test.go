@@ -158,6 +158,22 @@ func (s *stubUserStoryRepo) GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUI
 	return s.storyTaskStats, nil
 }
 
+func (s *stubUserStoryRepo) GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	story, ok := s.stories[id]
+	if !ok || story.DeletedAt.Valid {
+		return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "User story not found"}
+	}
+	return &models.UserStoryAccessContext{
+		UserStoryID:    story.ID,
+		Title:          story.Title,
+		ProjectID:      story.ProjectID,
+		OrganizationID: story.Project.OrganizationID,
+	}, nil
+}
+
 func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())

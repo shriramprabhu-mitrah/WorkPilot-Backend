@@ -16,10 +16,18 @@ import (
 func (d *commentsDatabase) CreateComment(comment *models.Comments) *response.Error {
 
 	if err := d.db.Create(&comment).Error; err != nil {
-
+		taskIDStr := "nil"
+		if comment.TaskID != nil {
+			taskIDStr = comment.TaskID.String()
+		}
+		userStoryIDStr := "nil"
+		if comment.UserStoryID != nil {
+			userStoryIDStr = comment.UserStoryID.String()
+		}
 		d.logger.Error("Failed to create comment",
 			zap.Error(err),
-			zap.String("TaskID", comment.TaskID.String()),
+			zap.String("TaskID", taskIDStr),
+			zap.String("UserStoryID", userStoryIDStr),
 			zap.String("UserID", comment.UserID.String()))
 
 		return &response.Error{
@@ -76,13 +84,18 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 
 	offset := (req.Page - 1) * req.PageSize
 
+	taskID := uuid.Nil
+	if req.TaskID != nil {
+		taskID = *req.TaskID
+	}
+
 	baseQuery := d.db.Model(&models.Comments{}).
-		Where("organization_id = ? AND task_id = ? AND parent_comment_id IS NULL", req.OrganizationID, req.TaskID)
+		Where("organization_id = ? AND task_id = ? AND parent_comment_id IS NULL", req.OrganizationID, taskID)
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
 
 		d.logger.Error("Database error occurred",
-			zap.String("TaskID", req.TaskID.String()),
+			zap.String("TaskID", taskID.String()),
 			zap.Error(err))
 
 		return nil, response.Pagination{}, &response.Error{
@@ -103,7 +116,7 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 		Find(&comments).Error; err != nil {
 
 		d.logger.Error("Failed to fetch task comments",
-			zap.String("TaskID", req.TaskID.String()),
+			zap.String("TaskID", taskID.String()),
 			zap.Error(err))
 
 		return nil, response.Pagination{}, &response.Error{
@@ -211,13 +224,24 @@ func (d *commentsDatabase) GetCommentsByParentID(req requestdto.GetComments) ([]
 
 	offset := (req.Page - 1) * req.PageSize
 
-	baseQuery := d.db.Model(&models.Comments{}).
-		Where("organization_id = ? AND task_id = ? AND parent_comment_id = ?", req.OrganizationID, req.TaskID, req.CommentID)
+	baseQuery := d.db.Model(&models.Comments{}).Where("organization_id = ? AND parent_comment_id = ?", req.OrganizationID, req.CommentID)
+	if req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
+		baseQuery = baseQuery.Where("user_story_id = ?", req.UserStoryID)
+	} else {
+		baseQuery = baseQuery.Where("task_id = ?", req.TaskID)
+	}
+
+	taskOrStoryIDStr := "nil"
+	if req.TaskID != nil {
+		taskOrStoryIDStr = req.TaskID.String()
+	} else if req.UserStoryID != nil {
+		taskOrStoryIDStr = req.UserStoryID.String()
+	}
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
 
 		d.logger.Error("Database error occurred",
-			zap.String("TaskID", req.TaskID.String()),
+			zap.String("TaskOrStoryID", taskOrStoryIDStr),
 			zap.String("ParentCommentID", req.CommentID.String()),
 			zap.Error(err))
 
@@ -239,8 +263,75 @@ func (d *commentsDatabase) GetCommentsByParentID(req requestdto.GetComments) ([]
 		Find(&comments).Error; err != nil {
 
 		d.logger.Error("Failed to fetch reply comments",
-			zap.String("TaskID", req.TaskID.String()),
+			zap.String("TaskOrStoryID", taskOrStoryIDStr),
 			zap.String("ParentCommentID", req.CommentID.String()),
+			zap.Error(err))
+
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	totalPages := int(math.Ceil(float64(totalItems) / float64(req.PageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := response.Pagination{
+		Page:        req.Page,
+		PageSize:    req.PageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     req.Page < totalPages,
+		HasPrevious: req.Page > 1,
+	}
+
+	return comments, pagination, nil
+}
+
+func (d *commentsDatabase) GetCommentsByUserStoryID(req requestdto.GetComments) ([]models.Comments, response.Pagination, *response.Error) {
+	var (
+		comments   []models.Comments
+		totalItems int64
+	)
+
+	req.PaginationQuery.Normalize(10)
+
+	offset := (req.Page - 1) * req.PageSize
+
+	userStoryID := uuid.Nil
+	if req.UserStoryID != nil {
+		userStoryID = *req.UserStoryID
+	}
+
+	baseQuery := d.db.Model(&models.Comments{}).
+		Where("organization_id = ? AND user_story_id = ? AND parent_comment_id IS NULL", req.OrganizationID, userStoryID)
+
+	if err := baseQuery.Count(&totalItems).Error; err != nil {
+		d.logger.Error("Database error occurred",
+			zap.String("UserStoryID", userStoryID.String()),
+			zap.Error(err))
+
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if err := baseQuery.
+		Preload("User").
+		Preload("ParentComment").
+		Preload("ParentComment.User").
+		Preload("Attachments").
+		Order("created_at DESC").
+		Limit(req.PageSize).
+		Offset(offset).
+		Find(&comments).Error; err != nil {
+		d.logger.Error("Failed to fetch user story comments",
+			zap.String("UserStoryID", userStoryID.String()),
 			zap.Error(err))
 
 		return nil, response.Pagination{}, &response.Error{

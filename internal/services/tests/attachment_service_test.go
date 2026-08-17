@@ -91,6 +91,13 @@ func (m *mockStorageClient) UploadCommentAttachment(ctx context.Context, file mu
 	return "http://localhost/comments/commentid/file.png", "comments/commentid/file.png", "file.png", "image/png", nil
 }
 
+func (m *mockStorageClient) UploadUserStoryAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, userStoryID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, string, *response.Error) {
+	if m.uploadErr != nil {
+		return "", "", "", "", m.uploadErr
+	}
+	return "http://localhost/user_stories/storyid/file.png", "user_stories/storyid/file.png", "file.png", "image/png", nil
+}
+
 func (m *mockStorageClient) GetObject(ctx context.Context, key string) (io.ReadCloser, int64, *response.Error) {
 	if m.getObjectErr != nil {
 		return nil, 0, m.getObjectErr
@@ -396,6 +403,7 @@ func (s *stubCommentRepo) GetCommentByID(commentID uuid.UUID) (*models.Comments,
 	return c, nil
 }
 func (s *stubCommentRepo) GetCommentsByTaskID(req dto.GetComments) ([]models.Comments, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
+func (s *stubCommentRepo) GetCommentsByUserStoryID(req dto.GetComments) ([]models.Comments, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
 func (s *stubCommentRepo) UpdateComment(commentID uuid.UUID, req *models.Comments) *response.Error { return nil }
 func (s *stubCommentRepo) DeleteComment(commentID uuid.UUID) *response.Error { return nil }
 func (s *stubCommentRepo) GetCommentsByParentID(req dto.GetComments) ([]models.Comments, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
@@ -447,9 +455,11 @@ func newTestFixture(orgID, projectID, taskID, userID uuid.UUID) *testFixture {
 	service := services.InitAttachmentService(
 		attachmentRepo,
 		commentAttachmentRepo,
+		nil, // userStoryAttachmentRepo
 		cleanupRepo,
 		commentsRepo, 
 		taskRepo,
+		nil, // userStoryRepo
 		projectRepo,
 		authRepo,
 		auditRepo,
@@ -640,7 +650,7 @@ func TestCommentAttachmentService_UploadAttachments(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.commentsRepo.comments[commentID] = &models.Comments{
 			ID:             commentID,
-			TaskID:         taskID,
+			TaskID:         &taskID,
 			UserID:         userID,
 			ProjectID:      projectID,
 			OrganizationID: orgID,
@@ -726,7 +736,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		}
 		f.commentsRepo.comments[commentID] = &models.Comments{
 			ID:     commentID,
-			TaskID: taskID,
+			TaskID: &taskID,
 			UserID: commentAuthorID,
 		}
 
@@ -771,7 +781,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		wrongTaskID := uuid.Must(uuid.NewV4())
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.commentAttachmentRepo.attachments[attachmentID] = &models.CommentAttachment{ID: attachmentID, CommentID: commentID, StoragePath: "path"}
-		f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: taskID}
+		f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: &taskID}
 
 		// 1. Upload
 		header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
@@ -816,7 +826,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 	t.Run("Comment Upload Rollback Repository Correctness", func(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.commentAttachmentRepo.createErr = &response.Error{Code: response.ErrInternalServerError, StatusCode: 500, Message: "DB error"}
-		f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: taskID}
+		f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: &taskID}
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
 		_, err := f.service.UploadCommentAttachments(f.ctx, commentID, taskID, userID, []*multipart.FileHeader{fileHeader})
@@ -831,7 +841,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 	t.Run("Worker Shutdown context leak test", func(t *testing.T) {
 		cleanupRepo := &stubFileCleanupRepo{}
 		ctx, cancel := context.WithCancel(context.Background())
-		_ = services.InitAttachmentService(nil, nil, cleanupRepo, nil, &stubAttachmentTaskRepo{}, &stubAttachmentProjectRepo{}, &stubAuthRepository{}, nil, &mockStorageClient{}, zap.NewNop(), ctx)
+		_ = services.InitAttachmentService(nil, nil, nil, cleanupRepo, nil, &stubAttachmentTaskRepo{}, nil, &stubAttachmentProjectRepo{}, &stubAuthRepository{}, nil, &mockStorageClient{}, zap.NewNop(), ctx)
 		cancel()
 	})
 }
@@ -885,7 +895,7 @@ func TestAttachmentService_CommentTaskMismatch(t *testing.T) {
 
 	f := newTestFixture(orgID, projectID, taskA, userID)
 	f.commentAttachmentRepo.attachments[attachmentID] = &models.CommentAttachment{ID: attachmentID, CommentID: commentID, StoragePath: "path"}
-	f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: taskB}
+	f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: &taskB}
 
 	header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
 

@@ -43,6 +43,7 @@ type StorageClient interface {
 	DeleteObject(ctx context.Context, key string) error
 	UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (url string, key string, sanitizedName string, mimeType string, apiErr *response.Error)
 	UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, cfg models.AttachmentConfig) (url string, key string, sanitizedName string, mimeType string, apiErr *response.Error)
+	UploadUserStoryAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, userStoryID uuid.UUID, cfg models.AttachmentConfig) (url string, key string, sanitizedName string, mimeType string, apiErr *response.Error)
 	GetObject(ctx context.Context, key string) (io.ReadCloser, int64, *response.Error)
 }
 
@@ -210,6 +211,7 @@ var allowedAttachmentExtensions = map[string]bool{
 	".docx": true,
 	".xlsx": true,
 	".zip":  true,
+	".txt":  true,
 }
 
 func SanitizeFilename(filename string) string {
@@ -270,7 +272,7 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 		return "", "", "", "", &response.Error{
 			Code:       response.ErrorCode("UNSUPPORTED_MEDIA_TYPE"),
 			StatusCode: http.StatusUnsupportedMediaType,
-			Message:    "Unsupported file type. Only PNG, JPG/JPEG, PDF, DOCX, XLSX, and ZIP files are accepted.",
+			Message:    "Unsupported file type. Only PNG, JPG/JPEG, PDF, DOCX, XLSX, ZIP, and TXT files are accepted.",
 		}
 	}
 
@@ -405,6 +407,9 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 		case ".pdf":
 			isValid = mimeBase == "application/pdf"
 			finalMIME = "application/pdf"
+		case ".txt":
+			isValid = mimeBase == "text/plain" || mimeBase == "application/octet-stream"
+			finalMIME = "text/plain"
 		}
 
 		if !isValid {
@@ -462,6 +467,11 @@ func (c *s3Client) UploadAttachment(ctx context.Context, file multipart.File, he
 
 func (c *s3Client) UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, string, *response.Error) {
 	folder := fmt.Sprintf("comments/%s/attachments", commentID.String())
+	return c.uploadAttachmentStream(ctx, file, header, folder, cfg)
+}
+
+func (c *s3Client) UploadUserStoryAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, userStoryID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, string, *response.Error) {
+	folder := fmt.Sprintf("user_stories/%s/attachments", userStoryID.String())
 	return c.uploadAttachmentStream(ctx, file, header, folder, cfg)
 }
 

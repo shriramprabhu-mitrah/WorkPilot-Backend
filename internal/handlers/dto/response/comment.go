@@ -8,7 +8,8 @@ import (
 
 type CommentsResponse struct {
 	ID              uuid.UUID                   `json:"id"`
-	TaskID          uuid.UUID                   `json:"task_id"`
+	TaskID          *uuid.UUID                  `json:"task_id,omitempty"`
+	UserStoryID     *uuid.UUID                  `json:"user_story_id,omitempty"`
 	UserID          uuid.UUID                   `json:"user_id"`
 	UserName        string                      `json:"user_name"`
 	FullName        string                      `json:"full_name"`

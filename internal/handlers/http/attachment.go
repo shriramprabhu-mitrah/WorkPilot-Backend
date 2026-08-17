@@ -477,3 +477,190 @@ func (h *attachmentHandler) DeleteCommentAttachment(g *gin.Context) {
 		Message:    "Attachment deleted successfully",
 	})
 }
+
+// UploadUserStoryAttachment godoc
+// @Summary Upload User Story Attachment
+// @Description Upload a file associated with a user story
+// @Tags User Story Attachment
+// @Accept multipart/form-data
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Param file formData file true "File to upload"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 413 {object} response.ErrorResponse "Payload Too Large"
+// @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/attachments [post]
+func (h *attachmentHandler) UploadUserStoryAttachment(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert project ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	storyUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert user story ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	allHeaders, apiErr, logMsg := h.parseFiles(g)
+	if apiErr != nil {
+		writeErrorResponse(g, h.logger, *apiErr, logMsg)
+		return
+	}
+
+	res, err := h.service.UploadUserStoryAttachments(g.Request.Context(), storyUUID, projectUUID, userUUID, allHeaders)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusCreated, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusCreated,
+		Message:    "Attachments uploaded successfully",
+		Data:       res,
+	})
+}
+
+// GetUserStoryAttachments godoc
+// @Summary Retrieve User Story Attachments
+// @Description Get all attachments associated with a user story
+// @Tags User Story Attachment
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/attachments [get]
+func (h *attachmentHandler) GetUserStoryAttachments(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert project ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	storyUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert user story ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	attachments, err := h.service.GetUserStoryAttachments(g.Request.Context(), storyUUID, projectUUID, userUUID)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Attachments retrieved successfully",
+		Data:       attachments,
+	})
+}
+
+// DownloadUserStoryAttachment godoc
+// @Summary Download User Story Attachment
+// @Description Validate membership and download a user story attachment
+// @Tags User Story Attachment
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Param attachment_id path string true "Attachment ID"
+// @Success 200 {file} file "Attachment File Stream"
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/attachments/{attachment_id}/download [get]
+func (h *attachmentHandler) DownloadUserStoryAttachment(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert project ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	stream, filename, mimeType, size, err := h.service.DownloadUserStoryAttachment(g.Request.Context(), attachmentUUID, projectUUID, userUUID)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	writeAttachmentDownload(g, stream, filename, mimeType, size)
+}
+
+// DeleteUserStoryAttachment godoc
+// @Summary Delete User Story Attachment
+// @Description Delete user story attachment if authorized
+// @Tags User Story Attachment
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Param attachment_id path string true "Attachment ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/attachments/{attachment_id} [delete]
+func (h *attachmentHandler) DeleteUserStoryAttachment(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert project ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	err := h.service.DeleteUserStoryAttachment(g.Request.Context(), attachmentUUID, projectUUID, userUUID)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Attachment deleted successfully",
+	})
+}

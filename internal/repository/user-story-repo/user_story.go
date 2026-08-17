@@ -267,3 +267,28 @@ func (d *userStoryDatabase) GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUI
 	}
 	return statsMap, nil
 }
+
+func (d *userStoryDatabase) GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error) {
+	var ctx models.UserStoryAccessContext
+	err := d.db.Table("user_stories").
+		Select("user_stories.id as user_story_id, user_stories.project_id as project_id, projects.organization_id as organization_id, user_stories.title as title").
+		Joins("join projects on projects.id = user_stories.project_id").
+		Where("user_stories.id = ? AND user_stories.deleted_at IS NULL", id).
+		Scan(&ctx).Error
+	if err != nil {
+		d.logger.Error("Failed to fetch user story access context", zap.Error(err), zap.String("user_story_id", id.String()))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch user story security context",
+		}
+	}
+	if ctx.UserStoryID == uuid.Nil {
+		return nil, &response.Error{
+			Code:       response.ErrNotFound,
+			StatusCode: http.StatusNotFound,
+			Message:    "User story not found",
+		}
+	}
+	return &ctx, nil
+}

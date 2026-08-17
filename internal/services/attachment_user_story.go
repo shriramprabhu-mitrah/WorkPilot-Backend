@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error) {
+func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, userStoryID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.UserStoryAttachmentResponse, *response.Error) {
 	if len(files) > s.cfg.MaxFiles {
 		return nil, &response.Error{
 			Code:       response.ErrorCode("BAD_REQUEST"),
@@ -29,25 +29,21 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 		return nil, err
 	}
 
-	comment, err := s.commentsRepo.GetCommentByID(commentID)
+	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(userStoryID)
 	if err != nil {
 		return nil, err
 	}
 
-	if comment.TaskID == nil || *comment.TaskID != taskID {
+	// Enforce URL project hierarchy validation
+	if storyCtx.ProjectID != projectID {
 		return nil, &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Comment does not belong to the specified task",
+			Message:    "User story does not belong to the specified project",
 		}
 	}
 
-	taskCtx, err := s.taskRepo.GetTaskAccessContext(taskID)
-	if err != nil {
-		return nil, err
-	}
-
-	authorized, err := s.CanAccessComment(&user, comment, taskCtx)
+	authorized, err := s.CanAccessUserStory(&user, storyCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -61,13 +57,15 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 
 	var uploadedKeys []string
 	var createdIDs []uuid.UUID
-	var createdAttachments []models.CommentAttachment
+	var createdAttachments []models.UserStoryAttachment
 	var auditLogs []models.AuditLog
+
+	storyTitle := storyCtx.Title
 
 	for _, header := range files {
 		file, openErr := header.Open()
 		if openErr != nil {
-			s.rollbackCommentUploads(uploadedKeys, createdIDs)
+			s.rollbackUserStoryUploads(uploadedKeys, createdIDs)
 			s.logger.Error("Failed to open uploaded file", zap.Error(openErr))
 			return nil, &response.Error{
 				Code:       response.ErrInternalServerError,
@@ -76,29 +74,28 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 			}
 		}
 
-		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadCommentAttachment(ctx, file, header, commentID, s.cfg)
+		_, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadUserStoryAttachment(ctx, file, header, userStoryID, s.cfg)
 		file.Close()
 		if uploadErr != nil {
-			s.rollbackCommentUploads(uploadedKeys, createdIDs)
+			s.rollbackUserStoryUploads(uploadedKeys, createdIDs)
 			return nil, uploadErr
 		}
 		uploadedKeys = append(uploadedKeys, key)
 
-		attachment := models.CommentAttachment{
-			CommentID:        commentID,
+		attachment := models.UserStoryAttachment{
+			UserStoryID:      userStoryID,
 			OriginalFilename: header.Filename,
 			StoredFilename:   sanitizedName,
 			MIMEType:         detectedMIME,
 			FileSize:         header.Size,
 			StoragePath:      key,
-			URL:              url,
 			UploadedBy:       userID,
 			UploadedAt:       time.Now(),
 		}
 
-		dbErr := s.commentAttachmentRepo.CreateAttachment(&attachment)
+		dbErr := s.userStoryAttachmentRepo.CreateAttachment(&attachment)
 		if dbErr != nil {
-			s.rollbackCommentUploads(uploadedKeys, createdIDs)
+			s.rollbackUserStoryUploads(uploadedKeys, createdIDs)
 			return nil, dbErr
 		}
 		createdIDs = append(createdIDs, attachment.ID)
@@ -106,77 +103,69 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 
 		auditLog := models.AuditLog{
 			UserID:         &userID,
-			OrganizationID: &taskCtx.OrganizationID,
-			ProjectID:      &taskCtx.ProjectID,
-			Action:         "comment_attachment_uploaded",
-			ResourceType:   "attachment",
+			OrganizationID: &storyCtx.OrganizationID,
+			ProjectID:      &storyCtx.ProjectID,
+			Action:         "user_story_attachment_uploaded",
+			ResourceType:   "user_story_attachment",
 			ResourceID:     attachment.ID.String(),
-			Details:        fmt.Sprintf("Attachment %s uploaded to comment %s", attachment.OriginalFilename, commentID),
+			Details:        fmt.Sprintf("Attachment %s uploaded to user story %s", attachment.OriginalFilename, storyTitle),
 			CreatedAt:      time.Now(),
 		}
 		auditLogs = append(auditLogs, auditLog)
 	}
 
-	// Persist audit logs after batch success
-	// Note: Audit logging is best-effort by design.
+	// Write audit logs only when the entire transaction has succeeded
 	for _, log := range auditLogs {
 		if auditErr := s.auditRepo.CreateAuditLog(log); auditErr != nil {
 			s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 		}
 	}
 
-	res := make([]responsedto.CommentAttachmentResponse, len(createdAttachments))
+	res := make([]responsedto.UserStoryAttachmentResponse, len(createdAttachments))
 	for i, a := range createdAttachments {
-		res[i] = responsedto.CommentAttachmentFromModel(a)
+		res[i] = responsedto.UserStoryAttachmentFromModel(a)
 	}
 
 	return res, nil
 }
 
-// rollbackCommentUploads performs durable cleanup of uploaded comment S3 objects and database metadata
-// in case of batch upload failure by leveraging the transactional outbox pattern.
-func (s *attachmentService) rollbackCommentUploads(keys []string, ids []uuid.UUID) {
+func (s *attachmentService) rollbackUserStoryUploads(keys []string, ids []uuid.UUID) {
 	for i, key := range keys {
 		if i < len(ids) {
-			if err := s.commentAttachmentRepo.DeleteAttachmentAndRecordOrphan(ids[i], key); err != nil {
-				s.logger.Error("Rollback failed to delete comment database attachment and record orphan during batch recovery", zap.String("id", ids[i].String()), zap.Any("error", err))
+			if err := s.userStoryAttachmentRepo.DeleteAttachmentAndRecordOrphan(ids[i], key); err != nil {
+				s.logger.Error("Rollback failed to delete database attachment and record orphan during batch recovery", zap.String("id", ids[i].String()), zap.Any("error", err))
 			}
 		} else {
 			orphan := &models.OrphanedFile{
 				StoragePath: key,
 			}
 			if err := s.cleanupRepo.CreateOrphanedFile(context.Background(), orphan); err != nil {
-				s.logger.Error("Rollback failed to record comment orphaned file during batch recovery", zap.String("key", key), zap.Any("error", err))
+				s.logger.Error("Rollback failed to record orphaned file during batch recovery", zap.String("key", key), zap.Any("error", err))
 			}
 		}
 	}
 }
 
-func (s *attachmentService) GetCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error) {
+func (s *attachmentService) GetUserStoryAttachments(ctx context.Context, userStoryID, projectID, userID uuid.UUID) ([]responsedto.UserStoryAttachmentResponse, *response.Error) {
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	comment, err := s.commentsRepo.GetCommentByID(commentID)
+	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(userStoryID)
 	if err != nil {
 		return nil, err
 	}
 
-	if comment.TaskID == nil || *comment.TaskID != taskID {
+	if storyCtx.ProjectID != projectID {
 		return nil, &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Comment does not belong to the specified task",
+			Message:    "User story does not belong to the specified project",
 		}
 	}
 
-	taskCtx, err := s.taskRepo.GetTaskAccessContext(taskID)
-	if err != nil {
-		return nil, err
-	}
-
-	authorized, err := s.CanAccessComment(&user, comment, taskCtx)
+	authorized, err := s.CanAccessUserStory(&user, storyCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -188,49 +177,44 @@ func (s *attachmentService) GetCommentAttachments(ctx context.Context, commentID
 		}
 	}
 
-	attachments, dbErr := s.commentAttachmentRepo.GetAttachmentsByCommentID(commentID)
+	attachments, dbErr := s.userStoryAttachmentRepo.GetAttachmentsByUserStoryID(userStoryID)
 	if dbErr != nil {
 		return nil, dbErr
 	}
 
-	res := make([]responsedto.CommentAttachmentResponse, len(attachments))
+	res := make([]responsedto.UserStoryAttachmentResponse, len(attachments))
 	for i, a := range attachments {
-		res[i] = responsedto.CommentAttachmentFromModel(a)
+		res[i] = responsedto.UserStoryAttachmentFromModel(a)
 	}
 
 	return res, nil
 }
 
-func (s *attachmentService) DownloadCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
+func (s *attachmentService) DownloadUserStoryAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error) {
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
 		return nil, "", "", 0, err
 	}
 
-	attachment, dbErr := s.commentAttachmentRepo.GetAttachmentByID(attachmentID)
+	attachment, dbErr := s.userStoryAttachmentRepo.GetAttachmentByID(attachmentID)
 	if dbErr != nil {
 		return nil, "", "", 0, dbErr
 	}
 
-	comment, err := s.commentsRepo.GetCommentByID(attachment.CommentID)
+	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(attachment.UserStoryID)
 	if err != nil {
 		return nil, "", "", 0, err
 	}
 
-	if comment.TaskID == nil || *comment.TaskID != taskID {
+	if storyCtx.ProjectID != projectID {
 		return nil, "", "", 0, &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Attachment does not belong to the specified task",
+			Message:    "Attachment does not belong to the specified project",
 		}
 	}
 
-	taskCtx, err := s.taskRepo.GetTaskAccessContext(taskID)
-	if err != nil {
-		return nil, "", "", 0, err
-	}
-
-	authorized, err := s.CanAccessComment(&user, comment, taskCtx)
+	authorized, err := s.CanAccessUserStory(&user, storyCtx)
 	if err != nil {
 		return nil, "", "", 0, err
 	}
@@ -250,36 +234,31 @@ func (s *attachmentService) DownloadCommentAttachment(ctx context.Context, attac
 	return stream, attachment.OriginalFilename, attachment.MIMEType, size, nil
 }
 
-func (s *attachmentService) DeleteCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) *response.Error {
+func (s *attachmentService) DeleteUserStoryAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error {
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
 		return err
 	}
 
-	attachment, dbErr := s.commentAttachmentRepo.GetAttachmentByID(attachmentID)
+	attachment, dbErr := s.userStoryAttachmentRepo.GetAttachmentByID(attachmentID)
 	if dbErr != nil {
 		return dbErr
 	}
 
-	comment, err := s.commentsRepo.GetCommentByID(attachment.CommentID)
+	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(attachment.UserStoryID)
 	if err != nil {
 		return err
 	}
 
-	if comment.TaskID == nil || *comment.TaskID != taskID {
+	if storyCtx.ProjectID != projectID {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
-			Message:    "Attachment does not belong to the specified task",
+			Message:    "Attachment does not belong to the specified project",
 		}
 	}
 
-	taskCtx, err := s.taskRepo.GetTaskAccessContext(taskID)
-	if err != nil {
-		return err
-	}
-
-	allowed, authErr := s.CanDeleteCommentAttachment(&user, attachment, comment, taskCtx)
+	allowed, authErr := s.CanDeleteUserStoryAttachment(&user, attachment, storyCtx)
 	if authErr != nil {
 		return authErr
 	}
@@ -287,26 +266,25 @@ func (s *attachmentService) DeleteCommentAttachment(ctx context.Context, attachm
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "Only the uploader, comment author, Project Managers, or Organization Administrators can delete this attachment",
+			Message:    "Only the uploader, Project Managers, or Organization Administrators can delete this attachment",
 		}
 	}
 
-	// 1. Transactional DB outbox pattern: delete metadata and record orphan path
-	dbErr = s.commentAttachmentRepo.DeleteAttachmentAndRecordOrphan(attachmentID, attachment.StoragePath)
+	dbErr = s.userStoryAttachmentRepo.DeleteAttachmentAndRecordOrphan(attachmentID, attachment.StoragePath)
 	if dbErr != nil {
 		return dbErr
 	}
 
-	// Log audit activity
-	// Note: Audit logging is best-effort by design.
+	storyTitle := storyCtx.Title
+
 	auditLog := models.AuditLog{
 		UserID:         &userID,
-		OrganizationID: &taskCtx.OrganizationID,
-		ProjectID:      &taskCtx.ProjectID,
-		Action:         "comment_attachment_deleted",
-		ResourceType:   "attachment",
+		OrganizationID: &storyCtx.OrganizationID,
+		ProjectID:      &storyCtx.ProjectID,
+		Action:         "user_story_attachment_deleted",
+		ResourceType:   "user_story_attachment",
 		ResourceID:     attachmentID.String(),
-		Details:        fmt.Sprintf("Attachment %s deleted from comment %s", attachment.OriginalFilename, comment.ID),
+		Details:        fmt.Sprintf("Attachment %s deleted from user story %s", attachment.OriginalFilename, storyTitle),
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
