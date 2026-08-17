@@ -76,7 +76,7 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 			}
 		}
 
-		key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadCommentAttachment(ctx, file, header, commentID, s.cfg)
+		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadCommentAttachment(ctx, file, header, commentID, s.cfg)
 		file.Close()
 		if uploadErr != nil {
 			s.rollbackCommentUploads(uploadedKeys, createdIDs)
@@ -91,6 +91,7 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 			MIMEType:         detectedMIME,
 			FileSize:         header.Size,
 			StoragePath:      key,
+			URL:              url,
 			UploadedBy:       userID,
 			UploadedAt:       time.Now(),
 		}

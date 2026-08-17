@@ -109,7 +109,7 @@ func TestUploadAttachmentValidation(t *testing.T) {
 			Size:     int64(len(content)),
 		}
 
-		_, _, _, err := c.UploadAttachment(context.Background(), file, header, uuid.Nil, cfg)
+		_, _, _, _, err := c.UploadAttachment(context.Background(), file, header, uuid.Nil, cfg)
 		if shouldPass {
 			if err != nil {
 				t.Errorf("Expected %s to pass validation, but got error: %v", filename, err)
