@@ -25,7 +25,7 @@ func InitUserStoryHandler(service services.UserStoryService, logger *zap.Logger)
 
 // CreateUserStory godoc
 // @Summary Create a new user story
-// @Description Create a new user story in the specified project
+// @Description Create a new user story in the specified project. The description field accepts HTML and is sanitized before storage.
 // @Tags UserStory
 // @Accept json
 // @Produce json
@@ -157,7 +157,7 @@ func (h *userStoryHandler) GetUserStoryByID(g *gin.Context) {
 
 // UpdateUserStory godoc
 // @Summary Update User Story
-// @Description Update fields of a specific user story by ID
+// @Description Update fields of a specific user story by ID. Description supports HTML content and is sanitized before storage.
 // @Tags UserStory
 // @Accept json
 // @Produce json
@@ -444,4 +444,3 @@ func (h *userStoryHandler) ReorderUserStories(g *gin.Context) {
 
 	g.JSON(successResponse.StatusCode, successResponse)
 }
-

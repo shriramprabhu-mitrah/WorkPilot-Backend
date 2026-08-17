@@ -2,12 +2,14 @@ package services
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
@@ -168,7 +170,7 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 	story.ProjectID = req.ProjectID
 	story.SprintID = req.SprintID
 	story.Title = req.Title
-	story.Description = req.Description
+	story.Description = utils.SanitizeHTML(req.Description)
 	story.Priority = req.Priority
 	if req.Status != "" {
 		story.Status = req.Status
@@ -294,7 +296,8 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 	}
 
 	if req.Description != nil {
-		updates["description"] = *req.Description
+		sanitizedDescription := strings.TrimSpace(utils.SanitizeHTML(*req.Description))
+		updates["description"] = sanitizedDescription
 	}
 
 	if req.Priority != nil {

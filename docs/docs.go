@@ -3596,7 +3596,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new task in the specified project",
+                "description": "Create a new task in the specified project. The description field accepts HTML and is sanitized before storage.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3865,7 +3865,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Update the details of a specific task by ID",
+                "description": "Update the details of a specific task by ID. Description supports HTML content and is sanitized before storage.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4601,7 +4601,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new user story in the specified project",
+                "description": "Create a new user story in the specified project. The description field accepts HTML and is sanitized before storage.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4859,7 +4859,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Update fields of a specific user story by ID",
+                "description": "Update fields of a specific user story by ID. Description supports HTML content and is sanitized before storage.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5021,7 +5021,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new comment for the specified task. To create a reply, provide the parent_comment_id of an existing comment. The comment content is trimmed and cannot be empty after trimming.",
+                "description": "Creates a new comment for the specified task. To create a reply, provide the parent_comment_id of an existing comment. The comment content supports HTML and is sanitized before storage.",
                 "consumes": [
                     "application/json"
                 ],

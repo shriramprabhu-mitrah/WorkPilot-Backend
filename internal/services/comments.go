@@ -11,6 +11,7 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
@@ -168,6 +169,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		}
 	}
 
+	req.Content = utils.SanitizeHTML(req.Content)
 	req.Content = strings.TrimSpace(req.Content)
 	if req.Content == "" {
 		return responsedto.CommentedUserResponse{}, &response.Error{
@@ -287,6 +289,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 		}
 	}
 
+	req.Content = utils.SanitizeHTML(req.Content)
 	req.Content = strings.TrimSpace(req.Content)
 	if req.Content == "" {
 		return responsedto.CommentedUserResponse{}, &response.Error{
