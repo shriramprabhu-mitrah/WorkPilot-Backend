@@ -96,16 +96,16 @@ func NewS3Client(logger *zap.Logger) StorageClient {
 }
 
 // UploadLogo validates, uploads a logo file to S3 and returns its public URL and object key.
-func (c *s3Client) UploadLogo(file multipart.File, header *multipart.FileHeader) (string, string, *response.Error) {
-	return c.uploadImage("organizations/logos", file, header)
+func (c *s3Client) UploadLogo(file multipart.File, _ *multipart.FileHeader) (string, string, *response.Error) {
+	return c.uploadImage("organizations/logos", file)
 }
 
 // UploadAvatar validates, uploads a user avatar file to S3 and returns its public URL and object key.
-func (c *s3Client) UploadAvatar(file multipart.File, header *multipart.FileHeader) (string, string, *response.Error) {
-	return c.uploadImage("users/avatars", file, header)
+func (c *s3Client) UploadAvatar(file multipart.File, _ *multipart.FileHeader) (string, string, *response.Error) {
+	return c.uploadImage("users/avatars", file)
 }
 
-func (c *s3Client) uploadImage(folder string, file multipart.File, header *multipart.FileHeader) (string, string, *response.Error) {
+func (c *s3Client) uploadImage(folder string, file multipart.File) (string, string, *response.Error) {
 	maxBytes := c.maxSizeMB * 1024 * 1024
 	fileBytes, readErr := io.ReadAll(io.LimitReader(file, maxBytes+1))
 	if readErr != nil {
@@ -374,13 +374,14 @@ func (c *s3Client) uploadAttachmentStream(ctx context.Context, file multipart.Fi
 			}
 		}
 
-		if ext == ".docx" {
+		switch ext {
+		case ".docx":
 			isValid = hasContentTypes && hasWordDoc
 			finalMIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-		} else if ext == ".xlsx" {
+		case ".xlsx":
 			isValid = hasContentTypes && hasWorkbook
 			finalMIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-		} else if ext == ".zip" {
+		case ".zip":
 			isValid = true
 			finalMIME = "application/zip"
 		}
