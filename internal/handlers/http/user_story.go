@@ -31,7 +31,7 @@ func InitUserStoryHandler(service services.UserStoryService, logger *zap.Logger)
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.CreateUserStoryRequest true "Create User Story Request Body"
-// @Success 201 {object} response.SuccessResponse
+// @Success 201 {object} response.SuccessResponse{data=responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -103,7 +103,7 @@ func (h *userStoryHandler) CreateUserStory(g *gin.Context) {
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse

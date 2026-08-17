@@ -13,6 +13,7 @@ type UserStory struct {
 	Project     Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
 	SprintID    *uuid.UUID     `json:"sprint_id,omitempty" gorm:"type:uuid;index"`
 	Sprint      *Sprint        `json:"sprint,omitempty" gorm:"foreignKey:SprintID"`
+	SerialNumber int64         `json:"serial_number" gorm:"type:bigint;uniqueIndex"`
 	Title       string         `json:"title" gorm:"type:varchar(255);not null"`
 	Description string         `json:"description,omitempty" gorm:"type:text"`
 	Priority    string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`
@@ -29,6 +30,10 @@ type UserStory struct {
 	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
+func (u UserStory) FormattedSerialNumber() string {
+	return FormatSerialNumber(u.SerialNumber)
+}
+
 type StoryTaskStats struct {
 	UserStoryID  uuid.UUID
 	TotalTasks   int64
@@ -38,6 +43,12 @@ type StoryTaskStats struct {
 func (u *UserStory) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.ID == uuid.Nil {
 		u.ID, err = uuid.NewV7()
+		if err != nil {
+			return err
+		}
+	}
+	if u.SerialNumber == 0 {
+		u.SerialNumber, err = GetNextGlobalSerialNumber(tx)
 		if err != nil {
 			return err
 		}

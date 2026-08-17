@@ -10,8 +10,10 @@ type UserStoryResponse struct {
 	ID           uuid.UUID    `json:"id"`
 	ProjectID    uuid.UUID    `json:"project_id"`
 	SprintID     *uuid.UUID   `json:"sprint_id,omitempty"`
-	SprintName   string       `json:"sprint_name,omitempty"`
-	Title        string       `json:"title"`
+	SprintName            string       `json:"sprint_name,omitempty"`
+	SerialNumber          int64        `json:"serial_number"`
+	FormattedSerialNumber string       `json:"formatted_serial_number,omitempty"`
+	Title                 string       `json:"title"`
 	Description  string       `json:"description,omitempty"`
 	Priority     string       `json:"priority"`
 	StatusID     uuid.UUID    `json:"status_id"`
