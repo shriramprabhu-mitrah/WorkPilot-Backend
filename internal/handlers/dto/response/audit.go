@@ -10,6 +10,7 @@ import (
 type AuditLogResponse struct {
 	ID             uuid.UUID           `json:"id"`
 	ProjectID      *uuid.UUID          `json:"project_id,omitempty"`
+	ProjectName    string              `json:"project_name,omitempty"`
 	OrganizationID *uuid.UUID          `json:"organization_id,omitempty"`
 	Action         string              `json:"action"`
 	ResourceType   string              `json:"resource_type"`

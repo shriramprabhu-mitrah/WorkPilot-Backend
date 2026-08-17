@@ -32,6 +32,7 @@ type AuditLog struct {
 	Details        string       `json:"details" gorm:"type:text"`
 	CreatedAt      time.Time    `json:"created_at" gorm:"not null;type:timestamptz"`
 	Title          string       `json:"title,omitempty" gorm:"-"`
+	ProjectName    string       `json:"project_name,omitempty" gorm:"-"`
 	TaskKey        string       `json:"task_key,omitempty" gorm:"-"`
 	Type           AuditLogType `json:"type,omitempty" gorm:"size:50;default:'activity';index:idx_audit_logs_type"`
 }

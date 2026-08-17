@@ -584,6 +584,8 @@ definitions:
         type: string
       project_id:
         type: string
+      project_name:
+        type: string
       resource_id:
         type: string
       resource_type:
@@ -666,6 +668,8 @@ definitions:
       organization_id:
         type: string
       project_id:
+        type: string
+      project_name:
         type: string
       resource_id:
         type: string
