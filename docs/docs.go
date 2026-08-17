@@ -1843,7 +1843,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve projects assigned to the user that have at least one valid task.",
+                "description": "Retrieve the recent projects assigned to the user that have at least one valid task.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1853,7 +1853,7 @@ const docTemplate = `{
                 "tags": [
                     "Projects"
                 ],
-                "summary": "Get recent projects with tasks assigned to user",
+                "summary": "Get recent projects",
                 "parameters": [
                     {
                         "type": "string",

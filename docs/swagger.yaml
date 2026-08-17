@@ -2430,8 +2430,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve projects assigned to the user that have at least one valid
-        task.
+      description: Retrieve the recent projects assigned to the user that have at
+        least one valid task.
       parameters:
       - description: User ID (UUID)
         in: path
@@ -2463,7 +2463,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Get recent projects with tasks assigned to user
+      summary: Get recent projects
       tags:
       - Projects
   /project/update/{project_id}:

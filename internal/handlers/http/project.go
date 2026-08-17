@@ -751,8 +751,8 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 
 // GetRecentProjects godoc
 //
-//	@Summary		Get recent projects with tasks assigned to user
-//	@Description	Retrieve projects assigned to the user that have at least one valid task.
+//	@Summary		Get recent projects
+//	@Description	Retrieve the recent projects assigned to the user that have at least one valid task.
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
