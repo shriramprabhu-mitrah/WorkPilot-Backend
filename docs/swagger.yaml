@@ -2432,11 +2432,6 @@ paths:
       - application/json
       description: Retrieve the recent projects assigned to the user that have at
         least one valid task.
-      parameters:
-      - description: User ID (UUID)
-        in: path
-        name: user_id
-        type: string
       produces:
       - application/json
       responses:

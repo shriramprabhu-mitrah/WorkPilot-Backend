@@ -1854,14 +1854,6 @@ const docTemplate = `{
                     "Projects"
                 ],
                 "summary": "Get recent projects",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID (UUID)",
-                        "name": "user_id",
-                        "in": "path"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",

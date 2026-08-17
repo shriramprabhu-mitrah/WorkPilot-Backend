@@ -756,7 +756,6 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			user_id	path		string	false	"User ID (UUID)"
 //	@Success		200		{object}	response.SuccessResponse{data=responsedto.GetProjectByUserIDResponse}
 //	@Failure		400		{object}	response.ErrorResponse	"Validation Error"
 //	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
