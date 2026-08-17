@@ -74,7 +74,7 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 			}
 		}
 
-		key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadAttachment(ctx, file, header, taskID, s.cfg)
+		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadAttachment(ctx, file, header, taskID, s.cfg)
 		file.Close()
 		if uploadErr != nil {
 			s.rollbackUploads(uploadedKeys, createdIDs)
@@ -89,6 +89,7 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 			MIMEType:         detectedMIME,
 			FileSize:         header.Size,
 			StoragePath:      key,
+			URL:              url,
 			UploadedBy:       userID,
 			UploadedAt:       time.Now(),
 		}

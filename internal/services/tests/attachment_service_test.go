@@ -52,7 +52,7 @@ func createTestMultipartFileHeader(filename string, content []byte) (*multipart.
 type mockStorageClient struct {
 	uploadErr     *response.Error
 	getObjectErr  *response.Error
-	uploadFunc    func(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error)
+	uploadFunc    func(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, string, *response.Error)
 	getObjectFunc func(ctx context.Context, key string) (io.ReadCloser, int64, *response.Error)
 	deleteFunc    func(ctx context.Context, key string) error
 	deletedKeys   []string
@@ -74,21 +74,21 @@ func (m *mockStorageClient) DeleteObject(ctx context.Context, key string) error 
 	return nil
 }
 
-func (m *mockStorageClient) UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
+func (m *mockStorageClient) UploadAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, taskID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, string, *response.Error) {
 	if m.uploadErr != nil {
-		return "", "", "", m.uploadErr
+		return "", "", "", "", m.uploadErr
 	}
 	if m.uploadFunc != nil {
 		return m.uploadFunc(ctx, file, header, taskID, cfg)
 	}
-	return "tasks/taskid/file.png", "file.png", "image/png", nil
+	return "http://localhost/tasks/taskid/file.png", "tasks/taskid/file.png", "file.png", "image/png", nil
 }
 
-func (m *mockStorageClient) UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, *response.Error) {
+func (m *mockStorageClient) UploadCommentAttachment(ctx context.Context, file multipart.File, header *multipart.FileHeader, commentID uuid.UUID, cfg models.AttachmentConfig) (string, string, string, string, *response.Error) {
 	if m.uploadErr != nil {
-		return "", "", "", m.uploadErr
+		return "", "", "", "", m.uploadErr
 	}
-	return "comments/commentid/file.png", "file.png", "image/png", nil
+	return "http://localhost/comments/commentid/file.png", "comments/commentid/file.png", "file.png", "image/png", nil
 }
 
 func (m *mockStorageClient) GetObject(ctx context.Context, key string) (io.ReadCloser, int64, *response.Error) {

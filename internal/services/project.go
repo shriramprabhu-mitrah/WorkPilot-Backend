@@ -213,11 +213,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 	}
 
 	if len(updates) == 0 {
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "No changes to update",
-		}
+		return nil
 	}
 
 	updateErr := s.projectRepo.UpdateProject(req.ProjectID, updates)
