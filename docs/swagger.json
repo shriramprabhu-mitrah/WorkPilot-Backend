@@ -6463,6 +6463,9 @@
                 "project_id": {
                     "type": "string"
                 },
+                "project_name": {
+                    "type": "string"
+                },
                 "resource_id": {
                     "type": "string"
                 },
@@ -6588,6 +6591,9 @@
                     "type": "string"
                 },
                 "project_id": {
+                    "type": "string"
+                },
+                "project_name": {
                     "type": "string"
                 },
                 "resource_id": {

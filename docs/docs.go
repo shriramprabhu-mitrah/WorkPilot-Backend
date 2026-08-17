@@ -6470,6 +6470,9 @@ const docTemplate = `{
                 "project_id": {
                     "type": "string"
                 },
+                "project_name": {
+                    "type": "string"
+                },
                 "resource_id": {
                     "type": "string"
                 },
@@ -6595,6 +6598,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project_id": {
+                    "type": "string"
+                },
+                "project_name": {
                     "type": "string"
                 },
                 "resource_id": {
