@@ -24,6 +24,8 @@ import (
 	filecleanuprepo "github.com/ms-kanban-server/internal/repository/file-cleanup-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
+	userstoryattachmentrepo "github.com/ms-kanban-server/internal/repository/user-story-attachment-repo"
+	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	"go.uber.org/zap"
 )
 
@@ -53,31 +55,41 @@ type AttachmentService interface {
 	DownloadCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
 	DeleteCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) *response.Error
 
+	// User story attachments
+	UploadUserStoryAttachments(ctx context.Context, userStoryID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.UserStoryAttachmentResponse, *response.Error)
+	GetUserStoryAttachments(ctx context.Context, userStoryID, projectID, userID uuid.UUID) ([]responsedto.UserStoryAttachmentResponse, *response.Error)
+	DownloadUserStoryAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
+	DeleteUserStoryAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error
+
 	GetConfig() models.AttachmentConfig
 }
 
 type attachmentService struct {
-	attachmentRepo        attachmentrepo.AttachmentRepository
-	commentAttachmentRepo commentattachmentrepo.CommentAttachmentRepository
-	cleanupRepo           filecleanuprepo.FileCleanupRepository
-	commentsRepo          commentsrepo.CommentsRepository
-	taskRepo              taskrepo.TaskRepository
-	projectRepo           projectrepo.ProjectRepository
-	authRepo              authrepo.AuthRepository
-	auditRepo             auditrepo.AuditLogRepository
-	storageClient         storage.StorageClient
-	logger                *zap.Logger
-	cfg                   models.AttachmentConfig
-	claimTTL              time.Duration
-	jitterSource          JitterSource
+	attachmentRepo          attachmentrepo.AttachmentRepository
+	commentAttachmentRepo   commentattachmentrepo.CommentAttachmentRepository
+	userStoryAttachmentRepo userstoryattachmentrepo.UserStoryAttachmentRepository
+	cleanupRepo             filecleanuprepo.FileCleanupRepository
+	commentsRepo            commentsrepo.CommentsRepository
+	taskRepo                taskrepo.TaskRepository
+	userStoryRepo           userstoryrepo.UserStoryRepository
+	projectRepo             projectrepo.ProjectRepository
+	authRepo                authrepo.AuthRepository
+	auditRepo               auditrepo.AuditLogRepository
+	storageClient           storage.StorageClient
+	logger                  *zap.Logger
+	cfg                     models.AttachmentConfig
+	claimTTL                time.Duration
+	jitterSource            JitterSource
 }
 
 func InitAttachmentService(
 	attachmentRepo attachmentrepo.AttachmentRepository,
 	commentAttachmentRepo commentattachmentrepo.CommentAttachmentRepository,
+	userStoryAttachmentRepo userstoryattachmentrepo.UserStoryAttachmentRepository,
 	cleanupRepo filecleanuprepo.FileCleanupRepository,
 	commentsRepo commentsrepo.CommentsRepository,
 	taskRepo taskrepo.TaskRepository,
+	userStoryRepo userstoryrepo.UserStoryRepository,
 	projectRepo projectrepo.ProjectRepository,
 	authRepo authrepo.AuthRepository,
 	auditRepo auditrepo.AuditLogRepository,
@@ -114,19 +126,21 @@ func InitAttachmentService(
 	}
 
 	s := &attachmentService{
-		attachmentRepo:        attachmentRepo,
-		commentAttachmentRepo: commentAttachmentRepo,
-		cleanupRepo:           cleanupRepo,
-		commentsRepo:          commentsRepo,
-		taskRepo:              taskRepo,
-		projectRepo:           projectRepo,
-		authRepo:              authRepo,
-		auditRepo:             auditRepo,
-		storageClient:         storageClient,
-		logger:                logger,
-		cfg:                   cfg,
-		claimTTL:              claimTTL,
-		jitterSource:          productionJitterSource{},
+		attachmentRepo:          attachmentRepo,
+		commentAttachmentRepo:   commentAttachmentRepo,
+		userStoryAttachmentRepo: userStoryAttachmentRepo,
+		cleanupRepo:             cleanupRepo,
+		commentsRepo:            commentsRepo,
+		taskRepo:                taskRepo,
+		userStoryRepo:           userStoryRepo,
+		projectRepo:             projectRepo,
+		authRepo:                authRepo,
+		auditRepo:               auditRepo,
+		storageClient:           storageClient,
+		logger:                  logger,
+		cfg:                     cfg,
+		claimTTL:                claimTTL,
+		jitterSource:            productionJitterSource{},
 	}
 
 	if appCtx != nil {
@@ -171,7 +185,7 @@ func (s *attachmentService) CanAccessTask(user *models.User, taskCtx *models.Tas
 }
 
 func (s *attachmentService) CanAccessComment(user *models.User, comment *models.Comments, taskCtx *models.TaskAccessContext) (bool, *response.Error) {
-	if comment.TaskID != taskCtx.TaskID {
+	if comment.TaskID == nil || *comment.TaskID != taskCtx.TaskID {
 		return false, &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
@@ -222,6 +236,56 @@ func (s *attachmentService) CanDeleteCommentAttachment(user *models.User, attach
 	}
 
 	member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(user.ID, taskCtx.ProjectID)
+	if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (s *attachmentService) CanAccessUserStory(user *models.User, storyCtx *models.UserStoryAccessContext) (bool, *response.Error) {
+	if user.Role == string(dto.RoleSuperAdmin) {
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Super admins are not allowed to perform organization-level activities",
+		}
+	}
+
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == storyCtx.OrganizationID {
+		return true, nil
+	}
+
+	if user.OrganizationID == nil || *user.OrganizationID != storyCtx.OrganizationID {
+		return false, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You are not authorized to access this organization",
+		}
+	}
+
+	isMember, err := s.projectRepo.IsUserProjectMember(storyCtx.ProjectID, user.ID)
+	if err != nil {
+		return false, err
+	}
+	return isMember, nil
+}
+
+func (s *attachmentService) CanDeleteUserStoryAttachment(user *models.User, attachment *models.UserStoryAttachment, storyCtx *models.UserStoryAccessContext) (bool, *response.Error) {
+	canAccess, err := s.CanAccessUserStory(user, storyCtx)
+	if err != nil || !canAccess {
+		return false, err
+	}
+
+	if attachment.UploadedBy == user.ID {
+		return true, nil
+	}
+
+	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == storyCtx.OrganizationID {
+		return true, nil
+	}
+
+	member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(user.ID, storyCtx.ProjectID)
 	if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
 		return true, nil
 	}

@@ -54,3 +54,25 @@ func CommentAttachmentFromModel(a models.CommentAttachment) CommentAttachmentRes
 		UploadedAt:       a.UploadedAt,
 	}
 }
+
+type UserStoryAttachmentResponse struct {
+	ID               uuid.UUID `json:"id"`
+	UserStoryID      uuid.UUID `json:"user_story_id"`
+	OriginalFilename string    `json:"original_filename"`
+	MIMEType         string    `json:"mime_type"`
+	FileSize         int64     `json:"file_size"`
+	UploadedBy       uuid.UUID `json:"uploaded_by"`
+	UploadedAt       time.Time `json:"uploaded_at"`
+}
+
+func UserStoryAttachmentFromModel(a models.UserStoryAttachment) UserStoryAttachmentResponse {
+	return UserStoryAttachmentResponse{
+		ID:               a.ID,
+		UserStoryID:      a.UserStoryID,
+		OriginalFilename: a.OriginalFilename,
+		MIMEType:         a.MIMEType,
+		FileSize:         a.FileSize,
+		UploadedBy:       a.UploadedBy,
+		UploadedAt:       a.UploadedAt,
+	}
+}

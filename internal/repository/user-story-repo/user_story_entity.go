@@ -20,6 +20,7 @@ type UserStoryRepository interface {
 	GetMaxBacklogOrder(projectID uuid.UUID) (int, *response.Error)
 	ReorderUserStories(projectID uuid.UUID, storyIDs []uuid.UUID) *response.Error
 	GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUID]models.StoryTaskStats, *response.Error)
+	GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error)
 }
 
 func InitUserStoryRepository(deps models.Config) UserStoryRepository {
