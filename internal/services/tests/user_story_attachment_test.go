@@ -301,7 +301,7 @@ func TestUserStoryComment_GetCommentsByUserStoryIDSuccess(t *testing.T) {
 
 	// Because stubCommentRepo.GetCommentsByUserStoryID is mocked to return nil (stub definition returning nil),
 	// we just verify that it compiles, executes and returns correctly.
-	if res != nil && len(res) > 0 {
+	if len(res) > 0 {
 		t.Errorf("expected stub to return empty slice, got %+v", res)
 	}
 }
