@@ -1634,6 +1634,11 @@ const docTemplate = `{
         },
         "/project/get": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get paginated list of projects in the authenticated organization.",
                 "consumes": [
                     "application/json"
@@ -1681,9 +1686,37 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "name",
+                            "created_at",
+                            "updated_at",
+                            "status"
+                        ],
+                        "type": "string",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ASC",
+                            "DESC"
+                        ],
+                        "type": "string",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Fields to return (comma separated)",
                         "name": "fieldName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include project sprints in the response",
+                        "name": "include_sprints",
                         "in": "query"
                     }
                 ],
@@ -2050,20 +2083,32 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by entity type",
-                        "name": "entity_type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
                         "description": "Filter by action",
                         "name": "action",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "description": "Filter by resource type",
+                        "name": "resource_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Filter by user ID",
                         "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date (ISO-8601)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (ISO-8601)",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -2856,7 +2901,7 @@ const docTemplate = `{
         },
         "/projects/{project_id}/sprint": {
             "get": {
-                "description": "Retrieve all sprints for a project with pagination, search and status filter",
+                "description": "Retrieve all sprints for a project with pagination, search, sorting and status filter",
                 "produces": [
                     "application/json"
                 ],
@@ -2904,6 +2949,30 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search sprint by name",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "name",
+                            "created_at",
+                            "updated_at",
+                            "start_date",
+                            "end_date",
+                            "status"
+                        ],
+                        "type": "string",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ASC",
+                            "DESC"
+                        ],
+                        "type": "string",
+                        "description": "Sort order",
+                        "name": "sort_order",
                         "in": "query"
                     },
                     {
@@ -3423,8 +3492,20 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Reporter User ID",
+                        "name": "reporter_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Sprint ID",
                         "name": "sprint_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "User Story ID",
+                        "name": "user_story_id",
                         "in": "query"
                     },
                     {
@@ -3459,9 +3540,25 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Comma-separated labels",
+                        "name": "labels",
+                        "in": "query"
+                    },
+                    {
                         "type": "boolean",
                         "description": "Get soft deleted tasks",
                         "name": "is_deleted",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "any",
+                            "all"
+                        ],
+                        "type": "string",
+                        "description": "Match mode",
+                        "name": "match",
                         "in": "query"
                     }
                 ],

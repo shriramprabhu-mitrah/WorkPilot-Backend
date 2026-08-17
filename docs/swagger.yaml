@@ -1984,17 +1984,25 @@ paths:
         in: query
         name: page_size
         type: integer
-      - description: Filter by entity type
-        in: query
-        name: entity_type
-        type: string
       - description: Filter by action
         in: query
         name: action
         type: string
+      - description: Filter by resource type
+        in: query
+        name: resource_type
+        type: string
       - description: Filter by user ID
         in: query
         name: user_id
+        type: string
+      - description: Start date (ISO-8601)
+        in: query
+        name: start_date
+        type: string
+      - description: End date (ISO-8601)
+        in: query
+        name: end_date
         type: string
       produces:
       - application/json
@@ -2300,10 +2308,30 @@ paths:
         in: query
         name: status
         type: string
+      - description: Sort by field
+        enum:
+        - name
+        - created_at
+        - updated_at
+        - status
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
+        type: string
       - description: Fields to return (comma separated)
         in: query
         name: fieldName
         type: string
+      - description: Include project sprints in the response
+        in: query
+        name: include_sprints
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2323,6 +2351,8 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get all projects
       tags:
       - Projects
@@ -2810,8 +2840,8 @@ paths:
       - Label
   /projects/{project_id}/sprint:
     get:
-      description: Retrieve all sprints for a project with pagination, search and
-        status filter
+      description: Retrieve all sprints for a project with pagination, search, sorting
+        and status filter
       parameters:
       - description: Project ID
         in: path
@@ -2842,6 +2872,24 @@ paths:
       - description: Search sprint by name
         in: query
         name: search
+        type: string
+      - description: Sort by field
+        enum:
+        - name
+        - created_at
+        - updated_at
+        - start_date
+        - end_date
+        - status
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
         type: string
       - description: Fields to return (comma separated)
         in: query
@@ -3236,9 +3284,17 @@ paths:
         in: query
         name: assignee_id
         type: string
+      - description: Reporter User ID
+        in: query
+        name: reporter_id
+        type: string
       - description: Sprint ID
         in: query
         name: sprint_id
+        type: string
+      - description: User Story ID
+        in: query
+        name: user_story_id
         type: string
       - description: Task Type
         enum:
@@ -3263,10 +3319,21 @@ paths:
         in: query
         name: search
         type: string
+      - description: Comma-separated labels
+        in: query
+        name: labels
+        type: string
       - description: Get soft deleted tasks
         in: query
         name: is_deleted
         type: boolean
+      - description: Match mode
+        enum:
+        - any
+        - all
+        in: query
+        name: match
+        type: string
       produces:
       - application/json
       responses:

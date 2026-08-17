@@ -262,7 +262,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 
 // GetSprints godoc
 // @Summary Get Sprints
-// @Description Retrieve all sprints for a project with pagination, search and status filter
+// @Description Retrieve all sprints for a project with pagination, search, sorting and status filter
 // @Tags Sprint
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -270,6 +270,8 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Param page_size query int false "Page size" default(10)
 // @Param status query string false "Sprint Status" Enums(planning,active,on_hold,completed,cancelled,archived)
 // @Param search query string false "Search sprint by name"
+// @Param sort_by query string false "Sort by field" Enums(name,created_at,updated_at,start_date,end_date,status)
+// @Param sort_order query string false "Sort order" Enums(ASC,DESC)
 // @Param fieldName query string false "Fields to return (comma separated)"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
