@@ -2,7 +2,9 @@ package services
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -127,7 +129,15 @@ func GenerateProjectPrefix(name string) string {
 	return cleaned
 }
 
-func mapToTaskResponse(task models.Task, colorMap map[string]string) responsedto.TaskResponse {
+func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) responsedto.TaskResponse {
+	var colorMap map[string]string
+	if len(colorMaps) > 0 {
+		colorMap = colorMaps[0]
+	} else {
+		colorMap = make(map[string]string)
+		maps.Copy(colorMap, models.DefaultStatusColors)
+	}
+
 	var sprintName string
 	if task.Sprint != nil {
 		sprintName = task.Sprint.Name
@@ -158,6 +168,7 @@ func mapToTaskResponse(task models.Task, colorMap map[string]string) responsedto
 		Description:    task.Description,
 		Type:           task.Type,
 		Priority:       task.Priority,
+		StatusID:       task.StatusID,
 		Status:         task.Status,
 		StatusColor:    statusColor,
 		AssigneeID:     task.AssigneeID,
@@ -199,22 +210,71 @@ func (s *taskService) getStatusColorMap(projectID uuid.UUID) map[string]string {
 	return colorMap
 }
 
-func (s *taskService) validateAndNormalizeStatus(projectID uuid.UUID, status string) (string, *response.Error) {
-	normalized := models.NormalizeTaskStatus(status)
-
-	customStatus, err := s.customStatusRepo.GetStatusByName(projectID, normalized)
-	if err != nil {
-		if err.StatusCode == http.StatusNotFound {
-			return "", &response.Error{
-				Code:       response.ErrValidation,
-				StatusCode: http.StatusUnprocessableEntity,
-				Message:    "Invalid task status value",
+func (s *taskService) resolveStatusIDAndName(projectID uuid.UUID, statusID *uuid.UUID, statusName *string) (uuid.UUID, string, *response.Error) {
+	// Rule 1 (Precedence): If statusID is provided, fetch the status by ID
+	if statusID != nil && *statusID != uuid.Nil {
+		cs, err := s.customStatusRepo.GetStatusByID(*statusID, projectID)
+		if err != nil {
+			if err.StatusCode == http.StatusNotFound {
+				return uuid.Nil, "", &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusUnprocessableEntity,
+					Message:    "Invalid task status_id: status does not exist or does not belong to this project",
+				}
 			}
+			return uuid.Nil, "", err
 		}
-		return "", err
+		return cs.ID, cs.Name, nil
 	}
 
-	return customStatus.Name, nil
+	// Rule 2: If statusID is nil/empty but statusName is provided
+	if statusName != nil && *statusName != "" {
+		normalized := models.NormalizeTaskStatus(*statusName)
+		cs, err := s.customStatusRepo.GetStatusByName(projectID, normalized)
+		if err != nil {
+			if err.StatusCode == http.StatusNotFound {
+				return uuid.Nil, "", &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusUnprocessableEntity,
+					Message:    "Invalid task status value: status name not found in this project",
+				}
+			}
+			return uuid.Nil, "", err
+		}
+		return cs.ID, cs.Name, nil
+	}
+
+	// Rule 3: If both are nil/empty, default to the project's default status
+	customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+	if err != nil {
+		return uuid.Nil, "", err
+	}
+
+	var defaultStatus *models.CustomStatus
+	for i := range customStatuses {
+		if customStatuses[i].IsDefault {
+			if defaultStatus == nil || customStatuses[i].DisplayOrder < defaultStatus.DisplayOrder {
+				defaultStatus = &customStatuses[i]
+			}
+		}
+	}
+
+	if defaultStatus == nil && len(customStatuses) > 0 {
+		sort.Slice(customStatuses, func(i, j int) bool {
+			return customStatuses[i].DisplayOrder < customStatuses[j].DisplayOrder
+		})
+		defaultStatus = &customStatuses[0]
+	}
+
+	if defaultStatus == nil {
+		return uuid.Nil, "", &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Project has no defined statuses",
+		}
+	}
+
+	return defaultStatus.ID, defaultStatus.Name, nil
 }
 
 func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *responsedto.TaskResponse, *response.Error) {
@@ -344,16 +404,17 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	task.Description = req.Description
 	task.Type = req.Type
 	task.Priority = req.Priority
-	statusVal := "todo"
+	var statusNameArg *string
 	if req.Status != "" {
-		normalized, valErr := s.validateAndNormalizeStatus(req.ProjectID, req.Status)
-		if valErr != nil {
-			return uuid.Nil, nil, valErr
-		}
-		statusVal = normalized
+		statusNameArg = &req.Status
+	}
+	resolvedStatusID, resolvedStatusName, valErr := s.resolveStatusIDAndName(req.ProjectID, req.StatusID, statusNameArg)
+	if valErr != nil {
+		return uuid.Nil, nil, valErr
 	}
 
-	task.Status = statusVal
+	task.StatusID = resolvedStatusID
+	task.Status = resolvedStatusName
 	task.AssigneeID = req.AssigneeID
 	task.ReporterID = req.ReporterID
 	task.StoryPoints = req.StoryPoints
@@ -656,57 +717,72 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 
 	// 3. Validate Status Transition
 	var newNormalizedStatus string
-	if req.Status != nil && *req.Status != task.Status {
-		normalized, valErr := s.validateAndNormalizeStatus(req.ProjectID, *req.Status)
+	var newStatusID uuid.UUID
+	isStatusChanging := false
+
+	if req.StatusID != nil && *req.StatusID != task.StatusID {
+		isStatusChanging = true
+	} else if req.Status != nil && *req.Status != task.Status {
+		isStatusChanging = true
+	}
+
+	if isStatusChanging {
+		resolvedStatusID, resolvedStatusName, valErr := s.resolveStatusIDAndName(req.ProjectID, req.StatusID, req.Status)
 		if valErr != nil {
 			return nil, valErr
 		}
-		newNormalizedStatus = normalized
 
-		newStatus := newNormalizedStatus
-		oldStatus := models.NormalizeTaskStatus(task.Status)
+		if resolvedStatusID != task.StatusID {
+			newStatusID = resolvedStatusID
+			newNormalizedStatus = resolvedStatusName
 
-		if models.NormalizeTaskStatus(newStatus) == string(dto.TaskStatusBlocked) {
-			if req.BlockedReason == nil || strings.TrimSpace(*req.BlockedReason) == "" {
-				return nil, &response.Error{
-					Code:       response.ErrBadRequest,
-					StatusCode: http.StatusBadRequest,
-					Message:    "Moving to Blocked requires a blocked reason",
+			newStatus := newNormalizedStatus
+			oldStatus := models.NormalizeTaskStatus(task.Status)
+
+			if models.NormalizeTaskStatus(newStatus) == string(dto.TaskStatusBlocked) {
+				if req.BlockedReason == nil || strings.TrimSpace(*req.BlockedReason) == "" {
+					return nil, &response.Error{
+						Code:       response.ErrBadRequest,
+						StatusCode: http.StatusBadRequest,
+						Message:    "Moving to Blocked requires a blocked reason",
+					}
 				}
 			}
-		}
 
-		if !isPMOrAdmin {
-			allowedTransition := false
-			if models.IsDefaultTaskStatus(oldStatus) && models.IsDefaultTaskStatus(newStatus) {
-				normOld := models.NormalizeTaskStatus(oldStatus)
-				normNew := models.NormalizeTaskStatus(newStatus)
-				switch normOld {
-				case string(dto.TaskStatusTodo):
-					allowedTransition = normNew == string(dto.TaskStatusInProgress) || normNew == string(dto.TaskStatusBlocked)
-				case string(dto.TaskStatusInProgress):
-					allowedTransition = normNew == string(dto.TaskStatusInReview) || normNew == string(dto.TaskStatusBlocked)
-				case string(dto.TaskStatusInReview):
-					allowedTransition = normNew == string(dto.TaskStatusTesting) || normNew == string(dto.TaskStatusBlocked)
-				case string(dto.TaskStatusTesting):
-					allowedTransition = normNew == string(dto.TaskStatusCompleted) || normNew == string(dto.TaskStatusBlocked)
-				case string(dto.TaskStatusCompleted):
-					allowedTransition = normNew == string(dto.TaskStatusBlocked)
-				case string(dto.TaskStatusBlocked):
-					allowedTransition = normNew == string(dto.TaskStatusInProgress) || normNew == string(dto.TaskStatusTodo)
+			if !isPMOrAdmin {
+				allowedTransition := false
+				if models.IsDefaultTaskStatus(oldStatus) && models.IsDefaultTaskStatus(newStatus) {
+					normOld := models.NormalizeTaskStatus(oldStatus)
+					normNew := models.NormalizeTaskStatus(newStatus)
+					switch normOld {
+					case string(dto.TaskStatusTodo):
+						allowedTransition = normNew == string(dto.TaskStatusInProgress) || normNew == string(dto.TaskStatusBlocked)
+					case string(dto.TaskStatusInProgress):
+						allowedTransition = normNew == string(dto.TaskStatusInReview) || normNew == string(dto.TaskStatusBlocked)
+					case string(dto.TaskStatusInReview):
+						allowedTransition = normNew == string(dto.TaskStatusTesting) || normNew == string(dto.TaskStatusBlocked)
+					case string(dto.TaskStatusTesting):
+						allowedTransition = normNew == string(dto.TaskStatusCompleted) || normNew == string(dto.TaskStatusBlocked)
+					case string(dto.TaskStatusCompleted):
+						allowedTransition = normNew == string(dto.TaskStatusBlocked)
+					case string(dto.TaskStatusBlocked):
+						allowedTransition = normNew == string(dto.TaskStatusInProgress) || normNew == string(dto.TaskStatusTodo)
+					}
+				} else {
+					// Transition involving at least one custom status is allowed
+					allowedTransition = true
 				}
-			} else {
-				// Transition involving at least one custom status is allowed
-				allowedTransition = true
-			}
 
-			if !allowedTransition {
-				return nil, &response.Error{
-					Code:       response.ErrInvalidStatusTransition,
-					StatusCode: http.StatusBadRequest,
-					Message:    fmt.Sprintf("Invalid status transition from %s to %s for developers", oldStatus, newStatus),
+				if !allowedTransition {
+					return nil, &response.Error{
+						Code:       response.ErrInvalidStatusTransition,
+						StatusCode: http.StatusBadRequest,
+						Message:    fmt.Sprintf("Invalid status transition from %s to %s for developers", oldStatus, newStatus),
+					}
 				}
 			}
+		} else {
+			isStatusChanging = false
 		}
 	}
 
@@ -729,11 +805,14 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		changes = append(changes, fmt.Sprintf("priority changed from '%s' to '%s'", task.Priority, *req.Priority))
 		task.Priority = *req.Priority
 	}
-	if req.Status != nil && *req.Status != task.Status {
+	if isStatusChanging {
 		changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, newNormalizedStatus))
+		task.StatusID = newStatusID
 		task.Status = newNormalizedStatus
 		if models.NormalizeTaskStatus(newNormalizedStatus) == string(dto.TaskStatusBlocked) {
-			task.BlockedReason = *req.BlockedReason
+			if req.BlockedReason != nil {
+				task.BlockedReason = *req.BlockedReason
+			}
 		} else {
 			task.BlockedReason = ""
 		}
@@ -853,7 +932,8 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	if req.Priority != nil {
 		updates["priority"] = *req.Priority
 	}
-	if req.Status != nil {
+	if isStatusChanging {
+		updates["status_id"] = newStatusID
 		updates["status"] = newNormalizedStatus
 		if models.NormalizeTaskStatus(newNormalizedStatus) == string(dto.TaskStatusBlocked) {
 			if req.BlockedReason != nil {
@@ -1313,18 +1393,34 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 		}
 
 		// 4. Validate Status Value
-		var normalizedStatus string
-		if item.Status != nil {
-			normalizedStatus = models.NormalizeTaskStatus(*item.Status)
-			if _, ok := validStatuses[normalizedStatus]; !ok {
+		isStatusChanging := false
+		if item.StatusID != nil && *item.StatusID != task.StatusID {
+			isStatusChanging = true
+		} else if item.Status != nil && *item.Status != task.Status {
+			isStatusChanging = true
+		}
+
+		var resolvedStatusID uuid.UUID
+		var resolvedStatusName string
+
+		if isStatusChanging {
+			resID, resName, valErr := s.resolveStatusIDAndName(req.ProjectID, item.StatusID, item.Status)
+			if valErr != nil {
 				failedTaskIDs = append(failedTaskIDs, item.TaskID)
-				failureReasons[item.TaskID.String()] = fmt.Sprintf("Invalid status value: '%s'", *item.Status)
+				failureReasons[item.TaskID.String()] = valErr.Message
 				continue
+			}
+
+			if resID != task.StatusID {
+				resolvedStatusID = resID
+				resolvedStatusName = resName
+			} else {
+				isStatusChanging = false
 			}
 		}
 
 		// 5. Validate Status Transition to Blocked
-		if item.Status != nil && normalizedStatus == string(dto.TaskStatusBlocked) {
+		if isStatusChanging && models.NormalizeTaskStatus(resolvedStatusName) == string(dto.TaskStatusBlocked) {
 			if item.BlockedReason == nil || strings.TrimSpace(*item.BlockedReason) == "" {
 				failedTaskIDs = append(failedTaskIDs, item.TaskID)
 				failureReasons[item.TaskID.String()] = "Moving to Blocked requires a blocked reason"
@@ -1335,11 +1431,13 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 		// 6. Track Changes and Update Task
 		var changes []string
 		updates := make(map[string]interface{})
-		if item.Status != nil && normalizedStatus != task.Status {
-			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, normalizedStatus))
-			task.Status = normalizedStatus
-			updates["status"] = normalizedStatus
-			if normalizedStatus == string(dto.TaskStatusBlocked) {
+		if isStatusChanging {
+			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, resolvedStatusName))
+			task.StatusID = resolvedStatusID
+			task.Status = resolvedStatusName
+			updates["status_id"] = resolvedStatusID
+			updates["status"] = resolvedStatusName
+			if models.NormalizeTaskStatus(resolvedStatusName) == string(dto.TaskStatusBlocked) {
 				task.BlockedReason = *item.BlockedReason
 				updates["blocked_reason"] = *item.BlockedReason
 			} else {

@@ -5690,6 +5690,9 @@
                 "status": {
                     "type": "string"
                 },
+                "status_id": {
+                    "type": "string"
+                },
                 "task_id": {
                     "type": "string"
                 }
@@ -5907,6 +5910,9 @@
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "status_id": {
                     "type": "string"
                 },
                 "story_points": {
@@ -6327,6 +6333,9 @@
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "status_id": {
                     "type": "string"
                 },
                 "story_points": {
@@ -6801,6 +6810,9 @@
                     "type": "string"
                 },
                 "status_color": {
+                    "type": "string"
+                },
+                "status_id": {
                     "type": "string"
                 },
                 "story_points": {

@@ -442,8 +442,8 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 		}
 
 		err := service.UpdateProject(req)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		if err == nil || err.StatusCode != http.StatusBadRequest || err.Message != "No changes to update" {
+			t.Fatalf("expected error 'No changes to update', got: %v", err)
 		}
 	})
 
