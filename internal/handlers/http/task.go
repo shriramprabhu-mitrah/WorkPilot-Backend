@@ -27,7 +27,7 @@ func InitTaskHandler(service services.TaskService, logger *zap.Logger) *taskHand
 
 // CreateTask godoc
 // @Summary Create a new task
-// @Description Create a new task in the specified project
+// @Description Create a new task in the specified project. The description field accepts HTML and is sanitized before storage.
 // @Tags Task
 // @Accept json
 // @Produce json
@@ -162,7 +162,7 @@ func (h *taskHandler) GetTaskByID(g *gin.Context) {
 
 // UpdateTask godoc
 // @Summary Update Task
-// @Description Update the details of a specific task by ID
+// @Description Update the details of a specific task by ID. Description supports HTML content and is sanitized before storage.
 // @Tags Task
 // @Accept json
 // @Produce json

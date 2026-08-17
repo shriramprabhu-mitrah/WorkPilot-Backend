@@ -28,7 +28,7 @@ type commentsHandler struct {
 // CreateComments godoc
 //
 //	@Summary		Create a comment
-//	@Description	Creates a new comment for the specified task. To create a reply, provide the parent_comment_id of an existing comment. The comment content is trimmed and cannot be empty after trimming.
+//	@Description	Creates a new comment for the specified task. To create a reply, provide the parent_comment_id of an existing comment. The comment content supports HTML and is sanitized before storage.
 //	@Tags			Comments
 //	@Accept			json
 //	@Produce		json

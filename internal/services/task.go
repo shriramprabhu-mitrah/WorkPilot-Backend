@@ -13,6 +13,7 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
@@ -401,7 +402,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	task.SprintID = req.SprintID
 	task.UserStoryID = req.UserStoryID
 	task.Title = req.Title
-	task.Description = req.Description
+	task.Description = utils.SanitizeHTML(req.Description)
 	task.Type = req.Type
 	task.Priority = req.Priority
 	var statusNameArg *string
@@ -795,7 +796,8 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 	if req.Description != nil && *req.Description != task.Description {
 		changes = append(changes, "description changed")
-		task.Description = *req.Description
+		sanitizedDescription := utils.SanitizeHTML(*req.Description)
+		task.Description = sanitizedDescription
 	}
 	if req.Type != nil && *req.Type != task.Type {
 		changes = append(changes, fmt.Sprintf("type changed from '%s' to '%s'", task.Type, *req.Type))
