@@ -486,11 +486,15 @@ func (h *taskHandler) CloneTask(g *gin.Context) {
 // @Param sort_order query string false "Sort order" Enums(ASC,DESC)
 // @Param status query string false "Task Status"
 // @Param assignee_id query string false "Assignee User ID"
+// @Param reporter_id query string false "Reporter User ID"
 // @Param sprint_id query string false "Sprint ID"
+// @Param user_story_id query string false "User Story ID"
 // @Param type query string false "Task Type" Enums(bug,feature,task,chore,story)
 // @Param priority query string false "Task Priority" Enums(low,medium,high,critical)
 // @Param search query string false "Search query for title, description or key"
+// @Param labels query string false "Comma-separated labels"
 // @Param is_deleted query boolean false "Get soft deleted tasks"
+// @Param match query string false "Match mode" Enums(any,all)
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse

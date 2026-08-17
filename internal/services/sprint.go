@@ -46,7 +46,7 @@ type sprintService struct {
 }
 
 func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *response.Error) {
-	
+
 	result, errResp := s.authRepo.GetUserByID(req.UserID)
 	if errResp != nil {
 		return uuid.Nil, errResp
@@ -166,7 +166,7 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *r
 		if err != nil {
 			return uuid.Nil, err
 		}
-		
+
 	}
 
 	// audit log creation

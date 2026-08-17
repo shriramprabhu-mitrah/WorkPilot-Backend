@@ -254,7 +254,7 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 	req.UserID = userUUID
 	req.OrganizationID = organizationUUID
 
-	commentResponse, err := h.commentService.UpdateComments(req);
+	commentResponse, err := h.commentService.UpdateComments(req)
 	if err != nil {
 		g.JSON(err.StatusCode, err)
 		return
@@ -264,7 +264,7 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 		Success:    true,
 		Message:    "Comment updated successfully",
 		StatusCode: http.StatusOK,
-		Data: commentResponse,
+		Data:       commentResponse,
 	})
 }
 

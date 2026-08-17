@@ -186,11 +186,15 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			page		query		int		false	"Page Number"		default(1)
 //	@Param			page_size	query		int		false	"Page Size"			default(10)
 //	@Param			name		query		string	false	"Project Name"
 //	@Param			status		query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
+//	@Param			sort_by		query		string	false	"Sort by field"	Enums(name,created_at,updated_at,status)
+//	@Param			sort_order	query		string	false	"Sort order"	Enums(ASC,DESC)
 //	@Param			fieldName	query		string	false	"Fields to return (comma separated)"
+//	@Param			include_sprints	query	bool	false	"Include project sprints in the response"
 //	@Success		200			{object}	response.SuccessResponse	"Projects retrieved successfully"
 //	@Failure		400			{object}	response.ErrorResponse		"Invalid query parameters"
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
@@ -495,9 +499,11 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 //	@Param			project_id	path		string	true	"Project ID (UUID)"
 //	@Param			page		query		int		false	"Page number" default(1)
 //	@Param			page_size	query		int		false	"Page size" default(10)
-//	@Param			entity_type	query		string	false	"Filter by entity type"
 //	@Param			action		query		string	false	"Filter by action"
+//	@Param			resource_type	query		string	false	"Filter by resource type"
 //	@Param			user_id		query		string	false	"Filter by user ID"
+//	@Param			start_date	query		string	false	"Start date (ISO-8601)"
+//	@Param			end_date		query		string	false	"End date (ISO-8601)"
 //	@Success		200			{object}	response.SuccessResponse{data=[]responsedto.ProjectActivityResponse}
 //	@Failure		400			{object}	response.ErrorResponse
 //	@Failure		401			{object}	response.ErrorResponse
@@ -754,6 +760,7 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 //	@Param			project_id	path		string									true	"Project ID"	Format(uuid)
 //	@Param			user_id		path		string									true	"User ID"		Format(uuid)
 //	@Param			request		body		requestdto.UpdateProjectMemberRequest	true	"Update Project Member Request"
+//	@Success		200		{object}	response.SuccessResponse	"Project member updated successfully"
 //	@Failure		400			{object}	response.ErrorResponse	"Invalid request payload or validation error"
 //	@Failure		401			{object}	response.ErrorResponse	"Unauthorized"
 //	@Failure		403			{object}	response.ErrorResponse	"Forbidden"
