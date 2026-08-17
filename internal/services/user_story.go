@@ -9,6 +9,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
@@ -25,21 +26,39 @@ type UserStoryService interface {
 }
 
 type userStoryService struct {
-	authRepo      authrepo.AuthRepository
-	projectRepo   projectrepo.ProjectRepository
-	userStoryRepo userstoryrepo.UserStoryRepository
-	taskRepo      taskrepo.TaskRepository
-	logger        *zap.Logger
+	authRepo         authrepo.AuthRepository
+	projectRepo      projectrepo.ProjectRepository
+	userStoryRepo    userstoryrepo.UserStoryRepository
+	taskRepo         taskrepo.TaskRepository
+	customStatusRepo customstatusrepo.CustomStatusRepository
+	logger           *zap.Logger
 }
 
-func InitUserStoryService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, userStoryRepo userstoryrepo.UserStoryRepository, taskRepo taskrepo.TaskRepository, logger *zap.Logger) UserStoryService {
+func InitUserStoryService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, userStoryRepo userstoryrepo.UserStoryRepository, taskRepo taskrepo.TaskRepository, customStatusRepo customstatusrepo.CustomStatusRepository, logger *zap.Logger) UserStoryService {
 	return &userStoryService{
-		authRepo:      authRepo,
-		projectRepo:   projectRepo,
-		userStoryRepo: userStoryRepo,
-		taskRepo:      taskRepo,
-		logger:        logger,
+		authRepo:         authRepo,
+		projectRepo:      projectRepo,
+		userStoryRepo:    userStoryRepo,
+		taskRepo:         taskRepo,
+		customStatusRepo: customStatusRepo,
+		logger:           logger,
 	}
+}
+
+func (s *userStoryService) getStatusColorMap(projectID uuid.UUID) map[string]string {
+	colorMap := make(map[string]string)
+	for k, v := range models.DefaultStatusColors {
+		colorMap[k] = v
+	}
+	if s.customStatusRepo != nil {
+		customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+		if err == nil {
+			for _, cs := range customStatuses {
+				colorMap[models.NormalizeTaskStatus(cs.Name)] = cs.Color
+			}
+		}
+	}
+	return colorMap
 }
 
 func (s *userStoryService) checkAuthorization(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
@@ -213,9 +232,10 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		return nil, taskErr
 	}
 
+	colorMap := s.getStatusColorMap(projectID)
 	taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
 	for _, t := range tasks {
-		taskResponses = append(taskResponses, mapToTaskResponse(t))
+		taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap))
 	}
 
 	res := mapToUserStoryResponse(*story, total, completed, progress)
@@ -423,6 +443,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 		return nil, response.Pagination{}, statErr
 	}
 
+	colorMap := s.getStatusColorMap(projectID)
 	resList := []responsedto.UserStoryResponse{}
 	for _, story := range stories {
 		var total, completed int64
@@ -441,7 +462,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 
 		taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
 		for _, t := range tasks {
-			taskResponses = append(taskResponses, mapToTaskResponse(t))
+			taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap))
 		}
 
 		storyRes := mapToUserStoryResponse(story, total, completed, progress)
