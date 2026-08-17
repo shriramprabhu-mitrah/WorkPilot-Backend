@@ -6871,6 +6871,9 @@ const docTemplate = `{
                 "reporter_id": {
                     "type": "string"
                 },
+                "reporter_name": {
+                    "type": "string"
+                },
                 "sprint_id": {
                     "type": "string"
                 },

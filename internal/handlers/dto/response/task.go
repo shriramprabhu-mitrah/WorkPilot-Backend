@@ -22,6 +22,7 @@ type TaskResponse struct {
 	StatusColor    string          `json:"status_color"`
 	AssigneeID     *uuid.UUID      `json:"assignee_id,omitempty"`
 	ReporterID     *uuid.UUID      `json:"reporter_id,omitempty"`
+	ReporterName   string          `json:"reporter_name,omitempty"`
 	AssigneeName   string          `json:"assignee_name,omitempty"`
 	StoryPoints    int             `json:"story_points"`
 	DueDate        *time.Time      `json:"due_date,omitempty"`

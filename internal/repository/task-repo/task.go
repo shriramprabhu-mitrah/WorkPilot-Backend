@@ -527,7 +527,13 @@ func (d *taskDatabase) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessCon
 
 func (d *taskDatabase) GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Task, *response.Error) {
 	var tasks []models.Task
-	err := d.db.Where("user_story_id = ?", userStoryID).Find(&tasks).Error
+	err := d.db.
+		Preload("Sprint").
+		Preload("Project").
+		Preload("Assignee").
+		Preload("Reporter").
+		Where("user_story_id = ?", userStoryID).
+		Find(&tasks).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			d.logger.Warn("No tasks found for user story id",
