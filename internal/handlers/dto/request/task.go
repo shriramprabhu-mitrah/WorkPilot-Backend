@@ -191,8 +191,10 @@ type TaskFilter struct {
 	Type      string   `form:"type"`
 	Priority  string   `form:"priority"`
 	IsDeleted bool     `form:"is_deleted"`
-	Labels    []string `form:"labels"`
-	Match     string   `form:"match"`
+	Labels         []string `form:"labels"`
+	Match          string   `form:"match"`
+	SequenceNumber *int     `form:"sequence_number"`
+	SerialNumber   *int64   `form:"serial_number"`
 }
 
 type BulkUpdateTaskItem struct {
