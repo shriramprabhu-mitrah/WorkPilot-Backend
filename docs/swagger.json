@@ -1703,7 +1703,7 @@
                     {
                         "type": "string",
                         "description": "Fields to return (comma separated)",
-                        "name": "fieldName",
+                        "name": "fields",
                         "in": "query"
                     },
                     {
@@ -3029,7 +3029,7 @@
                     {
                         "type": "string",
                         "description": "Fields to return (comma separated)",
-                        "name": "fieldName",
+                        "name": "fields",
                         "in": "query"
                     }
                 ],

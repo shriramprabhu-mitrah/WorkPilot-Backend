@@ -1710,7 +1710,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Fields to return (comma separated)",
-                        "name": "fieldName",
+                        "name": "fields",
                         "in": "query"
                     },
                     {
@@ -3036,7 +3036,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Fields to return (comma separated)",
-                        "name": "fieldName",
+                        "name": "fields",
                         "in": "query"
                     }
                 ],
