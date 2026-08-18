@@ -4010,6 +4010,10 @@ paths:
         in: query
         name: search
         type: string
+      - description: Fields to return (comma separated)
+        in: query
+        name: fields
+        type: string
       produces:
       - application/json
       responses:
