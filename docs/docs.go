@@ -7298,6 +7298,9 @@ const docTemplate = `{
                 },
                 "user_story_id": {
                     "type": "string"
+                },
+                "user_story_title": {
+                    "type": "string"
                 }
             }
         },
