@@ -231,13 +231,8 @@ definitions:
       sprint_id:
         type: string
       status:
-        enum:
-        - todo
-        - in_progress
-        - in_review
-        - testing
-        - completed
-        - blocked
+        type: string
+      status_id:
         type: string
       story_points:
         minimum: 0
@@ -530,13 +525,8 @@ definitions:
       sprint_id:
         type: string
       status:
-        enum:
-        - todo
-        - in_progress
-        - in_review
-        - testing
-        - completed
-        - blocked
+        type: string
+      status_id:
         type: string
       story_points:
         minimum: 0

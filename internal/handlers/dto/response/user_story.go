@@ -14,7 +14,9 @@ type UserStoryResponse struct {
 	Title        string       `json:"title"`
 	Description  string       `json:"description,omitempty"`
 	Priority     string       `json:"priority"`
+	StatusID     uuid.UUID    `json:"status_id"`
 	Status       string       `json:"status"`
+	StatusColor  string       `json:"status_color"`
 	StoryPoints  int          `json:"story_points"`
 	AssigneeID   *uuid.UUID   `json:"assignee_id,omitempty"`
 	AssigneeName string       `json:"assignee_name,omitempty"`

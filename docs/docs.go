@@ -6356,15 +6356,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "type": "string",
-                    "enum": [
-                        "todo",
-                        "in_progress",
-                        "in_review",
-                        "testing",
-                        "completed",
-                        "blocked"
-                    ]
+                    "type": "string"
+                },
+                "status_id": {
+                    "type": "string"
                 },
                 "story_points": {
                     "type": "integer",
@@ -6775,15 +6770,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "type": "string",
-                    "enum": [
-                        "todo",
-                        "in_progress",
-                        "in_review",
-                        "testing",
-                        "completed",
-                        "blocked"
-                    ]
+                    "type": "string"
+                },
+                "status_id": {
+                    "type": "string"
                 },
                 "story_points": {
                     "type": "integer",

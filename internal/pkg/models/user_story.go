@@ -16,6 +16,7 @@ type UserStory struct {
 	Title       string         `json:"title" gorm:"type:varchar(255);not null"`
 	Description string         `json:"description,omitempty" gorm:"type:text"`
 	Priority    string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`
+	StatusID    uuid.UUID      `json:"status_id" gorm:"type:uuid;not null;index;default:'00000000-0000-0000-0000-000000000000'"`
 	Status      string         `json:"status" gorm:"type:varchar(50);not null;default:'todo'"`
 	StoryPoints  int            `json:"story_points" gorm:"type:integer;not null;default:0"`
 	BacklogOrder int            `json:"backlog_order" gorm:"type:integer;not null;default:0"`
