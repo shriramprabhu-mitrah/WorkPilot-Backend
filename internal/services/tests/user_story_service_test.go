@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -420,6 +421,134 @@ func TestUserStoryService_UpdateUserStory_Success(t *testing.T) {
 
 	if res.Title != newTitle || res.Priority != newPriority || res.StoryPoints != newPoints || res.Status != newStatus {
 		t.Errorf("fields did not update correctly: %+v", res)
+	}
+}
+
+func TestUserStoryService_UpdateUserStory_SprintID(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	storyID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+
+	existingStory := &models.UserStory{
+		ID:        storyID,
+		ProjectID: projectID,
+		Title:     "Title",
+		SprintID:  &sprintID,
+	}
+	userStoryRepo := &stubUserStoryRepo{
+		stories:      map[uuid.UUID]*models.UserStory{storyID: existingStory},
+		validSprints: map[uuid.UUID]bool{sprintID: true},
+	}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+
+	// 1. Update to a new Sprint ID
+	newSprintID := uuid.Must(uuid.NewV4())
+	userStoryRepo.validSprints[newSprintID] = true
+
+	req := dto.UpdateUserStoryRequest{
+		UserStoryID: storyID,
+		ProjectID:   projectID,
+		UserID:      userID,
+		SprintID:    &newSprintID,
+	}
+
+	res, err := service.UpdateUserStory(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.SprintID == nil || *res.SprintID != newSprintID {
+		t.Errorf("sprint_id did not update to new sprint: %v", res.SprintID)
+	}
+
+	// 2. Update Sprint ID to null (explicitly null field in JSON)
+	req = dto.UpdateUserStoryRequest{
+		UserStoryID:  storyID,
+		ProjectID:    projectID,
+		UserID:       userID,
+		SprintID:     nil,
+		IsNullFields: map[string]bool{"sprint_id": true},
+	}
+
+	res, err = service.UpdateUserStory(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.SprintID != nil {
+		t.Errorf("sprint_id was not cleared (should be nil): %v", res.SprintID)
+	}
+
+	// 3. Update Sprint ID to null using uuid.Nil (sentinel value)
+	existingStory.SprintID = &sprintID
+	uuidNilVal := uuid.Nil
+
+	req = dto.UpdateUserStoryRequest{
+		UserStoryID: storyID,
+		ProjectID:   projectID,
+		UserID:      userID,
+		SprintID:    &uuidNilVal,
+	}
+
+	res, err = service.UpdateUserStory(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.SprintID != nil {
+		t.Errorf("sprint_id was not cleared when using uuid.Nil (should be nil): %v", res.SprintID)
+	}
+}
+
+func TestUpdateUserStoryRequest_UnmarshalJSON(t *testing.T) {
+	// Case 1: sprint_id is omitted
+	jsonDataOmitted := []byte(`{"title": "New Title"}`)
+	var reqOmitted dto.UpdateUserStoryRequest
+	if err := json.Unmarshal(jsonDataOmitted, &reqOmitted); err != nil {
+		t.Fatalf("unmarshal omitted failed: %v", err)
+	}
+	if reqOmitted.SprintID != nil {
+		t.Errorf("expected SprintID to be nil when omitted")
+	}
+	if reqOmitted.IsSprintIDNull() {
+		t.Errorf("expected IsSprintIDNull to be false when omitted")
+	}
+
+	// Case 2: sprint_id is explicitly null
+	jsonDataNull := []byte(`{"title": "New Title", "sprint_id": null}`)
+	var reqNull dto.UpdateUserStoryRequest
+	if err := json.Unmarshal(jsonDataNull, &reqNull); err != nil {
+		t.Fatalf("unmarshal null failed: %v", err)
+	}
+	if reqNull.SprintID != nil {
+		t.Errorf("expected SprintID to be nil when null")
+	}
+	if !reqNull.IsSprintIDNull() {
+		t.Errorf("expected IsSprintIDNull to be true when null")
+	}
+
+	// Case 3: sprint_id is a valid UUID
+	sprintUUID := uuid.Must(uuid.NewV4())
+	jsonDataValid := []byte(`{"title": "New Title", "sprint_id": "` + sprintUUID.String() + `"}`)
+	var reqValid dto.UpdateUserStoryRequest
+	if err := json.Unmarshal(jsonDataValid, &reqValid); err != nil {
+		t.Fatalf("unmarshal valid failed: %v", err)
+	}
+	if reqValid.SprintID == nil || *reqValid.SprintID != sprintUUID {
+		t.Errorf("expected SprintID to match %v, got %v", sprintUUID, reqValid.SprintID)
+	}
+	if reqValid.IsSprintIDNull() {
+		t.Errorf("expected IsSprintIDNull to be false when valid")
 	}
 }
 

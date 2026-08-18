@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -296,11 +297,19 @@ func applyUpdatesToTask(task *models.Task, updates map[string]interface{}) {
 			task.DueDate = &t
 		}
 	}
-	if val, ok := updates["estimated_hours"].(float64); ok {
-		task.EstimatedHours = &val
+	if val, ok := updates["estimated_hours"]; ok {
+		if val == nil {
+			task.EstimatedHours = nil
+		} else if v, ok := val.(float64); ok {
+			task.EstimatedHours = &v
+		}
 	}
-	if val, ok := updates["actual_hours"].(float64); ok {
-		task.ActualHours = &val
+	if val, ok := updates["actual_hours"]; ok {
+		if val == nil {
+			task.ActualHours = nil
+		} else if v, ok := val.(float64); ok {
+			task.ActualHours = &v
+		}
 	}
 }
 
@@ -592,6 +601,130 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 	}
 	if updated.StoryPoints != 8 {
 		t.Fatalf("expected story points 8, got %d", updated.StoryPoints)
+	}
+}
+
+func TestTaskService_UpdateTask_NullFields(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+
+	assigneeID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+	storyID := uuid.Must(uuid.NewV4())
+	dueTime := time.Now().Add(24 * time.Hour)
+	estHours := 8.5
+	actHours := 4.0
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+		isMember: true,
+	}
+
+	existingTask := &models.Task{
+		ID:             taskID,
+		ProjectID:      projectID,
+		Key:            "WP-1",
+		Title:          "Title",
+		AssigneeID:     &assigneeID,
+		SprintID:       &sprintID,
+		UserStoryID:    &storyID,
+		DueDate:        &dueTime,
+		EstimatedHours: &estHours,
+		ActualHours:    &actHours,
+	}
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+
+	// Explicitly nullify all fields using IsNullFields map
+	req := dto.UpdateTaskRequest{
+		TaskID:    taskID,
+		ProjectID: projectID,
+		UserID:    userID,
+		IsNullFields: map[string]bool{
+			"assignee_id":      true,
+			"sprint_id":        true,
+			"user_story_id":    true,
+			"due_date":         true,
+			"estimated_hours":  true,
+			"actual_hours":     true,
+		},
+	}
+
+	updated, err := service.UpdateTask(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if updated.AssigneeID != nil {
+		t.Errorf("expected AssigneeID to be nil")
+	}
+	if updated.SprintID != nil {
+		t.Errorf("expected SprintID to be nil")
+	}
+	if updated.UserStoryID != nil {
+		t.Errorf("expected UserStoryID to be nil")
+	}
+	if updated.DueDate != nil {
+		t.Errorf("expected DueDate to be nil")
+	}
+	if updated.EstimatedHours != nil {
+		t.Errorf("expected EstimatedHours to be nil")
+	}
+	if updated.ActualHours != nil {
+		t.Errorf("expected ActualHours to be nil")
+	}
+}
+
+func TestUpdateTaskRequest_UnmarshalJSON(t *testing.T) {
+	// Case 1: Fields omitted
+	jsonDataOmitted := []byte(`{"title": "New Title"}`)
+	var reqOmitted dto.UpdateTaskRequest
+	if err := json.Unmarshal(jsonDataOmitted, &reqOmitted); err != nil {
+		t.Fatalf("unmarshal omitted failed: %v", err)
+	}
+	if reqOmitted.SprintID != nil {
+		t.Errorf("expected SprintID to be nil when omitted")
+	}
+	if reqOmitted.IsSprintIDNull() {
+		t.Errorf("expected IsSprintIDNull to be false when omitted")
+	}
+
+	// Case 2: Fields explicitly null
+	jsonDataNull := []byte(`{
+		"title": "New Title",
+		"sprint_id": null,
+		"assignee_id": null,
+		"user_story_id": null,
+		"due_date": null,
+		"estimated_hours": null,
+		"actual_hours": null
+	}`)
+	var reqNull dto.UpdateTaskRequest
+	if err := json.Unmarshal(jsonDataNull, &reqNull); err != nil {
+		t.Fatalf("unmarshal null failed: %v", err)
+	}
+	if !reqNull.IsSprintIDNull() || !reqNull.IsAssigneeIDNull() || !reqNull.IsUserStoryIDNull() || !reqNull.IsDueDateNull() || !reqNull.IsEstimatedHoursNull() || !reqNull.IsActualHoursNull() {
+		t.Errorf("expected all IsNull checks to return true")
+	}
+
+	// Case 3: Valid values provided
+	sprintUUID := uuid.Must(uuid.NewV4())
+	jsonDataValid := []byte(`{"title": "New Title", "sprint_id": "` + sprintUUID.String() + `"}`)
+	var reqValid dto.UpdateTaskRequest
+	if err := json.Unmarshal(jsonDataValid, &reqValid); err != nil {
+		t.Fatalf("unmarshal valid failed: %v", err)
+	}
+	if reqValid.SprintID == nil || *reqValid.SprintID != sprintUUID {
+		t.Errorf("expected SprintID to match %v, got %v", sprintUUID, reqValid.SprintID)
+	}
+	if reqValid.IsSprintIDNull() {
+		t.Errorf("expected IsSprintIDNull to be false when valid")
 	}
 }
 
