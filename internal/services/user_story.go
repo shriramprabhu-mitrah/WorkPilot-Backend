@@ -2,6 +2,7 @@ package services
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/gofrs/uuid"
@@ -61,6 +62,91 @@ func (s *userStoryService) getStatusColorMap(projectID uuid.UUID) map[string]str
 		}
 	}
 	return colorMap
+}
+
+func (s *userStoryService) resolveStatusIDAndName(projectID uuid.UUID, statusID *uuid.UUID, statusName *string) (uuid.UUID, string, *response.Error) {
+	if statusID != nil && *statusID != uuid.Nil {
+		if s.customStatusRepo == nil {
+			return uuid.Nil, "", &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Custom status repository not initialized",
+			}
+		}
+		cs, err := s.customStatusRepo.GetStatusByID(*statusID, projectID)
+		if err != nil {
+			if err.StatusCode == http.StatusNotFound {
+				return uuid.Nil, "", &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusUnprocessableEntity,
+					Message:    "Invalid user story status_id: status does not exist or does not belong to this project",
+				}
+			}
+			return uuid.Nil, "", err
+		}
+		return cs.ID, cs.Name, nil
+	}
+
+	if statusName != nil && *statusName != "" {
+		if s.customStatusRepo == nil {
+			return uuid.Nil, "", &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Custom status repository not initialized",
+			}
+		}
+		normalized := models.NormalizeTaskStatus(*statusName)
+		cs, err := s.customStatusRepo.GetStatusByName(projectID, normalized)
+		if err != nil {
+			if err.StatusCode == http.StatusNotFound {
+				return uuid.Nil, "", &response.Error{
+					Code:       response.ErrValidation,
+					StatusCode: http.StatusUnprocessableEntity,
+					Message:    "Invalid user story status value: status name not found in this project",
+				}
+			}
+			return uuid.Nil, "", err
+		}
+		return cs.ID, cs.Name, nil
+	}
+
+	if s.customStatusRepo == nil {
+		return uuid.Nil, "", &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Custom status repository not initialized",
+		}
+	}
+	customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+	if err != nil {
+		return uuid.Nil, "", err
+	}
+
+	var defaultStatus *models.CustomStatus
+	for i := range customStatuses {
+		if customStatuses[i].IsDefault {
+			if defaultStatus == nil || customStatuses[i].DisplayOrder < defaultStatus.DisplayOrder {
+				defaultStatus = &customStatuses[i]
+			}
+		}
+	}
+
+	if defaultStatus == nil && len(customStatuses) > 0 {
+		sort.Slice(customStatuses, func(i, j int) bool {
+			return customStatuses[i].DisplayOrder < customStatuses[j].DisplayOrder
+		})
+		defaultStatus = &customStatuses[0]
+	}
+
+	if defaultStatus == nil {
+		return uuid.Nil, "", &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Project has no defined statuses",
+		}
+	}
+
+	return defaultStatus.ID, defaultStatus.Name, nil
 }
 
 func (s *userStoryService) checkAuthorization(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
@@ -172,11 +258,16 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 	story.Title = req.Title
 	story.Description = utils.SanitizeHTML(req.Description)
 	story.Priority = req.Priority
+	var statusNameArg *string
 	if req.Status != "" {
-		story.Status = req.Status
-	} else {
-		story.Status = "todo"
+		statusNameArg = &req.Status
 	}
+	resolvedStatusID, resolvedStatusName, valErr := s.resolveStatusIDAndName(req.ProjectID, req.StatusID, statusNameArg)
+	if valErr != nil {
+		return nil, valErr
+	}
+	story.StatusID = resolvedStatusID
+	story.Status = resolvedStatusName
 	story.StoryPoints = req.StoryPoints
 	story.BacklogOrder = maxOrder + 1
 	story.AssigneeID = req.AssigneeID
@@ -193,7 +284,11 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		return nil, getErr
 	}
 
-	res := mapToUserStoryResponse(*createdStory, 0, 0, 0.0)
+	var customStatuses []models.CustomStatus
+	if s.customStatusRepo != nil {
+		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(req.ProjectID)
+	}
+	res := mapToUserStoryResponse(*createdStory, customStatuses, 0, 0, 0.0)
 	return &res, nil
 }
 
@@ -240,7 +335,11 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap))
 	}
 
-	res := mapToUserStoryResponse(*story, total, completed, progress)
+	var customStatuses []models.CustomStatus
+	if s.customStatusRepo != nil {
+		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(projectID)
+	}
+	res := mapToUserStoryResponse(*story, customStatuses, total, completed, progress)
 	res.Tasks = taskResponses
 	return &res, nil
 }
@@ -304,8 +403,17 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 		updates["priority"] = *req.Priority
 	}
 
-	if req.Status != nil {
-		updates["status"] = *req.Status
+	if req.StatusID != nil || req.Status != nil {
+		var statusNameArg *string
+		if req.Status != nil && *req.Status != "" {
+			statusNameArg = req.Status
+		}
+		resolvedStatusID, resolvedStatusName, valErr := s.resolveStatusIDAndName(req.ProjectID, req.StatusID, statusNameArg)
+		if valErr != nil {
+			return nil, valErr
+		}
+		updates["status_id"] = resolvedStatusID
+		updates["status"] = resolvedStatusName
 	}
 
 	if req.StoryPoints != nil {
@@ -393,7 +501,11 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 		}
 	}
 
-	res := mapToUserStoryResponse(*updatedStory, total, completed, progress)
+	var customStatuses []models.CustomStatus
+	if s.customStatusRepo != nil {
+		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(req.ProjectID)
+	}
+	res := mapToUserStoryResponse(*updatedStory, customStatuses, total, completed, progress)
 	return &res, nil
 }
 
@@ -443,6 +555,10 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 	}
 
 	colorMap := s.getStatusColorMap(projectID)
+	var customStatuses []models.CustomStatus
+	if s.customStatusRepo != nil {
+		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(projectID)
+	}
 	resList := []responsedto.UserStoryResponse{}
 	for _, story := range stories {
 		var total, completed int64
@@ -464,7 +580,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 			taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap))
 		}
 
-		storyRes := mapToUserStoryResponse(story, total, completed, progress)
+		storyRes := mapToUserStoryResponse(story, customStatuses, total, completed, progress)
 		storyRes.Tasks = taskResponses
 		resList = append(resList, storyRes)
 	}
@@ -472,7 +588,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 	return resList, pagination, nil
 }
 
-func mapToUserStoryResponse(story models.UserStory, totalTasks, completedTasks int64, progress float64) responsedto.UserStoryResponse {
+func mapToUserStoryResponse(story models.UserStory, customStatuses []models.CustomStatus, totalTasks, completedTasks int64, progress float64) responsedto.UserStoryResponse {
 	var sprintName string
 	if story.Sprint != nil {
 		sprintName = story.Sprint.Name
@@ -480,6 +596,39 @@ func mapToUserStoryResponse(story models.UserStory, totalTasks, completedTasks i
 	var assigneeName string
 	if story.Assignee != nil {
 		assigneeName = story.Assignee.FullName
+	}
+
+	resolvedStatusID := story.StatusID
+	resolvedStatusColor := ""
+	normStatusName := models.NormalizeTaskStatus(story.Status)
+
+	var found bool
+	if story.StatusID != uuid.Nil {
+		for _, cs := range customStatuses {
+			if cs.ID == story.StatusID {
+				resolvedStatusColor = cs.Color
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		for _, cs := range customStatuses {
+			if models.NormalizeTaskStatus(cs.Name) == normStatusName {
+				resolvedStatusID = cs.ID
+				resolvedStatusColor = cs.Color
+				found = true
+				break
+			}
+		}
+	}
+
+	if resolvedStatusColor == "" {
+		resolvedStatusColor = models.DefaultStatusColors[normStatusName]
+		if resolvedStatusColor == "" {
+			resolvedStatusColor = "#808080"
+		}
 	}
 
 	res := responsedto.UserStoryResponse{
@@ -490,7 +639,9 @@ func mapToUserStoryResponse(story models.UserStory, totalTasks, completedTasks i
 		Title:          story.Title,
 		Description:    story.Description,
 		Priority:       story.Priority,
+		StatusID:       resolvedStatusID,
 		Status:         story.Status,
+		StatusColor:    resolvedStatusColor,
 		StoryPoints:    story.StoryPoints,
 		AssigneeID:     story.AssigneeID,
 		AssigneeName:   assigneeName,

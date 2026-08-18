@@ -3,6 +3,7 @@ package services_test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,9 @@ func (s *stubUserStoryRepo) UpdateUserStory(userStoryID uuid.UUID, updates map[s
 		}
 		if val, ok := updates["status"].(string); ok {
 			story.Status = val
+		}
+		if val, ok := updates["status_id"].(uuid.UUID); ok {
+			story.StatusID = val
 		}
 		if val, ok := updates["story_points"].(int); ok {
 			story.StoryPoints = val
@@ -191,7 +195,7 @@ func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:       "User Story Title",
@@ -215,7 +219,7 @@ func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 		t.Errorf("expected sprint ID to be nil (Product Backlog by default), got %v", res.SprintID)
 	}
 
-	if res.Status != "todo" {
+	if strings.ToLower(res.Status) != "todo" {
 		t.Errorf("expected default status to be 'todo', got %s", res.Status)
 	}
 }
@@ -236,7 +240,7 @@ func TestUserStoryService_CreateUserStory_ForbiddenIfNoAccess(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Some title",
@@ -274,7 +278,7 @@ func TestUserStoryService_CreateUserStory_InvalidSprintID(t *testing.T) {
 		validSprints: map[uuid.UUID]bool{sprintID: false}, // Sprint does not belong to the project
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Title",
@@ -312,7 +316,7 @@ func TestUserStoryService_CreateUserStory_InvalidAssigneeID(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Title",
@@ -358,7 +362,7 @@ func TestUserStoryService_GetUserStoryByID_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -397,7 +401,7 @@ func TestUserStoryService_UpdateUserStory_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	newTitle := "New Title"
 	newPriority := "critical"
@@ -419,7 +423,7 @@ func TestUserStoryService_UpdateUserStory_Success(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if res.Title != newTitle || res.Priority != newPriority || res.StoryPoints != newPoints || res.Status != newStatus {
+	if res.Title != newTitle || res.Priority != newPriority || res.StoryPoints != newPoints || models.NormalizeTaskStatus(res.Status) != models.NormalizeTaskStatus(newStatus) {
 		t.Errorf("fields did not update correctly: %+v", res)
 	}
 }
@@ -452,7 +456,7 @@ func TestUserStoryService_UpdateUserStory_SprintID(t *testing.T) {
 		validSprints: map[uuid.UUID]bool{sprintID: true},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// 1. Update to a new Sprint ID
 	newSprintID := uuid.Must(uuid.NewV4())
@@ -578,7 +582,7 @@ func TestUserStoryService_DeleteUserStory_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	err := service.DeleteUserStory(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -619,7 +623,7 @@ func TestUserStoryService_ReorderUserStories_Success(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	// Reorder them: story2 first, then story1
 	err := service.ReorderUserStories(projectID, userID, orgID, []uuid.UUID{story2ID, story1ID})
@@ -661,7 +665,7 @@ func TestUserStoryService_ProgressCalculation(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -712,7 +716,7 @@ func TestUserStoryService_GetUserStoryByID_IncludesTasks(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -759,7 +763,7 @@ func TestUserStoryService_GetUserStories_IncludesTasks(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, nil, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, zap.NewNop())
 
 	stories, _, err := service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{})
 	if err != nil {
@@ -774,6 +778,181 @@ func TestUserStoryService_GetUserStories_IncludesTasks(t *testing.T) {
 	}
 	if stories[0].Tasks[0].ID != taskID || stories[0].Tasks[0].Title != "Task in story list" {
 		t.Errorf("unexpected task in story list: %+v", stories[0].Tasks[0])
+	}
+}
+
+func TestUserStoryService_CreateUserStory_CustomStatus(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember), FullName: "John Doe"},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project Name"},
+		isMember: true,
+	}
+	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
+	customStatusRepo := &stubCustomStatusRepo{}
+
+	// Add a specific custom status to project
+	customStatusID := uuid.Must(uuid.NewV4())
+	customStatusRepo.CreateStatus(&models.CustomStatus{
+		ID:        customStatusID,
+		ProjectID: projectID,
+		Name:      "Ready For Dev",
+		Color:     "#FFFF00",
+	})
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, zap.NewNop())
+
+	// 1. Create with custom status ID
+	req := dto.CreateUserStoryRequest{
+		Title:      "User Story with Status ID",
+		Priority:   "medium",
+		ProjectID:  projectID,
+		ReporterID: userID,
+		StatusID:   &customStatusID,
+	}
+
+	res, err := service.CreateUserStory(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.StatusID != customStatusID || res.Status != "Ready For Dev" || res.StatusColor != "#FFFF00" {
+		t.Errorf("mismatched resolved status fields: %+v", res)
+	}
+
+	// 2. Create with custom status Name
+	customStatusName := "Ready For Dev"
+	req2 := dto.CreateUserStoryRequest{
+		Title:      "User Story with Status Name",
+		Priority:   "medium",
+		ProjectID:  projectID,
+		ReporterID: userID,
+		Status:     customStatusName,
+	}
+
+	res2, err2 := service.CreateUserStory(req2)
+	if err2 != nil {
+		t.Fatalf("expected no error, got %v", err2)
+	}
+	if res2.StatusID != customStatusID || res2.Status != "Ready For Dev" || res2.StatusColor != "#FFFF00" {
+		t.Errorf("mismatched resolved status fields by name: %+v", res2)
+	}
+}
+
+func TestUserStoryService_CreateUserStory_StatusPrecedence(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember), FullName: "John Doe"},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project Name"},
+		isMember: true,
+	}
+	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
+	customStatusRepo := &stubCustomStatusRepo{}
+
+	// Create custom status 1
+	statusID1 := uuid.Must(uuid.NewV4())
+	customStatusRepo.CreateStatus(&models.CustomStatus{
+		ID:        statusID1,
+		ProjectID: projectID,
+		Name:      "Design Phase",
+		Color:     "#00FF00",
+	})
+
+	// Create custom status 2
+	statusID2 := uuid.Must(uuid.NewV4())
+	customStatusRepo.CreateStatus(&models.CustomStatus{
+		ID:        statusID2,
+		ProjectID: projectID,
+		Name:      "Build Phase",
+		Color:     "#0000FF",
+	})
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, zap.NewNop())
+
+	// StatusID (statusID1) should take precedence over Status Name ("Build Phase")
+	req := dto.CreateUserStoryRequest{
+		Title:      "Precedence Test Story",
+		Priority:   "low",
+		ProjectID:  projectID,
+		ReporterID: userID,
+		StatusID:   &statusID1,
+		Status:     "Build Phase",
+	}
+
+	res, err := service.CreateUserStory(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.StatusID != statusID1 || res.Status != "Design Phase" || res.StatusColor != "#00FF00" {
+		t.Errorf("StatusID did not take precedence over Status name: %+v", res)
+	}
+}
+
+func TestUserStoryService_CreateUserStory_InvalidStatus(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
+	customStatusRepo := &stubCustomStatusRepo{}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, zap.NewNop())
+
+	// 1. Invalid status ID
+	invalidStatusID := uuid.Must(uuid.NewV4())
+	req := dto.CreateUserStoryRequest{
+		Title:      "Invalid Status ID Story",
+		Priority:   "low",
+		ProjectID:  projectID,
+		ReporterID: userID,
+		StatusID:   &invalidStatusID,
+	}
+
+	_, err := service.CreateUserStory(req)
+	if err == nil {
+		t.Fatal("expected error for invalid StatusID, got nil")
+	}
+	if err.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("expected status 422, got %d", err.StatusCode)
+	}
+
+	// 2. Invalid status Name
+	req2 := dto.CreateUserStoryRequest{
+		Title:      "Invalid Status Name Story",
+		Priority:   "low",
+		ProjectID:  projectID,
+		ReporterID: userID,
+		Status:     "Non-existent Status",
+	}
+
+	_, err2 := service.CreateUserStory(req2)
+	if err2 == nil {
+		t.Fatal("expected error for invalid status name, got nil")
+	}
+	if err2.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("expected status 422, got %d", err2.StatusCode)
 	}
 }
 
