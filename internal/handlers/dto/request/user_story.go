@@ -78,6 +78,7 @@ type UserStoryFilter struct {
 	Sprint   string `form:"sprint_id"`
 	Search   string `form:"search"`
 	Priority string `form:"priority"`
+	Fields   string `form:"fields"`
 }
 
 type ReorderUserStoriesRequest struct {

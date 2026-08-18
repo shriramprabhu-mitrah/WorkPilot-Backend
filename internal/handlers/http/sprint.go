@@ -272,7 +272,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Param search query string false "Search sprint by name"
 // @Param sort_by query string false "Sort by field" Enums(name,created_at,updated_at,start_date,end_date,status)
 // @Param sort_order query string false "Sort order" Enums(ASC,DESC)
-// @Param fieldName query string false "Fields to return (comma separated)"
+// @Param fields query string false "Fields to return (comma separated)"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -335,9 +335,9 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 	}
 
 	var filteredData any = sprintResponses
-	if filter.FieldName != "" {
+	if filter.Fields != "" {
 		var filterErr error
-		filteredData, filterErr = utils.FilterFields(sprintResponses, filter.FieldName)
+		filteredData, filterErr = utils.FilterFields(sprintResponses, filter.Fields)
 		if filterErr != nil {
 			h.logger.Error("Failed to filter sprint fields", zap.Error(filterErr))
 			filteredData = sprintResponses

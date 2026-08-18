@@ -193,7 +193,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //	@Param			status		query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
 //	@Param			sort_by		query		string	false	"Sort by field"	Enums(name,created_at,updated_at,status)
 //	@Param			sort_order	query		string	false	"Sort order"	Enums(ASC,DESC)
-//	@Param			fieldName	query		string	false	"Fields to return (comma separated)"
+//	@Param			fields		query		string	false	"Fields to return (comma separated)"
 //	@Param			include_sprints	query	bool	false	"Include project sprints in the response"
 //	@Success		200			{object}	response.SuccessResponse	"Projects retrieved successfully"
 //	@Failure		400			{object}	response.ErrorResponse		"Invalid query parameters"
@@ -245,9 +245,9 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 	}
 
 	var filteredData any = projectResponses
-	if filter.FieldName != "" {
+	if filter.Fields != "" {
 		var filterErr error
-		filteredData, filterErr = utils.FilterFields(projectResponses, filter.FieldName)
+		filteredData, filterErr = utils.FilterFields(projectResponses, filter.Fields)
 		if filterErr != nil {
 			h.logger.Error("Failed to filter project fields", zap.Error(filterErr))
 			filteredData = projectResponses

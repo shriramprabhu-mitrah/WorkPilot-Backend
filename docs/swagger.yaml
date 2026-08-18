@@ -2334,7 +2334,7 @@ paths:
         type: string
       - description: Fields to return (comma separated)
         in: query
-        name: fieldName
+        name: fields
         type: string
       - description: Include project sprints in the response
         in: query
@@ -2936,7 +2936,7 @@ paths:
         type: string
       - description: Fields to return (comma separated)
         in: query
-        name: fieldName
+        name: fields
         type: string
       produces:
       - application/json
@@ -4009,6 +4009,10 @@ paths:
       - description: Search query for title or description
         in: query
         name: search
+        type: string
+      - description: Fields to return (comma separated)
+        in: query
+        name: fields
         type: string
       produces:
       - application/json

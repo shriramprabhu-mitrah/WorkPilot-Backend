@@ -1710,7 +1710,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Fields to return (comma separated)",
-                        "name": "fieldName",
+                        "name": "fields",
                         "in": "query"
                     },
                     {
@@ -3036,7 +3036,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Fields to return (comma separated)",
-                        "name": "fieldName",
+                        "name": "fields",
                         "in": "query"
                     }
                 ],
@@ -4622,6 +4622,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search query for title or description",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields to return (comma separated)",
+                        "name": "fields",
                         "in": "query"
                     }
                 ],

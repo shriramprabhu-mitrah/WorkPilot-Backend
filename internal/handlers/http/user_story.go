@@ -312,6 +312,7 @@ func (h *userStoryHandler) DeleteUserStory(g *gin.Context) {
 // @Param sprint_id query string false "Sprint ID"
 // @Param priority query string false "User Story Priority" Enums(low,medium,high,critical)
 // @Param search query string false "Search query for title or description"
+// @Param fields query string false "Fields to return (comma separated)"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -362,11 +363,21 @@ func (h *userStoryHandler) GetUserStories(g *gin.Context) {
 		return
 	}
 
+	var filteredData any = stories
+	if filter.Fields != "" {
+		var filterErr error
+		filteredData, filterErr = utils.FilterFields(stories, filter.Fields)
+		if filterErr != nil {
+			h.logger.Error("Failed to filter user story fields", zap.Error(filterErr))
+			filteredData = stories
+		}
+	}
+
 	successResponse := &response.SuccessResponse{
 		Message:    "User Stories retrieved successfully",
 		StatusCode: http.StatusOK,
 		Success:    true,
-		Data:       stories,
+		Data:       filteredData,
 		Meta:       &pagination,
 	}
 

@@ -63,7 +63,7 @@ type ProjectFilterRequest struct {
 	response.SortQuery
 	Name           string        `form:"name"`
 	Status         ProjectStatus `form:"status"`
-	FieldName      string        `form:"fieldName"`
+	Fields         string        `form:"fields"`
 	UserID         uuid.UUID     `form:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID     `form:"-" swaggerignore:"true"`
 	IncludeSprints bool          `form:"include_sprints"`
