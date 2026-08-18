@@ -24,6 +24,7 @@ type Comments struct {
 	IsDeleted       bool                `json:"is_deleted"`
 	DeletedAt       gorm.DeletedAt      `json:"-" gorm:"index"`
 	Attachments     []CommentAttachment `json:"attachments,omitempty" gorm:"foreignKey:CommentID"`
+	RepliesCount    int                 `json:"replies_count" gorm:"-"`
 }
 
 func (c *Comments) BeforeCreate(tx *gorm.DB) (err error) {
