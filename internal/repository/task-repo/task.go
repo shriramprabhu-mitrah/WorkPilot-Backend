@@ -168,6 +168,14 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		query = query.Where("priority = ?", filter.Priority)
 	}
 
+	if filter.SequenceNumber != nil {
+		query = query.Where("sequence_number = ? OR serial_number = ?", *filter.SequenceNumber, *filter.SequenceNumber)
+	}
+
+	if filter.SerialNumber != nil {
+		query = query.Where("serial_number = ?", *filter.SerialNumber)
+	}
+
 	if filter.Search != "" {
 		cleanSearch := strings.TrimPrefix(strings.TrimSpace(filter.Search), "#")
 		searchTerm := "%" + strings.ToLower(filter.Search) + "%"
