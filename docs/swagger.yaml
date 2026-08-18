@@ -825,6 +825,8 @@ definitions:
         type: string
       user_story_id:
         type: string
+      user_story_title:
+        type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.UserProfile:
     properties:

@@ -143,6 +143,10 @@ func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) respons
 	if task.Sprint != nil {
 		sprintName = task.Sprint.Name
 	}
+	var userStoryTitle string
+	if task.UserStory != nil {
+		userStoryTitle = task.UserStory.Title
+	}
 	var assigneeName string
 	if task.Assignee != nil {
 		assigneeName = task.Assignee.FullName
@@ -168,6 +172,7 @@ func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) respons
 		SprintID:       task.SprintID,
 		SprintName:     sprintName,
 		UserStoryID:    task.UserStoryID,
+		UserStoryTitle: userStoryTitle,
 		Key:                   task.Key,
 		SerialNumber:          task.SerialNumber,
 		FormattedSerialNumber: task.FormattedSerialNumber(),
