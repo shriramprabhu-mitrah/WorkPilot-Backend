@@ -22,6 +22,7 @@ type CommentsResponse struct {
 	IsDeleted       bool                        `json:"is_deleted"`
 	ParentComment   *ParentUserResponse         `json:"parent_comment,omitempty"`
 	Attachments     []CommentAttachmentResponse `json:"attachments,omitempty"`
+	RepliesCount    int                         `json:"replies_count"`
 }
 
 type ParentUserResponse struct {

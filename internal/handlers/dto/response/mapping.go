@@ -98,6 +98,7 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 		UpdatedAt:       comment.UpdatedAt,
 		IsDeleted:       comment.IsDeleted,
 		Attachments:     attachments,
+		RepliesCount:    comment.RepliesCount,
 	}
 
 	if comment.ParentComment != nil {

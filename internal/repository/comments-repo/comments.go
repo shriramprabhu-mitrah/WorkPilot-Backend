@@ -126,6 +126,8 @@ func (d *commentsDatabase) GetCommentsByTaskID(req requestdto.GetComments) ([]mo
 		}
 	}
 
+	d.populateRepliesCount(comments)
+
 	totalPages := int(math.Ceil(float64(totalItems) / float64(req.PageSize)))
 	if totalPages == 0 {
 		totalPages = 1
@@ -341,6 +343,8 @@ func (d *commentsDatabase) GetCommentsByUserStoryID(req requestdto.GetComments) 
 		}
 	}
 
+	d.populateRepliesCount(comments)
+
 	totalPages := int(math.Ceil(float64(totalItems) / float64(req.PageSize)))
 	if totalPages == 0 {
 		totalPages = 1
@@ -356,4 +360,39 @@ func (d *commentsDatabase) GetCommentsByUserStoryID(req requestdto.GetComments) 
 	}
 
 	return comments, pagination, nil
+}
+
+func (d *commentsDatabase) populateRepliesCount(comments []models.Comments) {
+	if len(comments) == 0 {
+		return
+	}
+
+	commentIDs := make([]uuid.UUID, len(comments))
+	for i, c := range comments {
+		commentIDs[i] = c.ID
+	}
+
+	type countResult struct {
+		ParentCommentID uuid.UUID
+		Count           int
+	}
+
+	var counts []countResult
+	if err := d.db.Model(&models.Comments{}).
+		Select("parent_comment_id, count(*) as count").
+		Where("parent_comment_id IN ?", commentIDs).
+		Group("parent_comment_id").
+		Scan(&counts).Error; err != nil {
+		d.logger.Error("Failed to fetch reply counts", zap.Error(err))
+		return
+	}
+
+	countMap := make(map[uuid.UUID]int)
+	for _, r := range counts {
+		countMap[r.ParentCommentID] = r.Count
+	}
+
+	for i := range comments {
+		comments[i].RepliesCount = countMap[comments[i].ID]
+	}
 }
