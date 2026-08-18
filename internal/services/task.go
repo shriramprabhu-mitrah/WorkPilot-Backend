@@ -1155,9 +1155,20 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 
 	projectKey := GenerateProjectPrefix(project.Name)
 
+	statusNameArg := string(dto.TaskStatusTodo)
+	resolvedStatusID, resolvedStatusName, valErr := s.resolveStatusIDAndName(req.ProjectID, nil, &statusNameArg)
+	if valErr != nil {
+		// Fallback to project's default status if "todo" is not defined/found
+		resolvedStatusID, resolvedStatusName, valErr = s.resolveStatusIDAndName(req.ProjectID, nil, nil)
+		if valErr != nil {
+			return nil, valErr
+		}
+	}
+
 	var clonedTask models.Task
 	clonedTask.ProjectID = origTask.ProjectID
 	clonedTask.SprintID = origTask.SprintID
+	clonedTask.UserStoryID = origTask.UserStoryID
 	clonedTitle := origTask.Title + " (Cloned)"
 	if len([]rune(clonedTitle)) > 200 {
 		clonedTitle = string([]rune(clonedTitle)[:200])
@@ -1166,10 +1177,12 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 	clonedTask.Description = origTask.Description
 	clonedTask.Type = origTask.Type
 	clonedTask.Priority = origTask.Priority
-	clonedTask.Status = string(dto.TaskStatusTodo)
+	clonedTask.StatusID = resolvedStatusID
+	clonedTask.Status = resolvedStatusName
 	if req.KeepAssignee {
 		clonedTask.AssigneeID = origTask.AssigneeID
 	}
+	clonedTask.ReporterID = origTask.ReporterID
 	clonedTask.StoryPoints = origTask.StoryPoints
 	clonedTask.DueDate = origTask.DueDate
 	clonedTask.EstimatedHours = origTask.EstimatedHours

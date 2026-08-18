@@ -701,8 +701,11 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 	if cloned.Key != "WP-2" {
 		t.Fatalf("expected new key WP-2, got %s", cloned.Key)
 	}
-	if cloned.Status != string(dto.TaskStatusTodo) {
+	if models.NormalizeTaskStatus(cloned.Status) != string(dto.TaskStatusTodo) {
 		t.Fatalf("expected status reset to todo, got %s", cloned.Status)
+	}
+	if cloned.StatusID == uuid.Nil {
+		t.Fatalf("expected status ID to be resolved, got Nil")
 	}
 	if cloned.AssigneeID != nil {
 		t.Fatalf("expected assignee to be cleared, got %s", cloned.AssigneeID)
