@@ -1,6 +1,7 @@
 package request
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -99,26 +100,75 @@ type CreateTaskRequest struct {
 }
 
 type UpdateTaskRequest struct {
-	Title          *string      `json:"title" binding:"omitempty,min=3,max=255"`
-	Description    *string      `json:"description"`
-	Type           *string      `json:"type" binding:"omitempty,oneof=bug feature task chore story"`
-	Priority       *string      `json:"priority" binding:"omitempty,oneof=low medium high critical"`
-	StatusID       *uuid.UUID   `json:"status_id" binding:"omitempty"`
-	Status         *string      `json:"status" binding:"omitempty"`
-	BlockedReason  *string      `json:"blocked_reason"`
-	AssigneeID     *uuid.UUID   `json:"assignee_id"`
-	ReporterID     *uuid.UUID   `json:"reporter_id"`
-	SprintID       *uuid.UUID   `json:"sprint_id"`
-	UserStoryID    *uuid.UUID   `json:"user_story_id"`
-	StoryPoints    *int         `json:"story_points" binding:"omitempty,min=0"`
-	DueDate        *time.Time   `json:"due_date"`
-	EstimatedHours *float64     `json:"estimated_hours" binding:"omitempty,min=0"`
-	ActualHours    *float64     `json:"actual_hours" binding:"omitempty,min=0"`
-	LabelIDs       *[]uuid.UUID `json:"label_ids"`
-	TaskID         uuid.UUID    `json:"-"`
-	ProjectID      uuid.UUID    `json:"-"`
-	UserID         uuid.UUID    `json:"-"`
-	OrganizationID uuid.UUID    `json:"-"`
+	Title          *string         `json:"title" binding:"omitempty,min=3,max=255"`
+	Description    *string         `json:"description"`
+	Type           *string         `json:"type" binding:"omitempty,oneof=bug feature task chore story"`
+	Priority       *string         `json:"priority" binding:"omitempty,oneof=low medium high critical"`
+	StatusID       *uuid.UUID      `json:"status_id" binding:"omitempty"`
+	Status         *string         `json:"status" binding:"omitempty"`
+	BlockedReason  *string         `json:"blocked_reason"`
+	AssigneeID     *uuid.UUID      `json:"assignee_id"`
+	ReporterID     *uuid.UUID      `json:"reporter_id"`
+	SprintID       *uuid.UUID      `json:"sprint_id"`
+	UserStoryID    *uuid.UUID      `json:"user_story_id"`
+	StoryPoints    *int            `json:"story_points" binding:"omitempty,min=0"`
+	DueDate        *time.Time      `json:"due_date"`
+	EstimatedHours *float64        `json:"estimated_hours" binding:"omitempty,min=0"`
+	ActualHours    *float64        `json:"actual_hours" binding:"omitempty,min=0"`
+	LabelIDs       *[]uuid.UUID    `json:"label_ids"`
+	TaskID         uuid.UUID       `json:"-"`
+	ProjectID      uuid.UUID       `json:"-"`
+	UserID         uuid.UUID       `json:"-"`
+	OrganizationID uuid.UUID       `json:"-"`
+	IsNullFields   map[string]bool `json:"-"`
+}
+
+func (r *UpdateTaskRequest) UnmarshalJSON(data []byte) error {
+	type Alias UpdateTaskRequest
+	var temp Alias
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	*r = UpdateTaskRequest(temp)
+
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(data, &rawMap); err != nil {
+		return err
+	}
+
+	r.IsNullFields = make(map[string]bool)
+	nullableFields := []string{"sprint_id", "assignee_id", "user_story_id", "due_date", "estimated_hours", "actual_hours"}
+	for _, field := range nullableFields {
+		if val, exists := rawMap[field]; exists && val == nil {
+			r.IsNullFields[field] = true
+		}
+	}
+
+	return nil
+}
+
+func (r *UpdateTaskRequest) IsSprintIDNull() bool {
+	return r.IsNullFields != nil && r.IsNullFields["sprint_id"]
+}
+
+func (r *UpdateTaskRequest) IsAssigneeIDNull() bool {
+	return r.IsNullFields != nil && r.IsNullFields["assignee_id"]
+}
+
+func (r *UpdateTaskRequest) IsUserStoryIDNull() bool {
+	return r.IsNullFields != nil && r.IsNullFields["user_story_id"]
+}
+
+func (r *UpdateTaskRequest) IsDueDateNull() bool {
+	return r.IsNullFields != nil && r.IsNullFields["due_date"]
+}
+
+func (r *UpdateTaskRequest) IsEstimatedHoursNull() bool {
+	return r.IsNullFields != nil && r.IsNullFields["estimated_hours"]
+}
+
+func (r *UpdateTaskRequest) IsActualHoursNull() bool {
+	return r.IsNullFields != nil && r.IsNullFields["actual_hours"]
 }
 
 type CloneTaskRequest struct {

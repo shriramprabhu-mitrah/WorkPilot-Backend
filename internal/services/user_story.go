@@ -313,63 +313,59 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 	}
 
 	// Assignee check
-	if req.AssigneeID != nil {
-		if *req.AssigneeID != uuid.Nil {
-			assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
-			if err != nil {
-				return nil, &response.Error{
-					Code:       response.ErrBadRequest,
-					StatusCode: http.StatusBadRequest,
-					Message:    "Assignee user not found",
-				}
+	if req.IsAssigneeIDNull() || (req.AssigneeID != nil && *req.AssigneeID == uuid.Nil) {
+		updates["assignee_id"] = nil
+	} else if req.AssigneeID != nil {
+		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
+		if err != nil {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee user not found",
 			}
-			if !assigneeUser.IsActive {
-				return nil, &response.Error{
-					Code:       response.ErrBadRequest,
-					StatusCode: http.StatusBadRequest,
-					Message:    "Assignee must be an active user",
-				}
-			}
-			isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
-			if err != nil {
-				return nil, err
-			}
-			if !isMember {
-				if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
-					isMember = true
-				}
-			}
-			if !isMember {
-				return nil, &response.Error{
-					Code:       response.ErrBadRequest,
-					StatusCode: http.StatusBadRequest,
-					Message:    "Assignee must be a member of the project",
-				}
-			}
-			updates["assignee_id"] = *req.AssigneeID
-		} else {
-			updates["assignee_id"] = nil
 		}
+		if !assigneeUser.IsActive {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be an active user",
+			}
+		}
+		isMember, err := s.projectRepo.IsUserProjectMember(req.ProjectID, *req.AssigneeID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+				isMember = true
+			}
+		}
+		if !isMember {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Assignee must be a member of the project",
+			}
+		}
+		updates["assignee_id"] = *req.AssigneeID
 	}
 
 	// Sprint check
-	if req.SprintID != nil {
-		if *req.SprintID != uuid.Nil {
-			inProject, err := s.userStoryRepo.IsSprintInProject(*req.SprintID, req.ProjectID)
-			if err != nil {
-				return nil, err
-			}
-			if !inProject {
-				return nil, &response.Error{
-					Code:       response.ErrBadRequest,
-					StatusCode: http.StatusBadRequest,
-					Message:    "Sprint must belong to the same project",
-				}
-			}
-			updates["sprint_id"] = *req.SprintID
-		} else {
-			updates["sprint_id"] = nil
+	if req.IsSprintIDNull() || (req.SprintID != nil && *req.SprintID == uuid.Nil) {
+		updates["sprint_id"] = nil
+	} else if req.SprintID != nil {
+		inProject, err := s.userStoryRepo.IsSprintInProject(*req.SprintID, req.ProjectID)
+		if err != nil {
+			return nil, err
 		}
+		if !inProject {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Sprint must belong to the same project",
+			}
+		}
+		updates["sprint_id"] = *req.SprintID
 	}
 
 	updateErr := s.userStoryRepo.UpdateUserStory(req.UserStoryID, updates)

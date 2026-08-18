@@ -577,7 +577,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 
 	// 1. Validate Assignee Membership
-	if req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
+	if !req.IsAssigneeIDNull() && req.AssigneeID != nil && *req.AssigneeID != uuid.Nil {
 		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
 		if err != nil {
 			return nil, &response.Error{
@@ -612,7 +612,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 
 	// Validation: User Story must belong to the same project
-	if req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
+	if !req.IsUserStoryIDNull() && req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
 		inProject, err := s.taskRepo.IsUserStoryInProject(*req.UserStoryID, req.ProjectID)
 		if err != nil {
 			return nil, err
@@ -627,7 +627,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 
 	// Validation: Due date cannot be backdated unless overridden by PM/Admin
-	if req.DueDate != nil && !req.DueDate.IsZero() {
+	if !req.IsDueDateNull() && req.DueDate != nil && !req.DueDate.IsZero() {
 		if isBackdated(*req.DueDate) {
 			isPMOrAdmin, checkErr := s.checkIsPMOrAdmin(req.ProjectID, req.UserID)
 			if checkErr != nil {
@@ -688,12 +688,19 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 
 	// Validation: Sprint completed constraints
 	isSprintChanging := false
-	if req.SprintID != nil {
+	var targetSprintID uuid.UUID = uuid.Nil
+	if req.IsSprintIDNull() || (req.SprintID != nil && *req.SprintID == uuid.Nil) {
+		targetSprintID = uuid.Nil
+	} else if req.SprintID != nil {
+		targetSprintID = *req.SprintID
+	}
+
+	if req.IsSprintIDNull() || req.SprintID != nil {
 		currentSprintID := uuid.Nil
 		if task.SprintID != nil {
 			currentSprintID = *task.SprintID
 		}
-		if *req.SprintID != currentSprintID {
+		if targetSprintID != currentSprintID {
 			isSprintChanging = true
 		}
 	}
@@ -706,8 +713,8 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 				Message:    "Changing the sprint of a task in a completed sprint is blocked",
 			}
 		}
-		if *req.SprintID != uuid.Nil {
-			targetStatus, err := s.taskRepo.GetSprintStatus(*req.SprintID)
+		if targetSprintID != uuid.Nil {
+			targetStatus, err := s.taskRepo.GetSprintStatus(targetSprintID)
 			if err != nil {
 				return nil, err
 			}
@@ -824,105 +831,104 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			task.BlockedReason = ""
 		}
 	}
-	if req.AssigneeID != nil {
+	if req.IsAssigneeIDNull() || req.AssigneeID != nil {
 		oldAssignee := "nil"
 		if task.AssigneeID != nil {
 			oldAssignee = task.AssigneeID.String()
 		}
 		newAssignee := "nil"
-		if *req.AssigneeID != uuid.Nil {
+		var targetAssignee *uuid.UUID = nil
+		if !req.IsAssigneeIDNull() && *req.AssigneeID != uuid.Nil {
 			newAssignee = req.AssigneeID.String()
+			targetAssignee = req.AssigneeID
 		}
 		if oldAssignee != newAssignee {
 			changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
-			if *req.AssigneeID == uuid.Nil {
-				task.AssigneeID = nil
-			} else {
-				task.AssigneeID = req.AssigneeID
-			}
+			task.AssigneeID = targetAssignee
 		}
 	}
-	if req.SprintID != nil {
+	if req.IsSprintIDNull() || req.SprintID != nil {
 		oldSprint := "nil"
 		if task.SprintID != nil {
 			oldSprint = task.SprintID.String()
 		}
 		newSprint := "nil"
-		if *req.SprintID != uuid.Nil {
+		var targetSprint *uuid.UUID = nil
+		if !req.IsSprintIDNull() && *req.SprintID != uuid.Nil {
 			newSprint = req.SprintID.String()
+			targetSprint = req.SprintID
 		}
 		if oldSprint != newSprint {
 			changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
-			if *req.SprintID == uuid.Nil {
-				task.SprintID = nil
-			} else {
-				task.SprintID = req.SprintID
-			}
+			task.SprintID = targetSprint
 		}
 	}
-	if req.UserStoryID != nil {
+	if req.IsUserStoryIDNull() || req.UserStoryID != nil {
 		oldStory := "nil"
 		if task.UserStoryID != nil {
 			oldStory = task.UserStoryID.String()
 		}
 		newStory := "nil"
-		if *req.UserStoryID != uuid.Nil {
+		var targetStory *uuid.UUID = nil
+		if !req.IsUserStoryIDNull() && *req.UserStoryID != uuid.Nil {
 			newStory = req.UserStoryID.String()
+			targetStory = req.UserStoryID
 		}
 		if oldStory != newStory {
 			changes = append(changes, fmt.Sprintf("user story changed from %s to %s", oldStory, newStory))
-			if *req.UserStoryID == uuid.Nil {
-				task.UserStoryID = nil
-			} else {
-				task.UserStoryID = req.UserStoryID
-			}
+			task.UserStoryID = targetStory
 		}
 	}
 	if req.StoryPoints != nil && *req.StoryPoints != task.StoryPoints {
 		changes = append(changes, fmt.Sprintf("story points changed from %d to %d", task.StoryPoints, *req.StoryPoints))
 		task.StoryPoints = *req.StoryPoints
 	}
-	if req.DueDate != nil {
+	if req.IsDueDateNull() || req.DueDate != nil {
 		oldDue := "nil"
 		if task.DueDate != nil {
 			oldDue = task.DueDate.Format(time.RFC3339)
 		}
 		newDue := "nil"
-		if !req.DueDate.IsZero() {
+		var targetDue *time.Time = nil
+		if !req.IsDueDateNull() && !req.DueDate.IsZero() {
 			newDue = req.DueDate.Format(time.RFC3339)
+			targetDue = req.DueDate
 		}
 		if oldDue != newDue {
 			changes = append(changes, fmt.Sprintf("due date changed from %s to %s", oldDue, newDue))
-			if req.DueDate.IsZero() {
-				task.DueDate = nil
-			} else {
-				task.DueDate = req.DueDate
-			}
+			task.DueDate = targetDue
 		}
 	}
-	if req.EstimatedHours != nil {
+	if req.IsEstimatedHoursNull() || req.EstimatedHours != nil {
 		oldEst := "nil"
 		if task.EstimatedHours != nil {
 			oldEst = fmt.Sprintf("%.2f", *task.EstimatedHours)
 		}
 		newEst := "nil"
-		if *req.EstimatedHours >= 0 {
+		var targetEst *float64 = nil
+		if !req.IsEstimatedHoursNull() && *req.EstimatedHours >= 0 {
 			newEst = fmt.Sprintf("%.2f", *req.EstimatedHours)
+			targetEst = req.EstimatedHours
 		}
 		if oldEst != newEst {
 			changes = append(changes, fmt.Sprintf("estimated hours changed from %s to %s", oldEst, newEst))
-			task.EstimatedHours = req.EstimatedHours
+			task.EstimatedHours = targetEst
 		}
 	}
-	if req.ActualHours != nil {
+	if req.IsActualHoursNull() || req.ActualHours != nil {
 		oldAct := "nil"
 		if task.ActualHours != nil {
 			oldAct = fmt.Sprintf("%.2f", *task.ActualHours)
 		}
-		newAct := fmt.Sprintf("%.2f", *req.ActualHours)
+		newAct := "nil"
+		var targetAct *float64 = nil
+		if !req.IsActualHoursNull() {
+			newAct = fmt.Sprintf("%.2f", *req.ActualHours)
+			targetAct = req.ActualHours
+		}
 		if oldAct != newAct {
 			changes = append(changes, fmt.Sprintf("actual hours changed from %s to %s", oldAct, newAct))
-			task.ActualHours = req.ActualHours
+			task.ActualHours = targetAct
 		}
 	}
 
@@ -950,42 +956,50 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			updates["blocked_reason"] = ""
 		}
 	}
-	if req.AssigneeID != nil {
-		if *req.AssigneeID == uuid.Nil {
-			updates["assignee_id"] = nil
-		} else {
+	if req.IsAssigneeIDNull() || req.AssigneeID != nil {
+		if !req.IsAssigneeIDNull() && *req.AssigneeID != uuid.Nil {
 			updates["assignee_id"] = *req.AssigneeID
+		} else {
+			updates["assignee_id"] = nil
 		}
 	}
-	if req.SprintID != nil {
-		if *req.SprintID == uuid.Nil {
-			updates["sprint_id"] = nil
-		} else {
+	if req.IsSprintIDNull() || req.SprintID != nil {
+		if !req.IsSprintIDNull() && *req.SprintID != uuid.Nil {
 			updates["sprint_id"] = *req.SprintID
+		} else {
+			updates["sprint_id"] = nil
 		}
 	}
-	if req.UserStoryID != nil {
-		if *req.UserStoryID == uuid.Nil {
-			updates["user_story_id"] = nil
-		} else {
+	if req.IsUserStoryIDNull() || req.UserStoryID != nil {
+		if !req.IsUserStoryIDNull() && *req.UserStoryID != uuid.Nil {
 			updates["user_story_id"] = *req.UserStoryID
+		} else {
+			updates["user_story_id"] = nil
 		}
 	}
 	if req.StoryPoints != nil {
 		updates["story_points"] = *req.StoryPoints
 	}
-	if req.DueDate != nil {
-		if req.DueDate.IsZero() {
-			updates["due_date"] = nil
-		} else {
+	if req.IsDueDateNull() || req.DueDate != nil {
+		if !req.IsDueDateNull() && !req.DueDate.IsZero() {
 			updates["due_date"] = *req.DueDate
+		} else {
+			updates["due_date"] = nil
 		}
 	}
-	if req.EstimatedHours != nil {
-		updates["estimated_hours"] = *req.EstimatedHours
+	if req.IsEstimatedHoursNull() || req.EstimatedHours != nil {
+		if !req.IsEstimatedHoursNull() {
+			updates["estimated_hours"] = *req.EstimatedHours
+		} else {
+			updates["estimated_hours"] = nil
+		}
 	}
-	if req.ActualHours != nil {
-		updates["actual_hours"] = *req.ActualHours
+	if req.IsActualHoursNull() || req.ActualHours != nil {
+		if !req.IsActualHoursNull() {
+			updates["actual_hours"] = *req.ActualHours
+		} else {
+			updates["actual_hours"] = nil
+		}
 	}
 
 	if req.ReporterID != nil {
