@@ -169,8 +169,10 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 	}
 
 	if filter.Search != "" {
+		cleanSearch := strings.TrimPrefix(strings.TrimSpace(filter.Search), "#")
 		searchTerm := "%" + strings.ToLower(filter.Search) + "%"
-		query = query.Where("LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(key) LIKE ?", searchTerm, searchTerm, searchTerm)
+		cleanTerm := "%" + strings.ToLower(cleanSearch) + "%"
+		query = query.Where("LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(key) LIKE ? OR CAST(serial_number AS TEXT) LIKE ?", searchTerm, searchTerm, searchTerm, cleanTerm)
 	}
 
 	if filter.IsDeleted {
@@ -241,11 +243,12 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 			direction = "DESC"
 		}
 		allowed := map[string]string{
-			"title":      "title",
-			"created_at": "created_at",
-			"updated_at": "updated_at",
-			"priority":   "priority",
-			"status":     "status",
+			"title":         "title",
+			"created_at":    "created_at",
+			"updated_at":    "updated_at",
+			"priority":      "priority",
+			"status":        "status",
+			"serial_number": "serial_number",
 		}
 		if col, ok := allowed[filter.SortBy]; ok {
 			orderClause = fmt.Sprintf("%s %s", col, direction)

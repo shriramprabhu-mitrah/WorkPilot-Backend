@@ -114,8 +114,10 @@ func (d *userStoryDatabase) GetUserStories(projectID uuid.UUID, filter dto.UserS
 	}
 
 	if filter.Search != "" {
+		cleanSearch := strings.TrimPrefix(strings.TrimSpace(filter.Search), "#")
 		searchTerm := "%" + strings.ToLower(filter.Search) + "%"
-		query = query.Where("LOWER(title) LIKE ? OR LOWER(description) LIKE ?", searchTerm, searchTerm)
+		cleanTerm := "%" + strings.ToLower(cleanSearch) + "%"
+		query = query.Where("LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR CAST(serial_number AS TEXT) LIKE ?", searchTerm, searchTerm, cleanTerm)
 	}
 
 	// 1. Get the total count of filtered items
@@ -136,11 +138,12 @@ func (d *userStoryDatabase) GetUserStories(projectID uuid.UUID, filter dto.UserS
 			direction = "DESC"
 		}
 		allowed := map[string]string{
-			"title":      "title",
-			"created_at": "created_at",
-			"updated_at": "updated_at",
-			"priority":   "priority",
-			"status":     "status",
+			"title":         "title",
+			"created_at":    "created_at",
+			"updated_at":    "updated_at",
+			"priority":      "priority",
+			"status":        "status",
+			"serial_number": "serial_number",
 		}
 		if col, ok := allowed[filter.SortBy]; ok {
 			orderClause = fmt.Sprintf("%s %s", col, direction)

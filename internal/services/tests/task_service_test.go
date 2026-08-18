@@ -19,6 +19,7 @@ import (
 type stubTaskRepo struct {
 	tasks            map[uuid.UUID]*models.Task
 	seqNumber        int
+	serialNumber     int
 	createErr        *response.Error
 	getErr           *response.Error
 	updateErr        *response.Error
@@ -32,6 +33,10 @@ type stubTaskRepo struct {
 }
 
 func (s *stubTaskRepo) CreateTask(task *models.Task) *response.Error {
+	if task.SerialNumber == 0 {
+		s.serialNumber++
+		task.SerialNumber = int64(s.serialNumber)
+	}
 	s.lastCreatedTask = task
 	if s.createErr != nil {
 		return s.createErr

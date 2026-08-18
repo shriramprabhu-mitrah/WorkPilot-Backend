@@ -7163,6 +7163,9 @@ const docTemplate = `{
                 "estimated_hours": {
                     "type": "number"
                 },
+                "formatted_serial_number": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -7189,6 +7192,9 @@ const docTemplate = `{
                 },
                 "reporter_name": {
                     "type": "string"
+                },
+                "serial_number": {
+                    "type": "integer"
                 },
                 "sprint_id": {
                     "type": "string"

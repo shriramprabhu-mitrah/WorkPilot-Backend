@@ -18,6 +18,7 @@ type Task struct {
 	UserStory      *UserStory     `json:"user_story,omitempty" gorm:"foreignKey:UserStoryID"`
 	Key            string         `json:"key" gorm:"type:varchar(50);not null;uniqueIndex:idx_project_task_key"`
 	SequenceNumber int            `json:"sequence_number" gorm:"type:integer;not null;index"`
+	SerialNumber   int64          `json:"serial_number" gorm:"type:bigint;uniqueIndex"`
 	Title          string         `json:"title" gorm:"type:varchar(255);not null"`
 	Description    string         `json:"description,omitempty" gorm:"type:text"`
 	Type           string         `json:"type" gorm:"type:varchar(50);not null;default:'task'"`
@@ -39,9 +40,19 @@ type Task struct {
 	Labels         []Label        `json:"labels,omitempty" gorm:"many2many:task_labels;"`
 }
 
+func (t Task) FormattedSerialNumber() string {
+	return FormatSerialNumber(t.SerialNumber)
+}
+
 func (t *Task) BeforeCreate(tx *gorm.DB) (err error) {
 	if t.ID == uuid.Nil {
 		t.ID, err = uuid.NewV7()
+		if err != nil {
+			return err
+		}
+	}
+	if t.SerialNumber == 0 {
+		t.SerialNumber, err = GetNextGlobalSerialNumber(tx)
 		if err != nil {
 			return err
 		}

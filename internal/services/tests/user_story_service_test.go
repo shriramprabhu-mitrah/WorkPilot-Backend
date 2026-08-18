@@ -33,6 +33,7 @@ func (s *userStoryAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *respons
 }
 type stubUserStoryRepo struct {
 	stories        map[uuid.UUID]*models.UserStory
+	seqNumber      int
 	validSprints   map[uuid.UUID]bool
 	storyTaskStats map[uuid.UUID]models.StoryTaskStats
 	createErr      *response.Error
@@ -42,6 +43,10 @@ type stubUserStoryRepo struct {
 }
 
 func (s *stubUserStoryRepo) CreateUserStory(userStory *models.UserStory) *response.Error {
+	if userStory.SerialNumber == 0 {
+		s.seqNumber++
+		userStory.SerialNumber = int64(s.seqNumber)
+	}
 	if s.createErr != nil {
 		return s.createErr
 	}

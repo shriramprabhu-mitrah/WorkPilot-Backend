@@ -12,8 +12,10 @@ type TaskResponse struct {
 	SprintID       *uuid.UUID      `json:"sprint_id,omitempty"`
 	SprintName     string          `json:"sprint_name,omitempty"`
 	UserStoryID    *uuid.UUID      `json:"user_story_id,omitempty"`
-	Key            string          `json:"key"`
-	Title          string          `json:"title"`
+	Key                   string          `json:"key"`
+	SerialNumber          int64           `json:"serial_number"`
+	FormattedSerialNumber string          `json:"formatted_serial_number,omitempty"`
+	Title                 string          `json:"title"`
 	Description    string          `json:"description,omitempty"`
 	Type           string          `json:"type"`
 	Priority       string          `json:"priority"`
