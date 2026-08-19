@@ -6230,6 +6230,9 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 0
                 },
+                "is_final": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string",
                     "maxLength": 50,
@@ -6654,6 +6657,9 @@ const docTemplate = `{
                 "display_order": {
                     "type": "integer",
                     "minimum": 0
+                },
+                "is_final": {
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string",
@@ -7247,6 +7253,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_final": {
+                    "type": "boolean"
                 },
                 "key": {
                     "type": "string"
