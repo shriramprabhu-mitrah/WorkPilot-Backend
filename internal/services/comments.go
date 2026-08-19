@@ -298,12 +298,17 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		return responsedto.CommentedUserResponse{}, err
 	}
 
+	var avatarURL *string
+	if user.AvatarURL != "" {
+		avatarURL = &user.AvatarURL
+	}
+
 	response := responsedto.CommentedUserResponse{
 		ID:        comment.ID,
 		UserID:    user.ID,
 		UserName:  user.UserName,
 		FullName:  user.FullName,
-		AvatarURL: user.AvatarURL,
+		AvatarURL: avatarURL,
 	}
 
 	return response, nil
@@ -469,12 +474,17 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 		return responsedto.CommentedUserResponse{}, err
 	}
 
+	var avatarURL *string
+	if user.AvatarURL != "" {
+		avatarURL = &user.AvatarURL
+	}
+
 	response := responsedto.CommentedUserResponse{
 		ID:        req.CommentID,
 		UserID:    user.ID,
 		UserName:  user.UserName,
 		FullName:  user.FullName,
-		AvatarURL: user.AvatarURL,
+		AvatarURL: avatarURL,
 	}
 
 	return response, s.commentsRepo.UpdateComment(req.CommentID, &updateComment)
@@ -739,4 +749,3 @@ func (s *commentsService) GetCommentsByUserStoryID(req requestdto.GetComments) (
 
 	return commentResponse, pagination, nil
 }
-

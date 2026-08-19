@@ -22,6 +22,10 @@ func OrganizationFromModel(org models.Organization) OrganizationSummary {
 }
 
 func UserProfileFromModel(user models.User) UserProfile {
+	var avatarURL *string
+	if user.AvatarURL != "" {
+		avatarURL = &user.AvatarURL
+	}
 	return UserProfile{
 		ID:             user.ID,
 		OrganizationID: user.OrganizationID,
@@ -29,7 +33,7 @@ func UserProfileFromModel(user models.User) UserProfile {
 		Username:       user.UserName,
 		Email:          user.Email,
 		Role:           user.Role,
-		AvatarURL:      user.AvatarURL,
+		AvatarURL:      avatarURL,
 		Timezone:       user.Timezone,
 		IsActive:       user.IsActive,
 		IsVerified:     user.IsVerified,
@@ -58,11 +62,16 @@ func ProjectSummaryFromModel(project models.Project) ProjectSummary {
 }
 
 func ProjectMemberFromModel(member models.ProjectMember) ProjectMember {
+	var avatarURL *string
+	if member.User.AvatarURL != "" {
+		avatarURL = &member.User.AvatarURL
+	}
 	return ProjectMember{
-		UserID:   member.UserID,
-		Username: member.User.UserName,
-		FullName: member.User.FullName,
-		Role:     member.User.Role,
+		UserID:    member.UserID,
+		Username:  member.User.UserName,
+		FullName:  member.User.FullName,
+		Role:      member.User.Role,
+		AvatarURL: avatarURL,
 	}
 }
 
@@ -83,6 +92,11 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 		attachments = append(attachments, CommentAttachmentFromModel(a))
 	}
 
+	var avatarURL *string
+	if comment.User.AvatarURL != "" {
+		avatarURL = &comment.User.AvatarURL
+	}
+
 	resp := CommentsResponse{
 		ID:              comment.ID,
 		TaskID:          comment.TaskID,
@@ -91,7 +105,7 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 		UserName:        comment.User.UserName,
 		FullName:        comment.User.FullName,
 		Email:           comment.User.Email,
-		AvatarURL:       comment.User.AvatarURL,
+		AvatarURL:       avatarURL,
 		Content:         comment.Content,
 		ParentCommentID: comment.ParentCommentID,
 		CreatedAt:       comment.CreatedAt,
@@ -102,13 +116,17 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 	}
 
 	if comment.ParentComment != nil {
+		var parentAvatarURL *string
+		if comment.ParentComment.User.AvatarURL != "" {
+			parentAvatarURL = &comment.ParentComment.User.AvatarURL
+		}
 		resp.ParentComment = &ParentUserResponse{
 			ID:        comment.ParentComment.ID,
 			UserID:    comment.ParentComment.UserID,
 			UserName:  comment.ParentComment.User.UserName,
 			FullName:  comment.ParentComment.User.FullName,
 			Email:     comment.ParentComment.User.Email,
-			AvatarURL: comment.ParentComment.User.AvatarURL,
+			AvatarURL: parentAvatarURL,
 			Content:   comment.ParentComment.Content,
 			CreatedAt: comment.ParentComment.CreatedAt,
 			UpdatedAt: comment.ParentComment.UpdatedAt,

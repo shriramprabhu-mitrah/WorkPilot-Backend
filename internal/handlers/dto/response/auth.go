@@ -26,7 +26,7 @@ type UserProfile struct {
 	Username       string     `json:"username"`
 	Email          string     `json:"email"`
 	Role           string     `json:"role,omitempty"`
-	AvatarURL      string     `json:"avatar_url,omitempty"`
+	AvatarURL      *string    `json:"avatar_url"`
 	Timezone       string     `json:"timezone,omitempty"`
 	IsActive       bool       `json:"is_active"`
 	IsVerified     bool       `json:"is_verified"`
@@ -47,10 +47,11 @@ type ProjectSummary struct {
 }
 
 type ProjectMember struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Username string    `json:"username"`
-	FullName string    `json:"full_name"`
-	Role     string    `json:"role"`
+	UserID    uuid.UUID `json:"user_id"`
+	Username  string    `json:"username"`
+	FullName  string    `json:"full_name"`
+	Role      string    `json:"role"`
+	AvatarURL *string   `json:"avatar_url"`
 }
 
 type Sprint struct {
@@ -81,6 +82,6 @@ type UserSummary struct {
 	ID        uuid.UUID `json:"id"`
 	FullName  string    `json:"name"`
 	Email     string    `json:"email"`
-	AvatarURL string    `json:"avatar_url,omitempty"`
+	AvatarURL *string   `json:"avatar_url"`
 	Role      string    `json:"role,omitempty"`
 }

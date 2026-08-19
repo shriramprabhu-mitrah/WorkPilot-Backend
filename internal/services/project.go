@@ -565,11 +565,15 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		}
 
 		if item.User.ID != uuid.Nil {
+			var avatarURL *string
+			if item.User.AvatarURL != "" {
+				avatarURL = &item.User.AvatarURL
+			}
 			dtoItem.User = &responsedto.UserSummary{
 				ID:        item.User.ID,
 				FullName:  item.User.FullName,
 				Email:     item.User.Email,
-				AvatarURL: item.User.AvatarURL,
+				AvatarURL: avatarURL,
 				Role:      item.User.Role,
 			}
 		}
@@ -652,11 +656,16 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 	// Map members
 	payload.Members = make([]responsedto.ProjectMember, 0, len(projectMembers))
 	for _, member := range projectMembers {
+		var avatarURL *string
+		if member.User.AvatarURL != "" {
+			avatarURL = &member.User.AvatarURL
+		}
 		payload.Members = append(payload.Members, responsedto.ProjectMember{
-			UserID:   member.UserID,
-			Username: member.User.UserName,
-			FullName: member.User.FullName,
-			Role:     member.ProjectRole,
+			UserID:    member.UserID,
+			Username:  member.User.UserName,
+			FullName:  member.User.FullName,
+			Role:      member.ProjectRole,
+			AvatarURL: avatarURL,
 		})
 	}
 
@@ -843,11 +852,16 @@ func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) 
 		return nil, err
 	}
 
+	var avatarURL *string
+	if result.AvatarURL != "" {
+		avatarURL = &result.AvatarURL
+	}
+
 	resp := &responsedto.GetProjectByUserIDResponse{
 		UserID:    req.UserID,
 		FullName:  result.FullName,
 		UserName:  result.UserName,
-		AvatarURL: result.AvatarURL,
+		AvatarURL: avatarURL,
 		Email:     result.Email,
 		Role:      result.Role,
 		Project:   make([]responsedto.ProjectResponse, 0, len(projectMembers)),
@@ -929,11 +943,16 @@ func (s *projectService) GetRecentProjects(req requestdto.GetProjectByUserID) (*
 		return nil, taskErr
 	}
 
+	var avatarURL *string
+	if result.AvatarURL != "" {
+		avatarURL = &result.AvatarURL
+	}
+
 	resp := &responsedto.GetProjectByUserIDResponse{
 		UserID:    req.UserID,
 		FullName:  result.FullName,
 		UserName:  result.UserName,
-		AvatarURL: result.AvatarURL,
+		AvatarURL: avatarURL,
 		Email:     result.Email,
 		Role:      result.Role,
 		Project:   make([]responsedto.ProjectResponse, 0, len(projectMembers)),

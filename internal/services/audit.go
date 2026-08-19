@@ -42,11 +42,15 @@ func (s *auditService) GetAuditLogs(req requestdto.GetAudit) (*responsedto.Audit
 	if req.UserID != nil {
 		user, userErr := s.authRepo.GetUserByID(*req.UserID)
 		if userErr == nil {
+			var avatarURL *string
+			if user.AvatarURL != "" {
+				avatarURL = &user.AvatarURL
+			}
 			userSummary = &responsedto.UserSummary{
 				ID:        user.ID,
 				FullName:  user.FullName,
 				Email:     user.Email,
-				AvatarURL: user.AvatarURL,
+				AvatarURL: avatarURL,
 				Role:      user.Role,
 			}
 		}

@@ -167,43 +167,61 @@ func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) respons
 	}
 
 	response := responsedto.TaskResponse{
-		ID:             task.ID,
-		ProjectID:      task.ProjectID,
-		SprintID:       task.SprintID,
-		SprintName:     sprintName,
-		UserStoryID:    task.UserStoryID,
-		UserStoryTitle: userStoryTitle,
+		ID:                    task.ID,
+		ProjectID:             task.ProjectID,
+		SprintID:              task.SprintID,
+		SprintName:            sprintName,
+		UserStoryID:           task.UserStoryID,
+		UserStoryTitle:        userStoryTitle,
 		Key:                   task.Key,
 		SerialNumber:          task.SerialNumber,
 		FormattedSerialNumber: task.FormattedSerialNumber(),
 		Title:                 task.Title,
-		Description:    task.Description,
-		Type:           task.Type,
-		Priority:       task.Priority,
-		StatusID:       task.StatusID,
-		Status:         task.Status,
-		StatusColor:    statusColor,
-		AssigneeID:     task.AssigneeID,
-		ReporterID:     task.ReporterID,
-		AssigneeName:   assigneeName,
-		ReporterName:   reporterName,
-		StoryPoints:    task.StoryPoints,
-		DueDate:        task.DueDate,
-		EstimatedHours: task.EstimatedHours,
-		ActualHours:    task.ActualHours,
-		BlockedReason:  task.BlockedReason,
-		CreatedAt:      task.CreatedAt,
-		UpdatedAt:      task.UpdatedAt,
-		Labels:         labelsRes,
+		Description:           task.Description,
+		Type:                  task.Type,
+		Priority:              task.Priority,
+		StatusID:              task.StatusID,
+		Status:                task.Status,
+		StatusColor:           statusColor,
+		AssigneeID:            task.AssigneeID,
+		ReporterID:            task.ReporterID,
+		AssigneeName:          assigneeName,
+		ReporterName:          reporterName,
+		StoryPoints:           task.StoryPoints,
+		DueDate:               task.DueDate,
+		EstimatedHours:        task.EstimatedHours,
+		ActualHours:           task.ActualHours,
+		BlockedReason:         task.BlockedReason,
+		CreatedAt:             task.CreatedAt,
+		UpdatedAt:             task.UpdatedAt,
+		Labels:                labelsRes,
 	}
 
 	if task.Reporter != nil {
+		var avatarURL *string
+		if task.Reporter.AvatarURL != "" {
+			avatarURL = &task.Reporter.AvatarURL
+		}
 		response.User = &responsedto.UserSummary{
 			ID:        task.Reporter.ID,
 			FullName:  task.Reporter.FullName,
 			Email:     task.Reporter.Email,
-			AvatarURL: task.Reporter.AvatarURL,
+			AvatarURL: avatarURL,
 			Role:      task.Reporter.Role,
+		}
+	}
+
+	if task.Assignee != nil {
+		var avatarURL *string
+		if task.Assignee.AvatarURL != "" {
+			avatarURL = &task.Assignee.AvatarURL
+		}
+		response.Assignee = &responsedto.UserSummary{
+			ID:        task.Assignee.ID,
+			FullName:  task.Assignee.FullName,
+			Email:     task.Assignee.Email,
+			AvatarURL: avatarURL,
+			Role:      task.Assignee.Role,
 		}
 	}
 	return response
