@@ -24,6 +24,19 @@ type DashboardHandler struct {
 	logger  *zap.Logger
 }
 
+// GetOverview godoc
+// @Summary Get Task Overview
+// @Description Retrieve the task overview for a project
+// @Tags Dashboard
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /{project_id}/overview [get]
+
 func (h *DashboardHandler) GetOverview(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -67,6 +80,19 @@ func (h *DashboardHandler) GetOverview(c *gin.Context) {
 	c.JSON(successResponse.StatusCode, successResponse)
 }
 
+// GetTaskStatus godoc
+// @Summary Get Task Status
+// @Description Retrieve the task status summary for a project
+// @Tags Dashboard
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /{project_id}/task-status [get]
+
 func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 
 	// Get project ID from URL parameter
@@ -89,22 +115,13 @@ func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 	}
 
 	// Get user ID from context
-	userUUID, ok := getRequiredContextUUID(
-		c,
-		h.logger,
-		"user_id",
-		"user",
-	)
+	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
 	if !ok {
 		return
 	}
 
 	// Call service layer
-	taskStatus, serviceErr := h.service.GetTaskStatus(
-		projectID,
-		userUUID,
-	)
-
+	taskStatus, serviceErr := h.service.GetTaskStatus(projectID, userUUID)
 	if serviceErr != nil {
 		c.JSON(
 			serviceErr.StatusCode,
@@ -126,6 +143,19 @@ func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 		successResponse,
 	)
 }
+
+// GetTeamWorkload godoc
+// @Summary Get Team Workload
+// @Description Retrieve the workload of team members for a project
+// @Tags Dashboard
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /{project_id}/team-workload [get]
 
 func (h *DashboardHandler) GetTeamWorkload(c *gin.Context) {
 	// Get project ID from URL parameter
@@ -169,6 +199,22 @@ func (h *DashboardHandler) GetTeamWorkload(c *gin.Context) {
 
 	c.JSON(successResponse.StatusCode, successResponse)
 }
+
+// GetWeeklyProgress godoc
+// @Summary Get Weekly Progress
+// @Description Retrieve weekly task progress for a project within the specified date range
+// @Tags Dashboard
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param start_date query string true "Start date" example(2026-08-01)
+// @Param end_date query string true "End date" example(2026-08-07)
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /{project_id}/weekly-progress [get]
+
 func (h *DashboardHandler) GetWeeklyProgress(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -259,6 +305,20 @@ func (h *DashboardHandler) GetWeeklyProgress(c *gin.Context) {
 	c.JSON(successResponse.StatusCode, successResponse)
 }
 
+// GetSprintBurndown godoc
+// @Summary Get Sprint Burndown
+// @Description Retrieve the sprint burndown data for a specific sprint within a project
+// @Tags Dashboard
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param sprint_id path string true "Sprint ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /{project_id}/sprint-burndown/{sprint_id} [get]
+
 func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -321,7 +381,19 @@ func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 	c.JSON(successResponse.StatusCode, successResponse)
 }
 
-// GetDashboardData handles the GET request to fetch all dashboard data
+// GetDashboardData godoc
+// @Summary Get Dashboard Data
+// @Description Retrieve dashboard data for a project and sprint
+// @Tags Dashboard
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param sprint_id query string true "Sprint ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /{project_id}/dashboard [get]
 
 func (h *DashboardHandler) GetDashboardData(c *gin.Context) {
 
@@ -389,7 +461,7 @@ func (h *DashboardHandler) GetDashboardData(c *gin.Context) {
 	// 5. Return dashboard response
 	successResponse := &response.SuccessResponse{
 		Message:    "Successfully Got the Dashboard",
-		StatusCode: http.StatusCreated,
+		StatusCode: http.StatusOK,
 		Success:    true,
 		Data:       result,
 	}
