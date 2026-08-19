@@ -21,6 +21,7 @@ func SetupRoutes(deps models.Config) {
 		CommentsRoutes(deps, api)
 		CustomStatusRoutes(deps, api)
 		WorkItemRoutes(deps, api)
+		DashboardRoutes(deps, api)
 	}
 
 }
