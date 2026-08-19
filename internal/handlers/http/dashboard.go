@@ -36,7 +36,6 @@ type DashboardHandler struct {
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /{project_id}/overview [get]
-
 func (h *DashboardHandler) GetOverview(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -92,7 +91,6 @@ func (h *DashboardHandler) GetOverview(c *gin.Context) {
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /{project_id}/task-status [get]
-
 func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 
 	// Get project ID from URL parameter
@@ -156,7 +154,6 @@ func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /{project_id}/team-workload [get]
-
 func (h *DashboardHandler) GetTeamWorkload(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -214,7 +211,6 @@ func (h *DashboardHandler) GetTeamWorkload(c *gin.Context) {
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /{project_id}/weekly-progress [get]
-
 func (h *DashboardHandler) GetWeeklyProgress(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -318,7 +314,6 @@ func (h *DashboardHandler) GetWeeklyProgress(c *gin.Context) {
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /{project_id}/sprint-burndown/{sprint_id} [get]
-
 func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -394,7 +389,6 @@ func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /{project_id}/dashboard [get]
-
 func (h *DashboardHandler) GetDashboardData(c *gin.Context) {
 
 	// 1. Get project ID from URL

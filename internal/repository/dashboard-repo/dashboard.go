@@ -1,6 +1,7 @@
 package dashboardrepo
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.DashboardOverview, *response.Error) {
@@ -239,7 +241,7 @@ func (r *dashboardDatabase) GetWeeklyProgress(projectID uuid.UUID, startDate tim
 	return result, nil
 }
 
-func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID,sprintID uuid.UUID,) ([]responsedto.SprintBurndown, *response.Error) {
+func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.SprintBurndown, *response.Error) {
 
 	// 1. Fetch sprint
 	var sprint models.Sprint
@@ -250,8 +252,24 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID,sprintID uuid.
 		First(&sprint).Error
 
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			r.logger.Warn(
+				"Sprint not found",
+				zap.String("projectID", projectID.String()),
+				zap.String("sprintID", sprintID.String()),
+			)
+
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				Message:    "Sprint not found",
+				StatusCode: http.StatusNotFound,
+			}
+		}
+
 		r.logger.Error(
 			"Failed to get sprint",
+			zap.String("projectID", projectID.String()),
+			zap.String("sprintID", sprintID.String()),
 			zap.Error(err),
 		)
 
@@ -262,7 +280,23 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID,sprintID uuid.
 		}
 	}
 
-	// 2. Fetch sprint tasks
+	// 2. Validate sprint dates
+	if sprint.EndDate.Before(sprint.StartDate) {
+		r.logger.Error(
+			"Invalid sprint dates",
+			zap.String("sprintID", sprintID.String()),
+			zap.Time("startDate", sprint.StartDate),
+			zap.Time("endDate", sprint.EndDate),
+		)
+
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			Message:    "Sprint end date cannot be before start date",
+			StatusCode: http.StatusBadRequest,
+		}
+	}
+
+	// 3. Fetch sprint tasks
 	var tasks []models.Task
 
 	err = r.db.
@@ -273,6 +307,8 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID,sprintID uuid.
 	if err != nil {
 		r.logger.Error(
 			"Failed to get sprint tasks",
+			zap.String("projectID", projectID.String()),
+			zap.String("sprintID", sprintID.String()),
 			zap.Error(err),
 		)
 
@@ -283,64 +319,77 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID,sprintID uuid.
 		}
 	}
 
-	// 3. Calculate total estimated hours
+	// 4. Calculate total estimated hours and actual hours
 	var totalEstimatedHours float64
+	var totalActualHours float64
 
 	for _, task := range tasks {
+
 		if task.EstimatedHours != nil {
 			totalEstimatedHours += *task.EstimatedHours
 		}
+
+		if task.ActualHours != nil {
+			totalActualHours += *task.ActualHours
+		}
 	}
 
-	// 4. Calculate sprint days
-	totalDays := int(
-		sprint.EndDate.Sub(sprint.StartDate).Hours()/24,
-	) + 1
+	// 5. Calculate total sprint days
+	startDate := sprint.StartDate.Truncate(24 * time.Hour)
+	endDate := sprint.EndDate.Truncate(24 * time.Hour)
+
+	totalDays := int(endDate.Sub(startDate).Hours()/24) + 1
 
 	if totalDays <= 0 {
 		r.logger.Error(
-			"Invalid sprint days",
+			"Invalid sprint duration",
+			zap.String("sprintID", sprintID.String()),
 			zap.Int("totalDays", totalDays),
 		)
 
 		return nil, &response.Error{
 			Code:       response.ErrBadRequest,
-			Message:    "Invalid sprint days",
+			Message:    "Invalid sprint duration",
 			StatusCode: http.StatusBadRequest,
 		}
 	}
 
-	result := make([]responsedto.SprintBurndown, 0, totalDays)
+	// 6. Prepare result
+	result := make(
+		[]responsedto.SprintBurndown,
+		0,
+		totalDays,
+	)
 
-	// 5. Calculate burndown
+	// 7. Calculate burndown for each day
 	for day := 0; day < totalDays; day++ {
 
-		currentDate := sprint.StartDate.AddDate(0, 0, day)
+		currentDate := startDate.AddDate(0, 0, day)
 
-		// Ideal hours
-		idealHours := totalEstimatedHours -
-			(totalEstimatedHours/float64(totalDays))*float64(day)
+		// Calculate ideal hours.
+		// Day 1 = total estimated hours
+		// Last day = 0 hours
+		var idealHours float64
+
+		if totalDays == 1 {
+			idealHours = 0
+		} else {
+			idealHours = totalEstimatedHours -
+				(totalEstimatedHours/float64(totalDays-1))*float64(day)
+		}
 
 		if idealHours < 0 {
 			idealHours = 0
 		}
 
-		// Calculate actual hours
-		var actualHours float64
-
-		for _, task := range tasks {
-			if task.ActualHours != nil {
-				actualHours += *task.ActualHours
-			}
-		}
-
+		// Append daily burndown data.
 		result = append(
 			result,
 			responsedto.SprintBurndown{
-				Day:        day + 1,
-				Date:       currentDate.Format("2006-01-02"),
-				IdealHours: idealHours,
-				ActualHours: actualHours,
+				Day:         day + 1,
+				Date:        currentDate.Format("2006-01-02"),
+				IdealHours:  idealHours,
+				ActualHours: totalActualHours,
 			},
 		)
 	}
