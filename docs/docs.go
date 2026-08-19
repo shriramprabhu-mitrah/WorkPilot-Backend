@@ -7117,6 +7117,9 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMember": {
             "type": "object",
             "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
                 "full_name": {
                     "type": "string"
                 },
@@ -7214,6 +7217,9 @@ const docTemplate = `{
             "properties": {
                 "actual_hours": {
                     "type": "number"
+                },
+                "assignee": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary"
                 },
                 "assignee_id": {
                     "type": "string"

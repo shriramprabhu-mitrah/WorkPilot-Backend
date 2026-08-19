@@ -36,10 +36,11 @@ type ProjectActivityResponse struct {
 }
 
 type ProjectMemberResponse struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Username string    `json:"username"`
-	FullName string    `json:"full_name"`
-	Role     string    `json:"role"`
+	UserID    uuid.UUID `json:"user_id"`
+	Username  string    `json:"username"`
+	FullName  string    `json:"full_name"`
+	Role      string    `json:"role"`
+	AvatarURL *string   `json:"avatar_url"`
 }
 
 type ProjectResponse struct {
@@ -54,7 +55,7 @@ type GetProjectByUserIDResponse struct {
 	UserName  string            `json:"user_name"`
 	FullName  string            `json:"full_name"`
 	Email     string            `json:"email"`
-	AvatarURL string            `json:"avatar_url,omitempty"`
+	AvatarURL *string           `json:"avatar_url"`
 	Role      string            `json:"role,omitempty"`
 	Project   []ProjectResponse `json:"project"`
 }

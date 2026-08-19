@@ -632,45 +632,53 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.Cust
 	}
 
 	res := responsedto.UserStoryResponse{
-		ID:             story.ID,
-		ProjectID:      story.ProjectID,
-		SprintID:       story.SprintID,
+		ID:                    story.ID,
+		ProjectID:             story.ProjectID,
+		SprintID:              story.SprintID,
 		SprintName:            sprintName,
 		SerialNumber:          story.SerialNumber,
 		FormattedSerialNumber: story.FormattedSerialNumber(),
 		Title:                 story.Title,
-		Description:    story.Description,
-		Priority:       story.Priority,
-		StatusID:       resolvedStatusID,
-		Status:         story.Status,
-		StatusColor:    resolvedStatusColor,
-		StoryPoints:    story.StoryPoints,
-		AssigneeID:     story.AssigneeID,
-		AssigneeName:   assigneeName,
-		ReporterID:     story.ReporterID,
-		ReporterName:   story.Reporter.FullName,
-		BacklogOrder:   story.BacklogOrder,
-		TotalTasks:     totalTasks,
-		CompletedTasks: completedTasks,
-		Progress:       progress,
-		CreatedAt:      story.CreatedAt,
-		UpdatedAt:      story.UpdatedAt,
+		Description:           story.Description,
+		Priority:              story.Priority,
+		StatusID:              resolvedStatusID,
+		Status:                story.Status,
+		StatusColor:           resolvedStatusColor,
+		StoryPoints:           story.StoryPoints,
+		AssigneeID:            story.AssigneeID,
+		AssigneeName:          assigneeName,
+		ReporterID:            story.ReporterID,
+		ReporterName:          story.Reporter.FullName,
+		BacklogOrder:          story.BacklogOrder,
+		TotalTasks:            totalTasks,
+		CompletedTasks:        completedTasks,
+		Progress:              progress,
+		CreatedAt:             story.CreatedAt,
+		UpdatedAt:             story.UpdatedAt,
 	}
 
+	var reporterAvatarURL *string
+	if story.Reporter.AvatarURL != "" {
+		reporterAvatarURL = &story.Reporter.AvatarURL
+	}
 	res.Reporter = &responsedto.UserSummary{
 		ID:        story.Reporter.ID,
 		FullName:  story.Reporter.FullName,
 		Email:     story.Reporter.Email,
-		AvatarURL: story.Reporter.AvatarURL,
+		AvatarURL: reporterAvatarURL,
 		Role:      story.Reporter.Role,
 	}
 
 	if story.Assignee != nil {
+		var assigneeAvatarURL *string
+		if story.Assignee.AvatarURL != "" {
+			assigneeAvatarURL = &story.Assignee.AvatarURL
+		}
 		res.Assignee = &responsedto.UserSummary{
 			ID:        story.Assignee.ID,
 			FullName:  story.Assignee.FullName,
 			Email:     story.Assignee.Email,
-			AvatarURL: story.Assignee.AvatarURL,
+			AvatarURL: assigneeAvatarURL,
 			Role:      story.Assignee.Role,
 		}
 	}

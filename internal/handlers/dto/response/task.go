@@ -36,6 +36,7 @@ type TaskResponse struct {
 	UpdatedAt             time.Time       `json:"updated_at"`
 	Labels                []LabelResponse `json:"labels,omitempty"`
 	User                  *UserSummary    `json:"reporter,omitempty"`
+	Assignee              *UserSummary    `json:"assignee,omitempty"`
 }
 
 type BulkUpdateTasksResponse struct {
