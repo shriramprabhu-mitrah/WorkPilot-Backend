@@ -19,6 +19,7 @@ import (
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
+	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +40,7 @@ type taskService struct {
 	authRepo         authrepo.AuthRepository
 	projectRepo      projectrepo.ProjectRepository
 	taskRepo         taskrepo.TaskRepository
+	userStoryRepo    userstoryrepo.UserStoryRepository
 	auditRepo        auditrepo.AuditLogRepository
 	customStatusRepo customstatusrepo.CustomStatusRepository
 	logger           *zap.Logger
@@ -48,6 +50,7 @@ func InitTaskService(
 	authRepo authrepo.AuthRepository,
 	projectRepo projectrepo.ProjectRepository,
 	taskRepo taskrepo.TaskRepository,
+	userStoryRepo userstoryrepo.UserStoryRepository,
 	auditRepo auditrepo.AuditLogRepository,
 	customStatusRepo customstatusrepo.CustomStatusRepository,
 	logger *zap.Logger,
@@ -56,6 +59,7 @@ func InitTaskService(
 		authRepo:         authRepo,
 		projectRepo:      projectRepo,
 		taskRepo:         taskRepo,
+		userStoryRepo:    userStoryRepo,
 		auditRepo:        auditRepo,
 		customStatusRepo: customStatusRepo,
 		logger:           logger,
@@ -482,6 +486,10 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	}
 	if lastErr != nil {
 		return uuid.Nil, nil, lastErr
+	}
+
+	if s.userStoryRepo != nil && task.UserStoryID != nil && *task.UserStoryID != uuid.Nil {
+		_ = s.userStoryRepo.RecalculateUserStoryIsClosed(*task.UserStoryID)
 	}
 
 	auditLog := models.AuditLog{
@@ -1115,6 +1123,22 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 
 	colorMap := s.getStatusColorMap(req.ProjectID)
 	res := mapToTaskResponse(*updatedTask, colorMap)
+
+	if s.userStoryRepo != nil {
+		if task.UserStoryID != nil && *task.UserStoryID != uuid.Nil {
+			err = s.userStoryRepo.RecalculateUserStoryIsClosed(*task.UserStoryID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if updatedTask.UserStoryID != nil && *updatedTask.UserStoryID != uuid.Nil {
+			err = s.userStoryRepo.RecalculateUserStoryIsClosed(*updatedTask.UserStoryID)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &res, nil
 }
 
@@ -1169,6 +1193,10 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	if s.userStoryRepo != nil && task.UserStoryID != nil && *task.UserStoryID != uuid.Nil {
+		_ = s.userStoryRepo.RecalculateUserStoryIsClosed(*task.UserStoryID)
 	}
 
 	return nil
@@ -1266,6 +1294,11 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 
 	colorMap := s.getStatusColorMap(req.ProjectID)
 	res := mapToTaskResponse(clonedTask, colorMap)
+
+	if s.userStoryRepo != nil && clonedTask.UserStoryID != nil && *clonedTask.UserStoryID != uuid.Nil {
+		_ = s.userStoryRepo.RecalculateUserStoryIsClosed(*clonedTask.UserStoryID)
+	}
+
 	return &res, nil
 }
 
@@ -1594,6 +1627,20 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 		s.logger.Warn("Failed to create bulk audit log", zap.Any("error", err))
 	}
 
+	if s.userStoryRepo != nil {
+		affectedStoryIDs := make(map[uuid.UUID]bool)
+		for _, item := range req.Tasks {
+			if item.TaskID != uuid.Nil {
+				if t, err := s.taskRepo.GetTaskByID(item.TaskID, req.ProjectID); err == nil && t != nil && t.UserStoryID != nil {
+					affectedStoryIDs[*t.UserStoryID] = true
+				}
+			}
+		}
+		for storyID := range affectedStoryIDs {
+			_ = s.userStoryRepo.RecalculateUserStoryIsClosed(storyID)
+		}
+	}
+
 	return &responsedto.BulkUpdateTasksResponse{
 		UpdatedCount:   updatedCount,
 		FailedTaskIDs:  failedTaskIDs,
@@ -1806,6 +1853,9 @@ func (s *taskService) BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*response
 
 		deletedCount++
 		deletedTaskIDs = append(deletedTaskIDs, taskID)
+		if task.UserStoryID != nil && *task.UserStoryID != uuid.Nil && s.userStoryRepo != nil {
+			_ = s.userStoryRepo.RecalculateUserStoryIsClosed(*task.UserStoryID)
+		}
 	}
 
 	// Create bulk operation audit log

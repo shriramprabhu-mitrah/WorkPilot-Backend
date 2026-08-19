@@ -121,6 +121,10 @@ func (d *userStoryDatabase) GetUserStories(projectID uuid.UUID, filter dto.UserS
 		query = query.Where("serial_number = ?", *filter.SerialNumber)
 	}
 
+	if filter.IsClosed != nil {
+		query = query.Where("is_closed = ?", *filter.IsClosed)
+	}
+
 	if filter.Search != "" {
 		cleanSearch := strings.TrimPrefix(strings.TrimSpace(filter.Search), "#")
 		searchTerm := "%" + strings.ToLower(filter.Search) + "%"
@@ -302,4 +306,52 @@ func (d *userStoryDatabase) GetUserStoryAccessContext(id uuid.UUID) (*models.Use
 		}
 	}
 	return &ctx, nil
+}
+
+func (d *userStoryDatabase) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) *response.Error {
+	if userStoryID == uuid.Nil {
+		return nil
+	}
+	type TaskStats struct {
+		Total     int64
+		Completed int64
+	}
+	var stats TaskStats
+	err := d.db.
+		Model(&models.Task{}).
+		Select("COUNT(*) as total, COUNT(CASE WHEN LOWER(TRIM(status)) = 'completed' THEN 1 END) as completed").
+		Where("user_story_id = ? AND deleted_at IS NULL", userStoryID).
+		Scan(&stats).Error
+
+	if err != nil {
+		d.logger.Error("Failed to count tasks for user story recalculation",
+			zap.Error(err),
+			zap.String("user_story_id", userStoryID.String()))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to recalculate user story status",
+		}
+	}
+
+	isClosed := false
+	if stats.Total > 0 && stats.Completed == stats.Total {
+		isClosed = true
+	}
+
+	if err := d.db.
+		Model(&models.UserStory{}).
+		Where("id = ?", userStoryID).
+		Update("is_closed", isClosed).Error; err != nil {
+		d.logger.Error("Failed to update user story is_closed",
+			zap.Error(err),
+			zap.String("user_story_id", userStoryID.String()))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to update user story closed status",
+		}
+	}
+
+	return nil
 }

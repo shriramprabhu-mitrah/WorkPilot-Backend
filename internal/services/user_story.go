@@ -644,6 +644,7 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.Cust
 		StatusID:              resolvedStatusID,
 		Status:                story.Status,
 		StatusColor:           resolvedStatusColor,
+		IsClosed:              story.IsClosed,
 		StoryPoints:           story.StoryPoints,
 		AssigneeID:            story.AssigneeID,
 		AssigneeName:          assigneeName,

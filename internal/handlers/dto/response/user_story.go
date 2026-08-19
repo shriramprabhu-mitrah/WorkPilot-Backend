@@ -19,6 +19,7 @@ type UserStoryResponse struct {
 	StatusID              uuid.UUID      `json:"status_id"`
 	Status                string         `json:"status"`
 	StatusColor           string         `json:"status_color"`
+	IsClosed              bool           `json:"is_closed"`
 	StoryPoints           int            `json:"story_points"`
 	AssigneeID            *uuid.UUID     `json:"assignee_id,omitempty"`
 	AssigneeName          string         `json:"assignee_name,omitempty"`

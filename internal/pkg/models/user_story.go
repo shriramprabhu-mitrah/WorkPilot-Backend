@@ -8,17 +8,18 @@ import (
 )
 
 type UserStory struct {
-	ID          uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
-	ProjectID   uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;index"`
-	Project     Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
-	SprintID    *uuid.UUID     `json:"sprint_id,omitempty" gorm:"type:uuid;index"`
-	Sprint      *Sprint        `json:"sprint,omitempty" gorm:"foreignKey:SprintID"`
-	SerialNumber int64         `json:"serial_number" gorm:"type:bigint;uniqueIndex"`
-	Title       string         `json:"title" gorm:"type:varchar(255);not null"`
-	Description string         `json:"description,omitempty" gorm:"type:text"`
-	Priority    string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`
-	StatusID    uuid.UUID      `json:"status_id" gorm:"type:uuid;not null;index;default:'00000000-0000-0000-0000-000000000000'"`
-	Status      string         `json:"status" gorm:"type:varchar(50);not null;default:'todo'"`
+	ID           uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
+	ProjectID    uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;index"`
+	Project      Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
+	SprintID     *uuid.UUID     `json:"sprint_id,omitempty" gorm:"type:uuid;index"`
+	Sprint       *Sprint        `json:"sprint,omitempty" gorm:"foreignKey:SprintID"`
+	SerialNumber int64          `json:"serial_number" gorm:"type:bigint;uniqueIndex"`
+	Title        string         `json:"title" gorm:"type:varchar(255);not null"`
+	Description  string         `json:"description,omitempty" gorm:"type:text"`
+	Priority     string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`
+	StatusID     uuid.UUID      `json:"status_id" gorm:"type:uuid;not null;index"`
+	Status       string         `json:"status" gorm:"type:varchar(50);not null;default:'todo'"`
+	IsClosed     bool           `json:"is_closed" gorm:"type:boolean;not null;default:false"`
 	StoryPoints  int            `json:"story_points" gorm:"type:integer;not null;default:0"`
 	BacklogOrder int            `json:"backlog_order" gorm:"type:integer;not null;default:0"`
 	AssigneeID   *uuid.UUID     `json:"assignee_id,omitempty" gorm:"type:uuid;index"`
@@ -35,9 +36,9 @@ func (u UserStory) FormattedSerialNumber() string {
 }
 
 type StoryTaskStats struct {
-	UserStoryID  uuid.UUID
-	TotalTasks   int64
-	Completed    int64
+	UserStoryID uuid.UUID
+	TotalTasks  int64
+	Completed   int64
 }
 
 func (u *UserStory) BeforeCreate(tx *gorm.DB) (err error) {

@@ -301,7 +301,7 @@ func TestTaskService_StatusTransitionsAndColors(t *testing.T) {
 		tasks: make(map[uuid.UUID]*models.Task),
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubAuditLogRepo{}, statusRepo, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, statusRepo, zap.NewNop())
 
 	// Test 1: Developer valid transition (default -> default sequential check)
 	taskID := uuid.Must(uuid.NewV4())
