@@ -202,7 +202,12 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 		return
 	}
 
-	result, err := h.service.GetOrganizationByID(id)
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	result, err := h.service.GetOrganizationByID(id,userUUID)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,

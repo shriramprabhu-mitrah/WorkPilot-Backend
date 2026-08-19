@@ -24,7 +24,7 @@ import (
 )
 
 type OrganizationService interface {
-	GetOrganizationByID(id uuid.UUID) (models.Organization, *response.Error)
+	GetOrganizationByID(id, userID uuid.UUID) (models.Organization, *response.Error)
 	CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error)
 	UpdateOrganization(id uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
@@ -53,13 +53,13 @@ type organizationService struct {
 	logger           *zap.Logger
 }
 
-func (s *organizationService) GetOrganizationByID(id uuid.UUID) (models.Organization, *response.Error) {
+func (s *organizationService) GetOrganizationByID(id, userID uuid.UUID) (models.Organization, *response.Error) {
 	organization, err := s.OrganizationRepo.GetByID(id)
 	if err != nil {
 		return organization, err
 	}
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
-		UserID:         &id,
+		UserID:         &userID,
 		OrganizationID: &id,
 		Action:         "viewed",
 		ResourceType:   "organization",
