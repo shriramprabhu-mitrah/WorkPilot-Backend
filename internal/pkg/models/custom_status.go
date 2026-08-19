@@ -15,6 +15,7 @@ type CustomStatus struct {
 	Color        string         `json:"color" gorm:"type:varchar(7);not null"`
 	DisplayOrder int            `json:"display_order" gorm:"type:integer;not null"`
 	IsDefault    bool           `json:"is_default" gorm:"not null;default:false"`
+	IsFinal      bool           `json:"is_final" gorm:"not null;default:false"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`

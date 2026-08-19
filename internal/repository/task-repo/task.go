@@ -452,7 +452,7 @@ func (d *taskDatabase) UpdateTaskWithLabels(taskID uuid.UUID, updates map[string
 
 func (d *taskDatabase) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error {
 	err := d.db.Model(&models.Task{}).
-		Where("sprint_id = ? AND status != ? AND deleted_at IS NULL", sprintID, "completed").
+		Where("sprint_id = ? AND deleted_at IS NULL AND status_id IN (SELECT id FROM custom_statuses WHERE is_final = false AND deleted_at IS NULL)", sprintID).
 		Update("sprint_id", nil).Error
 	if err != nil {
 		d.logger.Error("Failed to move incomplete tasks to backlog", zap.Error(err))

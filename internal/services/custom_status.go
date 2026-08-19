@@ -158,12 +158,18 @@ func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequ
 		}
 	}
 
+	isFinal := false
+	if req.IsFinal != nil {
+		isFinal = *req.IsFinal
+	}
+
 	// 4. Create status (casing is preserved)
 	status := models.CustomStatus{
 		ProjectID:    req.ProjectID,
 		Name:         req.Name,
 		Color:        req.Color,
 		DisplayOrder: req.DisplayOrder,
+		IsFinal:      isFinal,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -326,6 +332,13 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 		}
 		if *req.DisplayOrder != status.DisplayOrder {
 			status.DisplayOrder = *req.DisplayOrder
+			updated = true
+		}
+	}
+
+	if req.IsFinal != nil {
+		if *req.IsFinal != status.IsFinal {
+			status.IsFinal = *req.IsFinal
 			updated = true
 		}
 	}

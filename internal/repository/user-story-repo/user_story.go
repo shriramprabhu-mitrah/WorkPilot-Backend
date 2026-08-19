@@ -258,9 +258,10 @@ func (d *userStoryDatabase) GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUI
 	var results []QueryResult
 
 	err := d.db.Model(&models.Task{}).
-		Select("user_story_id, COUNT(*) as total_tasks, COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tasks").
-		Where("project_id = ? AND user_story_id IS NOT NULL", projectID).
-		Group("user_story_id").
+		Select("tasks.user_story_id, COUNT(tasks.id) as total_tasks, COUNT(CASE WHEN custom_statuses.is_final = true THEN 1 END) as completed_tasks").
+		Joins("JOIN custom_statuses ON custom_statuses.id = tasks.status_id AND custom_statuses.deleted_at IS NULL").
+		Where("tasks.project_id = ? AND tasks.user_story_id IS NOT NULL", projectID).
+		Group("tasks.user_story_id").
 		Scan(&results).Error
 
 	if err != nil {
@@ -319,8 +320,9 @@ func (d *userStoryDatabase) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 	var stats TaskStats
 	err := d.db.
 		Model(&models.Task{}).
-		Select("COUNT(*) as total, COUNT(CASE WHEN LOWER(TRIM(status)) = 'completed' THEN 1 END) as completed").
-		Where("user_story_id = ? AND deleted_at IS NULL", userStoryID).
+		Select("COUNT(tasks.id) as total, COUNT(CASE WHEN custom_statuses.is_final = true THEN 1 END) as completed").
+		Joins("JOIN custom_statuses ON custom_statuses.id = tasks.status_id AND custom_statuses.deleted_at IS NULL").
+		Where("tasks.user_story_id = ?", userStoryID).
 		Scan(&stats).Error
 
 	if err != nil {
@@ -335,8 +337,25 @@ func (d *userStoryDatabase) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 	}
 
 	isClosed := false
-	if stats.Total > 0 && stats.Completed == stats.Total {
-		isClosed = true
+	if stats.Total > 0 {
+		isClosed = (stats.Completed == stats.Total)
+	} else {
+		var story models.UserStory
+		err := d.db.Table("user_stories").
+			Where("id = ? AND deleted_at IS NULL", userStoryID).
+			First(&story).Error
+		if err == nil {
+			var storyStatusIsFinal bool
+			err = d.db.Table("custom_statuses").
+				Where("id = ? AND deleted_at IS NULL", story.StatusID).
+				Select("is_final").
+				Scan(&storyStatusIsFinal).Error
+			if err == nil {
+				isClosed = storyStatusIsFinal
+			} else {
+				isClosed = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(story.Status)]
+			}
+		}
 	}
 
 	if err := d.db.

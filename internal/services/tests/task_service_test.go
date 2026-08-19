@@ -181,6 +181,7 @@ func (s *stubCustomStatusRepo) ensureDefaultStatuses(projectID uuid.UUID) {
 				Color:        d.color,
 				DisplayOrder: d.order,
 				IsDefault:    true,
+				IsFinal:      d.name == "Completed",
 			}
 		}
 	}

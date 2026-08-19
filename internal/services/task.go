@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -134,15 +133,7 @@ func GenerateProjectPrefix(name string) string {
 	return cleaned
 }
 
-func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) responsedto.TaskResponse {
-	var colorMap map[string]string
-	if len(colorMaps) > 0 {
-		colorMap = colorMaps[0]
-	} else {
-		colorMap = make(map[string]string)
-		maps.Copy(colorMap, models.DefaultStatusColors)
-	}
-
+func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap map[string]bool) responsedto.TaskResponse {
 	var sprintName string
 	if task.Sprint != nil {
 		sprintName = task.Sprint.Name
@@ -165,9 +156,14 @@ func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) respons
 		labelsRes = append(labelsRes, responsedto.LabelFromModel(l))
 	}
 
-	statusColor := colorMap[models.NormalizeTaskStatus(task.Status)]
+	statusKey := models.NormalizeTaskStatus(task.Status)
+	statusColor := colorMap[statusKey]
 	if statusColor == "" {
 		statusColor = "#808080"
+	}
+	isFinal, exists := isFinalMap[statusKey]
+	if !exists {
+		isFinal = models.DefaultStatusIsFinal[statusKey]
 	}
 
 	response := responsedto.TaskResponse{
@@ -187,6 +183,7 @@ func mapToTaskResponse(task models.Task, colorMaps ...map[string]string) respons
 		StatusID:              task.StatusID,
 		Status:                task.Status,
 		StatusColor:           statusColor,
+		IsFinal:               isFinal,
 		AssigneeID:            task.AssigneeID,
 		ReporterID:            task.ReporterID,
 		AssigneeName:          assigneeName,
@@ -243,6 +240,20 @@ func (s *taskService) getStatusColorMap(projectID uuid.UUID) map[string]string {
 		}
 	}
 	return colorMap
+}
+
+func (s *taskService) getStatusIsFinalMap(projectID uuid.UUID) map[string]bool {
+	isFinalMap := make(map[string]bool)
+	for k, v := range models.DefaultStatusIsFinal {
+		isFinalMap[k] = v
+	}
+	customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+	if err == nil {
+		for _, cs := range customStatuses {
+			isFinalMap[models.NormalizeTaskStatus(cs.Name)] = cs.IsFinal
+		}
+	}
+	return isFinalMap
 }
 
 func (s *taskService) resolveStatusIDAndName(projectID uuid.UUID, statusID *uuid.UUID, statusName *string) (uuid.UUID, string, *response.Error) {
@@ -412,9 +423,11 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 		}
 	}
 
+	userStoryID := req.UserStoryID
+
 	// Validation: User Story must belong to the same project
-	if req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
-		inProject, err := s.taskRepo.IsUserStoryInProject(*req.UserStoryID, req.ProjectID)
+	if userStoryID != nil && *userStoryID != uuid.Nil {
+		inProject, err := s.taskRepo.IsUserStoryInProject(*userStoryID, req.ProjectID)
 		if err != nil {
 			return uuid.Nil, nil, err
 		}
@@ -434,7 +447,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	var task models.Task
 	task.ProjectID = req.ProjectID
 	task.SprintID = req.SprintID
-	task.UserStoryID = req.UserStoryID
+	task.UserStoryID = userStoryID
 	task.Title = req.Title
 	task.Description = utils.SanitizeHTML(req.Description)
 	task.Type = req.Type
@@ -508,7 +521,8 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	}
 
 	colorMap := s.getStatusColorMap(req.ProjectID)
-	res := mapToTaskResponse(task, colorMap)
+	isFinalMap := s.getStatusIsFinalMap(req.ProjectID)
+	res := mapToTaskResponse(task, colorMap, isFinalMap)
 	return task.ID, &res, nil
 }
 
@@ -531,7 +545,8 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 	}
 
 	colorMap := s.getStatusColorMap(projectID)
-	res := mapToTaskResponse(*task, colorMap)
+	isFinalMap := s.getStatusIsFinalMap(projectID)
+	res := mapToTaskResponse(*task, colorMap, isFinalMap)
 
 	// audit log creation
 	auditLog := models.AuditLog{
@@ -644,9 +659,11 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 
+	userStoryID := req.UserStoryID
+
 	// Validation: User Story must belong to the same project
-	if !req.IsUserStoryIDNull() && req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
-		inProject, err := s.taskRepo.IsUserStoryInProject(*req.UserStoryID, req.ProjectID)
+	if !req.IsUserStoryIDNull() && userStoryID != nil && *userStoryID != uuid.Nil {
+		inProject, err := s.taskRepo.IsUserStoryInProject(*userStoryID, req.ProjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -896,16 +913,16 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			task.SprintID = targetSprint
 		}
 	}
-	if req.IsUserStoryIDNull() || req.UserStoryID != nil {
+	if req.IsUserStoryIDNull() || userStoryID != nil {
 		oldStory := "nil"
 		if task.UserStoryID != nil {
 			oldStory = task.UserStoryID.String()
 		}
 		newStory := "nil"
 		var targetStory *uuid.UUID = nil
-		if !req.IsUserStoryIDNull() && *req.UserStoryID != uuid.Nil {
-			newStory = req.UserStoryID.String()
-			targetStory = req.UserStoryID
+		if !req.IsUserStoryIDNull() && userStoryID != nil && *userStoryID != uuid.Nil {
+			newStory = userStoryID.String()
+			targetStory = userStoryID
 		}
 		if oldStory != newStory {
 			changes = append(changes, fmt.Sprintf("user story changed from %s to %s", oldStory, newStory))
@@ -1003,9 +1020,9 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			updates["sprint_id"] = nil
 		}
 	}
-	if req.IsUserStoryIDNull() || req.UserStoryID != nil {
-		if !req.IsUserStoryIDNull() && *req.UserStoryID != uuid.Nil {
-			updates["user_story_id"] = *req.UserStoryID
+	if req.IsUserStoryIDNull() || userStoryID != nil {
+		if !req.IsUserStoryIDNull() && userStoryID != nil && *userStoryID != uuid.Nil {
+			updates["user_story_id"] = *userStoryID
 		} else {
 			updates["user_story_id"] = nil
 		}
@@ -1083,7 +1100,8 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	} else {
 		if len(updates) == 0 {
 			colorMap := s.getStatusColorMap(req.ProjectID)
-			res := mapToTaskResponse(*task, colorMap)
+			isFinalMap := s.getStatusIsFinalMap(req.ProjectID)
+			res := mapToTaskResponse(*task, colorMap, isFinalMap)
 			return &res, nil
 		}
 		err = s.taskRepo.UpdateTask(task.ID, updates)
@@ -1122,7 +1140,8 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 
 	colorMap := s.getStatusColorMap(req.ProjectID)
-	res := mapToTaskResponse(*updatedTask, colorMap)
+	isFinalMap := s.getStatusIsFinalMap(req.ProjectID)
+	res := mapToTaskResponse(*updatedTask, colorMap, isFinalMap)
 
 	if s.userStoryRepo != nil {
 		if task.UserStoryID != nil && *task.UserStoryID != uuid.Nil {
@@ -1293,7 +1312,8 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 	}
 
 	colorMap := s.getStatusColorMap(req.ProjectID)
-	res := mapToTaskResponse(clonedTask, colorMap)
+	isFinalMap := s.getStatusIsFinalMap(req.ProjectID)
+	res := mapToTaskResponse(clonedTask, colorMap, isFinalMap)
 
 	if s.userStoryRepo != nil && clonedTask.UserStoryID != nil && *clonedTask.UserStoryID != uuid.Nil {
 		_ = s.userStoryRepo.RecalculateUserStoryIsClosed(*clonedTask.UserStoryID)
@@ -1321,9 +1341,10 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 	}
 
 	colorMap := s.getStatusColorMap(projectID)
+	isFinalMap := s.getStatusIsFinalMap(projectID)
 	resList := []responsedto.TaskResponse{}
 	for _, t := range tasks {
-		resList = append(resList, mapToTaskResponse(t, colorMap))
+		resList = append(resList, mapToTaskResponse(t, colorMap, isFinalMap))
 	}
 
 	// audit log creation

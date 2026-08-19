@@ -1,6 +1,7 @@
 package services
 
 import (
+	"maps"
 	"net/http"
 
 	"github.com/gofrs/uuid"
@@ -102,16 +103,20 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 		}
 
 		colorMap := make(map[string]string)
+		isFinalMap := make(map[string]bool)
+		maps.Copy(colorMap, models.DefaultStatusColors)
+		maps.Copy(isFinalMap, models.DefaultStatusIsFinal)
 		if s.customStatusRepo != nil {
 			statuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
 			if err == nil {
 				for _, cs := range statuses {
 					colorMap[models.NormalizeTaskStatus(cs.Name)] = cs.Color
+					isFinalMap[models.NormalizeTaskStatus(cs.Name)] = cs.IsFinal
 				}
 			}
 		}
 
-		taskResp := mapToTaskResponse(*task, colorMap)
+		taskResp := mapToTaskResponse(*task, colorMap, isFinalMap)
 		workItem := &responsedto.WorkItemResponse{
 			WorkItemType:          "task",
 			ID:                    task.ID,
