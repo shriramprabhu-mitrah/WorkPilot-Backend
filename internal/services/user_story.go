@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -11,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
@@ -34,16 +36,18 @@ type userStoryService struct {
 	userStoryRepo    userstoryrepo.UserStoryRepository
 	taskRepo         taskrepo.TaskRepository
 	customStatusRepo customstatusrepo.CustomStatusRepository
+	auditRepo        auditrepo.AuditLogRepository
 	logger           *zap.Logger
 }
 
-func InitUserStoryService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, userStoryRepo userstoryrepo.UserStoryRepository, taskRepo taskrepo.TaskRepository, customStatusRepo customstatusrepo.CustomStatusRepository, logger *zap.Logger) UserStoryService {
+func InitUserStoryService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, userStoryRepo userstoryrepo.UserStoryRepository, taskRepo taskrepo.TaskRepository, customStatusRepo customstatusrepo.CustomStatusRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) UserStoryService {
 	return &userStoryService{
 		authRepo:         authRepo,
 		projectRepo:      projectRepo,
 		userStoryRepo:    userStoryRepo,
 		taskRepo:         taskRepo,
 		customStatusRepo: customStatusRepo,
+		auditRepo:        auditRepo,
 		logger:           logger,
 	}
 }
@@ -289,6 +293,23 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(req.ProjectID)
 	}
 	res := mapToUserStoryResponse(*createdStory, customStatuses, 0, 0, 0.0)
+
+	auditLog := models.AuditLog{
+		UserID:         &req.ReporterID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "created",
+		ResourceType:   "user_story",
+		ResourceID:     story.ID.String(),
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return &res, nil
 }
 
@@ -341,6 +362,23 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 	}
 	res := mapToUserStoryResponse(*story, customStatuses, total, completed, progress)
 	res.Tasks = taskResponses
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "viewed",
+		ResourceType:   "user_story",
+		ResourceID:     story.ID.String(),
+		Type:           models.AuditLogTypeView,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return &res, nil
 }
 
@@ -506,6 +544,23 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(req.ProjectID)
 	}
 	res := mapToUserStoryResponse(*updatedStory, customStatuses, total, completed, progress)
+
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "updated",
+		ResourceType:   "user_story",
+		ResourceID:     updatedStory.ID.String(),
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return &res, nil
 }
 
@@ -526,6 +581,22 @@ func (s *userStoryService) DeleteUserStory(userStoryID, projectID, userID, orgID
 	_, getErr := s.userStoryRepo.GetUserStoryByID(userStoryID, projectID)
 	if getErr != nil {
 		return getErr
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "created",
+		ResourceType:   "user_story",
+		ResourceID:     userStoryID.String(),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return s.userStoryRepo.DeleteUserStory(userStoryID, projectID)
@@ -583,6 +654,21 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 		storyRes := mapToUserStoryResponse(story, customStatuses, total, completed, progress)
 		storyRes.Tasks = taskResponses
 		resList = append(resList, storyRes)
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "retrieved",
+		ResourceType:   "user_story",
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return resList, pagination, nil
@@ -698,6 +784,21 @@ func (s *userStoryService) ReorderUserStories(projectID, userID, orgID uuid.UUID
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to reorder user stories in this project",
 		}
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "reordered",
+		ResourceType:   "user_story",
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return s.userStoryRepo.ReorderUserStories(projectID, storyIDs)

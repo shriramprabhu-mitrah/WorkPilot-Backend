@@ -106,10 +106,11 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 			UserID:         &userID,
 			OrganizationID: &taskCtx.OrganizationID,
 			ProjectID:      &taskCtx.ProjectID,
-			Action:         "attachment_uploaded",
-			ResourceType:   "attachment",
-			ResourceID:     attachment.ID.String(),
-			Details:        fmt.Sprintf("Attachment %s uploaded to task %s", attachment.OriginalFilename, taskKey),
+			Action:         "uploaded",
+			ResourceType:   "task_attachment",
+			Type:           models.AuditLogTypeAudit,
+			ResourceID:     taskID.String(),
+			Details:        fmt.Sprintf("User %s uploaded attachment %s to task %s", user.Email, attachment.OriginalFilename, taskKey),
 			CreatedAt:      time.Now(),
 		}
 		auditLogs = append(auditLogs, auditLog)
@@ -191,6 +192,21 @@ func (s *attachmentService) GetAttachments(ctx context.Context, taskID, projectI
 		res[i] = responsedto.AttachmentFromModel(a)
 	}
 
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &taskCtx.OrganizationID,
+		ProjectID:      &taskCtx.ProjectID,
+		Action:         "viewed",
+		ResourceType:   "task_attachment",
+		ResourceID:     taskID.String(),
+		Details:        fmt.Sprintf("User %s viewed attachments from task %s", user.Email, taskCtx.TaskKey),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
+	}
+
 	return res, nil
 }
 
@@ -233,6 +249,21 @@ func (s *attachmentService) DownloadAttachment(ctx context.Context, attachmentID
 	stream, size, getErr := s.storageClient.GetObject(ctx, attachment.StoragePath)
 	if getErr != nil {
 		return nil, "", "", 0, getErr
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &taskCtx.OrganizationID,
+		ProjectID:      &taskCtx.ProjectID,
+		Action:         "downloaded",
+		ResourceType:   "task_attachment",
+		ResourceID:     attachmentID.String(),
+		Details:        fmt.Sprintf("User %s downloaded attachment %s from task %s", user.Email, attachment.OriginalFilename, taskCtx.TaskKey),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 	}
 
 	return stream, attachment.OriginalFilename, attachment.MIMEType, size, nil
@@ -288,10 +319,11 @@ func (s *attachmentService) DeleteAttachment(ctx context.Context, attachmentID, 
 		UserID:         &userID,
 		OrganizationID: &taskCtx.OrganizationID,
 		ProjectID:      &taskCtx.ProjectID,
-		Action:         "attachment_deleted",
-		ResourceType:   "attachment",
+		Action:         "deleted",
+		ResourceType:   "task_attachment",
 		ResourceID:     attachmentID.String(),
 		Details:        fmt.Sprintf("Attachment %s deleted from task %s", attachment.OriginalFilename, taskKey),
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {

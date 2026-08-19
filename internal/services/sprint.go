@@ -174,8 +174,9 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *r
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
-		Action:         "sprint_created",
+		Action:         "created",
 		ResourceType:   "sprint",
+		Details:        "Sprint created",
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -252,9 +253,10 @@ func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
-		Action:         "sprint_deleted",
+		Action:         "deleted",
 		ResourceType:   "sprint",
 		ResourceID:     req.SprintID.String(),
+		Details:        "Sprint deleted",
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -406,9 +408,10 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
-		Action:         "sprint_updated",
+		Action:         "updated",
 		ResourceType:   "sprint",
 		ResourceID:     req.SprintID.String(),
+		Details:        "Sprint updated",
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -465,9 +468,10 @@ func (s *sprintService) GetSprints(req dto.GetSprint, filter dto.SprintFilter) (
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
-		Action:         "sprint_created",
+		Action:         "viewed",
 		ResourceType:   "sprint",
-		Type:           models.AuditLogTypeActivity,
+		Details:        "sprint viewed",
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 
@@ -531,10 +535,11 @@ func (s *sprintService) GetSprintByID(req dto.GetSprint) (*models.Sprint, *respo
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
-		Action:         "sprint_created",
+		Action:         "viewed",
 		ResourceType:   "sprint",
 		ResourceID:     req.SprintID.String(),
-		Type:           models.AuditLogTypeActivity,
+		Details:        "sprint viewed",
+		Type:           models.AuditLogTypeView,
 		CreatedAt:      time.Now(),
 	}
 
@@ -659,10 +664,11 @@ func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uui
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
-		Action:         "sprint_burndown",
+		Action:         "viewed",
 		ResourceType:   "sprint",
 		ResourceID:     sprintID.String(),
-		Type:           models.AuditLogTypeView,
+		Details:        "Sprint burndown chart viewed",
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 
@@ -764,9 +770,10 @@ func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID, orgUUID uui
 		UserID:         &userUUID,
 		OrganizationID: &orgUUID,
 		ProjectID:      &projectUUID,
-		Action:         "sprint_snapshot_triggered",
+		Action:         "created",
 		ResourceType:   "sprint",
-		Type:           models.AuditLogTypeActivity,
+		Details:        "Sprint snapshot triggered",
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 

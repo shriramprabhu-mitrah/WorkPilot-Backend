@@ -1,8 +1,11 @@
 package services
 
 import (
+	"time"
+
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
+	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
@@ -10,7 +13,7 @@ import (
 )
 
 type AuditService interface {
-	GetAuditLogs(req requestdto.GetAudit) (*responsedto.AuditLogResponseWrapper, response.Pagination, *response.Error)
+	GetAuditLogs(req requestdto.GetAudit) (*responsedto.AuditLogResponseWrapper, *response.Pagination, *response.Error)
 }
 
 func InitAuditService(auditRepo auditrepo.AuditLogRepository, authRepo authrepo.AuthRepository, logger *zap.Logger) AuditService {
@@ -27,10 +30,10 @@ type auditService struct {
 	logger    *zap.Logger
 }
 
-func (s *auditService) GetAuditLogs(req requestdto.GetAudit) (*responsedto.AuditLogResponseWrapper, response.Pagination, *response.Error) {
+func (s *auditService) GetAuditLogs(req requestdto.GetAudit) (*responsedto.AuditLogResponseWrapper, *response.Pagination, *response.Error) {
 	audits, pagination, err := s.auditRepo.GetAuditLogs(req)
 	if err != nil {
-		return nil, response.Pagination{}, err
+		return nil, nil, err
 	}
 
 	activities := make([]responsedto.AuditLogResponse, 0, len(audits))
@@ -61,5 +64,19 @@ func (s *auditService) GetAuditLogs(req requestdto.GetAudit) (*responsedto.Audit
 		Activities: activities,
 	}
 
-	return wrapper, pagination, nil
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         req.UserID,
+		OrganizationID: req.OrganizationID,
+		Action:         "view",
+		ResourceType:   "audits",
+		ResourceID:     req.UserID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "view audits by user " + req.UserID.String(),
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return nil, nil, auditErr
+	}
+
+	return wrapper, &pagination, nil
 }

@@ -876,10 +876,12 @@ definitions:
     enum:
     - view
     - activity
+    - audit
     type: string
     x-enum-varnames:
     - AuditLogTypeView
     - AuditLogTypeActivity
+    - AuditLogTypeAudit
   github_com_ms-kanban-server_internal_pkg_response.Error:
     properties:
       code:

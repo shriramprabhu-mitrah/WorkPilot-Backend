@@ -283,10 +283,11 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		Action:         action,
+		Action:         "created",
 		ResourceType:   resourceType,
 		ResourceID:     resourceID,
-		Details:        fmt.Sprintf("User %s %s on %s %s", req.UserID.String(), action, resourceType, resourceID),
+		Details:        action,
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 
@@ -359,21 +360,24 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 
 	commentResponse := responsedto.CommentsFromModel(*comment)
 
-	var resourceID string
+	var resourceID, action string
 	if comment.UserStoryID != nil {
 		resourceID = comment.UserStoryID.String()
+		action = "Comment created on User Story : " + resourceID
 	} else if comment.TaskID != nil {
 		resourceID = comment.TaskID.String()
+		action = "Comment created on Task : " + resourceID
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		Action:         "Get Comments",
+		Action:         "viewed",
 		ResourceType:   "Comment",
-		ResourceID:     req.CommentID.String(),
-		Details:        fmt.Sprintf("User %s %s on resource %s", req.UserID.String(), "Getting Comments", resourceID),
+		ResourceID:     resourceID,
+		Details:        action,
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 
@@ -449,21 +453,24 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 		Content: req.Content,
 	}
 
-	var resourceID string
+	var resourceID, action string
 	if comment.UserStoryID != nil {
 		resourceID = comment.UserStoryID.String()
+		action = "Comment Updated on User Story : " + resourceID
 	} else if comment.TaskID != nil {
 		resourceID = comment.TaskID.String()
+		action = "Comment Updated on Task : " + resourceID
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		Action:         "Updated Comment",
+		Action:         "updated",
 		ResourceType:   "Comment",
 		ResourceID:     req.CommentID.String(),
-		Details:        fmt.Sprintf("User %s %s on resource %s", req.UserID.String(), "Updated Comment", resourceID),
+		Details:        action,
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	s.auditRepo.CreateAuditLog(auditLog)
@@ -558,11 +565,13 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 		return err
 	}
 
-	var resourceID string
+	var resourceID, action string
 	if comment.UserStoryID != nil {
 		resourceID = comment.UserStoryID.String()
+		action = "Comment : \" " + comment.Content + " \" deleted on User Story : " + resourceID
 	} else if comment.TaskID != nil {
 		resourceID = comment.TaskID.String()
+		action = "Comment : \" " + comment.Content + " \" deleted on Task : " + resourceID
 	}
 
 	if hasReplies {
@@ -570,10 +579,11 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			UserID:         &req.UserID,
 			OrganizationID: &req.OrganizationID,
 			ProjectID:      projectID,
-			Action:         "Deleted Comment",
+			Action:         "deleted",
 			ResourceType:   "Comment",
 			ResourceID:     req.CommentID.String(),
-			Details:        fmt.Sprintf("User %s %s on resource %s", req.UserID.String(), "Deleted Comment", resourceID),
+			Details:        action,
+			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
 		s.auditRepo.CreateAuditLog(auditLog)
@@ -589,10 +599,11 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		Action:         "Deleted Comment",
+		Action:         "deleted",
 		ResourceType:   "Comment",
 		ResourceID:     req.CommentID.String(),
-		Details:        fmt.Sprintf("User %s %s on resource %s", req.UserID.String(), "Deleted Comment", resourceID),
+		Details:        action,
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	s.auditRepo.CreateAuditLog(auditLog)
@@ -635,10 +646,11 @@ func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]res
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		Action:         "Get Comments task ID",
+		Action:         "viewed",
 		ResourceType:   "Comment",
-		ResourceID:     req.CommentID.String(),
-		Details:        fmt.Sprintf("User %s %s on task %s", req.UserID.String(), "Get Comments task ID", taskID.String()),
+		ResourceID:     taskID.String(),
+		Details:        fmt.Sprintf("User %s viewed comments on task %s", req.UserID.String(), taskID.String()),
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	s.auditRepo.CreateAuditLog(auditLog)
@@ -682,21 +694,24 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 		commentResponse = append(commentResponse, responsedto.CommentsFromModel(comment))
 	}
 
-	taskOrStoryIDStr := "nil"
+	var taskOrStoryIDStr, action string
 	if req.TaskID != nil {
 		taskOrStoryIDStr = req.TaskID.String()
+		action = "viewed comments on task " + taskOrStoryIDStr
 	} else if req.UserStoryID != nil {
 		taskOrStoryIDStr = req.UserStoryID.String()
+		action = "viewed comments on user story " + taskOrStoryIDStr
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		Action:         "Get Comments by Parent Comment ID",
+		Action:         "viewed",
 		ResourceType:   "Comment",
 		ResourceID:     req.CommentID.String(),
-		Details:        fmt.Sprintf("User %s %s on resource %s", req.UserID.String(), "Get Comments by Parent Comment ID", taskOrStoryIDStr),
+		Details:        action,
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	s.auditRepo.CreateAuditLog(auditLog)
@@ -739,10 +754,11 @@ func (s *commentsService) GetCommentsByUserStoryID(req requestdto.GetComments) (
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		Action:         "Get Comments user story ID",
+		Action:         "viewed",
 		ResourceType:   "Comment",
-		ResourceID:     req.CommentID.String(),
-		Details:        fmt.Sprintf("User %s %s on user story %s", req.UserID.String(), "Get Comments user story ID", userStoryID.String()),
+		ResourceID:     userStoryID.String(),
+		Details:        fmt.Sprintf("User %s viewed comments on user story %s", req.UserID.String(), userStoryID.String()),
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	s.auditRepo.CreateAuditLog(auditLog)

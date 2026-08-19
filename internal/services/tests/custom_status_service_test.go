@@ -394,7 +394,7 @@ func TestCustomStatusService_GetStatuses(t *testing.T) {
 
 	service := services.InitCustomStatusService(statusRepo, projectRepo, authRepo, &stubAuditLogRepo{}, taskRepo, zap.NewNop())
 
-	res, err := service.GetStatuses(projectID, userID)
+	res, err := service.GetStatuses(projectID, userID, orgID)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}

@@ -94,7 +94,7 @@ func (h *auditHandler) GetAuditLogs(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data:       audits,
-		Meta:       &pagination,
+		Meta:       pagination,
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 }
