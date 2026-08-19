@@ -12,8 +12,8 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
@@ -22,7 +22,7 @@ import (
 
 type CustomStatusService interface {
 	CreateStatus(req requestdto.CreateCustomStatusRequest) (*responsedto.CustomStatusResponse, *response.Error)
-	GetStatuses(projectID, userID uuid.UUID) ([]responsedto.CustomStatusResponse, *response.Error)
+	GetStatuses(projectID, userID, orgID uuid.UUID) ([]responsedto.CustomStatusResponse, *response.Error)
 	UpdateStatus(req requestdto.UpdateCustomStatusRequest) (*responsedto.CustomStatusResponse, *response.Error)
 	DeleteStatus(statusID, projectID, userID, orgID uuid.UUID) *response.Error
 }
@@ -178,10 +178,11 @@ func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequ
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
-		Action:         "custom_status_created",
+		Action:         "created",
 		ResourceType:   "custom_status",
 		ResourceID:     status.ID.String(),
 		Details:        fmt.Sprintf("Custom Status '%s' created", status.Name),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -192,7 +193,7 @@ func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequ
 	return &res, nil
 }
 
-func (s *customStatusService) GetStatuses(projectID, userID uuid.UUID) ([]responsedto.CustomStatusResponse, *response.Error) {
+func (s *customStatusService) GetStatuses(projectID, userID, orgID uuid.UUID) ([]responsedto.CustomStatusResponse, *response.Error) {
 	// 1. Authorization
 	authorized, err := s.checkProjectMember(projectID, userID)
 	if err != nil {
@@ -225,6 +226,20 @@ func (s *customStatusService) GetStatuses(projectID, userID uuid.UUID) ([]respon
 	// Re-assign display_order dynamically to be strictly sequential (0 to N-1)
 	for idx := range res {
 		res[idx].DisplayOrder = idx
+	}
+
+	// 4. Audit Logging
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "viewed",
+		ResourceType:   "custom_status",
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
 	return res, nil
@@ -263,8 +278,6 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 				Message:    "Status name must be between 1 and 50 characters",
 			}
 		}
-
-
 
 		normalizedName := models.NormalizeTaskStatus(trimmedName)
 
@@ -336,10 +349,11 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 			UserID:         &req.UserID,
 			OrganizationID: &req.OrganizationID,
 			ProjectID:      &req.ProjectID,
-			Action:         "custom_status_updated",
+			Action:         "updated",
 			ResourceType:   "custom_status",
 			ResourceID:     status.ID.String(),
 			Details:        fmt.Sprintf("Custom Status '%s' updated", status.Name),
+			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
 		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -371,8 +385,6 @@ func (s *customStatusService) DeleteStatus(statusID, projectID, userID, orgID uu
 		return err
 	}
 
-
-
 	// 4. Validation: status cannot be deleted while assigned to active (non-soft-deleted) tasks
 	count, taskErr := s.taskRepo.CountTasksByStatus(projectID, status.Name)
 	if taskErr != nil {
@@ -397,10 +409,11 @@ func (s *customStatusService) DeleteStatus(statusID, projectID, userID, orgID uu
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
-		Action:         "custom_status_deleted",
+		Action:         "deleted",
 		ResourceType:   "custom_status",
 		ResourceID:     statusID.String(),
 		Details:        fmt.Sprintf("Custom Status '%s' deleted", status.Name),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {

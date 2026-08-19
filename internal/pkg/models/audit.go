@@ -13,6 +13,7 @@ type AuditLogType string
 const (
 	AuditLogTypeView     AuditLogType = "view"
 	AuditLogTypeActivity AuditLogType = "activity"
+	AuditLogTypeAudit    AuditLogType = "audit"
 )
 
 type AuditLog struct {
@@ -54,4 +55,3 @@ func (a *AuditLog) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
-

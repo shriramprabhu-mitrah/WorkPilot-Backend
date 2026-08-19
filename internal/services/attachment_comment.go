@@ -108,8 +108,9 @@ func (s *attachmentService) UploadCommentAttachments(ctx context.Context, commen
 			UserID:         &userID,
 			OrganizationID: &taskCtx.OrganizationID,
 			ProjectID:      &taskCtx.ProjectID,
-			Action:         "comment_attachment_uploaded",
-			ResourceType:   "attachment",
+			Action:         "uploaded",
+			ResourceType:   "comment_attachment",
+			Type:           models.AuditLogTypeAudit,
 			ResourceID:     attachment.ID.String(),
 			Details:        fmt.Sprintf("Attachment %s uploaded to comment %s", attachment.OriginalFilename, commentID),
 			CreatedAt:      time.Now(),
@@ -198,6 +199,21 @@ func (s *attachmentService) GetCommentAttachments(ctx context.Context, commentID
 		res[i] = responsedto.CommentAttachmentFromModel(a)
 	}
 
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &taskCtx.OrganizationID,
+		ProjectID:      &taskCtx.ProjectID,
+		Action:         "viewed",
+		ResourceType:   "comment_attachment",
+		ResourceID:     commentID.String(),
+		Details:        fmt.Sprintf("User %s viewed attachments from comment %v", user.Email, comment.ID),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
+	}
+
 	return res, nil
 }
 
@@ -245,6 +261,21 @@ func (s *attachmentService) DownloadCommentAttachment(ctx context.Context, attac
 	stream, size, getErr := s.storageClient.GetObject(ctx, attachment.StoragePath)
 	if getErr != nil {
 		return nil, "", "", 0, getErr
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &taskCtx.OrganizationID,
+		ProjectID:      &taskCtx.ProjectID,
+		Action:         "download",
+		ResourceType:   "comment_attachment",
+		ResourceID:     taskID.String(),
+		Details:        fmt.Sprintf("User %s downloaded attachment %s from comment %s", user.Email, attachment.OriginalFilename, taskCtx.TaskKey),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 	}
 
 	return stream, attachment.OriginalFilename, attachment.MIMEType, size, nil
@@ -303,10 +334,11 @@ func (s *attachmentService) DeleteCommentAttachment(ctx context.Context, attachm
 		UserID:         &userID,
 		OrganizationID: &taskCtx.OrganizationID,
 		ProjectID:      &taskCtx.ProjectID,
-		Action:         "comment_attachment_deleted",
-		ResourceType:   "attachment",
+		Action:         "deleted",
+		ResourceType:   "comment_attachment",
 		ResourceID:     attachmentID.String(),
 		Details:        fmt.Sprintf("Attachment %s deleted from comment %s", attachment.OriginalFilename, comment.ID),
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {

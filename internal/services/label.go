@@ -11,8 +11,8 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
-	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	labelrepo "github.com/ms-kanban-server/internal/repository/label-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	"go.uber.org/zap"
@@ -20,7 +20,7 @@ import (
 
 type LabelService interface {
 	CreateLabel(req requestdto.CreateLabelRequest) (*responsedto.LabelResponse, *response.Error)
-	GetLabels(projectID, userID uuid.UUID) ([]responsedto.LabelResponse, *response.Error)
+	GetLabels(projectID, userID, orgID uuid.UUID) ([]responsedto.LabelResponse, *response.Error)
 	UpdateLabel(req requestdto.UpdateLabelRequest) (*responsedto.LabelResponse, *response.Error)
 	DeleteLabel(labelID, projectID, userID, orgID uuid.UUID) *response.Error
 }
@@ -164,10 +164,11 @@ func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*response
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
-		Action:         "label_created",
+		Action:         "created",
 		ResourceType:   "label",
 		ResourceID:     label.ID.String(),
 		Details:        fmt.Sprintf("Label '%s' created", label.Name),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -178,7 +179,7 @@ func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*response
 	return &res, nil
 }
 
-func (s *labelService) GetLabels(projectID, userID uuid.UUID) ([]responsedto.LabelResponse, *response.Error) {
+func (s *labelService) GetLabels(projectID, userID, orgID uuid.UUID) ([]responsedto.LabelResponse, *response.Error) {
 	// 1. Authorization
 	authorized, err := s.checkProjectMember(projectID, userID)
 	if err != nil {
@@ -202,6 +203,20 @@ func (s *labelService) GetLabels(projectID, userID uuid.UUID) ([]responsedto.Lab
 	for _, l := range labels {
 		res = append(res, responsedto.LabelFromModel(l))
 	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
+		Action:         "viewed",
+		ResourceType:   "label",
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
 	return res, nil
 }
 
@@ -281,10 +296,10 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 			UserID:         &req.UserID,
 			OrganizationID: &req.OrganizationID,
 			ProjectID:      &req.ProjectID,
-			Action:         "label_updated",
+			Action:         "updated",
 			ResourceType:   "label",
 			ResourceID:     label.ID.String(),
-			Details:        fmt.Sprintf("Label '%s' updated", label.Name),
+			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
 		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -327,10 +342,11 @@ func (s *labelService) DeleteLabel(labelID, projectID, userID, orgID uuid.UUID) 
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
-		Action:         "label_deleted",
+		Action:         "deleted",
 		ResourceType:   "label",
 		ResourceID:     labelID.String(),
 		Details:        fmt.Sprintf("Label '%s' deleted", label.Name),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {

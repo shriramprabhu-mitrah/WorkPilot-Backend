@@ -54,8 +54,23 @@ type organizationService struct {
 }
 
 func (s *organizationService) GetOrganizationByID(id uuid.UUID) (models.Organization, *response.Error) {
-
-	return s.OrganizationRepo.GetByID(id)
+	organization, err := s.OrganizationRepo.GetByID(id)
+	if err != nil {
+		return organization, err
+	}
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &id,
+		OrganizationID: &id,
+		Action:         "viewed",
+		ResourceType:   "organization",
+		ResourceID:     id.String(),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return organization, auditErr
+	}
+	return organization, nil
 }
 
 func (s *organizationService) CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error) {
@@ -138,7 +153,20 @@ func (s *organizationService) CreateOrganization(row models.Organization) (*dto.
 	// Prefix refresh token with stored token ID
 	refreshTokenValue = fmt.Sprintf("%s.%s", storedToken.ID.String(), refreshTokenValue)
 
-	s.logger.Info("Email verification completed", zap.String("email", user.Email))
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &row.CreatedBy,
+		OrganizationID: &organization.ID,
+		Action:         "created",
+		ResourceType:   "organization",
+		ResourceID:     organization.ID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "created",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return nil, auditErr
+	}
+
 	return &dto.AuthTokensResponse{
 		AccessToken:      accessToken,
 		RefreshToken:     refreshTokenValue,
@@ -155,12 +183,50 @@ func (s *organizationService) UpdateOrganization(OrganizationID uuid.UUID, req m
 		req.Slug = slug
 	}
 
-	return s.OrganizationRepo.UpdateOrganization(OrganizationID, req)
+	err := s.OrganizationRepo.UpdateOrganization(OrganizationID, req)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &OrganizationID,
+		OrganizationID: &OrganizationID,
+		Action:         "updated",
+		ResourceType:   "organization",
+		ResourceID:     OrganizationID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "updated",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
 }
 
 func (s *organizationService) DeleteOrganization(id uuid.UUID) *response.Error {
 
-	return s.OrganizationRepo.DeleteOrganization(id)
+	err := s.OrganizationRepo.DeleteOrganization(id)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &id,
+		OrganizationID: &id,
+		Action:         "deleted",
+		ResourceType:   "organization",
+		ResourceID:     id.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "deleted",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
 }
 
 func (s *organizationService) UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error {
@@ -192,7 +258,26 @@ func (s *organizationService) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 	request := result
 	request.IsActive = payload.IsActive
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+	err = s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &payload.UserID,
+		OrganizationID: payload.OrganizationID,
+		Action:         "updated",
+		ResourceType:   "user_status",
+		ResourceID:     payload.UserID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("updated user status for %s", result.Email),
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
 
 }
 
@@ -225,7 +310,26 @@ func (s *organizationService) UpdateUserRole(payload dto.UpdateUserRole) *respon
 	request := result
 	request.Role = payload.Role
 
-	return s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+	err = s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &payload.UserID,
+		OrganizationID: payload.OrganizationID,
+		Action:         "updated",
+		ResourceType:   "user_role",
+		ResourceID:     payload.UserID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("updated user role for %s", result.Email),
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
 
 }
 
@@ -332,10 +436,11 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 			UserID:         &inviterID,
 			OrganizationID: &organizationID,
-			Action:         "organization_invitation_created",
+			Action:         "invitation_sended",
 			ResourceType:   "organization_invitation",
 			ResourceID:     invitation.Token,
 			Details:        fmt.Sprintf("Invited %s to %s", inviteItem.Email, org.Name),
+			Type:           models.AuditLogTypeAudit,
 			CreatedAt:      time.Now(),
 		})
 		if auditErr != nil {
@@ -493,6 +598,20 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 	if err := s.AuthRepo.CreateUser(user); err != nil {
 		return "", err
 	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		OrganizationID: &organizationID,
+		Action:         "created",
+		ResourceType:   "temp_user",
+		ResourceID:     user.ID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "create temp user",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return "", auditErr
+	}
+
 	return tempPassword, nil
 }
 
@@ -579,10 +698,11 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &invitation.OrganizationID,
-		Action:         "organization_invitation_accepted",
-		ResourceType:   "organization_invitation",
+		Action:         "accepted",
+		ResourceType:   "invitation",
 		ResourceID:     invitation.Token,
-		Details:        fmt.Sprintf("Accepted invitation for %s", invitation.Email),
+		Details:        "accepted invitation",
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      acceptedAt,
 	})
 	if auditErr != nil {
@@ -592,7 +712,23 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 }
 
 func (s *organizationService) GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error) {
-	return s.OrganizationRepo.GetInvitationByToken(token)
+	invitation, err := s.OrganizationRepo.GetInvitationByToken(token)
+	if err != nil {
+		return models.OrganizationInvitation{}, err
+	}
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		OrganizationID: &invitation.OrganizationID,
+		Action:         "view",
+		ResourceType:   "invitation",
+		ResourceID:     invitation.Token,
+		Type:           models.AuditLogTypeAudit,
+		Details:        "view invitation",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return models.OrganizationInvitation{}, auditErr
+	}
+	return invitation, nil
 }
 
 func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
@@ -613,7 +749,25 @@ func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.Org
 		filter.Timezone = strings.TrimSpace(filter.Timezone)
 	}
 
-	return s.OrganizationRepo.GetUsersByOrganizationID(id, filter)
+	user, pagination, err := s.OrganizationRepo.GetUsersByOrganizationID(id, filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		OrganizationID: &id,
+		Action:         "view",
+		ResourceType:   "users_in_organization",
+		ResourceID:     id.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "view users in organization",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return user, pagination, auditErr
+	}
+
+	return user, pagination, nil
 }
 
 func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error {
@@ -675,10 +829,11 @@ func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 		UserID:         &payload.UserID,
 		OrganizationID: payload.OrganizationID,
-		Action:         "organization_user_removed",
-		ResourceType:   "user",
+		Action:         "removed",
+		ResourceType:   "organization_user",
 		ResourceID:     payload.UserID.String(),
 		Details:        "Removed user from organization",
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	})
 	if auditErr != nil {

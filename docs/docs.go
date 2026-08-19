@@ -7375,11 +7375,13 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "view",
-                "activity"
+                "activity",
+                "audit"
             ],
             "x-enum-varnames": [
                 "AuditLogTypeView",
-                "AuditLogTypeActivity"
+                "AuditLogTypeActivity",
+                "AuditLogTypeAudit"
             ]
         },
         "github_com_ms-kanban-server_internal_pkg_response.Error": {

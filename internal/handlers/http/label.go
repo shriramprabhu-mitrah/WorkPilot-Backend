@@ -121,7 +121,12 @@ func (h *labelHandler) GetLabels(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.GetLabels(projectUUID, userUUID)
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	res, err := h.service.GetLabels(projectUUID, userUUID, organizationUUID)
 	if err != nil {
 		g.JSON(err.StatusCode, response.ErrorResponse{Success: false, Error: *err})
 		return

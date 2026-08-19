@@ -105,10 +105,11 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 			UserID:         &userID,
 			OrganizationID: &storyCtx.OrganizationID,
 			ProjectID:      &storyCtx.ProjectID,
-			Action:         "user_story_attachment_uploaded",
+			Action:         "uploaded",
 			ResourceType:   "user_story_attachment",
-			ResourceID:     attachment.ID.String(),
-			Details:        fmt.Sprintf("Attachment %s uploaded to user story %s", attachment.OriginalFilename, storyTitle),
+			ResourceID:     userStoryID.String(),
+			Details:        fmt.Sprintf("User %s uploaded attachment %s to user story %s", user.Email, attachment.OriginalFilename, storyTitle),
+			Type:           models.AuditLogTypeAudit,
 			CreatedAt:      time.Now(),
 		}
 		auditLogs = append(auditLogs, auditLog)
@@ -187,6 +188,21 @@ func (s *attachmentService) GetUserStoryAttachments(ctx context.Context, userSto
 		res[i] = responsedto.UserStoryAttachmentFromModel(a)
 	}
 
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &storyCtx.OrganizationID,
+		ProjectID:      &storyCtx.ProjectID,
+		Action:         "viewed",
+		ResourceType:   "user_story_attachment",
+		ResourceID:     userStoryID.String(),
+		Details:        fmt.Sprintf("User %s viewed attachments from user story %s", user.Email, storyCtx.Title),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
+	}
+
 	return res, nil
 }
 
@@ -229,6 +245,21 @@ func (s *attachmentService) DownloadUserStoryAttachment(ctx context.Context, att
 	stream, size, getErr := s.storageClient.GetObject(ctx, attachment.StoragePath)
 	if getErr != nil {
 		return nil, "", "", 0, getErr
+	}
+
+	auditLog := models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &storyCtx.OrganizationID,
+		ProjectID:      &storyCtx.ProjectID,
+		Action:         "downloaded",
+		ResourceType:   "user_story_attachment",
+		ResourceID:     attachment.UserStoryID.String(),
+		Details:        fmt.Sprintf("User %s downloaded attachment %s from user story %s", user.Email, attachment.OriginalFilename, storyCtx.Title),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	}
+	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
+		s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
 	}
 
 	return stream, attachment.OriginalFilename, attachment.MIMEType, size, nil
@@ -281,10 +312,11 @@ func (s *attachmentService) DeleteUserStoryAttachment(ctx context.Context, attac
 		UserID:         &userID,
 		OrganizationID: &storyCtx.OrganizationID,
 		ProjectID:      &storyCtx.ProjectID,
-		Action:         "user_story_attachment_deleted",
+		Action:         "deleted",
 		ResourceType:   "user_story_attachment",
 		ResourceID:     attachmentID.String(),
-		Details:        fmt.Sprintf("Attachment %s deleted from user story %s", attachment.OriginalFilename, storyTitle),
+		Details:        fmt.Sprintf("User %s deleted attachment %s from user story %s", user.Email, attachment.OriginalFilename, storyTitle),
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {
