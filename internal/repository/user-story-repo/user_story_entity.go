@@ -21,6 +21,7 @@ type UserStoryRepository interface {
 	ReorderUserStories(projectID uuid.UUID, storyIDs []uuid.UUID) *response.Error
 	GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUID]models.StoryTaskStats, *response.Error)
 	GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error)
+	RecalculateUserStoryIsClosed(userStoryID uuid.UUID) *response.Error
 }
 
 func InitUserStoryRepository(deps models.Config) UserStoryRepository {

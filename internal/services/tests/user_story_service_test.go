@@ -11,6 +11,7 @@ import (
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
@@ -31,11 +32,13 @@ func (s *userStoryAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *respons
 	}
 	return user, nil
 }
+
 type stubUserStoryRepo struct {
 	stories        map[uuid.UUID]*models.UserStory
 	seqNumber      int
 	validSprints   map[uuid.UUID]bool
 	storyTaskStats map[uuid.UUID]models.StoryTaskStats
+	taskRepo       taskrepo.TaskRepository
 	createErr      *response.Error
 	getErr         *response.Error
 	updateErr      *response.Error
@@ -43,6 +46,9 @@ type stubUserStoryRepo struct {
 }
 
 func (s *stubUserStoryRepo) CreateUserStory(userStory *models.UserStory) *response.Error {
+	if userStory.ID == uuid.Nil {
+		userStory.ID = uuid.Must(uuid.NewV4())
+	}
 	if userStory.SerialNumber == 0 {
 		s.seqNumber++
 		userStory.SerialNumber = int64(s.seqNumber)
@@ -53,7 +59,8 @@ func (s *stubUserStoryRepo) CreateUserStory(userStory *models.UserStory) *respon
 	if s.stories == nil {
 		s.stories = make(map[uuid.UUID]*models.UserStory)
 	}
-	s.stories[userStory.ID] = userStory
+	storyCopy := *userStory
+	s.stories[userStory.ID] = &storyCopy
 	return nil
 }
 
@@ -88,6 +95,9 @@ func (s *stubUserStoryRepo) UpdateUserStory(userStoryID uuid.UUID, updates map[s
 		}
 		if val, ok := updates["status_id"].(uuid.UUID); ok {
 			story.StatusID = val
+		}
+		if val, ok := updates["is_closed"].(bool); ok {
+			story.IsClosed = val
 		}
 		if val, ok := updates["story_points"].(int); ok {
 			story.StoryPoints = val
@@ -136,6 +146,9 @@ func (s *stubUserStoryRepo) GetUserStories(projectID uuid.UUID, filter dto.UserS
 		if filter.Priority != "" && story.Priority != filter.Priority {
 			continue
 		}
+		if filter.IsClosed != nil && story.IsClosed != *filter.IsClosed {
+			continue
+		}
 		res = append(res, *story)
 	}
 	return res, response.Pagination{}, nil
@@ -182,6 +195,37 @@ func (s *stubUserStoryRepo) GetUserStoryAccessContext(id uuid.UUID) (*models.Use
 		ProjectID:      story.ProjectID,
 		OrganizationID: story.Project.OrganizationID,
 	}, nil
+}
+
+func (s *stubUserStoryRepo) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) *response.Error {
+	if s.stories == nil {
+		return nil
+	}
+	story, ok := s.stories[userStoryID]
+	if !ok {
+		return nil
+	}
+	if s.taskRepo != nil {
+		tasks, err := s.taskRepo.GetTasksByUserStoryID(userStoryID)
+		if err != nil {
+			return err
+		}
+		var activeCount, completedCount int64
+		for _, t := range tasks {
+			if !t.DeletedAt.Valid {
+				activeCount++
+				if strings.ToLower(strings.TrimSpace(t.Status)) == "completed" {
+					completedCount++
+				}
+			}
+		}
+		if activeCount > 0 {
+			story.IsClosed = (completedCount == activeCount)
+		} else {
+			story.IsClosed = false
+		}
+	}
+	return nil
 }
 
 func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
@@ -961,5 +1005,200 @@ func TestUserStoryService_CreateUserStory_InvalidStatus(t *testing.T) {
 	}
 }
 
+func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
 
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleOrgAdmin)},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+	taskRepo := &stubTaskRepo{
+		tasks: make(map[uuid.UUID]*models.Task),
+	}
+	userStoryRepo := &stubUserStoryRepo{
+		stories:  make(map[uuid.UUID]*models.UserStory),
+		taskRepo: taskRepo,
+	}
+	customStatusRepo := &stubCustomStatusRepo{}
 
+	usService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, zap.NewNop())
+	tService := services.InitTaskService(authRepo, projectRepo, taskRepo, userStoryRepo, &stubAuditLogRepo{}, customStatusRepo, zap.NewNop())
+
+	// 1. Create a new User Story -> defaults to is_closed: false
+	storyResp, err := usService.CreateUserStory(dto.CreateUserStoryRequest{
+		Title:      "User Story Closed State Test",
+		Priority:   "medium",
+		ProjectID:  projectID,
+		ReporterID: userID,
+	})
+	if err != nil {
+		t.Fatalf("expected story creation to succeed, got %v", err)
+	}
+	if storyResp.IsClosed {
+		t.Errorf("expected new user story is_closed to be false, got true")
+	}
+
+	storyID := storyResp.ID
+
+	// 2. Add Task 1 (open) to story
+	_, task1, tErr := tService.CreateTask(dto.CreateTaskRequest{
+		Title:       "Task 1",
+		Type:        string(dto.TaskTypeTask),
+		Priority:    string(dto.TaskPriorityMedium),
+		Status:      string(dto.TaskStatusTodo),
+		UserStoryID: &storyID,
+		ProjectID:   projectID,
+		UserID:      userID,
+	})
+	if tErr != nil {
+		t.Fatalf("failed creating task 1: %v", tErr)
+	}
+
+	// Verify story is still open (1 task, 0 completed)
+	fetchedStory, _ := usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if fetchedStory.IsClosed {
+		t.Errorf("expected is_closed false when story has open task, got true")
+	}
+
+	// 3. Add Task 2 (open) to story
+	_, task2, tErr := tService.CreateTask(dto.CreateTaskRequest{
+		Title:       "Task 2",
+		Type:        string(dto.TaskTypeTask),
+		Priority:    string(dto.TaskPriorityMedium),
+		Status:      string(dto.TaskStatusInProgress),
+		UserStoryID: &storyID,
+		ProjectID:   projectID,
+		UserID:      userID,
+	})
+	if tErr != nil {
+		t.Fatalf("failed creating task 2: %v", tErr)
+	}
+
+	// 4. Mark Task 1 completed (1/2 completed) -> story should remain is_closed: false
+	completedStatus := string(dto.TaskStatusCompleted)
+	_, updateErr := tService.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    task1.ID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &completedStatus,
+	})
+	if updateErr != nil {
+		t.Fatalf("failed updating task 1: %v", updateErr)
+	}
+
+	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if fetchedStory.IsClosed {
+		t.Errorf("expected is_closed false when only 1 of 2 tasks completed, got true")
+	}
+
+	// 5. Mark Task 2 completed (2/2 completed) -> story should automatically become is_closed: true
+	_, updateErr = tService.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    task2.ID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &completedStatus,
+	})
+	if updateErr != nil {
+		t.Fatalf("failed updating task 2: %v", updateErr)
+	}
+
+	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if !fetchedStory.IsClosed {
+		t.Errorf("expected is_closed true when all tasks completed, got false")
+	}
+
+	// 6. Reopen Task 1 (in_progress) -> story should automatically reopen (is_closed: false)
+	inProgressStatus := string(dto.TaskStatusInProgress)
+	_, updateErr = tService.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    task1.ID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &inProgressStatus,
+	})
+	if updateErr != nil {
+		t.Fatalf("failed reopening task 1: %v", updateErr)
+	}
+
+	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if fetchedStory.IsClosed {
+		t.Errorf("expected is_closed false after reopening task 1, got true")
+	}
+
+	// Complete Task 1 again
+	_, _ = tService.UpdateTask(dto.UpdateTaskRequest{
+		TaskID:    task1.ID,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    &completedStatus,
+	})
+
+	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if !fetchedStory.IsClosed {
+		t.Fatalf("expected is_closed true after completing task 1 again")
+	}
+
+	// 7. Add a new Task 3 (open) to closed User Story -> story should automatically reopen (is_closed: false)
+	_, task3, tErr := tService.CreateTask(dto.CreateTaskRequest{
+		Title:       "Task 3",
+		Type:        string(dto.TaskTypeTask),
+		Priority:    string(dto.TaskPriorityMedium),
+		Status:      string(dto.TaskStatusTodo),
+		UserStoryID: &storyID,
+		ProjectID:   projectID,
+		UserID:      userID,
+	})
+	if tErr != nil {
+		t.Fatalf("failed creating task 3: %v", tErr)
+	}
+
+	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if fetchedStory.IsClosed {
+		t.Errorf("expected is_closed false after adding open task to closed story, got true")
+	}
+
+	// 8. Delete Task 3 -> story recalculates and becomes closed again (2/2 completed tasks remaining)
+	_, bDelErr := tService.BulkDeleteTasks(dto.BulkDeleteTasksRequest{
+		TaskIDs:   []uuid.UUID{task3.ID},
+		ProjectID: projectID,
+		UserID:    userID,
+	})
+	if bDelErr != nil {
+		t.Fatalf("failed deleting task 3: %v", bDelErr)
+	}
+
+	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if !fetchedStory.IsClosed {
+		t.Errorf("expected is_closed true after deleting uncompleted task 3, got false")
+	}
+
+	// 9. Delete remaining tasks (task 1 and task 2) -> story has 0 tasks -> recalculates to open (is_closed: false)
+	_, _ = tService.BulkDeleteTasks(dto.BulkDeleteTasksRequest{
+		TaskIDs:   []uuid.UUID{task1.ID, task2.ID},
+		ProjectID: projectID,
+		UserID:    userID,
+	})
+
+	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	if fetchedStory.IsClosed {
+		t.Errorf("expected is_closed false when all tasks are deleted (0 tasks), got true")
+	}
+
+	updatedStory, usUpdateErr := usService.UpdateUserStory(dto.UpdateUserStoryRequest{
+		UserStoryID: storyID,
+		ProjectID:   projectID,
+		UserID:      userID,
+	})
+	if usUpdateErr != nil {
+		t.Fatalf("failed updating user story explicit is_closed: %v", usUpdateErr)
+	}
+	if !updatedStory.IsClosed {
+		t.Errorf("expected is_closed true after explicit update, got false")
+	}
+}

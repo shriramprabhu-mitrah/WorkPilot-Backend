@@ -81,6 +81,7 @@ type UserStoryFilter struct {
 	Fields         string `form:"fields"`
 	SequenceNumber *int64 `form:"sequence_number"`
 	SerialNumber   *int64 `form:"serial_number"`
+	IsClosed       *bool  `form:"is_closed"`
 }
 
 type ReorderUserStoriesRequest struct {
