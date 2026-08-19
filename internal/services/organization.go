@@ -59,7 +59,6 @@ func (s *organizationService) GetOrganizationByID(id uuid.UUID) (models.Organiza
 		return organization, err
 	}
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
-		UserID:         &id,
 		OrganizationID: &id,
 		Action:         "viewed",
 		ResourceType:   "organization",
