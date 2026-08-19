@@ -23,6 +23,7 @@ type TaskResponse struct {
 	StatusID              uuid.UUID       `json:"status_id"`
 	Status                string          `json:"status"`
 	StatusColor           string          `json:"status_color"`
+	IsFinal               bool            `json:"is_final"`
 	AssigneeID            *uuid.UUID      `json:"assignee_id,omitempty"`
 	ReporterID            *uuid.UUID      `json:"reporter_id,omitempty"`
 	ReporterName          string          `json:"reporter_name,omitempty"`

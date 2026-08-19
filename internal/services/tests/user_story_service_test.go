@@ -34,15 +34,16 @@ func (s *userStoryAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *respons
 }
 
 type stubUserStoryRepo struct {
-	stories        map[uuid.UUID]*models.UserStory
-	seqNumber      int
-	validSprints   map[uuid.UUID]bool
-	storyTaskStats map[uuid.UUID]models.StoryTaskStats
-	taskRepo       taskrepo.TaskRepository
-	createErr      *response.Error
-	getErr         *response.Error
-	updateErr      *response.Error
-	deleteErr      *response.Error
+	stories          map[uuid.UUID]*models.UserStory
+	seqNumber        int
+	validSprints     map[uuid.UUID]bool
+	storyTaskStats   map[uuid.UUID]models.StoryTaskStats
+	taskRepo         taskrepo.TaskRepository
+	customStatusRepo *stubCustomStatusRepo
+	createErr        *response.Error
+	getErr           *response.Error
+	updateErr        *response.Error
+	deleteErr        *response.Error
 }
 
 func (s *stubUserStoryRepo) CreateUserStory(userStory *models.UserStory) *response.Error {
@@ -214,7 +215,18 @@ func (s *stubUserStoryRepo) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 		for _, t := range tasks {
 			if !t.DeletedAt.Valid {
 				activeCount++
-				if strings.ToLower(strings.TrimSpace(t.Status)) == "completed" {
+				isFinal := false
+				if s.customStatusRepo != nil {
+					cs, err := s.customStatusRepo.GetStatusByID(t.StatusID, story.ProjectID)
+					if err == nil {
+						isFinal = cs.IsFinal
+					} else {
+						isFinal = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(t.Status)]
+					}
+				} else {
+					isFinal = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(t.Status)]
+				}
+				if isFinal {
 					completedCount++
 				}
 			}
@@ -222,7 +234,18 @@ func (s *stubUserStoryRepo) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 		if activeCount > 0 {
 			story.IsClosed = (completedCount == activeCount)
 		} else {
-			story.IsClosed = false
+			isFinal := false
+			if s.customStatusRepo != nil {
+				cs, err := s.customStatusRepo.GetStatusByID(story.StatusID, story.ProjectID)
+				if err == nil {
+					isFinal = cs.IsFinal
+				} else {
+					isFinal = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(story.Status)]
+				}
+			} else {
+				isFinal = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(story.Status)]
+			}
+			story.IsClosed = isFinal
 		}
 	}
 	return nil
@@ -1022,11 +1045,12 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 	taskRepo := &stubTaskRepo{
 		tasks: make(map[uuid.UUID]*models.Task),
 	}
-	userStoryRepo := &stubUserStoryRepo{
-		stories:  make(map[uuid.UUID]*models.UserStory),
-		taskRepo: taskRepo,
-	}
 	customStatusRepo := &stubCustomStatusRepo{}
+	userStoryRepo := &stubUserStoryRepo{
+		stories:          make(map[uuid.UUID]*models.UserStory),
+		taskRepo:         taskRepo,
+		customStatusRepo: customStatusRepo,
+	}
 
 	usService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
 	tService := services.InitTaskService(authRepo, projectRepo, taskRepo, userStoryRepo, &stubAuditLogRepo{}, customStatusRepo, zap.NewNop())
@@ -1198,7 +1222,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 	if usUpdateErr != nil {
 		t.Fatalf("failed updating user story explicit is_closed: %v", usUpdateErr)
 	}
-	if !updatedStory.IsClosed {
-		t.Errorf("expected is_closed true after explicit update, got false")
+	if updatedStory.IsClosed {
+		t.Errorf("expected is_closed false after explicit update, got true")
 	}
 }

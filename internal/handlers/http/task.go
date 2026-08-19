@@ -518,6 +518,10 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 		return
 	}
 
+	if filter.UserStory == "" {
+		filter.UserStory = g.Query("story_id")
+	}
+
 	var finalLabels []string
 	rawLabels := g.Request.URL.Query()["labels"]
 	for _, raw := range rawLabels {

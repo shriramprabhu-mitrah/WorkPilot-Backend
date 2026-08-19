@@ -76,6 +76,15 @@ var DefaultStatusColors = map[string]string{
 	"blocked":     "#DC143C",
 }
 
+var DefaultStatusIsFinal = map[string]bool{
+	"todo":        false,
+	"in_progress": false,
+	"in_review":   false,
+	"testing":     false,
+	"completed":   true,
+	"blocked":     false,
+}
+
 func NormalizeTaskStatus(status string) string {
 	s := strings.ToLower(strings.TrimSpace(status))
 	return strings.ReplaceAll(s, " ", "_")

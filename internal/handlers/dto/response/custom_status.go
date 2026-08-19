@@ -12,6 +12,7 @@ type CustomStatusResponse struct {
 	Color        string     `json:"color"`
 	DisplayOrder int        `json:"display_order"`
 	IsDefault    bool       `json:"is_default"`
+	IsFinal      bool       `json:"is_final"`
 }
 
 func CustomStatusFromModel(cs models.CustomStatus) CustomStatusResponse {
@@ -23,5 +24,6 @@ func CustomStatusFromModel(cs models.CustomStatus) CustomStatusResponse {
 		Color:        cs.Color,
 		DisplayOrder: cs.DisplayOrder,
 		IsDefault:    cs.IsDefault,
+		IsFinal:      cs.IsFinal,
 	}
 }

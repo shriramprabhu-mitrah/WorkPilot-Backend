@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (d *sprintDatabase) CreateSprint(row *models.Sprint) (*response.Error) {
+func (d *sprintDatabase) CreateSprint(row *models.Sprint) *response.Error {
 
 	if err := d.db.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
@@ -27,7 +27,7 @@ func (d *sprintDatabase) CreateSprint(row *models.Sprint) (*response.Error) {
 
 		d.logger.Error("Database error occurred",
 			zap.Error(err))
-		return  &response.Error{
+		return &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Something went wrong. Please try again later.",
@@ -256,7 +256,10 @@ func (d *sprintDatabase) GetTotalStoryPoints(sprintID uuid.UUID) (int, *response
 
 func (d *sprintDatabase) GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
 	var remaining int64
-	err := d.db.Model(&models.Task{}).Where("sprint_id = ? AND status != 'completed' AND deleted_at IS NULL", sprintID).Select("COALESCE(SUM(story_points), 0)").Scan(&remaining).Error
+	err := d.db.Model(&models.Task{}).
+		Where("sprint_id = ? AND deleted_at IS NULL AND status_id IN (SELECT id FROM custom_statuses WHERE is_final = false AND deleted_at IS NULL)", sprintID).
+		Select("COALESCE(SUM(story_points), 0)").
+		Scan(&remaining).Error
 	if err != nil {
 		d.logger.Error("Failed to sum remaining story points", zap.Error(err))
 		return 0, &response.Error{
@@ -284,7 +287,10 @@ func (d *sprintDatabase) GetActiveSprints() ([]models.Sprint, *response.Error) {
 
 func (d *sprintDatabase) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
 	var completed int64
-	err := d.db.Model(&models.Task{}).Where("sprint_id = ? AND status = 'completed' AND deleted_at IS NULL", sprintID).Select("COALESCE(SUM(story_points), 0)").Scan(&completed).Error
+	err := d.db.Model(&models.Task{}).
+		Where("sprint_id = ? AND deleted_at IS NULL AND status_id IN (SELECT id FROM custom_statuses WHERE is_final = true AND deleted_at IS NULL)", sprintID).
+		Select("COALESCE(SUM(story_points), 0)").
+		Scan(&completed).Error
 	if err != nil {
 		d.logger.Error("Failed to sum completed tasks story points", zap.Error(err))
 		return 0, &response.Error{
@@ -298,7 +304,7 @@ func (d *sprintDatabase) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, 
 
 func (d *sprintDatabase) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error {
 	err := d.db.Model(&models.Task{}).
-		Where("sprint_id = ? AND status != ? AND deleted_at IS NULL", sprintID, "completed").
+		Where("sprint_id = ? AND deleted_at IS NULL AND status_id IN (SELECT id FROM custom_statuses WHERE is_final = false AND deleted_at IS NULL)", sprintID).
 		Update("sprint_id", nil).Error
 	if err != nil {
 		d.logger.Error("Failed to move incomplete tasks to backlog during sprint completion", zap.Error(err))

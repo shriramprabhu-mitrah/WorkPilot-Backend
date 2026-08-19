@@ -68,6 +68,22 @@ func (s *userStoryService) getStatusColorMap(projectID uuid.UUID) map[string]str
 	return colorMap
 }
 
+func (s *userStoryService) getStatusIsFinalMap(projectID uuid.UUID) map[string]bool {
+	isFinalMap := make(map[string]bool)
+	for k, v := range models.DefaultStatusIsFinal {
+		isFinalMap[k] = v
+	}
+	if s.customStatusRepo != nil {
+		customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+		if err == nil {
+			for _, cs := range customStatuses {
+				isFinalMap[models.NormalizeTaskStatus(cs.Name)] = cs.IsFinal
+			}
+		}
+	}
+	return isFinalMap
+}
+
 func (s *userStoryService) resolveStatusIDAndName(projectID uuid.UUID, statusID *uuid.UUID, statusName *string) (uuid.UUID, string, *response.Error) {
 	if statusID != nil && *statusID != uuid.Nil {
 		if s.customStatusRepo == nil {
@@ -282,6 +298,11 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		return nil, createErr
 	}
 
+	recalcErr := s.userStoryRepo.RecalculateUserStoryIsClosed(story.ID)
+	if recalcErr != nil {
+		return nil, recalcErr
+	}
+
 	// Fetch created story with preloaded fields
 	createdStory, getErr := s.userStoryRepo.GetUserStoryByID(story.ID, req.ProjectID)
 	if getErr != nil {
@@ -351,9 +372,10 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 	}
 
 	colorMap := s.getStatusColorMap(projectID)
+	isFinalMap := s.getStatusIsFinalMap(projectID)
 	taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
 	for _, t := range tasks {
-		taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap))
+		taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap, isFinalMap))
 	}
 
 	var customStatuses []models.CustomStatus
@@ -519,6 +541,11 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 		return nil, updateErr
 	}
 
+	recalcErr := s.userStoryRepo.RecalculateUserStoryIsClosed(req.UserStoryID)
+	if recalcErr != nil {
+		return nil, recalcErr
+	}
+
 	// Fetch updated story
 	updatedStory, getErr := s.userStoryRepo.GetUserStoryByID(req.UserStoryID, req.ProjectID)
 	if getErr != nil {
@@ -626,6 +653,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 	}
 
 	colorMap := s.getStatusColorMap(projectID)
+	isFinalMap := s.getStatusIsFinalMap(projectID)
 	var customStatuses []models.CustomStatus
 	if s.customStatusRepo != nil {
 		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(projectID)
@@ -648,7 +676,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 
 		taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
 		for _, t := range tasks {
-			taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap))
+			taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap, isFinalMap))
 		}
 
 		storyRes := mapToUserStoryResponse(story, customStatuses, total, completed, progress)

@@ -99,6 +99,31 @@ type CreateTaskRequest struct {
 	OrganizationID uuid.UUID   `json:"-"`
 }
 
+func (r *CreateTaskRequest) UnmarshalJSON(data []byte) error {
+	type Alias CreateTaskRequest
+	var temp Alias
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+	*r = CreateTaskRequest(temp)
+
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(data, &rawMap); err != nil {
+		return err
+	}
+
+	if val, exists := rawMap["story_id"]; exists && r.UserStoryID == nil {
+		if val != nil {
+			if str, ok := val.(string); ok && str != "" {
+				if id, err := uuid.FromString(str); err == nil {
+					r.UserStoryID = &id
+				}
+			}
+		}
+	}
+	return nil
+}
+
 type UpdateTaskRequest struct {
 	Title          *string         `json:"title" binding:"omitempty,min=3,max=255"`
 	Description    *string         `json:"description"`
@@ -144,6 +169,19 @@ func (r *UpdateTaskRequest) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	if val, exists := rawMap["story_id"]; exists {
+		if val == nil {
+			r.UserStoryID = nil
+			r.IsNullFields["user_story_id"] = true
+		} else if r.UserStoryID == nil {
+			if str, ok := val.(string); ok && str != "" {
+				if id, err := uuid.FromString(str); err == nil {
+					r.UserStoryID = &id
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -182,15 +220,15 @@ type CloneTaskRequest struct {
 type TaskFilter struct {
 	response.PaginationQuery
 	response.SortQuery
-	Status    string   `form:"status"`
-	Assignee  string   `form:"assignee_id"`
-	Reporter  string   `form:"reporter_id"`
-	Sprint    string   `form:"sprint_id"`
-	UserStory string   `form:"user_story_id"`
-	Search    string   `form:"search"`
-	Type      string   `form:"type"`
-	Priority  string   `form:"priority"`
-	IsDeleted bool     `form:"is_deleted"`
+	Status         string   `form:"status"`
+	Assignee       string   `form:"assignee_id"`
+	Reporter       string   `form:"reporter_id"`
+	Sprint         string   `form:"sprint_id"`
+	UserStory      string   `form:"user_story_id"`
+	Search         string   `form:"search"`
+	Type           string   `form:"type"`
+	Priority       string   `form:"priority"`
+	IsDeleted      bool     `form:"is_deleted"`
 	Labels         []string `form:"labels"`
 	Match          string   `form:"match"`
 	SequenceNumber *int     `form:"sequence_number"`

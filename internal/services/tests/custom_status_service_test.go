@@ -93,6 +93,22 @@ func TestCustomStatusService_CreateCustomStatus(t *testing.T) {
 	if res.Name != "Ready for Review" || res.Color != "#FFA500" || res.DisplayOrder != 2 {
 		t.Errorf("Unexpected response content: %+v", res)
 	}
+	if res.IsFinal {
+		t.Errorf("Expected is_final to default to false, got true")
+	}
+
+	// Test 1b: Successful custom status creation with IsFinal = true
+	isFinalTrue := true
+	req1b := req
+	req1b.Name = "Done Custom"
+	req1b.IsFinal = &isFinalTrue
+	res1b, err := service.CreateStatus(req1b)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if !res1b.IsFinal {
+		t.Errorf("Expected is_final to be true, got false")
+	}
 
 	// Test 2: Invalid color (422)
 	req2 := req
@@ -192,6 +208,22 @@ func TestCustomStatusService_UpdateCustomStatus(t *testing.T) {
 	}
 	if res.Name != newName || res.Color != newColor || res.DisplayOrder != newOrder {
 		t.Errorf("Expected fields to update, got %+v", res)
+	}
+
+	// Test 1b: Successful custom status update (update IsFinal to true)
+	isFinalTrue := true
+	req1b := dto.UpdateCustomStatusRequest{
+		IsFinal:   &isFinalTrue,
+		StatusID:  statusID,
+		ProjectID: projectID,
+		UserID:    userID,
+	}
+	res1b, err := service.UpdateStatus(req1b)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if !res1b.IsFinal {
+		t.Errorf("Expected is_final to be updated to true, got false")
 	}
 
 	// Test 2: Update with invalid color (422)
