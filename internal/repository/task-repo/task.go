@@ -137,36 +137,92 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		Preload("Reporter").
 		Where("project_id = ?", projectID)
 
-	if filter.Status != "" {
-		query = query.Where("status = ?", filter.Status)
+	if len(filter.StatusIDs) > 0 {
+		query = query.Where("status_id IN ?", filter.StatusIDs)
 	}
 
-	if filter.Assignee != "" {
-		query = query.Where("assignee_id = ?", filter.Assignee)
+	if len(filter.Assignee) > 0 {
+		var hasNull bool
+		var uuids []uuid.UUID
+		for _, a := range filter.Assignee {
+			if a == "none" || a == "null" {
+				hasNull = true
+			} else if uid, err := uuid.FromString(a); err == nil {
+				uuids = append(uuids, uid)
+			}
+		}
+		if hasNull && len(uuids) > 0 {
+			query = query.Where("assignee_id IS NULL OR assignee_id IN ?", uuids)
+		} else if hasNull {
+			query = query.Where("assignee_id IS NULL")
+		} else if len(uuids) > 0 {
+			query = query.Where("assignee_id IN ?", uuids)
+		}
 	}
 
-	if filter.Sprint != "" {
-		if filter.Sprint == "null" || filter.Sprint == "none" {
+	if len(filter.Reporter) > 0 {
+		var hasNull bool
+		var uuids []uuid.UUID
+		for _, r := range filter.Reporter {
+			if r == "none" || r == "null" {
+				hasNull = true
+			} else if uid, err := uuid.FromString(r); err == nil {
+				uuids = append(uuids, uid)
+			}
+		}
+		if hasNull && len(uuids) > 0 {
+			query = query.Where("reporter_id IS NULL OR reporter_id IN ?", uuids)
+		} else if hasNull {
+			query = query.Where("reporter_id IS NULL")
+		} else if len(uuids) > 0 {
+			query = query.Where("reporter_id IN ?", uuids)
+		}
+	}
+
+	if len(filter.Sprint) > 0 {
+		var hasNull bool
+		var uuids []uuid.UUID
+		for _, s := range filter.Sprint {
+			if s == "none" || s == "null" {
+				hasNull = true
+			} else if uid, err := uuid.FromString(s); err == nil {
+				uuids = append(uuids, uid)
+			}
+		}
+		if hasNull && len(uuids) > 0 {
+			query = query.Where("sprint_id IS NULL OR sprint_id IN ?", uuids)
+		} else if hasNull {
 			query = query.Where("sprint_id IS NULL")
-		} else {
-			query = query.Where("sprint_id = ?", filter.Sprint)
+		} else if len(uuids) > 0 {
+			query = query.Where("sprint_id IN ?", uuids)
 		}
 	}
 
-	if filter.UserStory != "" {
-		if filter.UserStory == "null" || filter.UserStory == "none" {
+	if len(filter.UserStory) > 0 {
+		var hasNull bool
+		var uuids []uuid.UUID
+		for _, us := range filter.UserStory {
+			if us == "none" || us == "null" {
+				hasNull = true
+			} else if uid, err := uuid.FromString(us); err == nil {
+				uuids = append(uuids, uid)
+			}
+		}
+		if hasNull && len(uuids) > 0 {
+			query = query.Where("user_story_id IS NULL OR user_story_id IN ?", uuids)
+		} else if hasNull {
 			query = query.Where("user_story_id IS NULL")
-		} else {
-			query = query.Where("user_story_id = ?", filter.UserStory)
+		} else if len(uuids) > 0 {
+			query = query.Where("user_story_id IN ?", uuids)
 		}
 	}
 
-	if filter.Type != "" {
-		query = query.Where("type = ?", filter.Type)
+	if len(filter.Type) > 0 {
+		query = query.Where("type IN ?", filter.Type)
 	}
 
-	if filter.Priority != "" {
-		query = query.Where("priority = ?", filter.Priority)
+	if len(filter.Priority) > 0 {
+		query = query.Where("priority IN ?", filter.Priority)
 	}
 
 	if filter.SequenceNumber != nil {

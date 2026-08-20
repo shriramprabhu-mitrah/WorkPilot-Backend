@@ -474,6 +474,23 @@ func (h *taskHandler) CloneTask(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
+func parseMultiQueryParam(g *gin.Context, key string) []string {
+	var vals []string
+	seen := make(map[string]bool)
+	rawVals := g.Request.URL.Query()[key]
+	for _, raw := range rawVals {
+		parts := strings.Split(raw, ",")
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" && !seen[trimmed] {
+				seen[trimmed] = true
+				vals = append(vals, trimmed)
+			}
+		}
+	}
+	return vals
+}
+
 // GetTasks godoc
 // @Summary Get Tasks
 // @Description Retrieve tasks for a project with search, filter, sort and pagination options
@@ -484,7 +501,7 @@ func (h *taskHandler) CloneTask(g *gin.Context) {
 // @Param page_size query int false "Page size" default(10)
 // @Param sort_by query string false "Sort by field" Enums(title,created_at,updated_at,priority,status)
 // @Param sort_order query string false "Sort order" Enums(ASC,DESC)
-// @Param status query string false "Task Status"
+// @Param status_id query string false "Task Status ID"
 // @Param assignee_id query string false "Assignee User ID"
 // @Param reporter_id query string false "Reporter User ID"
 // @Param sprint_id query string false "Sprint ID"
@@ -518,22 +535,20 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 		return
 	}
 
-	if filter.UserStory == "" {
-		filter.UserStory = g.Query("story_id")
-	}
+	filter.StatusID = parseMultiQueryParam(g, "status_id")
+	filter.Assignee = parseMultiQueryParam(g, "assignee_id")
+	filter.Reporter = parseMultiQueryParam(g, "reporter_id")
+	filter.Sprint = parseMultiQueryParam(g, "sprint_id")
 
-	var finalLabels []string
-	rawLabels := g.Request.URL.Query()["labels"]
-	for _, raw := range rawLabels {
-		parts := strings.Split(raw, ",")
-		for _, part := range parts {
-			trimmed := strings.TrimSpace(part)
-			if trimmed != "" {
-				finalLabels = append(finalLabels, trimmed)
-			}
-		}
+	userStory := parseMultiQueryParam(g, "user_story_id")
+	if len(userStory) == 0 {
+		userStory = parseMultiQueryParam(g, "story_id")
 	}
-	filter.Labels = finalLabels
+	filter.UserStory = userStory
+
+	filter.Type = parseMultiQueryParam(g, "type")
+	filter.Priority = parseMultiQueryParam(g, "priority")
+	filter.Labels = parseMultiQueryParam(g, "labels")
 
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {

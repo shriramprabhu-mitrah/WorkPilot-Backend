@@ -362,12 +362,142 @@ func (s *stubTaskRepo) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 	}
 	var res []models.Task
 	for _, t := range s.tasks {
+		if t.ProjectID != projectID {
+			continue
+		}
 		if filter.IsDeleted && !t.DeletedAt.Valid {
 			continue
 		}
 		if !filter.IsDeleted && t.DeletedAt.Valid {
 			continue
 		}
+		
+		// Status filter (uses resolved StatusIDs)
+		if len(filter.StatusIDs) > 0 {
+			matched := false
+			for _, id := range filter.StatusIDs {
+				if t.StatusID == id {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		// Assignee filter
+		if len(filter.Assignee) > 0 {
+			matched := false
+			for _, a := range filter.Assignee {
+				if a == "none" || a == "null" {
+					if t.AssigneeID == nil || *t.AssigneeID == uuid.Nil {
+						matched = true
+						break
+					}
+				} else if uid, err := uuid.FromString(a); err == nil {
+					if t.AssigneeID != nil && *t.AssigneeID == uid {
+						matched = true
+						break
+					}
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		// Reporter filter
+		if len(filter.Reporter) > 0 {
+			matched := false
+			for _, r := range filter.Reporter {
+				if r == "none" || r == "null" {
+					if t.ReporterID == nil || *t.ReporterID == uuid.Nil {
+						matched = true
+						break
+					}
+				} else if uid, err := uuid.FromString(r); err == nil {
+					if t.ReporterID != nil && *t.ReporterID == uid {
+						matched = true
+						break
+					}
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		// Sprint filter
+		if len(filter.Sprint) > 0 {
+			matched := false
+			for _, sp := range filter.Sprint {
+				if sp == "none" || sp == "null" {
+					if t.SprintID == nil || *t.SprintID == uuid.Nil {
+						matched = true
+						break
+					}
+				} else if uid, err := uuid.FromString(sp); err == nil {
+					if t.SprintID != nil && *t.SprintID == uid {
+						matched = true
+						break
+					}
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		// UserStory filter
+		if len(filter.UserStory) > 0 {
+			matched := false
+			for _, us := range filter.UserStory {
+				if us == "none" || us == "null" {
+					if t.UserStoryID == nil || *t.UserStoryID == uuid.Nil {
+						matched = true
+						break
+					}
+				} else if uid, err := uuid.FromString(us); err == nil {
+					if t.UserStoryID != nil && *t.UserStoryID == uid {
+						matched = true
+						break
+					}
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		// Type filter
+		if len(filter.Type) > 0 {
+			matched := false
+			for _, ty := range filter.Type {
+				if strings.EqualFold(t.Type, ty) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		// Priority filter
+		if len(filter.Priority) > 0 {
+			matched := false
+			for _, p := range filter.Priority {
+				if strings.EqualFold(t.Priority, p) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
 		if len(filter.Labels) > 0 {
 			isMatchAll := (strings.ToLower(filter.Match) == "all")
 			if isMatchAll {
@@ -1683,4 +1813,93 @@ func TestTaskService_CreateTask_WithCrossProjectUserStory(t *testing.T) {
 	if err.Message != "User story must belong to the same project" {
 		t.Errorf("expected error message 'User story must belong to the same project', got '%s'", err.Message)
 	}
+}
+
+func TestTaskService_GetTasks_StatusValidation(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
+		isMember: true,
+	}
+
+	statusTodo := models.CustomStatus{ID: uuid.Must(uuid.NewV4()), ProjectID: projectID, Name: "Todo"}
+	statusInProgress := models.CustomStatus{ID: uuid.Must(uuid.NewV4()), ProjectID: projectID, Name: "In Progress"}
+
+	statusRepo := &stubCustomStatusRepo{
+		statuses: map[uuid.UUID]map[string]*models.CustomStatus{
+			projectID: {
+				"todo":        &statusTodo,
+				"in_progress": &statusInProgress,
+			},
+		},
+	}
+
+	taskRepo := &stubTaskRepo{tasks: map[uuid.UUID]*models.Task{}}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, statusRepo, zap.NewNop())
+
+	t.Run("status=valid UUID resolves status ID correctly", func(t *testing.T) {
+		res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+			StatusID: []string{statusTodo.ID.String()},
+		})
+		if err != nil {
+			t.Fatalf("expected success, got: %v", err)
+		}
+		_ = res
+	})
+
+	t.Run("status=UUID of another project returns 422", func(t *testing.T) {
+		otherProjectStatusID := uuid.Must(uuid.NewV4())
+		_, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+			StatusID: []string{otherProjectStatusID.String()},
+		})
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != 422 {
+			t.Errorf("expected status code 422, got: %d", err.StatusCode)
+		}
+		if err.Message != "Invalid task status_id: status does not exist or does not belong to this project" {
+			t.Errorf("unexpected error message: %s", err.Message)
+		}
+	})
+
+	t.Run("status=invalid UUID/name returns 422", func(t *testing.T) {
+		_, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+			StatusID: []string{"nonexistent-status-name"},
+		})
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != 422 {
+			t.Errorf("expected status code 422, got: %d", err.StatusCode)
+		}
+		if err.Message != "Invalid task status value: status name not found in this project" {
+			t.Errorf("unexpected error message: %s", err.Message)
+		}
+	})
+
+	t.Run("status=TODO case-insensitive resolves to todo", func(t *testing.T) {
+		res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+			StatusID: []string{"TODO"},
+		})
+		if err != nil {
+			t.Fatalf("expected success, got: %v", err)
+		}
+		_ = res
+	})
+
+	t.Run("status=In Progress normalizes and resolves to in_progress", func(t *testing.T) {
+		res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
+			StatusID: []string{"In Progress"},
+		})
+		if err != nil {
+			t.Fatalf("expected success, got: %v", err)
+		}
+		_ = res
+	})
 }
