@@ -167,11 +167,6 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 				projectIDs = append(projectIDs, rID)
 			case "sprint":
 				sprintIDs = append(sprintIDs, rID)
-			default:
-				taskIDs = append(taskIDs, rID)
-				userStoryIDs = append(userStoryIDs, rID)
-				projectIDs = append(projectIDs, rID)
-				sprintIDs = append(sprintIDs, rID)
 			}
 		}
 	}

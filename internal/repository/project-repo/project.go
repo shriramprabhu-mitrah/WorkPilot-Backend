@@ -441,7 +441,7 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.Proj
 		if resType != "" {
 			baseQuery = baseQuery.Where(
 				"LOWER(resource_type) = ?",
-				"project",
+				resType,
 			)
 		}
 	}
@@ -879,11 +879,6 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 			case "project", "project_member":
 				projectIDs = append(projectIDs, rID)
 			case "sprint":
-				sprintIDs = append(sprintIDs, rID)
-			default:
-				taskIDs = append(taskIDs, rID)
-				userStoryIDs = append(userStoryIDs, rID)
-				projectIDs = append(projectIDs, rID)
 				sprintIDs = append(sprintIDs, rID)
 			}
 		}
