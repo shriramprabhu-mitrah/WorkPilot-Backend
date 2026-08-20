@@ -3577,9 +3577,9 @@ paths:
         in: query
         name: sort_order
         type: string
-      - description: Task Status
+      - description: Task Status ID
         in: query
-        name: status
+        name: status_id
         type: string
       - description: Assignee User ID
         in: query

@@ -220,19 +220,20 @@ type CloneTaskRequest struct {
 type TaskFilter struct {
 	response.PaginationQuery
 	response.SortQuery
-	Status         string   `form:"status"`
-	Assignee       string   `form:"assignee_id"`
-	Reporter       string   `form:"reporter_id"`
-	Sprint         string   `form:"sprint_id"`
-	UserStory      string   `form:"user_story_id"`
-	Search         string   `form:"search"`
-	Type           string   `form:"type"`
-	Priority       string   `form:"priority"`
-	IsDeleted      bool     `form:"is_deleted"`
-	Labels         []string `form:"labels"`
-	Match          string   `form:"match"`
-	SequenceNumber *int     `form:"sequence_number"`
-	SerialNumber   *int64   `form:"serial_number"`
+	StatusID       []string    `form:"status_id"`
+	Assignee       []string    `form:"assignee_id"`
+	Reporter       []string    `form:"reporter_id"`
+	Sprint         []string    `form:"sprint_id"`
+	UserStory      []string    `form:"user_story_id"`
+	Search         string      `form:"search"`
+	Type           []string    `form:"type"`
+	Priority       []string    `form:"priority"`
+	IsDeleted      bool        `form:"is_deleted"`
+	Labels         []string    `form:"labels"`
+	Match          string      `form:"match"`
+	SequenceNumber *int        `form:"sequence_number"`
+	SerialNumber   *int64      `form:"serial_number"`
+	StatusIDs      []uuid.UUID `form:"-"` // Internal resolved status IDs
 }
 
 type BulkUpdateTaskItem struct {

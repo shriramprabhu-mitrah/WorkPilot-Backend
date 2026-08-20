@@ -3552,8 +3552,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Task Status",
-                        "name": "status",
+                        "description": "Task Status ID",
+                        "name": "status_id",
                         "in": "query"
                     },
                     {

@@ -1335,6 +1335,55 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 		}
 	}
 
+	if len(filter.StatusID) > 0 {
+		customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+		if err != nil {
+			return nil, response.Pagination{}, err
+		}
+
+		statusByName := make(map[string]models.CustomStatus)
+		statusByID := make(map[uuid.UUID]models.CustomStatus)
+		for _, cs := range customStatuses {
+			statusByName[models.NormalizeTaskStatus(cs.Name)] = cs
+			statusByID[cs.ID] = cs
+		}
+
+		seenIDs := make(map[uuid.UUID]bool)
+		for _, statusVal := range filter.StatusID {
+			if statusVal == "" {
+				continue
+			}
+			if statusUUID, parseErr := uuid.FromString(statusVal); parseErr == nil {
+				cs, exists := statusByID[statusUUID]
+				if !exists {
+					return nil, response.Pagination{}, &response.Error{
+						Code:       response.ErrValidation,
+						StatusCode: http.StatusUnprocessableEntity,
+						Message:    "Invalid task status_id: status does not exist or does not belong to this project",
+					}
+				}
+				if !seenIDs[cs.ID] {
+					seenIDs[cs.ID] = true
+					filter.StatusIDs = append(filter.StatusIDs, cs.ID)
+				}
+			} else {
+				normalizedVal := models.NormalizeTaskStatus(statusVal)
+				cs, exists := statusByName[normalizedVal]
+				if !exists {
+					return nil, response.Pagination{}, &response.Error{
+						Code:       response.ErrValidation,
+						StatusCode: http.StatusUnprocessableEntity,
+						Message:    "Invalid task status value: status name not found in this project",
+					}
+				}
+				if !seenIDs[cs.ID] {
+					seenIDs[cs.ID] = true
+					filter.StatusIDs = append(filter.StatusIDs, cs.ID)
+				}
+			}
+		}
+	}
+
 	tasks, pagination, err := s.taskRepo.GetTasks(projectID, filter)
 	if err != nil {
 		return nil, response.Pagination{}, err
