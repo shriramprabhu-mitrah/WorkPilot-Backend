@@ -1,6 +1,8 @@
 package request
 
 import (
+	"time"
+
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/response"
 )
@@ -44,9 +46,11 @@ type UpdateSprintRequest struct {
 
 type SprintFilter struct {
 	response.PaginationQuery
-	Status SprintStatus `form:"status"`
-	Search string       `form:"search"`
-	Fields string       `form:"fields"`
+	Status    SprintStatus `form:"status"`
+	Search    string       `form:"search"`
+	Fields    string       `form:"fields"`
+	StartDate time.Time    `form:"start_date" time_format:"2006-01-02"`
+	EndDate   time.Time    `form:"end_date" time_format:"2006-01-02"`
 }
 
 type DeleteSprint struct {

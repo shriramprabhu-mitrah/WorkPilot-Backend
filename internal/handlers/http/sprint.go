@@ -273,6 +273,8 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Param sort_by query string false "Sort by field" Enums(name,created_at,updated_at,start_date,end_date,status)
 // @Param sort_order query string false "Sort order" Enums(ASC,DESC)
 // @Param fields query string false "Fields to return (comma separated)"
+// @Param start_date query string false "Filter sprints from this start date" Format(date)
+// @Param end_date query string false "Filter sprints up to this end date" Format(date)
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -283,31 +285,75 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 
 	var filter requestdto.SprintFilter
 
+	// Bind query parameters
 	if err := g.ShouldBindQuery(&filter); err != nil {
+		h.logger.Error(
+			"Failed to bind sprint filters",
+			zap.Error(err),
+		)
+
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error: response.Error{
 				Code:       response.ErrValidation,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid query parameters",
-			}}
+				StatusCode: http.StatusUnprocessableEntity,
+				Message:    "Invalid query parameters. Date format must be YYYY-MM-DD",
+			},
+		}
+
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
 	}
 
+	// Validate date range
+	if !filter.StartDate.IsZero() &&
+		!filter.EndDate.IsZero() &&
+		filter.StartDate.After(filter.EndDate) {
+
+		h.logger.Warn(
+			"Invalid sprint date range",
+			zap.Time("startDate", filter.StartDate),
+			zap.Time("endDate", filter.EndDate),
+		)
+
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusUnprocessableEntity,
+				Message:    "start_date must be before or equal to end_date",
+			},
+		}
+
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	// Log dates to verify binding
+	h.logger.Info(
+		"Sprint date filter",
+		zap.Time("startDate", filter.StartDate),
+		zap.Time("endDate", filter.EndDate),
+	)
+
+	// Get organization ID
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
 		return
 	}
 
+	// Get project ID
 	projectIDParam := g.Param("project_id")
+
 	projectID, errorResponse := utils.StringToUUID(projectIDParam)
 	if errorResponse != nil {
 		h.logger.Error("Failed to convert the string into UUID")
+
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
 	}
 
+	// Get user ID
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
 		return
@@ -319,31 +365,44 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 		UserID:         userUUID,
 	}
 
+	// Pass filter to service
 	projects, pagination, err := h.service.GetSprints(payload, filter)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
 			Error:   *err,
 		}
+
 		g.JSON(err.StatusCode, errorResponse)
 		return
 	}
 
+	// Convert model to response DTO
 	sprintResponses := make([]responsedto.Sprint, 0, len(projects))
+
 	for _, sprint := range projects {
 		sprintResponses = append(sprintResponses, responsedto.SprintFromModel(sprint))
 	}
 
+	// Filter response fields
 	var filteredData any = sprintResponses
+
 	if filter.Fields != "" {
 		var filterErr error
+
 		filteredData, filterErr = utils.FilterFields(sprintResponses, filter.Fields)
+
 		if filterErr != nil {
-			h.logger.Error("Failed to filter sprint fields", zap.Error(filterErr))
+			h.logger.Error(
+				"Failed to filter sprint fields",
+				zap.Error(filterErr),
+			)
+
 			filteredData = sprintResponses
 		}
 	}
 
+	// Response
 	g.JSON(http.StatusOK, response.SuccessResponse{
 		Success:    true,
 		StatusCode: http.StatusOK,

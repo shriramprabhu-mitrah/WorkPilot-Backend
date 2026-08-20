@@ -165,6 +165,13 @@ func (d *sprintDatabase) GetSprints(projectID uuid.UUID, filter dto.SprintFilter
 		query = query.Where("status = ?", filter.Status)
 	}
 
+	// Date range filter
+	if !filter.StartDate.IsZero() && !filter.EndDate.IsZero() {
+		query = query.
+			Where("start_date >= ?", filter.StartDate).
+			Where("end_date <= ?", filter.EndDate)
+	}
+
 	if err := query.Count(&totalItems).Error; err != nil {
 		d.logger.Error("Failed to count sprints",
 			zap.Error(err))

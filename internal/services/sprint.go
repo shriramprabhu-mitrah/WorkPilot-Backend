@@ -458,6 +458,17 @@ func (s *sprintService) GetSprints(req dto.GetSprint, filter dto.SprintFilter) (
 		}
 	}
 
+	// Validate date range
+	if !filter.StartDate.IsZero() && !filter.EndDate.IsZero() {
+		if filter.StartDate.After(filter.EndDate) {
+			return nil, response.Pagination{}, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Start date must be before or equal to end date",
+			}
+		}
+	}
+
 	sprints, pagination, err := s.sprintRepo.GetSprints(req.ProjectID, filter)
 	if err != nil {
 		return nil, response.Pagination{}, err
