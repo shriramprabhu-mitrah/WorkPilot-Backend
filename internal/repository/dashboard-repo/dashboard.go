@@ -17,11 +17,15 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 
 	var result responsedto.DashboardOverview
 
+	now := time.Now()
+	fortyEightHoursLater := now.Add(48 * time.Hour)
+
 	// Total tasks
 	err := r.db.
 		Model(&models.Task{}).
-		Where("project_id = ?", projectID).
+		Where("tasks.project_id = ?", projectID).
 		Count(&result.TotalTasks).Error
+
 	if err != nil {
 		r.logger.Error("Failed to get total tasks", zap.Error(err))
 		return responsedto.DashboardOverview{}, &response.Error{
@@ -31,12 +35,17 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 		}
 	}
 
-	// Completed
+	// Completed tasks
 	err = r.db.
 		Model(&models.Task{}).
-		Where("project_id = ?", projectID).
-		Where("status = ?", "completed").
+		Joins(`
+			JOIN custom_statuses
+			ON custom_statuses.id = tasks.status_id
+		`).
+		Where("tasks.project_id = ?", projectID).
+		Where("custom_statuses.is_final = ?", true).
 		Count(&result.Completed).Error
+
 	if err != nil {
 		r.logger.Error("Failed to get completed tasks", zap.Error(err))
 		return responsedto.DashboardOverview{}, &response.Error{
@@ -46,12 +55,17 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 		}
 	}
 
-	// Pending
+	// Pending tasks
 	err = r.db.
 		Model(&models.Task{}).
-		Where("project_id = ?", projectID).
-		Where("status != ?", "completed").
+		Joins(`
+			JOIN custom_statuses
+			ON custom_statuses.id = tasks.status_id
+		`).
+		Where("tasks.project_id = ?", projectID).
+		Where("custom_statuses.is_final = ?", false).
 		Count(&result.Pending).Error
+
 	if err != nil {
 		r.logger.Error("Failed to get pending tasks", zap.Error(err))
 		return responsedto.DashboardOverview{}, &response.Error{
@@ -61,13 +75,18 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 		}
 	}
 
-	// Overdue
+	// Overdue tasks
 	err = r.db.
 		Model(&models.Task{}).
-		Where("project_id = ?", projectID).
-		Where("due_date < ?", time.Now()).
-		Where("status != ?", "completed").
+		Joins(`
+			JOIN custom_statuses
+			ON custom_statuses.id = tasks.status_id
+		`).
+		Where("tasks.project_id = ?", projectID).
+		Where("tasks.due_date < ?", now).
+		Where("custom_statuses.is_final = ?", false).
 		Count(&result.Overdue).Error
+
 	if err != nil {
 		r.logger.Error("Failed to get overdue tasks", zap.Error(err))
 		return responsedto.DashboardOverview{}, &response.Error{
@@ -78,21 +97,23 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 	}
 
 	// Due soon - next 48 hours
-	fortyEightHoursLater := time.Now().Add(48 * time.Hour)
-
 	err = r.db.
 		Model(&models.Task{}).
-		Where("project_id = ?", projectID).
-		Where("due_date >= ?", time.Now()).
-		Where("due_date <= ?", fortyEightHoursLater).
-		Where("status != ?", "completed").
+		Joins(`
+			JOIN custom_statuses
+			ON custom_statuses.id = tasks.status_id
+		`).
+		Where("tasks.project_id = ?", projectID).
+		Where("tasks.due_date >= ?", now).
+		Where("tasks.due_date <= ?", fortyEightHoursLater).
+		Where("custom_statuses.is_final = ?", false).
 		Count(&result.Duesoon).Error
 
 	if err != nil {
-		r.logger.Error("Failed to get Duesoon tasks", zap.Error(err))
+		r.logger.Error("Failed to get due soon tasks", zap.Error(err))
 		return responsedto.DashboardOverview{}, &response.Error{
 			Code:       response.ErrInternalServerError,
-			Message:    "Failed to get Duesoon tasks",
+			Message:    "Failed to get due soon tasks",
 			StatusCode: http.StatusInternalServerError,
 		}
 	}
@@ -110,11 +131,23 @@ func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64
 	err := r.db.
 		Model(&models.Task{}).
 		Select(`
-			status,
+			CASE
+				WHEN custom_statuses.is_final = true THEN 'completed'
+				ELSE tasks.status
+			END AS status,
 			COUNT(*) AS count
 		`).
-		Where("project_id = ?", projectID).
-		Group("status").
+		Joins(`
+			JOIN custom_statuses
+			ON custom_statuses.id = tasks.status_id
+		`).
+		Where("tasks.project_id = ?", projectID).
+		Group(`
+			CASE
+				WHEN custom_statuses.is_final = true THEN 'completed'
+				ELSE tasks.status
+			END
+		`).
 		Order("status").
 		Scan(&result).Error
 
