@@ -15,6 +15,7 @@ type UserStoryAttachment struct {
 	MIMEType         string    `json:"mime_type" gorm:"type:varchar(100);not null"`
 	FileSize         int64     `json:"file_size" gorm:"type:bigint;not null"`
 	StoragePath      string    `json:"storage_path" gorm:"type:text;not null"`
+	URL              string    `json:"url" gorm:"type:text;not null;default:''"`
 	UploadedBy       uuid.UUID `json:"uploaded_by" gorm:"type:uuid;not null;index"`
 	UploadedAt       time.Time `json:"uploaded_at" gorm:"type:timestamptz;not null"`
 }

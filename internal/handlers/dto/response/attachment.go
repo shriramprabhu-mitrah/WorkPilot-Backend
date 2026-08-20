@@ -61,6 +61,7 @@ type UserStoryAttachmentResponse struct {
 	OriginalFilename string    `json:"original_filename"`
 	MIMEType         string    `json:"mime_type"`
 	FileSize         int64     `json:"file_size"`
+	URL              string    `json:"url,omitempty"`
 	UploadedBy       uuid.UUID `json:"uploaded_by"`
 	UploadedAt       time.Time `json:"uploaded_at"`
 }
@@ -72,6 +73,7 @@ func UserStoryAttachmentFromModel(a models.UserStoryAttachment) UserStoryAttachm
 		OriginalFilename: a.OriginalFilename,
 		MIMEType:         a.MIMEType,
 		FileSize:         a.FileSize,
+		URL:              a.URL,
 		UploadedBy:       a.UploadedBy,
 		UploadedAt:       a.UploadedAt,
 	}
