@@ -589,3 +589,63 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 		t.Fatalf("expected update to allow duplicate date range/name, got error %v", err)
 	}
 }
+
+func TestSprintService_UpdateSprint_AuditLogDetails(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			UserName:       "sprint_master",
+		},
+	}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Old Sprint",
+			Goal:      "Old Goal",
+			Status:    "planning",
+			StartDate: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+			EndDate:   time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	auditRepo := &stubAuditLogRepo{}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, auditRepo, logger)
+
+	newName := "New Sprint"
+	newGoal := "New Goal"
+	newStatus := dto.SprintStatusActive
+	newStartDate := "2026-08-02"
+	newEndDate := "2026-08-12"
+
+	err := service.UpdateSprint(dto.UpdateSprintRequest{
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		SprintID:       sprintID,
+		Name:           &newName,
+		Goal:           &newGoal,
+		Status:         &newStatus,
+		StartDate:      &newStartDate,
+		EndDate:        &newEndDate,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(auditRepo.createdLogs) != 1 {
+		t.Fatalf("expected 1 audit log created, got %d", len(auditRepo.createdLogs))
+	}
+
+	log := auditRepo.createdLogs[0]
+	expectedDetail := "Sprint updated by sprint_master: start date changed from '2026-08-01' to '2026-08-02', end date changed from '2026-08-10' to '2026-08-12', name changed from 'Old Sprint' to 'New Sprint', goal changed from 'Old Goal' to 'New Goal', status changed from 'planning' to 'active'"
+	if log.Details != expectedDetail {
+		t.Errorf("expected audit log detail:\n%s\ngot:\n%s", expectedDetail, log.Details)
+	}
+}

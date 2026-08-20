@@ -2099,7 +2099,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/project/{project_id}/activity": {
+        "/project/{project_id}/activity/{type}": {
             "get": {
                 "security": [
                     {
@@ -2126,6 +2126,17 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "enum": [
+                            "view",
+                            "activity"
+                        ],
+                        "type": "string",
+                        "description": "Activity Type",
+                        "name": "type",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
                         "type": "integer",
                         "default": 1,
                         "description": "Page number",
@@ -2146,9 +2157,40 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "project",
+                            "task",
+                            "userstory",
+                            "sprint",
+                            "comment"
+                        ],
                         "type": "string",
                         "description": "Filter by resource type",
                         "name": "resource_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by resource ID",
+                        "name": "resource_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by task ID (UUID)",
+                        "name": "task_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by user story ID (UUID)",
+                        "name": "user_story_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by sprint ID (UUID)",
+                        "name": "sprint_id",
                         "in": "query"
                     },
                     {
@@ -7198,6 +7240,9 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "is_closed": {
+                    "type": "boolean"
+                },
                 "priority": {
                     "type": "string",
                     "enum": [
@@ -7294,7 +7339,16 @@ const docTemplate = `{
                 "resource_type": {
                     "type": "string"
                 },
+                "sprint_name": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                },
                 "task_key": {
+                    "type": "string"
+                },
+                "task_name": {
                     "type": "string"
                 },
                 "title": {
@@ -7302,6 +7356,15 @@ const docTemplate = `{
                 },
                 "type": {
                     "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_models.AuditLogType"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary"
+                },
+                "user_story_id": {
+                    "type": "string"
+                },
+                "user_story_name": {
+                    "type": "string"
                 }
             }
         },
@@ -7424,7 +7487,13 @@ const docTemplate = `{
                 "resource_type": {
                     "type": "string"
                 },
+                "sprint_name": {
+                    "type": "string"
+                },
                 "task_key": {
+                    "type": "string"
+                },
+                "task_name": {
                     "type": "string"
                 },
                 "timestamp": {
@@ -7435,6 +7504,9 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary"
+                },
+                "user_story_name": {
+                    "type": "string"
                 }
             }
         },

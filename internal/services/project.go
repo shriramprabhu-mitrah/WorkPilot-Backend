@@ -54,31 +54,31 @@ type projectService struct {
 	logger      *zap.Logger
 }
 
-func (s *projectService) checkAuthorization(projectID, userID uuid.UUID) (bool, *response.Error) {
+func (s *projectService) checkAuthorization(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 	if user.Role == string(requestdto.RoleSuperAdmin) {
-		return false, &response.Error{
+		return models.Project{}, models.User{}, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
 	if user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return true, nil
+		return project, user, true, nil
 	}
 	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
-	return isMember, nil
+	return project, user, isMember, nil
 }
 
 func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uuid.UUID, *response.Error) {
@@ -146,7 +146,7 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uui
 		ResourceType:   "project",
 		ResourceID:     project.ID.String(),
 		Title:          project.Name,
-		Details:        fmt.Sprintf("Project '%s' created", req.Name),
+		Details:        fmt.Sprintf("The project '%s' was created by %s", req.Name, result.UserName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -162,7 +162,7 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uui
 
 func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *response.Error {
 
-	authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	existingProject, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return err
 	}
@@ -194,12 +194,30 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		}
 	}
 
+	changedBy := req.UserID.String()
+	if user.UserName != "" {
+		changedBy = user.UserName
+	} else if user.FullName != "" {
+		changedBy = user.FullName
+	} else if user.Email != "" {
+		changedBy = user.Email
+	}
+
 	updates := make(map[string]interface{})
+	var changes []string
 	if req.Name != nil {
-		updates["name"] = *req.Name
+		newName := *req.Name
+		updates["name"] = newName
+		if newName != existingProject.Name {
+			changes = append(changes, fmt.Sprintf("name changed from '%s' to '%s'", existingProject.Name, newName))
+		}
 	}
 	if req.Description != nil {
-		updates["description"] = *req.Description
+		newDesc := *req.Description
+		updates["description"] = newDesc
+		if newDesc != existingProject.Description {
+			changes = append(changes, fmt.Sprintf("description changed from '%s' to '%s'", existingProject.Description, newDesc))
+		}
 	}
 	if req.Status != nil {
 		if err := req.Status.Validate(); err != nil {
@@ -210,7 +228,11 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 				Message:    "Invalid status. Allowed values: active, archived, on_hold, completed, cancelled, planning",
 			}
 		}
-		updates["status"] = string(*req.Status)
+		newStatus := string(*req.Status)
+		updates["status"] = newStatus
+		if newStatus != existingProject.Status {
+			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", existingProject.Status, newStatus))
+		}
 	}
 
 	if len(updates) == 0 {
@@ -227,10 +249,10 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 	}
 
 	var detail string
-	if req.Name != nil {
-		detail = fmt.Sprintf("Project updated name to: %s", *req.Name)
+	if len(changes) > 0 {
+		detail = fmt.Sprintf("Project updated by %s: %s", changedBy, strings.Join(changes, ", "))
 	} else {
-		detail = "Project details updated"
+		detail = fmt.Sprintf("Project details updated by %s", changedBy)
 	}
 
 	// Log project update audit event
@@ -241,6 +263,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		Action:         "updated",
 		ResourceType:   "project",
 		ResourceID:     req.ProjectID.String(),
+		Title:          existingProject.Name,
 		Details:        detail,
 		CreatedAt:      time.Now(),
 		Type:           models.AuditLogTypeActivity,
@@ -326,7 +349,7 @@ func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.Pr
 
 func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMemberRequest) *response.Error {
 
-	authorized, err := s.checkAuthorization(req.ProjectID, req.AddedByID)
+	_, addedBy, authorized, err := s.checkAuthorization(req.ProjectID, req.AddedByID)
 	if err != nil {
 		return err
 	}
@@ -385,7 +408,7 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 			JoinedAt:    time.Now(),
 		}
 
-		if err := s.projectRepo.CreateProjectMember(projectMember); err != nil {
+		if err := s.projectRepo.CreateProjectMember(&projectMember); err != nil {
 			return err
 		}
 
@@ -396,7 +419,7 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 			Action:         "added",
 			ResourceType:   "project_member",
 			ResourceID:     member.UserID.String(),
-			Details:        fmt.Sprintf("User %s added to project", member.UserID.String()),
+			Details:        fmt.Sprintf("User %s added to project by %s", result.UserName, addedBy.UserName),
 			CreatedAt:      time.Now(),
 			Type:           models.AuditLogTypeActivity,
 		}
@@ -460,6 +483,32 @@ func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember)
 		}
 	}
 
+	performingUser, err := s.authRepo.GetUserByID(req.PerformingUserID)
+	if err != nil {
+		return err
+	}
+
+	targetUser, err := s.authRepo.GetUserByID(req.TargetUserID)
+	if err != nil {
+		return err
+	}
+
+	performingUserName := performingUser.UserName
+	if performingUserName == "" {
+		performingUserName = performingUser.FullName
+	}
+	if performingUserName == "" {
+		performingUserName = req.PerformingUserID.String()
+	}
+
+	targetUserName := targetUser.UserName
+	if targetUserName == "" {
+		targetUserName = targetUser.FullName
+	}
+	if targetUserName == "" {
+		targetUserName = req.TargetUserID.String()
+	}
+
 	err = s.projectRepo.RemoveProjectMember(req.ProjectID, req.TargetUserID)
 	if err != nil {
 		return err
@@ -472,8 +521,8 @@ func (s *projectService) RemoveProjectMember(req requestdto.RemoveProjectMember)
 		ProjectID:      &req.ProjectID,
 		Action:         "removed",
 		ResourceType:   "project_member",
-		ResourceID:     req.PerformingUserID.String(),
-		Details:        fmt.Sprintf("User %s removed from project", req.TargetUserID.String()),
+		ResourceID:     req.TargetUserID.String(),
+		Details:        fmt.Sprintf("User %s removed from project by %s", targetUserName, performingUserName),
 		CreatedAt:      time.Now(),
 		Type:           models.AuditLogTypeActivity,
 	}
@@ -534,11 +583,45 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		parsedUserID = &uid
 	}
 
+	var parsedTaskID *uuid.UUID
+	if filterReq.TaskID != "" {
+		tid, parseErr := uuid.FromString(filterReq.TaskID)
+		if parseErr == nil && tid != uuid.Nil {
+			parsedTaskID = &tid
+		}
+	}
+
+	var parsedUserStoryID *uuid.UUID
+	if filterReq.UserStoryID != "" {
+		sid, parseErr := uuid.FromString(filterReq.UserStoryID)
+		if parseErr == nil && sid != uuid.Nil {
+			parsedUserStoryID = &sid
+		}
+	}
+
+	var parsedSprintID *uuid.UUID
+	if filterReq.SprintID != "" {
+		spid, parseErr := uuid.FromString(filterReq.SprintID)
+		if parseErr == nil && spid != uuid.Nil {
+			parsedSprintID = &spid
+		}
+	}
+
+	resType := filterReq.ResourceType
+	if resType == "" {
+		resType = "project"
+	}
+
 	filter := requestdto.ProjectActivityFilter{
 		PaginationQuery: filterReq.PaginationQuery,
 		Action:          filterReq.Action,
 		UserID:          parsedUserID,
-		ResourceType:    filterReq.ResourceType,
+		ResourceType:    resType,
+		ResourceID:      filterReq.ResourceID,
+		TaskID:          parsedTaskID,
+		UserStoryID:     parsedUserStoryID,
+		SprintID:        parsedSprintID,
+		Type:            filterReq.Type,
 		StartDate:       filterReq.StartDate,
 		EndDate:         filterReq.EndDate,
 	}
@@ -561,14 +644,14 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 			Details:        item.Details,
 			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 			Title:          item.Title,
+			TaskName:       item.TaskName,
+			UserStoryName:  item.UserStoryName,
+			SprintName:     item.SprintName,
 			TaskKey:        item.TaskKey,
 		}
 
 		if item.User.ID != uuid.Nil {
-			var avatarURL *string
-			if item.User.AvatarURL != "" {
-				avatarURL = &item.User.AvatarURL
-			}
+			avatarURL := &item.User.AvatarURL
 			dtoItem.User = &responsedto.UserSummary{
 				ID:        item.User.ID,
 				FullName:  item.User.FullName,
@@ -589,7 +672,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 		OrganizationID: &userOrgID,
 		ProjectID:      &projectID,
 		Action:         "viewed",
-		ResourceType:   "project_activity",
+		ResourceType:   "project",
 		ResourceID:     projectID.String(),
 		Details:        "Activity of the project viewed",
 		Type:           models.AuditLogTypeAudit,
@@ -774,6 +857,18 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 
 func (s *projectService) DeleteProject(req requestdto.DeleteProject) *response.Error {
 
+	existingProject, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	if err != nil {
+		return err
+	}
+	if !authorized {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to delete project",
+		}
+	}
+
 	if req.ProjectID == uuid.Nil {
 		return &response.Error{
 			Code:       response.ErrBadRequest,
@@ -782,42 +877,44 @@ func (s *projectService) DeleteProject(req requestdto.DeleteProject) *response.E
 		}
 	}
 
-	result, err := s.authRepo.GetUserByID(req.UserID)
+	if user.OrganizationID == nil || req.OrganizationID == uuid.Nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", user.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *user.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User Organization ID", user.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	err = s.projectRepo.DeleteProject(req.ProjectID, req.OrganizationID)
 	if err != nil {
 		return err
-	}
-
-	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
-		s.logger.Error("Unauthorized Access",
-			zap.String("Organization ID", req.OrganizationID.String()),
-			zap.String("User Organization ID", result.OrganizationID.String()),
-			zap.String("User ID", req.UserID.String()))
-		return &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to perform this action",
-		}
-	}
-
-	if *result.OrganizationID != req.OrganizationID {
-		s.logger.Error("Unauthorized Access",
-			zap.String("Organization ID", req.OrganizationID.String()),
-			zap.String("User Organization ID", result.OrganizationID.String()),
-			zap.String("User ID", req.UserID.String()))
-		return &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to perform this action",
-		}
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
 		Action:         "deleted",
 		ResourceType:   "project",
 		ResourceID:     req.ProjectID.String(),
-		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("Project %s deleted by %s", existingProject.Name, user.UserName),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 
@@ -826,7 +923,8 @@ func (s *projectService) DeleteProject(req requestdto.DeleteProject) *response.E
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return s.projectRepo.DeleteProject(req.ProjectID, req.OrganizationID)
+	return nil
+
 }
 
 func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error) {
@@ -1005,7 +1103,7 @@ func (s *projectService) GetRecentProjects(req requestdto.GetProjectByUserID) (*
 
 func (s *projectService) UpdateProjectMember(req requestdto.UpdateProjectMemberRequest) *response.Error {
 
-	authorized, err := s.checkAuthorization(req.ProjectID, req.UpdatedBy)
+	_, updater, authorized, err := s.checkAuthorization(req.ProjectID, req.UpdatedBy)
 	if err != nil {
 		return err
 	}
@@ -1022,6 +1120,32 @@ func (s *projectService) UpdateProjectMember(req requestdto.UpdateProjectMemberR
 		return err
 	}
 
+	existingMember, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.MemberID, req.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	oldRole := existingMember.ProjectRole
+	newRole := string(req.ProjectRole)
+
+	targetUser, targetUserErr := s.authRepo.GetUserByID(req.MemberID)
+	targetUserName := req.MemberID.String()
+	if targetUserErr == nil {
+		if targetUser.UserName != "" {
+			targetUserName = targetUser.UserName
+		} else if targetUser.FullName != "" {
+			targetUserName = targetUser.FullName
+		}
+	}
+
+	updaterName := updater.UserName
+	if updaterName == "" {
+		updaterName = updater.FullName
+	}
+	if updaterName == "" {
+		updaterName = req.UpdatedBy.String()
+	}
+
 	updateErr := s.projectRepo.UpdateProjectMember(req.ProjectID, req.MemberID, string(req.ProjectRole))
 	if updateErr != nil {
 		return updateErr
@@ -1034,7 +1158,7 @@ func (s *projectService) UpdateProjectMember(req requestdto.UpdateProjectMemberR
 		Action:         "updated",
 		ResourceType:   "project_member",
 		ResourceID:     req.MemberID.String(),
-		Details:        fmt.Sprintf("Changed user %s role  to %s", req.MemberID, req.ProjectRole),
+		Details:        fmt.Sprintf("User %s role changed from %s to %s by %s", targetUserName, oldRole, newRole, updaterName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}

@@ -316,36 +316,207 @@ func (d *projectDatabase) GetProjectByID(id uuid.UUID) (models.Project, *respons
 	return row, nil
 }
 
-func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
+func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.ProjectActivityFilter,) ([]models.AuditLog, response.Pagination, *response.Error) {
 	var logs []models.AuditLog
 	var totalItems int64
 
+	// Normalize pagination
 	filter.PaginationQuery.Normalize(10)
+
+	// Maximum page size
 	if filter.PageSize > 100 {
 		filter.PageSize = 100
 	}
+
 	offset := (filter.Page - 1) * filter.PageSize
 
-	baseQuery := d.db.Model(&models.AuditLog{}).Where("project_id = ?", projectID)
+	// Always enforce project-level scoping.
+	// This prevents activity from another project from being returned.
+	baseQuery := d.db.
+		Model(&models.AuditLog{}).
+		Where("project_id = ?", projectID)
 
+	// Filter by Action
 	if filter.Action != "" {
-		baseQuery = baseQuery.Where("LOWER(action) = ?", strings.ToLower(strings.TrimSpace(filter.Action)))
-	}
-	if filter.UserID != nil && *filter.UserID != uuid.Nil {
-		baseQuery = baseQuery.Where("user_id = ?", *filter.UserID)
-	}
-	if filter.ResourceType != "" {
-		baseQuery = baseQuery.Where("LOWER(resource_type) = ?", strings.ToLower(strings.TrimSpace(filter.ResourceType)))
-	}
-	if filter.StartDate != "" {
-		baseQuery = baseQuery.Where("created_at >= ?", filter.StartDate)
-	}
-	if filter.EndDate != "" {
-		baseQuery = baseQuery.Where("created_at <= ?", filter.EndDate)
+		action := strings.ToLower(strings.TrimSpace(filter.Action))
+
+		baseQuery = baseQuery.Where(
+			"LOWER(action) = ?",
+			action,
+		)
 	}
 
+	// Filter by User / Actor
+	if filter.UserID != nil && *filter.UserID != uuid.Nil {
+		baseQuery = baseQuery.Where(
+			"user_id = ?",
+			*filter.UserID,
+		)
+	}
+
+	// Filter by Task
+	if filter.TaskID != nil && *filter.TaskID != uuid.Nil {
+		taskID := *filter.TaskID
+		taskIDStr := taskID.String()
+
+		baseQuery = baseQuery.Where(
+			"task_id = ? OR "+
+				"(LOWER(resource_type) IN ('task', 'task_attachment', 'comment') "+
+				"AND resource_id = ?)",
+			taskID,
+			taskIDStr,
+		)
+	}
+
+	// Filter by User Story
+	if filter.UserStoryID != nil && *filter.UserStoryID != uuid.Nil {
+		userStoryID := *filter.UserStoryID
+		userStoryIDStr := userStoryID.String()
+
+		baseQuery = baseQuery.Where(
+			"user_story_id = ? OR "+
+				"(LOWER(resource_type) IN "+
+				"('user_story', 'userstory', 'user_story_attachment', 'comment') "+
+				"AND resource_id = ?)",
+			userStoryID,
+			userStoryIDStr,
+		)
+	}
+
+	// Filter by Sprint
+	if filter.SprintID != nil && *filter.SprintID != uuid.Nil {
+		sprintID := *filter.SprintID
+		sprintIDStr := sprintID.String()
+
+		baseQuery = baseQuery.Where(
+			"sprint_id = ? OR "+
+				"(LOWER(resource_type) IN ('sprint', 'sprints') "+
+				"AND resource_id = ?)",
+			sprintID,
+			sprintIDStr,
+		)
+	}
+
+	// Filter by Resource Type
+	resType := strings.ToLower(strings.TrimSpace(filter.ResourceType))
+
+	switch resType {
+	case "task":
+		baseQuery = baseQuery.Where(
+			"task_id IS NOT NULL OR "+
+				"LOWER(resource_type) IN ('task', 'task_attachment')",
+		)
+
+	case "userstory", "user_story":
+		baseQuery = baseQuery.Where(
+			"user_story_id IS NOT NULL OR "+
+				"LOWER(resource_type) IN "+
+				"('user_story', 'userstory', 'user_story_attachment')",
+		)
+
+	case "sprint":
+		baseQuery = baseQuery.Where(
+			"sprint_id IS NOT NULL OR "+
+				"LOWER(resource_type) IN ('sprint', 'sprints')",
+		)
+
+	case "project":
+		// Project is already strictly scoped using project_id.
+		// No additional condition is required.
+
+	case "comments", "comment":
+		baseQuery = baseQuery.Where(
+			"LOWER(resource_type) IN "+
+				"('comment', 'comments', 'comment_attachment') "+
+				"OR LOWER(action) LIKE '%comment%' "+
+				"OR LOWER(action) LIKE '%reply%'",
+		)
+
+	default:
+		if resType != "" {
+			baseQuery = baseQuery.Where(
+				"LOWER(resource_type) = ?",
+				resType,
+			)
+		}
+	}
+
+	// Filter by Resource ID
+	if filter.ResourceID != "" {
+		resourceID := strings.TrimSpace(filter.ResourceID)
+
+		baseQuery = baseQuery.Where(
+			"resource_id = ? OR task_id = ? OR user_story_id = ? OR sprint_id = ?",
+			resourceID,
+			resourceID,
+			resourceID,
+			resourceID,
+		)
+	}
+
+	// Filter by Start Date
+	if filter.StartDate != "" {
+		baseQuery = baseQuery.Where(
+			"created_at >= ?",
+			filter.StartDate,
+		)
+	}
+
+	// Filter by End Date
+	if filter.EndDate != "" {
+		baseQuery = baseQuery.Where(
+			"created_at <= ?",
+			filter.EndDate,
+		)
+	}
+
+	// Filter by Audit Log Type
+	if filter.Type != "" {
+		logType := strings.ToLower(strings.TrimSpace(filter.Type))
+
+		switch logType {
+
+		case string(models.AuditLogTypeView):
+			// View logs can either explicitly have type=view
+			// or have an action containing "view".
+			baseQuery = baseQuery.Where(
+				"type = ? OR LOWER(action) LIKE '%view%'",
+				models.AuditLogTypeView,
+			)
+
+		case string(models.AuditLogTypeActivity):
+			// Activity includes normal actions and legacy records
+			// where type is NULL/empty, but excludes view actions.
+			baseQuery = baseQuery.Where(
+				"(type = ? OR type IS NULL OR type = '') "+
+					"AND LOWER(action) NOT LIKE '%view%'",
+				models.AuditLogTypeActivity,
+			)
+
+		case string(models.AuditLogTypeAudit):
+			baseQuery = baseQuery.Where(
+				"type = ?",
+				models.AuditLogTypeAudit,
+			)
+
+		default:
+			// Fallback to activity for unknown type values.
+			baseQuery = baseQuery.Where(
+				"(type = ? OR type IS NULL OR type = '') "+
+					"AND LOWER(action) NOT LIKE '%view%'",
+				models.AuditLogTypeActivity,
+			)
+		}
+	}
+
+	// Count total records
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
-		d.logger.Error("Database error counting project activity logs", zap.String("project_id", projectID.String()), zap.Error(err))
+		d.logger.Error(
+			"Database error counting project activity logs",
+			zap.String("project_id", projectID.String()),
+			zap.Error(err),
+		)
+
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
@@ -353,15 +524,24 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 		}
 	}
 
+	// Fetch paginated activity logs
 	if err := baseQuery.
 		Preload("User", func(db *gorm.DB) *gorm.DB {
+			// Include soft-deleted users so historical activity
+			// still contains the actor information.
 			return db.Unscoped()
 		}).
 		Order("created_at DESC").
 		Limit(filter.PageSize).
 		Offset(offset).
 		Find(&logs).Error; err != nil {
-		d.logger.Error("Database error finding project activity logs", zap.String("project_id", projectID.String()), zap.Error(err))
+
+		d.logger.Error(
+			"Database error finding project activity logs",
+			zap.String("project_id", projectID.String()),
+			zap.Error(err),
+		)
+
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
@@ -369,20 +549,27 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.Pro
 		}
 	}
 
+	// Populate additional audit-log details
 	populateAuditLogDetails(d.db, logs)
 
-	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
+	// Calculate pagination
+	totalPages := int(
+		math.Ceil(
+			float64(totalItems) / float64(filter.PageSize),
+		),
+	)
+
 	if totalPages == 0 {
 		totalPages = 1
 	}
 
 	pagination := response.Pagination{
-		Page:        filter.Page,
-		PageSize:    filter.PageSize,
-		TotalItems:  int(totalItems),
-		TotalPages:  totalPages,
-		HasNext:     filter.Page < totalPages,
-		HasPrevious: filter.Page > 1,
+		Page:         filter.Page,
+		PageSize:     filter.PageSize,
+		TotalItems:   int(totalItems),
+		TotalPages:   totalPages,
+		HasNext:      filter.Page < totalPages,
+		HasPrevious:  filter.Page > 1,
 	}
 
 	return logs, pagination, nil
@@ -659,12 +846,16 @@ func (d *projectDatabase) GetProjectMemberByUserAndProjectID(userID, projectID u
 
 func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 	var taskIDs []uuid.UUID
+	var userStoryIDs []uuid.UUID
 	var projectIDs []uuid.UUID
 	var sprintIDs []uuid.UUID
 
 	for _, log := range logs {
 		if log.TaskID != nil && *log.TaskID != uuid.Nil {
 			taskIDs = append(taskIDs, *log.TaskID)
+		}
+		if log.UserStoryID != nil && *log.UserStoryID != uuid.Nil {
+			userStoryIDs = append(userStoryIDs, *log.UserStoryID)
 		}
 		if log.ProjectID != nil && *log.ProjectID != uuid.Nil {
 			projectIDs = append(projectIDs, *log.ProjectID)
@@ -676,15 +867,17 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		rID, err := uuid.FromString(log.ResourceID)
 		if err == nil && rID != uuid.Nil {
 			switch strings.ToLower(log.ResourceType) {
-			case "task":
+			case "task", "task_attachment":
 				taskIDs = append(taskIDs, rID)
-				projectIDs = append(projectIDs, rID)
+			case "user_story", "userstory", "user_story_attachment":
+				userStoryIDs = append(userStoryIDs, rID)
 			case "project", "project_member":
 				projectIDs = append(projectIDs, rID)
 			case "sprint":
 				sprintIDs = append(sprintIDs, rID)
 			default:
 				taskIDs = append(taskIDs, rID)
+				userStoryIDs = append(userStoryIDs, rID)
 				projectIDs = append(projectIDs, rID)
 				sprintIDs = append(sprintIDs, rID)
 			}
@@ -707,6 +900,28 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		}
 	}
 
+	// Fetch user story details (title, serial_number)
+	userStoryMap := make(map[uuid.UUID]struct {
+		Title        string
+		SerialNumber int64
+	})
+	if len(userStoryIDs) > 0 {
+		type StoryInfo struct {
+			ID           uuid.UUID
+			Title        string
+			SerialNumber int64
+		}
+		var stories []StoryInfo
+		if err := db.Unscoped().Model(&models.UserStory{}).Where("id IN ?", userStoryIDs).Select("id, title, serial_number").Find(&stories).Error; err == nil {
+			for _, s := range stories {
+				userStoryMap[s.ID] = struct {
+					Title        string
+					SerialNumber int64
+				}{Title: s.Title, SerialNumber: s.SerialNumber}
+			}
+		}
+	}
+
 	// Fetch project details (name)
 	projectMap := make(map[uuid.UUID]string)
 	if len(projectIDs) > 0 {
@@ -724,13 +939,21 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 
 	// Fetch sprint details (name)
 	sprintMap := make(map[uuid.UUID]string)
-	if len(sprintIDs) > 0 {
+	if len(sprintIDs) > 0 || len(projectIDs) > 0 {
 		type SprintInfo struct {
 			ID   uuid.UUID
 			Name string
 		}
 		var sprints []SprintInfo
-		if err := db.Unscoped().Model(&models.Sprint{}).Where("id IN ?", sprintIDs).Select("id, name").Find(&sprints).Error; err == nil {
+		query := db.Unscoped().Model(&models.Sprint{})
+		if len(sprintIDs) > 0 && len(projectIDs) > 0 {
+			query = query.Where("id IN ? OR project_id IN ?", sprintIDs, projectIDs)
+		} else if len(sprintIDs) > 0 {
+			query = query.Where("id IN ?", sprintIDs)
+		} else if len(projectIDs) > 0 {
+			query = query.Where("project_id IN ?", projectIDs)
+		}
+		if err := query.Select("id, name").Find(&sprints).Error; err == nil {
 			for _, s := range sprints {
 				sprintMap[s.ID] = s.Name
 			}
@@ -766,6 +989,7 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		if hasRID {
 			if t, ok := taskMap[rID]; ok {
 				logs[i].Title = t.Title
+				logs[i].TaskName = t.Title
 				logs[i].TaskKey = t.Key
 				continue
 			}
@@ -773,21 +997,24 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		if log.TaskID != nil {
 			if t, ok := taskMap[*log.TaskID]; ok {
 				logs[i].Title = t.Title
+				logs[i].TaskName = t.Title
 				logs[i].TaskKey = t.Key
 				continue
 			}
 		}
 
-		// 2. Try matching project (by ResourceID or ProjectID)
+		// 2. Try matching user story (by ResourceID or UserStoryID)
 		if hasRID {
-			if name, ok := projectMap[rID]; ok {
-				logs[i].Title = name
+			if s, ok := userStoryMap[rID]; ok {
+				logs[i].Title = s.Title
+				logs[i].UserStoryName = s.Title
 				continue
 			}
 		}
-		if log.ProjectID != nil {
-			if name, ok := projectMap[*log.ProjectID]; ok {
-				logs[i].Title = name
+		if log.UserStoryID != nil {
+			if s, ok := userStoryMap[*log.UserStoryID]; ok {
+				logs[i].Title = s.Title
+				logs[i].UserStoryName = s.Title
 				continue
 			}
 		}
@@ -796,14 +1023,46 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		if hasRID {
 			if name, ok := sprintMap[rID]; ok {
 				logs[i].Title = name
+				logs[i].SprintName = name
 				continue
 			}
 		}
 		if log.SprintID != nil {
 			if name, ok := sprintMap[*log.SprintID]; ok {
 				logs[i].Title = name
+				logs[i].SprintName = name
 				continue
 			}
+		}
+		if strings.EqualFold(log.ResourceType, "sprint") {
+			if len(sprintMap) == 1 {
+				for _, name := range sprintMap {
+					logs[i].Title = name
+					logs[i].SprintName = name
+					break
+				}
+				continue
+			}
+		}
+
+		// 4. Try matching project (by ResourceID or ProjectID fallback)
+		if hasRID {
+			if name, ok := projectMap[rID]; ok {
+				logs[i].Title = name
+				continue
+			}
+		}
+		if log.ProjectID != nil {
+			if name, ok := projectMap[*log.ProjectID]; ok {
+				if logs[i].Title == "" {
+					logs[i].Title = name
+				}
+				continue
+			}
+		}
+
+		if strings.EqualFold(log.ResourceType, "comment") && strings.Contains(strings.ToLower(log.Action), "deleted") {
+			logs[i].Details = "Comment deleted"
 		}
 	}
 }

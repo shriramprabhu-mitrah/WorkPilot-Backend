@@ -66,7 +66,7 @@ func (s *stubWorkItemProjectRepo) GetProjectMemberByUserAndProjectID(userID, pro
 func (s *stubWorkItemProjectRepo) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
 	return nil
 }
-func (s *stubWorkItemProjectRepo) CreateProjectMember(row models.ProjectMember) *response.Error {
+func (s *stubWorkItemProjectRepo) CreateProjectMember(row *models.ProjectMember) *response.Error {
 	return nil
 }
 func (s *stubWorkItemProjectRepo) GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) {

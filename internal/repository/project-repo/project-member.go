@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (d *projectDatabase) CreateProjectMember(row models.ProjectMember) *response.Error {
+func (d *projectDatabase) CreateProjectMember(row *models.ProjectMember) *response.Error {
 
 	if err := d.db.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {

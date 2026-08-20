@@ -1,7 +1,9 @@
 package services
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -167,23 +169,24 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *r
 			return uuid.Nil, err
 		}
 
-	}
+		// audit log creation
+		auditLog := models.AuditLog{
+			UserID:         &req.UserID,
+			OrganizationID: &req.OrganizationID,
+			ProjectID:      &req.ProjectID,
+			SprintID:       &sprint.ID,
+			Action:         "created",
+			ResourceType:   "sprint",
+			ResourceID:     sprint.ID.String(),
+			Details:        fmt.Sprintf("The sprint '%s' was created by %s", sprint.Name, result.UserName),
+			Type:           models.AuditLogTypeActivity,
+			CreatedAt:      time.Now(),
+		}
 
-	// audit log creation
-	auditLog := models.AuditLog{
-		UserID:         &req.UserID,
-		OrganizationID: &req.OrganizationID,
-		ProjectID:      &req.ProjectID,
-		Action:         "created",
-		ResourceType:   "sprint",
-		Details:        "Sprint created",
-		Type:           models.AuditLogTypeActivity,
-		CreatedAt:      time.Now(),
-	}
-
-	err = s.auditRepo.CreateAuditLog(auditLog)
-	if err != nil {
-		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		err = s.auditRepo.CreateAuditLog(auditLog)
+		if err != nil {
+			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		}
 	}
 
 	return sprint.ID, nil
@@ -248,15 +251,27 @@ func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 		}
 	}
 
+	sprintName := req.SprintID.String()
+	sprint, _ := s.sprintRepo.GetSprintByID(req.SprintID, req.ProjectID)
+	if sprint != nil && sprint.Name != "" {
+		sprintName = sprint.Name
+	}
+
+	err = s.sprintRepo.DeleteSprint(req.SprintID)
+	if err != nil {
+		return err
+	}
+
 	// audit log creation
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		SprintID:       &req.SprintID,
 		Action:         "deleted",
 		ResourceType:   "sprint",
 		ResourceID:     req.SprintID.String(),
-		Details:        "Sprint deleted",
+		Details:        fmt.Sprintf("The sprint '%s' was deleted by %s", sprintName, result.UserName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -266,7 +281,7 @@ func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return s.sprintRepo.DeleteSprint(req.SprintID)
+	return nil
 }
 
 func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Error {
@@ -333,9 +348,21 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		return errResp
 	}
 
+	changedBy := result.UserName
+	if changedBy == "" {
+		changedBy = result.FullName
+	}
+	if changedBy == "" {
+		changedBy = result.Email
+	}
+	if changedBy == "" {
+		changedBy = req.UserID.String()
+	}
+
 	startDate := existingSprint.StartDate
 	endDate := existingSprint.EndDate
 	updates := make(map[string]interface{})
+	var changes []string
 
 	if req.StartDate != nil {
 		d, err := utils.StringToTime(*req.StartDate)
@@ -348,6 +375,9 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		}
 		startDate = *d
 		updates["start_date"] = startDate
+		if startDate.Format("2006-01-02") != existingSprint.StartDate.Format("2006-01-02") {
+			changes = append(changes, fmt.Sprintf("start date changed from '%s' to '%s'", existingSprint.StartDate.Format("2006-01-02"), startDate.Format("2006-01-02")))
+		}
 	}
 
 	if req.EndDate != nil {
@@ -361,6 +391,9 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		}
 		endDate = *d
 		updates["end_date"] = endDate
+		if endDate.Format("2006-01-02") != existingSprint.EndDate.Format("2006-01-02") {
+			changes = append(changes, fmt.Sprintf("end date changed from '%s' to '%s'", existingSprint.EndDate.Format("2006-01-02"), endDate.Format("2006-01-02")))
+		}
 	}
 
 	if startDate.After(endDate) {
@@ -373,15 +406,24 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 
 	if req.Name != nil {
 		updates["name"] = *req.Name
+		if *req.Name != existingSprint.Name {
+			changes = append(changes, fmt.Sprintf("name changed from '%s' to '%s'", existingSprint.Name, *req.Name))
+		}
 	}
 	if req.Goal != nil {
 		updates["goal"] = *req.Goal
+		if *req.Goal != existingSprint.Goal {
+			changes = append(changes, fmt.Sprintf("goal changed from '%s' to '%s'", existingSprint.Goal, *req.Goal))
+		}
 	}
 
 	newStatus := existingSprint.Status
 	if req.Status != nil {
 		newStatus = string(*req.Status)
 		updates["status"] = newStatus
+		if newStatus != existingSprint.Status {
+			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", existingSprint.Status, newStatus))
+		}
 	}
 
 	if req.Status != nil && newStatus == "completed" && existingSprint.Status != "completed" {
@@ -403,15 +445,24 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		return nil
 	}
 
+	var detail string
+	if len(changes) > 0 {
+		detail = fmt.Sprintf("Sprint updated by %s: %s", changedBy, strings.Join(changes, ", "))
+	} else {
+		detail = fmt.Sprintf("Sprint details updated by %s", changedBy)
+	}
+
 	// audit log creation
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		SprintID:       &req.SprintID,
 		Action:         "updated",
 		ResourceType:   "sprint",
 		ResourceID:     req.SprintID.String(),
-		Details:        "Sprint updated",
+		Title:          existingSprint.Name,
+		Details:        detail,
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -546,10 +597,11 @@ func (s *sprintService) GetSprintByID(req dto.GetSprint) (*models.Sprint, *respo
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		SprintID:       &req.SprintID,
 		Action:         "viewed",
 		ResourceType:   "sprint",
 		ResourceID:     req.SprintID.String(),
-		Details:        "sprint viewed",
+		Details:        fmt.Sprintf("Sprint details viewed by %s", result.UserName),
 		Type:           models.AuditLogTypeView,
 		CreatedAt:      time.Now(),
 	}
@@ -675,6 +727,7 @@ func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uui
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
+		SprintID:       &sprintID,
 		Action:         "viewed",
 		ResourceType:   "sprint",
 		ResourceID:     sprintID.String(),

@@ -27,12 +27,17 @@ type AuditLog struct {
 	Task           Task         `json:"task,omitzero" gorm:"foreignKey:TaskID"`
 	SprintID       *uuid.UUID   `json:"sprint_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_sprint_id"`
 	Sprint         Sprint       `json:"sprint,omitzero" gorm:"foreignKey:SprintID"`
+	UserStoryID    *uuid.UUID   `json:"user_story_id,omitempty" gorm:"type:uuid;index:idx_audit_logs_user_story_id"`
+	UserStory      UserStory    `json:"user_story,omitzero" gorm:"foreignKey:UserStoryID"`
 	Action         string       `json:"action" gorm:"size:100;not null;index:idx_audit_logs_action"`
 	ResourceType   string       `json:"resource_type" gorm:"size:50;not null;index:idx_audit_logs_resource_type"`
 	ResourceID     string       `json:"resource_id" gorm:"size:255"`
 	Details        string       `json:"details" gorm:"type:text"`
 	CreatedAt      time.Time    `json:"created_at" gorm:"not null;type:timestamptz"`
 	Title          string       `json:"title,omitempty" gorm:"-"`
+	TaskName       string       `json:"task_name,omitempty" gorm:"-"`
+	UserStoryName  string       `json:"user_story_name,omitempty" gorm:"-"`
+	SprintName     string       `json:"sprint_name,omitempty" gorm:"-"`
 	ProjectName    string       `json:"project_name,omitempty" gorm:"-"`
 	TaskKey        string       `json:"task_key,omitempty" gorm:"-"`
 	Type           AuditLogType `json:"type,omitempty" gorm:"size:50;default:'activity';index:idx_audit_logs_type"`

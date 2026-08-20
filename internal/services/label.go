@@ -49,15 +49,15 @@ func InitLabelService(
 	}
 }
 
-func (s *labelService) checkAdminOrPM(projectID, userID uuid.UUID) (bool, *response.Error) {
+func (s *labelService) checkAdminOrPM(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	isPMOrAdmin := (user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
@@ -65,42 +65,42 @@ func (s *labelService) checkAdminOrPM(projectID, userID uuid.UUID) (bool, *respo
 	if !isPMOrAdmin {
 		member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
 		if err != nil {
-			return false, err
+			return models.Project{}, models.User{}, false, err
 		}
 		if member.ProjectRole == string(requestdto.ProjectRoleOrgAdmin) || member.ProjectRole == string(requestdto.ProjectRoleProjectManager) {
 			isPMOrAdmin = true
 		}
 	}
 
-	return isPMOrAdmin, nil
+	return project, user, isPMOrAdmin, nil
 }
 
-func (s *labelService) checkProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
+func (s *labelService) checkProjectMember(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	if user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return true, nil
+		return project, user, true, nil
 	}
 
 	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
-	return isMember, nil
+	return project, user, isMember, nil
 }
 
 func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*responsedto.LabelResponse, *response.Error) {
 	// 1. Authorization
-	authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
+	project, user, authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +159,9 @@ func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*response
 		return nil, err
 	}
 
+	projectName := resolveProjectName(project, req.ProjectID)
+	userName := resolveUserName(user, req.UserID)
+
 	// 5. Audit Logging
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
@@ -167,7 +170,8 @@ func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*response
 		Action:         "created",
 		ResourceType:   "label",
 		ResourceID:     label.ID.String(),
-		Details:        fmt.Sprintf("Label '%s' created", label.Name),
+		Title:          label.Name,
+		Details:        fmt.Sprintf("Label '%s' created for project '%s' by %s", label.Name, projectName, userName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -181,7 +185,7 @@ func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*response
 
 func (s *labelService) GetLabels(projectID, userID, orgID uuid.UUID) ([]responsedto.LabelResponse, *response.Error) {
 	// 1. Authorization
-	authorized, err := s.checkProjectMember(projectID, userID)
+	project, user, authorized, err := s.checkProjectMember(projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -204,12 +208,17 @@ func (s *labelService) GetLabels(projectID, userID, orgID uuid.UUID) ([]response
 		res = append(res, responsedto.LabelFromModel(l))
 	}
 
+	projectName := resolveProjectName(project, projectID)
+	userName := resolveUserName(user, userID)
+
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
 		Action:         "viewed",
 		ResourceType:   "label",
+		Title:          projectName,
+		Details:        fmt.Sprintf("Labels for project '%s' viewed by %s", projectName, userName),
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
@@ -222,7 +231,7 @@ func (s *labelService) GetLabels(projectID, userID, orgID uuid.UUID) ([]response
 
 func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*responsedto.LabelResponse, *response.Error) {
 	// 1. Authorization
-	authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
+	project, user, authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +248,10 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 	if err != nil {
 		return nil, err
 	}
+
+	oldName := label.Name
+	oldColor := label.Color
+	var changes []string
 
 	// 3. Validation and updates
 	updated := false
@@ -267,6 +280,7 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 				}
 			}
 
+			changes = append(changes, fmt.Sprintf("name changed from '%s' to '%s'", oldName, normalizedName))
 			label.Name = normalizedName
 			updated = true
 		}
@@ -280,15 +294,26 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 				Message:    "Label color must be a valid hexadecimal color code (#RRGGBB)",
 			}
 		}
+		changes = append(changes, fmt.Sprintf("color changed from '%s' to '%s'", oldColor, *req.Color))
 		label.Color = *req.Color
 		updated = true
 	}
+
+	projectName := resolveProjectName(project, req.ProjectID)
+	userName := resolveUserName(user, req.UserID)
 
 	if updated {
 		label.UpdatedAt = time.Now()
 		err = s.labelRepo.UpdateLabel(label)
 		if err != nil {
 			return nil, err
+		}
+
+		var detail string
+		if len(changes) > 0 {
+			detail = fmt.Sprintf("Label '%s' updated for project '%s' by %s: %s", label.Name, projectName, userName, strings.Join(changes, ", "))
+		} else {
+			detail = fmt.Sprintf("Label '%s' updated for project '%s' by %s", label.Name, projectName, userName)
 		}
 
 		// 4. Audit Logging
@@ -299,6 +324,8 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 			Action:         "updated",
 			ResourceType:   "label",
 			ResourceID:     label.ID.String(),
+			Title:          label.Name,
+			Details:        detail,
 			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
@@ -313,7 +340,7 @@ func (s *labelService) UpdateLabel(req requestdto.UpdateLabelRequest) (*response
 
 func (s *labelService) DeleteLabel(labelID, projectID, userID, orgID uuid.UUID) *response.Error {
 	// 1. Authorization
-	authorized, err := s.checkAdminOrPM(projectID, userID)
+	project, user, authorized, err := s.checkAdminOrPM(projectID, userID)
 	if err != nil {
 		return err
 	}
@@ -337,6 +364,9 @@ func (s *labelService) DeleteLabel(labelID, projectID, userID, orgID uuid.UUID) 
 		return err
 	}
 
+	projectName := resolveProjectName(project, projectID)
+	userName := resolveUserName(user, userID)
+
 	// 4. Audit Logging
 	auditLog := models.AuditLog{
 		UserID:         &userID,
@@ -345,7 +375,8 @@ func (s *labelService) DeleteLabel(labelID, projectID, userID, orgID uuid.UUID) 
 		Action:         "deleted",
 		ResourceType:   "label",
 		ResourceID:     labelID.String(),
-		Details:        fmt.Sprintf("Label '%s' deleted", label.Name),
+		Title:          label.Name,
+		Details:        fmt.Sprintf("Label '%s' deleted for project '%s' by %s", label.Name, projectName, userName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}

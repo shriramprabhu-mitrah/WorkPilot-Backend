@@ -106,11 +106,12 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 			UserID:         &userID,
 			OrganizationID: &storyCtx.OrganizationID,
 			ProjectID:      &storyCtx.ProjectID,
+			UserStoryID:    &userStoryID,
 			Action:         "uploaded",
 			ResourceType:   "user_story_attachment",
 			ResourceID:     userStoryID.String(),
 			Details:        fmt.Sprintf("User %s uploaded attachment %s to user story %s", user.Email, attachment.OriginalFilename, storyTitle),
-			Type:           models.AuditLogTypeAudit,
+			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
 		auditLogs = append(auditLogs, auditLog)
@@ -313,11 +314,12 @@ func (s *attachmentService) DeleteUserStoryAttachment(ctx context.Context, attac
 		UserID:         &userID,
 		OrganizationID: &storyCtx.OrganizationID,
 		ProjectID:      &storyCtx.ProjectID,
+		UserStoryID:    &attachment.UserStoryID,
 		Action:         "deleted",
 		ResourceType:   "user_story_attachment",
 		ResourceID:     attachmentID.String(),
 		Details:        fmt.Sprintf("User %s deleted attachment %s from user story %s", user.Email, attachment.OriginalFilename, storyTitle),
-		Type:           models.AuditLogTypeAudit,
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	if auditErr := s.auditRepo.CreateAuditLog(auditLog); auditErr != nil {

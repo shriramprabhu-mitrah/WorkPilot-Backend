@@ -10,4 +10,10 @@ type GetAudit struct {
 	UserID         *uuid.UUID `json:"-" swaggerignore:"true"`
 	OrganizationID *uuid.UUID `json:"-" swaggerignore:"true"`
 	ActivityType   string     `json:"-" swaggerignore:"true"`
+	ResourceType   string     `form:"resource_type"`
+	ResourceID     string     `form:"resource_id"`
+	TaskID         *uuid.UUID `form:"task_id"`
+	UserStoryID    *uuid.UUID `form:"user_story_id"`
+	ProjectID      *uuid.UUID `form:"project_id"`
+	Type           string     `form:"type"`
 }

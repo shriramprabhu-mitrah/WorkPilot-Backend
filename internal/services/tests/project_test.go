@@ -222,7 +222,7 @@ func (s *stubProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *respons
 func (s *stubProjectRepo) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
 	return nil
 }
-func (s *stubProjectRepo) CreateProjectMember(row models.ProjectMember) *response.Error {
+func (s *stubProjectRepo) CreateProjectMember(row *models.ProjectMember) *response.Error {
 	return nil
 }
 func (s *stubProjectRepo) GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) {
@@ -320,6 +320,58 @@ func TestGetProjectActivity_UserIDValidation(t *testing.T) {
 		projectRepo.getProjectActivity = func(pID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
 			if filter.UserID != nil {
 				t.Errorf("expected filter.UserID to be nil for empty input, got %v", filter.UserID)
+			}
+			return []models.AuditLog{}, response.Pagination{}, nil
+		}
+
+		_, _, err := service.GetProjectActivity(userID, string(requestdto.RoleOrgAdmin), orgID, projectID, filterReq)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestGetProjectActivity_TaskStorySprintFilters(t *testing.T) {
+	logger := zap.NewNop()
+	authRepo := &dummyAuthRepo{}
+	sprintRepo := &dummySprintRepo{}
+
+	projectID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+
+	projectRepo := &stubProjectRepo{
+		project: models.Project{
+			ID:             projectID,
+			OrganizationID: orgID,
+		},
+		isMember: true,
+	}
+
+	auditRepo := &stubAuditLogRepo{}
+	taskRepo := &stubTaskRepo{}
+	service := services.InitProjectService(projectRepo, authRepo, sprintRepo, taskRepo, auditRepo, logger)
+
+	t.Run("Valid TaskID, UserStoryID, and SprintID Filters", func(t *testing.T) {
+		taskID := uuid.Must(uuid.NewV4())
+		userStoryID := uuid.Must(uuid.NewV4())
+		sprintID := uuid.Must(uuid.NewV4())
+
+		filterReq := requestdto.ProjectActivityFilterRequest{
+			TaskID:      taskID.String(),
+			UserStoryID: userStoryID.String(),
+			SprintID:    sprintID.String(),
+		}
+
+		projectRepo.getProjectActivity = func(pID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
+			if filter.TaskID == nil || *filter.TaskID != taskID {
+				t.Errorf("expected filter.TaskID to be %v, got %v", taskID, filter.TaskID)
+			}
+			if filter.UserStoryID == nil || *filter.UserStoryID != userStoryID {
+				t.Errorf("expected filter.UserStoryID to be %v, got %v", userStoryID, filter.UserStoryID)
+			}
+			if filter.SprintID == nil || *filter.SprintID != sprintID {
+				t.Errorf("expected filter.SprintID to be %v, got %v", sprintID, filter.SprintID)
 			}
 			return []models.AuditLog{}, response.Pagination{}, nil
 		}
@@ -515,6 +567,79 @@ func TestProjectService_UpdateProject_PatchSemantics(t *testing.T) {
 			t.Errorf("expected updates['status'] to be omitted, but was present")
 		}
 	})
+}
+
+func TestProjectService_UpdateProject_AuditLogDetails(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	projectRepo := &stubProjectRepo{
+		projectRole: string(requestdto.ProjectRoleProjectManager),
+		isMember:    true,
+		project: models.Project{
+			ID:             projectID,
+			OrganizationID: orgID,
+			Name:           "Old Name",
+			Description:    "Old Desc",
+			Status:         "planning",
+		},
+		updateProjectFunc: func(pID uuid.UUID, updates map[string]interface{}) *response.Error {
+			return nil
+		},
+	}
+
+	dummyAuth := &dummyAuthRepoWithUser{
+		dummyAuthRepo: dummyAuthRepo{orgID: &orgID},
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			UserName:       "alice_dev",
+			FullName:       "Alice Developer",
+		},
+	}
+	auditRepo := &stubAuditLogRepo{}
+	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
+
+	service := services.InitProjectService(projectRepo, dummyAuth, &dummySprintRepo{}, taskRepo, auditRepo, logger)
+
+	newName := "New Name"
+	newDesc := "New Desc"
+	newStatus := requestdto.ProjectStatusActive
+
+	req := requestdto.UpdateProjectRequest{
+		ProjectID:      projectID,
+		UserID:         userID,
+		OrganizationID: orgID,
+		Name:           &newName,
+		Description:    &newDesc,
+		Status:         &newStatus,
+	}
+
+	err := service.UpdateProject(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(auditRepo.createdLogs) != 1 {
+		t.Fatalf("expected 1 audit log created, got %d", len(auditRepo.createdLogs))
+	}
+
+	log := auditRepo.createdLogs[0]
+	expectedDetail := "Project updated by alice_dev: name changed from 'Old Name' to 'New Name', description changed from 'Old Desc' to 'New Desc', status changed from 'planning' to 'active'"
+	if log.Details != expectedDetail {
+		t.Errorf("expected audit log detail:\n%s\ngot:\n%s", expectedDetail, log.Details)
+	}
+}
+
+type dummyAuthRepoWithUser struct {
+	dummyAuthRepo
+	user models.User
+}
+
+func (d *dummyAuthRepoWithUser) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
+	return d.user, nil
 }
 
 func TestGetRecentProjects_TaskFiltering(t *testing.T) {

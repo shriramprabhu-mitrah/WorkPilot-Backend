@@ -1214,10 +1214,12 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		t.Errorf("expected is_closed false when all tasks are deleted (0 tasks), got true")
 	}
 
+	isClosedVal := true
 	updatedStory, usUpdateErr := usService.UpdateUserStory(dto.UpdateUserStoryRequest{
 		UserStoryID: storyID,
 		ProjectID:   projectID,
 		UserID:      userID,
+		IsClosed:    &isClosedVal,
 	})
 	if usUpdateErr != nil {
 		t.Fatalf("failed updating user story explicit is_closed: %v", usUpdateErr)

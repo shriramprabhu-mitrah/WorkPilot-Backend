@@ -101,6 +101,11 @@ type ProjectActivityFilterRequest struct {
 	Action       string `form:"action"`
 	UserID       string `form:"user_id"`
 	ResourceType string `form:"resource_type"`
+	ResourceID   string `form:"resource_id"`
+	TaskID       string `form:"task_id"`
+	UserStoryID  string `form:"user_story_id"`
+	SprintID     string `form:"sprint_id"`
+	Type         string `form:"type"`
 	StartDate    string `form:"start_date"`
 	EndDate      string `form:"end_date"`
 }
@@ -110,6 +115,11 @@ type ProjectActivityFilter struct {
 	Action       string
 	UserID       *uuid.UUID
 	ResourceType string
+	ResourceID   string
+	TaskID       *uuid.UUID
+	UserStoryID  *uuid.UUID
+	SprintID     *uuid.UUID
+	Type         string
 	StartDate    string
 	EndDate      string
 }

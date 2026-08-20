@@ -45,10 +45,7 @@ func (s *auditService) GetAuditLogs(req requestdto.GetAudit) (*responsedto.Audit
 	if req.UserID != nil {
 		user, userErr := s.authRepo.GetUserByID(*req.UserID)
 		if userErr == nil {
-			var avatarURL *string
-			if user.AvatarURL != "" {
-				avatarURL = &user.AvatarURL
-			}
+			avatarURL := &user.AvatarURL
 			userSummary = &responsedto.UserSummary{
 				ID:        user.ID,
 				FullName:  user.FullName,
@@ -67,7 +64,7 @@ func (s *auditService) GetAuditLogs(req requestdto.GetAudit) (*responsedto.Audit
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 		UserID:         req.UserID,
 		OrganizationID: req.OrganizationID,
-		Action:         "view",
+		Action:         "viewed",
 		ResourceType:   "audits",
 		ResourceID:     req.UserID.String(),
 		Type:           models.AuditLogTypeAudit,

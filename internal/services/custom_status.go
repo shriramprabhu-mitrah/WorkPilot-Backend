@@ -54,15 +54,22 @@ func InitCustomStatusService(
 	}
 }
 
-func (s *customStatusService) checkAdminOrPM(projectID, userID uuid.UUID) (bool, *response.Error) {
+func resolveProjectName(project models.Project, fallbackID uuid.UUID) string {
+	if project.Name != "" {
+		return project.Name
+	}
+	return fallbackID.String()
+}
+
+func (s *customStatusService) checkAdminOrPM(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	isPMOrAdmin := (user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
@@ -70,42 +77,42 @@ func (s *customStatusService) checkAdminOrPM(projectID, userID uuid.UUID) (bool,
 	if !isPMOrAdmin {
 		member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
 		if err != nil {
-			return false, err
+			return models.Project{}, models.User{}, false, err
 		}
 		if member.ProjectRole == string(requestdto.ProjectRoleOrgAdmin) || member.ProjectRole == string(requestdto.ProjectRoleProjectManager) {
 			isPMOrAdmin = true
 		}
 	}
 
-	return isPMOrAdmin, nil
+	return project, user, isPMOrAdmin, nil
 }
 
-func (s *customStatusService) checkProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
+func (s *customStatusService) checkProjectMember(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
 	if user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return true, nil
+		return project, user, true, nil
 	}
 
 	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
 	if err != nil {
-		return false, err
+		return models.Project{}, models.User{}, false, err
 	}
 
-	return isMember, nil
+	return project, user, isMember, nil
 }
 
 func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequest) (*responsedto.CustomStatusResponse, *response.Error) {
 	// 1. Authorization
-	authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
+	project, user, authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +186,9 @@ func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequ
 		return nil, err
 	}
 
+	projectName := resolveProjectName(project, req.ProjectID)
+	userName := resolveUserName(user, req.UserID)
+
 	// 5. Audit Logging
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
@@ -187,7 +197,8 @@ func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequ
 		Action:         "created",
 		ResourceType:   "custom_status",
 		ResourceID:     status.ID.String(),
-		Details:        fmt.Sprintf("Custom Status '%s' created", status.Name),
+		Title:          status.Name,
+		Details:        fmt.Sprintf("Custom Status '%s' created for project '%s' by %s", status.Name, projectName, userName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -201,7 +212,7 @@ func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequ
 
 func (s *customStatusService) GetStatuses(projectID, userID, orgID uuid.UUID) ([]responsedto.CustomStatusResponse, *response.Error) {
 	// 1. Authorization
-	authorized, err := s.checkProjectMember(projectID, userID)
+	project, user, authorized, err := s.checkProjectMember(projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -234,6 +245,9 @@ func (s *customStatusService) GetStatuses(projectID, userID, orgID uuid.UUID) ([
 		res[idx].DisplayOrder = idx
 	}
 
+	projectName := resolveProjectName(project, projectID)
+	userName := resolveUserName(user, userID)
+
 	// 4. Audit Logging
 	auditLog := models.AuditLog{
 		UserID:         &userID,
@@ -241,6 +255,8 @@ func (s *customStatusService) GetStatuses(projectID, userID, orgID uuid.UUID) ([
 		ProjectID:      &projectID,
 		Action:         "viewed",
 		ResourceType:   "custom_status",
+		Title:          projectName,
+		Details:        fmt.Sprintf("Custom Statuses for project '%s' viewed by %s", projectName, userName),
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
@@ -253,7 +269,7 @@ func (s *customStatusService) GetStatuses(projectID, userID, orgID uuid.UUID) ([
 
 func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequest) (*responsedto.CustomStatusResponse, *response.Error) {
 	// 1. Authorization
-	authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
+	project, user, authorized, err := s.checkAdminOrPM(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +288,9 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 	}
 
 	oldName := status.Name
+	oldColor := status.Color
+	oldDisplayOrder := status.DisplayOrder
+	var changes []string
 
 	// 3. Validation and updates
 	updated := false
@@ -303,6 +322,7 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 		}
 
 		if trimmedName != status.Name {
+			changes = append(changes, fmt.Sprintf("name changed from '%s' to '%s'", oldName, trimmedName))
 			status.Name = trimmedName
 			updated = true
 		}
@@ -317,6 +337,7 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 			}
 		}
 		if *req.Color != status.Color {
+			changes = append(changes, fmt.Sprintf("color changed from '%s' to '%s'", oldColor, *req.Color))
 			status.Color = *req.Color
 			updated = true
 		}
@@ -331,6 +352,7 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 			}
 		}
 		if *req.DisplayOrder != status.DisplayOrder {
+			changes = append(changes, fmt.Sprintf("display order changed from %d to %d", oldDisplayOrder, *req.DisplayOrder))
 			status.DisplayOrder = *req.DisplayOrder
 			updated = true
 		}
@@ -342,6 +364,9 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 			updated = true
 		}
 	}
+
+	projectName := resolveProjectName(project, req.ProjectID)
+	userName := resolveUserName(user, req.UserID)
 
 	if updated {
 		status.UpdatedAt = time.Now()
@@ -357,6 +382,13 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 			}
 		}
 
+		var detail string
+		if len(changes) > 0 {
+			detail = fmt.Sprintf("Custom Status '%s' updated for project '%s' by %s: %s", status.Name, projectName, userName, strings.Join(changes, ", "))
+		} else {
+			detail = fmt.Sprintf("Custom Status '%s' updated for project '%s' by %s", status.Name, projectName, userName)
+		}
+
 		// 4. Audit Logging
 		auditLog := models.AuditLog{
 			UserID:         &req.UserID,
@@ -365,7 +397,8 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 			Action:         "updated",
 			ResourceType:   "custom_status",
 			ResourceID:     status.ID.String(),
-			Details:        fmt.Sprintf("Custom Status '%s' updated", status.Name),
+			Title:          status.Name,
+			Details:        detail,
 			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
@@ -380,7 +413,7 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 
 func (s *customStatusService) DeleteStatus(statusID, projectID, userID, orgID uuid.UUID) *response.Error {
 	// 1. Authorization
-	authorized, err := s.checkAdminOrPM(projectID, userID)
+	project, user, authorized, err := s.checkAdminOrPM(projectID, userID)
 	if err != nil {
 		return err
 	}
@@ -417,6 +450,9 @@ func (s *customStatusService) DeleteStatus(statusID, projectID, userID, orgID uu
 		return err
 	}
 
+	projectName := resolveProjectName(project, projectID)
+	userName := resolveUserName(user, userID)
+
 	// 5. Audit Logging
 	auditLog := models.AuditLog{
 		UserID:         &userID,
@@ -425,7 +461,8 @@ func (s *customStatusService) DeleteStatus(statusID, projectID, userID, orgID uu
 		Action:         "deleted",
 		ResourceType:   "custom_status",
 		ResourceID:     statusID.String(),
-		Details:        fmt.Sprintf("Custom Status '%s' deleted", status.Name),
+		Title:          status.Name,
+		Details:        fmt.Sprintf("Custom Status '%s' deleted for project '%s' by %s", status.Name, projectName, userName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}

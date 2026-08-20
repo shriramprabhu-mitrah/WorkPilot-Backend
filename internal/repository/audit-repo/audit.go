@@ -33,33 +33,63 @@ func (d *auditDatabase) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog
 	)
 
 	req.PaginationQuery.Normalize(10)
-
 	offset := (req.Page - 1) * req.PageSize
 
-	baseQuery := d.db.
-		Model(&models.AuditLog{}).
-		Where(
-			"organization_id = ? AND user_id = ?",
-			req.OrganizationID,
-			req.UserID,
-		)
+	baseQuery := d.db.Model(&models.AuditLog{})
+
+	if req.OrganizationID != nil && *req.OrganizationID != uuid.Nil {
+		baseQuery = baseQuery.Where("organization_id = ?", req.OrganizationID)
+	}
+
+	if req.ProjectID != nil && *req.ProjectID != uuid.Nil {
+		baseQuery = baseQuery.Where("project_id = ?", req.ProjectID)
+	}
+
+	if req.TaskID != nil && *req.TaskID != uuid.Nil {
+		baseQuery = baseQuery.Where("task_id = ? OR (LOWER(resource_type) IN ('task', 'task_attachment', 'comment') AND resource_id = ?)", *req.TaskID, req.TaskID.String())
+	}
+
+	if req.UserStoryID != nil && *req.UserStoryID != uuid.Nil {
+		baseQuery = baseQuery.Where("user_story_id = ? OR (LOWER(resource_type) IN ('user_story', 'userstory', 'user_story_attachment', 'comment') AND resource_id = ?)", *req.UserStoryID, req.UserStoryID.String())
+	}
+
+	if req.ResourceType != "" {
+		baseQuery = baseQuery.Where("LOWER(resource_type) = ?", strings.ToLower(strings.TrimSpace(req.ResourceType)))
+	}
+
+	if req.ResourceID != "" {
+		baseQuery = baseQuery.Where("resource_id = ? OR task_id = ? OR user_story_id = ?", req.ResourceID, req.ResourceID, req.ResourceID)
+	}
+
+	sec := strings.ToLower(strings.TrimSpace(req.Type))
+	if sec == "" {
+		sec = strings.ToLower(strings.TrimSpace(req.ActivityType))
+	}
 
 	pattern := "%view%"
-	if strings.EqualFold(req.ActivityType, string(models.AuditLogTypeActivity)) {
-		baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) NOT LIKE ?)", models.AuditLogTypeActivity, pattern)
-	} else {
-		// Default to AuditLogTypeView ("view", "viewed", or empty)
-		baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) LIKE ?)", models.AuditLogTypeView, pattern)
+	switch sec {
+	case "all":
+		baseQuery = baseQuery.Where("type != ? AND LOWER(action) NOT LIKE ?", models.AuditLogTypeView, pattern)
+	case "comments":
+		baseQuery = baseQuery.Where("LOWER(resource_type) IN ('comment', 'comments', 'comment_attachment') OR LOWER(action) LIKE '%comment%' OR LOWER(action) LIKE '%reply%'")
+	case "activity":
+		baseQuery = baseQuery.Where("(type = ? OR type IS NULL OR type = '') AND LOWER(resource_type) NOT IN ('comment', 'comments', 'comment_attachment') AND LOWER(action) NOT LIKE ?", models.AuditLogTypeActivity, pattern)
+	case "view":
+		baseQuery = baseQuery.Where("type = ? OR LOWER(action) LIKE ?", models.AuditLogTypeView, pattern)
+	default:
+		// Default behavior: if user_id is provided without specific activity_type override, filter user_id
+		if req.UserID != nil && *req.UserID != uuid.Nil && req.ResourceID == "" && req.TaskID == nil && req.UserStoryID == nil {
+			baseQuery = baseQuery.Where("user_id = ?", req.UserID)
+		}
+		if strings.EqualFold(sec, string(models.AuditLogTypeActivity)) {
+			baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) NOT LIKE ?)", models.AuditLogTypeActivity, pattern)
+		} else if sec == "view" {
+			baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) LIKE ?)", models.AuditLogTypeView, pattern)
+		}
 	}
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
-		d.logger.Error(
-			"Failed to count audit logs",
-			zap.String("User ID", req.UserID.String()),
-			zap.String("Organization ID", req.OrganizationID.String()),
-			zap.Error(err),
-		)
-
+		d.logger.Error("Failed to count audit logs", zap.Error(err))
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
@@ -68,18 +98,15 @@ func (d *auditDatabase) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog
 	}
 
 	if err := baseQuery.
-		Order("created_at DESC").
+		Preload("User", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
+		Order("created_at DESC, id DESC").
 		Limit(req.PageSize).
 		Offset(offset).
 		Find(&audits).Error; err != nil {
 
-		d.logger.Error(
-			"Failed to fetch audit logs",
-			zap.String("User ID", req.UserID.String()),
-			zap.String("Organization ID", req.OrganizationID.String()),
-			zap.Error(err),
-		)
-
+		d.logger.Error("Failed to fetch audit logs", zap.Error(err))
 		return nil, response.Pagination{}, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
@@ -111,12 +138,16 @@ func (d *auditDatabase) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog
 
 func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 	var taskIDs []uuid.UUID
+	var userStoryIDs []uuid.UUID
 	var projectIDs []uuid.UUID
 	var sprintIDs []uuid.UUID
 
 	for _, log := range logs {
 		if log.TaskID != nil && *log.TaskID != uuid.Nil {
 			taskIDs = append(taskIDs, *log.TaskID)
+		}
+		if log.UserStoryID != nil && *log.UserStoryID != uuid.Nil {
+			userStoryIDs = append(userStoryIDs, *log.UserStoryID)
 		}
 		if log.ProjectID != nil && *log.ProjectID != uuid.Nil {
 			projectIDs = append(projectIDs, *log.ProjectID)
@@ -128,15 +159,17 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		rID, err := uuid.FromString(log.ResourceID)
 		if err == nil && rID != uuid.Nil {
 			switch strings.ToLower(log.ResourceType) {
-			case "task":
+			case "task", "task_attachment":
 				taskIDs = append(taskIDs, rID)
-				projectIDs = append(projectIDs, rID)
+			case "user_story", "userstory", "user_story_attachment":
+				userStoryIDs = append(userStoryIDs, rID)
 			case "project", "project_member":
 				projectIDs = append(projectIDs, rID)
 			case "sprint":
 				sprintIDs = append(sprintIDs, rID)
 			default:
 				taskIDs = append(taskIDs, rID)
+				userStoryIDs = append(userStoryIDs, rID)
 				projectIDs = append(projectIDs, rID)
 				sprintIDs = append(sprintIDs, rID)
 			}
@@ -155,6 +188,22 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		if err := db.Unscoped().Model(&models.Task{}).Where("id IN ?", taskIDs).Select("id, title, key").Find(&tasks).Error; err == nil {
 			for _, t := range tasks {
 				taskMap[t.ID] = struct{ Title, Key string }{Title: t.Title, Key: t.Key}
+			}
+		}
+	}
+
+	// Fetch user story details (title, serial_number)
+	userStoryMap := make(map[uuid.UUID]struct{ Title string; SerialNumber int64 })
+	if len(userStoryIDs) > 0 {
+		type StoryInfo struct {
+			ID           uuid.UUID
+			Title        string
+			SerialNumber int64
+		}
+		var stories []StoryInfo
+		if err := db.Unscoped().Model(&models.UserStory{}).Where("id IN ?", userStoryIDs).Select("id, title, serial_number").Find(&stories).Error; err == nil {
+			for _, s := range stories {
+				userStoryMap[s.ID] = struct{ Title string; SerialNumber int64 }{Title: s.Title, SerialNumber: s.SerialNumber}
 			}
 		}
 	}
@@ -230,7 +279,21 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 			}
 		}
 
-		// 2. Try matching project (by ResourceID or ProjectID)
+		// 2. Try matching user story (by ResourceID or UserStoryID)
+		if hasRID {
+			if s, ok := userStoryMap[rID]; ok {
+				logs[i].Title = s.Title
+				continue
+			}
+		}
+		if log.UserStoryID != nil {
+			if s, ok := userStoryMap[*log.UserStoryID]; ok {
+				logs[i].Title = s.Title
+				continue
+			}
+		}
+
+		// 3. Try matching project (by ResourceID or ProjectID)
 		if hasRID {
 			if name, ok := projectMap[rID]; ok {
 				logs[i].Title = name
@@ -244,7 +307,7 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 			}
 		}
 
-		// 3. Try matching sprint (by ResourceID or SprintID)
+		// 4. Try matching sprint (by ResourceID or SprintID)
 		if hasRID {
 			if name, ok := sprintMap[rID]; ok {
 				logs[i].Title = name
@@ -256,6 +319,10 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 				logs[i].Title = name
 				continue
 			}
+		}
+
+		if strings.EqualFold(log.ResourceType, "comment") && strings.Contains(strings.ToLower(log.Action), "deleted") {
+			logs[i].Details = "Comment deleted"
 		}
 	}
 }
