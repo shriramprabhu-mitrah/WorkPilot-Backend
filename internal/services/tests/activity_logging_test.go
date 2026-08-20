@@ -109,8 +109,12 @@ func TestActivityLogging_UserStoryAndTaskSections(t *testing.T) {
 				}
 				for _, log := range auditLogs {
 					switch resType {
-					case "all":
+					case "all", "":
 						filtered = append(filtered, log)
+					case "project":
+						if log.ResourceType == "project" || log.ResourceType == "project_member" {
+							filtered = append(filtered, log)
+						}
 					case "comments":
 						if log.ResourceType == "comment" {
 							filtered = append(filtered, log)
@@ -127,6 +131,15 @@ func TestActivityLogging_UserStoryAndTaskSections(t *testing.T) {
 
 		service := services.InitProjectService(repo, &dummyAuthRepo{orgID: &orgID}, &dummySprintRepo{}, nil, &stubAuditLogRepo{}, zap.NewNop())
 
+		// Test ResourceType Empty (Default All)
+		emptyRes, _, err := service.GetProjectActivity(userID, "member", orgID, projectID, requestdto.ProjectActivityFilterRequest{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(emptyRes) != 3 {
+			t.Errorf("expected 3 items for empty resource_type, got %d", len(emptyRes))
+		}
+
 		// Test ResourceType All
 		allRes, _, err := service.GetProjectActivity(userID, "member", orgID, projectID, requestdto.ProjectActivityFilterRequest{ResourceType: "all"})
 		if err != nil {
@@ -134,6 +147,15 @@ func TestActivityLogging_UserStoryAndTaskSections(t *testing.T) {
 		}
 		if len(allRes) != 3 {
 			t.Errorf("expected 3 items for resource_type 'all', got %d", len(allRes))
+		}
+
+		// Test ResourceType Project
+		projectRes, _, err := service.GetProjectActivity(userID, "member", orgID, projectID, requestdto.ProjectActivityFilterRequest{ResourceType: "project"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(projectRes) != 0 {
+			t.Errorf("expected 0 project-level items in test logs, got %d", len(projectRes))
 		}
 
 		// Test ResourceType Comments

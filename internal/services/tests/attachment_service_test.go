@@ -509,7 +509,7 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 		if len(f.attachmentRepo.attachments) != 1 {
 			t.Errorf("expected 1 attachment in DB, got %d", len(f.attachmentRepo.attachments))
 		}
-		if len(f.auditRepo.logs) != 1 || f.auditRepo.logs[0].Action != "uploaded" {
+		if len(f.auditRepo.logs) != 1 || f.auditRepo.logs[0].Action != "attachment_uploaded" {
 			t.Errorf("expected uploaded audit log, got logs: %v", f.auditRepo.logs)
 		}
 	})

@@ -421,8 +421,13 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.Proj
 		)
 
 	case "project":
+		baseQuery = baseQuery.Where(
+			"LOWER(resource_type) IN ('project', 'project_member')",
+		)
+
+	case "all", "":
 		// Project is already strictly scoped using project_id.
-		// No additional condition is required.
+		// No additional resource_type condition is required.
 
 	case "comments", "comment":
 		baseQuery = baseQuery.Where(
@@ -436,7 +441,7 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.Proj
 		if resType != "" {
 			baseQuery = baseQuery.Where(
 				"LOWER(resource_type) = ?",
-				resType,
+				"project",
 			)
 		}
 	}

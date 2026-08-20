@@ -608,9 +608,6 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 	}
 
 	resType := filterReq.ResourceType
-	if resType == "" {
-		resType = "project"
-	}
 
 	filter := requestdto.ProjectActivityFilter{
 		PaginationQuery: filterReq.PaginationQuery,
