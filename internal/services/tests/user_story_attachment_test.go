@@ -175,6 +175,10 @@ func TestUserStoryAttachment_UploadSuccess(t *testing.T) {
 	if res[0].OriginalFilename != "story.txt" {
 		t.Errorf("expected filename 'story.txt', got %s", res[0].OriginalFilename)
 	}
+
+	if res[0].URL != "http://localhost/user_stories/storyid/file.png" {
+		t.Errorf("expected URL 'http://localhost/user_stories/storyid/file.png', got %s", res[0].URL)
+	}
 }
 
 func TestUserStoryAttachment_GetSuccess(t *testing.T) {
@@ -191,6 +195,7 @@ func TestUserStoryAttachment_GetSuccess(t *testing.T) {
 		UserStoryID:      storyID,
 		OriginalFilename: "story_notes.docx",
 		StoragePath:      "user_stories/storyID/story_notes.docx",
+		URL:              "http://localhost/user_stories/storyID/story_notes.docx",
 		UploadedBy:       userID,
 	}
 
@@ -204,6 +209,9 @@ func TestUserStoryAttachment_GetSuccess(t *testing.T) {
 	}
 	if res[0].OriginalFilename != "story_notes.docx" {
 		t.Errorf("expected original filename story_notes.docx, got %s", res[0].OriginalFilename)
+	}
+	if res[0].URL != "http://localhost/user_stories/storyID/story_notes.docx" {
+		t.Errorf("expected URL 'http://localhost/user_stories/storyID/story_notes.docx', got %s", res[0].URL)
 	}
 }
 

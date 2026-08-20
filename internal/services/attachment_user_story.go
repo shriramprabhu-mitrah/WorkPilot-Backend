@@ -74,7 +74,7 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 			}
 		}
 
-		_, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadUserStoryAttachment(ctx, file, header, userStoryID, s.cfg)
+		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadUserStoryAttachment(ctx, file, header, userStoryID, s.cfg)
 		file.Close()
 		if uploadErr != nil {
 			s.rollbackUserStoryUploads(uploadedKeys, createdIDs)
@@ -89,6 +89,7 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 			MIMEType:         detectedMIME,
 			FileSize:         header.Size,
 			StoragePath:      key,
+			URL:              url,
 			UploadedBy:       userID,
 			UploadedAt:       time.Now(),
 		}
