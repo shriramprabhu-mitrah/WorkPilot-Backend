@@ -273,6 +273,8 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Param sort_by query string false "Sort by field" Enums(name,created_at,updated_at,start_date,end_date,status)
 // @Param sort_order query string false "Sort order" Enums(ASC,DESC)
 // @Param fields query string false "Fields to return (comma separated)"
+// @Param start_date query string false "Filter sprints from this start date" Format(date)
+// @Param end_date query string false "Filter sprints up to this end date" Format(date)
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -345,9 +347,7 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 
 	projectID, errorResponse := utils.StringToUUID(projectIDParam)
 	if errorResponse != nil {
-		h.logger.Error(
-			"Failed to convert the string into UUID",
-		)
+		h.logger.Error("Failed to convert the string into UUID")
 
 		g.JSON(errorResponse.StatusCode, errorResponse)
 		return
@@ -381,10 +381,7 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 	sprintResponses := make([]responsedto.Sprint, 0, len(projects))
 
 	for _, sprint := range projects {
-		sprintResponses = append(
-			sprintResponses,
-			responsedto.SprintFromModel(sprint),
-		)
+		sprintResponses = append(sprintResponses, responsedto.SprintFromModel(sprint))
 	}
 
 	// Filter response fields
@@ -393,10 +390,7 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 	if filter.Fields != "" {
 		var filterErr error
 
-		filteredData, filterErr = utils.FilterFields(
-			sprintResponses,
-			filter.Fields,
-		)
+		filteredData, filterErr = utils.FilterFields(sprintResponses, filter.Fields)
 
 		if filterErr != nil {
 			h.logger.Error(

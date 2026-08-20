@@ -3186,6 +3186,16 @@ paths:
         in: query
         name: fields
         type: string
+      - description: Filter sprints from this start date
+        format: date
+        in: query
+        name: start_date
+        type: string
+      - description: Filter sprints up to this end date
+        format: date
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:

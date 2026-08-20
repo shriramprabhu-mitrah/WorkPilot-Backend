@@ -3038,6 +3038,20 @@ const docTemplate = `{
                         "description": "Fields to return (comma separated)",
                         "name": "fields",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Filter sprints from this start date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Filter sprints up to this end date",
+                        "name": "end_date",
+                        "in": "query"
                     }
                 ],
                 "responses": {
