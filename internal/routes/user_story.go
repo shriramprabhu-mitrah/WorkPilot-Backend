@@ -17,6 +17,7 @@ import (
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryattachmentrepo "github.com/ms-kanban-server/internal/repository/user-story-attachment-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
+	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
@@ -27,6 +28,7 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 	authRepo := authrepo.InitAuthRepository(deps)
 	taskRepo := taskrepo.InitTaskRepository(deps)
 	customStatusRepo := customstatusrepo.InitCustomStatusRepository(deps)
+	userStoryStatusRepo := userstorystatusrepo.InitUserStoryStatusRepository(deps)
 	auditRepo := auditrepo.InitAuditRepository(deps)
 	attachmentRepo := attachmentrepo.InitAttachmentRepository(deps)
 	commentsRepo := commentsrepo.InitCommentsRepository(deps)
@@ -35,7 +37,7 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 	userStoryAttachmentRepo := userstoryattachmentrepo.InitUserStoryAttachmentRepository(deps)
 
 	// initialize services
-	userStoryService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, auditRepo, deps.Logger)
+	userStoryService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, userStoryStatusRepo, auditRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
 	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, userStoryAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
 	commentsService := services.InitCommentsService(commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, deps.Logger)
@@ -54,6 +56,7 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 		us.GET("", middleware.ValidateJWT(), userStoryHandler.GetUserStories)
 		us.GET("/:user_story_id", middleware.ValidateJWT(), userStoryHandler.GetUserStoryByID)
 		us.PATCH("/:user_story_id", middleware.ValidateJWT(), userStoryHandler.UpdateUserStory)
+		us.PATCH("/:user_story_id/status", middleware.ValidateJWT(), userStoryHandler.UpdateUserStoryStatus)
 		us.DELETE("/:user_story_id", middleware.ValidateJWT(), userStoryHandler.DeleteUserStory)
 
 		// Attachment routes

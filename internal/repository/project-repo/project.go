@@ -148,6 +148,88 @@ func (d *projectDatabase) CreateProjectWithMember(project *models.Project, proje
 		}
 	}
 
+	// Create default statuses for user stories
+	defaultUserStoryStatuses := []models.UserStoryStatus{
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Todo",
+			Color:        "#808080",
+			DisplayOrder: 0,
+			IsDefault:    true,
+			IsClosed:     false,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "In Progress",
+			Color:        "#1E90FF",
+			DisplayOrder: 1,
+			IsDefault:    true,
+			IsClosed:     false,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "In Review",
+			Color:        "#FF8C00",
+			DisplayOrder: 2,
+			IsDefault:    true,
+			IsClosed:     false,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Testing",
+			Color:        "#8A2BE2",
+			DisplayOrder: 3,
+			IsDefault:    true,
+			IsClosed:     false,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Completed",
+			Color:        "#228B22",
+			DisplayOrder: 4,
+			IsDefault:    true,
+			IsClosed:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		{
+			ID:           uuid.Must(uuid.NewV7()),
+			ProjectID:    project.ID,
+			Name:         "Blocked",
+			Color:        "#DC143C",
+			DisplayOrder: 5,
+			IsDefault:    true,
+			IsClosed:     false,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+	}
+
+	for _, ds := range defaultUserStoryStatuses {
+		if err := tx.Create(&ds).Error; err != nil {
+			tx.Rollback()
+			d.logger.Error("Failed to create default user story status", zap.Error(err))
+			return &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Something went wrong. Please try again later.",
+			}
+		}
+	}
+
 	// Commit transaction
 	if err := tx.Commit().Error; err != nil {
 		d.logger.Error("Failed to commit transaction", zap.Error(err))

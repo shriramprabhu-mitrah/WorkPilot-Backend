@@ -19,6 +19,7 @@ import (
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
+	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
 	"go.uber.org/zap"
 )
 
@@ -29,27 +30,39 @@ type UserStoryService interface {
 	DeleteUserStory(userStoryID, projectID, userID, orgID uuid.UUID) *response.Error
 	GetUserStories(projectID, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error)
 	ReorderUserStories(projectID, userID, orgID uuid.UUID, storyIDs []uuid.UUID) *response.Error
+	UpdateUserStoryStatus(req dto.UpdateUserStoryStatusAssignmentRequest) (*responsedto.UserStoryResponse, *response.Error)
 }
 
 type userStoryService struct {
-	authRepo         authrepo.AuthRepository
-	projectRepo      projectrepo.ProjectRepository
-	userStoryRepo    userstoryrepo.UserStoryRepository
-	taskRepo         taskrepo.TaskRepository
-	customStatusRepo customstatusrepo.CustomStatusRepository
-	auditRepo        auditrepo.AuditLogRepository
-	logger           *zap.Logger
+	authRepo            authrepo.AuthRepository
+	projectRepo         projectrepo.ProjectRepository
+	userStoryRepo       userstoryrepo.UserStoryRepository
+	taskRepo            taskrepo.TaskRepository
+	customStatusRepo    customstatusrepo.CustomStatusRepository
+	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository
+	auditRepo           auditrepo.AuditLogRepository
+	logger              *zap.Logger
 }
 
-func InitUserStoryService(authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, userStoryRepo userstoryrepo.UserStoryRepository, taskRepo taskrepo.TaskRepository, customStatusRepo customstatusrepo.CustomStatusRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) UserStoryService {
+func InitUserStoryService(
+	authRepo authrepo.AuthRepository,
+	projectRepo projectrepo.ProjectRepository,
+	userStoryRepo userstoryrepo.UserStoryRepository,
+	taskRepo taskrepo.TaskRepository,
+	customStatusRepo customstatusrepo.CustomStatusRepository,
+	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository,
+	auditRepo auditrepo.AuditLogRepository,
+	logger *zap.Logger,
+) UserStoryService {
 	return &userStoryService{
-		authRepo:         authRepo,
-		projectRepo:      projectRepo,
-		userStoryRepo:    userStoryRepo,
-		taskRepo:         taskRepo,
-		customStatusRepo: customStatusRepo,
-		auditRepo:        auditRepo,
-		logger:           logger,
+		authRepo:            authRepo,
+		projectRepo:         projectRepo,
+		userStoryRepo:       userStoryRepo,
+		taskRepo:            taskRepo,
+		customStatusRepo:    customStatusRepo,
+		userStoryStatusRepo: userStoryStatusRepo,
+		auditRepo:           auditRepo,
+		logger:              logger,
 	}
 }
 
@@ -87,14 +100,14 @@ func (s *userStoryService) getStatusIsFinalMap(projectID uuid.UUID) map[string]b
 
 func (s *userStoryService) resolveStatusIDAndName(projectID uuid.UUID, statusID *uuid.UUID, statusName *string) (uuid.UUID, string, *response.Error) {
 	if statusID != nil && *statusID != uuid.Nil {
-		if s.customStatusRepo == nil {
+		if s.userStoryStatusRepo == nil {
 			return uuid.Nil, "", &response.Error{
 				Code:       response.ErrInternalServerError,
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Custom status repository not initialized",
+				Message:    "User story status repository not initialized",
 			}
 		}
-		cs, err := s.customStatusRepo.GetStatusByID(*statusID, projectID)
+		cs, err := s.userStoryStatusRepo.GetStatusByID(*statusID, projectID)
 		if err != nil {
 			if err.StatusCode == http.StatusNotFound {
 				return uuid.Nil, "", &response.Error{
@@ -109,15 +122,15 @@ func (s *userStoryService) resolveStatusIDAndName(projectID uuid.UUID, statusID 
 	}
 
 	if statusName != nil && *statusName != "" {
-		if s.customStatusRepo == nil {
+		if s.userStoryStatusRepo == nil {
 			return uuid.Nil, "", &response.Error{
 				Code:       response.ErrInternalServerError,
 				StatusCode: http.StatusInternalServerError,
-				Message:    "Custom status repository not initialized",
+				Message:    "User story status repository not initialized",
 			}
 		}
 		normalized := models.NormalizeTaskStatus(*statusName)
-		cs, err := s.customStatusRepo.GetStatusByName(projectID, normalized)
+		cs, err := s.userStoryStatusRepo.GetStatusByName(projectID, normalized)
 		if err != nil {
 			if err.StatusCode == http.StatusNotFound {
 				return uuid.Nil, "", &response.Error{
@@ -131,19 +144,19 @@ func (s *userStoryService) resolveStatusIDAndName(projectID uuid.UUID, statusID 
 		return cs.ID, cs.Name, nil
 	}
 
-	if s.customStatusRepo == nil {
+	if s.userStoryStatusRepo == nil {
 		return uuid.Nil, "", &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
-			Message:    "Custom status repository not initialized",
+			Message:    "User story status repository not initialized",
 		}
 	}
-	customStatuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+	customStatuses, err := s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
 	if err != nil {
 		return uuid.Nil, "", err
 	}
 
-	var defaultStatus *models.CustomStatus
+	var defaultStatus *models.UserStoryStatus
 	for i := range customStatuses {
 		if customStatuses[i].IsDefault {
 			if defaultStatus == nil || customStatuses[i].DisplayOrder < defaultStatus.DisplayOrder {
@@ -310,11 +323,11 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		return nil, getErr
 	}
 
-	var customStatuses []models.CustomStatus
-	if s.customStatusRepo != nil {
-		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(req.ProjectID)
+	var userStoryStatuses []models.UserStoryStatus
+	if s.userStoryStatusRepo != nil {
+		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(req.ProjectID)
 	}
-	res := mapToUserStoryResponse(*createdStory, customStatuses, 0, 0, 0.0)
+	res := mapToUserStoryResponse(*createdStory, userStoryStatuses, 0, 0, 0.0)
 
 	auditLog := models.AuditLog{
 		UserID:         &req.ReporterID,
@@ -381,11 +394,11 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap, isFinalMap))
 	}
 
-	var customStatuses []models.CustomStatus
-	if s.customStatusRepo != nil {
-		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(projectID)
+	var userStoryStatuses []models.UserStoryStatus
+	if s.userStoryStatusRepo != nil {
+		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
 	}
-	res := mapToUserStoryResponse(*story, customStatuses, total, completed, progress)
+	res := mapToUserStoryResponse(*story, userStoryStatuses, total, completed, progress)
 	res.Tasks = taskResponses
 
 	auditLog := models.AuditLog{
@@ -488,7 +501,6 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 			changes = append(changes, fmt.Sprintf("priority changed from '%s' to '%s'", existingStory.Priority, *req.Priority))
 		}
 	}
-
 	if req.StatusID != nil || req.Status != nil {
 		var statusNameArg *string
 		if req.Status != nil && *req.Status != "" {
@@ -635,11 +647,11 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 		}
 	}
 
-	var customStatuses []models.CustomStatus
-	if s.customStatusRepo != nil {
-		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(req.ProjectID)
+	var userStoryStatuses []models.UserStoryStatus
+	if s.userStoryStatusRepo != nil {
+		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(req.ProjectID)
 	}
-	res := mapToUserStoryResponse(*updatedStory, customStatuses, total, completed, progress)
+	res := mapToUserStoryResponse(*updatedStory, userStoryStatuses, total, completed, progress)
 
 	var detail string
 	if len(changes) > 0 {
@@ -740,9 +752,9 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 
 	colorMap := s.getStatusColorMap(projectID)
 	isFinalMap := s.getStatusIsFinalMap(projectID)
-	var customStatuses []models.CustomStatus
-	if s.customStatusRepo != nil {
-		customStatuses, _ = s.customStatusRepo.GetStatusesByProjectID(projectID)
+	var userStoryStatuses []models.UserStoryStatus
+	if s.userStoryStatusRepo != nil {
+		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
 	}
 	resList := []responsedto.UserStoryResponse{}
 	for _, story := range stories {
@@ -765,7 +777,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 			taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap, isFinalMap))
 		}
 
-		storyRes := mapToUserStoryResponse(story, customStatuses, total, completed, progress)
+		storyRes := mapToUserStoryResponse(story, userStoryStatuses, total, completed, progress)
 		storyRes.Tasks = taskResponses
 		resList = append(resList, storyRes)
 	}
@@ -788,7 +800,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 	return resList, pagination, nil
 }
 
-func mapToUserStoryResponse(story models.UserStory, customStatuses []models.CustomStatus, totalTasks, completedTasks int64, progress float64) responsedto.UserStoryResponse {
+func mapToUserStoryResponse(story models.UserStory, customStatuses []models.UserStoryStatus, totalTasks, completedTasks int64, progress float64) responsedto.UserStoryResponse {
 	var sprintName string
 	if story.Sprint != nil {
 		sprintName = story.Sprint.Name
@@ -925,3 +937,94 @@ func (s *userStoryService) ReorderUserStories(projectID, userID, orgID uuid.UUID
 	return nil
 }
 
+func (s *userStoryService) UpdateUserStoryStatus(req dto.UpdateUserStoryStatusAssignmentRequest) (*responsedto.UserStoryResponse, *response.Error) {
+	// 1. Authorization Check
+	_, _, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update user stories in this project",
+		}
+	}
+
+	// 2. Fetch User Story
+	_, err = s.userStoryRepo.GetUserStoryByID(req.UserStoryID, req.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Fetch User Story Status and verify it belongs to the same project
+	status, err := s.userStoryStatusRepo.GetStatusByID(req.StatusID, req.ProjectID)
+	if err != nil {
+		if err.StatusCode == http.StatusNotFound {
+			return nil, &response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusUnprocessableEntity,
+				Message:    "Invalid user story status: status does not exist or does not belong to this project",
+			}
+		}
+		return nil, err
+	}
+
+	// 4. Perform update
+	updates := map[string]interface{}{
+		"status_id": status.ID,
+	}
+	updateErr := s.userStoryRepo.UpdateUserStory(req.UserStoryID, updates)
+	if updateErr != nil {
+		return nil, updateErr
+	}
+
+	recalcErr := s.userStoryRepo.RecalculateUserStoryIsClosed(req.UserStoryID)
+	if recalcErr != nil {
+		return nil, recalcErr
+	}
+
+	// 5. Fetch updated User Story
+	updatedStory, getErr := s.userStoryRepo.GetUserStoryByID(req.UserStoryID, req.ProjectID)
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(req.ProjectID)
+	if statErr != nil {
+		return nil, statErr
+	}
+	var total, completed int64
+	progress := 0.0
+	if stat, ok := statsMap[req.UserStoryID]; ok {
+		total = stat.TotalTasks
+		completed = stat.Completed
+		if total > 0 {
+			progress = (float64(completed) / float64(total)) * 100.0
+		}
+	}
+
+	var userStoryStatuses []models.UserStoryStatus
+	if s.userStoryStatusRepo != nil {
+		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(req.ProjectID)
+	}
+	res := mapToUserStoryResponse(*updatedStory, userStoryStatuses, total, completed, progress)
+
+	// 6. Audit Logging
+	auditLog := models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		ProjectID:      &req.ProjectID,
+		Action:         "updated",
+		ResourceType:   "user_story",
+		ResourceID:     updatedStory.ID.String(),
+		Details:        fmt.Sprintf("User Story '%s' status updated to '%s'", updatedStory.Title, status.Name),
+		Type:           models.AuditLogTypeActivity,
+		CreatedAt:      time.Now(),
+	}
+	if logErr := s.auditRepo.CreateAuditLog(auditLog); logErr != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", logErr))
+	}
+
+	return &res, nil
+}

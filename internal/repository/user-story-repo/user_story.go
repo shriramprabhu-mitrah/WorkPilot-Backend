@@ -28,8 +28,11 @@ func (d *userStoryDatabase) CreateUserStory(userStory *models.UserStory) *respon
 
 func (d *userStoryDatabase) GetUserStoryByID(id uuid.UUID, projectID uuid.UUID) (*models.UserStory, *response.Error) {
 	var story models.UserStory
-	err := d.db.Preload("Sprint").Preload("Assignee").Preload("Reporter").
-		Where("id = ? AND project_id = ?", id, projectID).
+	err := d.db.Model(&models.UserStory{}).
+		Preload("Sprint").Preload("Assignee").Preload("Reporter").
+		Select("user_stories.*, user_story_statuses.name AS status").
+		Joins("LEFT JOIN user_story_statuses ON user_story_statuses.id = user_stories.status_id").
+		Where("user_stories.id = ? AND user_stories.project_id = ?", id, projectID).
 		First(&story).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -87,10 +90,12 @@ func (d *userStoryDatabase) GetUserStories(projectID uuid.UUID, filter dto.UserS
 		Preload("Sprint").
 		Preload("Assignee").
 		Preload("Reporter").
-		Where("project_id = ?", projectID)
+		Select("user_stories.*, user_story_statuses.name AS status").
+		Joins("LEFT JOIN user_story_statuses ON user_story_statuses.id = user_stories.status_id").
+		Where("user_stories.project_id = ?", projectID)
 
 	if filter.Status != "" {
-		query = query.Where("status = ?", filter.Status)
+		query = query.Where("user_story_statuses.name = ?", filter.Status)
 	}
 
 	if filter.Assignee != "" {
@@ -143,19 +148,19 @@ func (d *userStoryDatabase) GetUserStories(projectID uuid.UUID, filter dto.UserS
 	}
 
 	// 2. Build the order clause dynamically
-	orderClause := "created_at DESC"
+	orderClause := "user_stories.created_at DESC"
 	if filter.SortBy != "" {
 		direction := "ASC"
 		if strings.ToUpper(filter.SortOrder) == "DESC" {
 			direction = "DESC"
 		}
 		allowed := map[string]string{
-			"title":         "title",
-			"created_at":    "created_at",
-			"updated_at":    "updated_at",
-			"priority":      "priority",
-			"status":        "status",
-			"serial_number": "serial_number",
+			"title":         "user_stories.title",
+			"created_at":    "user_stories.created_at",
+			"updated_at":    "user_stories.updated_at",
+			"priority":      "user_stories.priority",
+			"status":        "user_story_statuses.name",
+			"serial_number": "user_stories.serial_number",
 		}
 		if col, ok := allowed[filter.SortBy]; ok {
 			orderClause = fmt.Sprintf("%s %s", col, direction)
@@ -345,15 +350,13 @@ func (d *userStoryDatabase) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 			Where("id = ? AND deleted_at IS NULL", userStoryID).
 			First(&story).Error
 		if err == nil {
-			var storyStatusIsFinal bool
-			err = d.db.Table("custom_statuses").
+			var storyStatusIsClosed bool
+			err = d.db.Table("user_story_statuses").
 				Where("id = ? AND deleted_at IS NULL", story.StatusID).
-				Select("is_final").
-				Scan(&storyStatusIsFinal).Error
+				Select("is_closed").
+				Scan(&storyStatusIsClosed).Error
 			if err == nil {
-				isClosed = storyStatusIsFinal
-			} else {
-				isClosed = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(story.Status)]
+				isClosed = storyStatusIsClosed
 			}
 		}
 	}
@@ -373,4 +376,20 @@ func (d *userStoryDatabase) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 	}
 
 	return nil
+}
+
+func (d *userStoryDatabase) CountStoriesByStatusID(projectID, statusID uuid.UUID) (int64, *response.Error) {
+	var count int64
+	err := d.db.Model(&models.UserStory{}).
+		Where("project_id = ? AND status_id = ?", projectID, statusID).
+		Count(&count).Error
+	if err != nil {
+		d.logger.Error("Failed to count user stories by status ID", zap.Error(err))
+		return 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to check user stories count by status ID",
+		}
+	}
+	return count, nil
 }
