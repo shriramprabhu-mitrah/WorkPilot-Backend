@@ -229,6 +229,69 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 
 }
 
+// GetAllOrganizations godoc
+//
+//	@Summary		Get all Organizations
+//	@Description	Returns a list of all registered Organizations with filtering, sorting, and pagination.
+//	@Tags			Organizations
+//	@Produce		json
+//	@Param			page		query		int		false	"Page Number"		default(1)
+//	@Param			page_size	query		int		false	"Page Size"			default(10)
+//	@Param			name		query		string	false	"Organization Name"
+//	@Param			domain		query		string	false	"Domain"
+//	@Param			industry	query		string	false	"Industry"
+//	@Param			team_size	query		string	false	"Team Size"
+//	@Param			country		query		string	false	"Country"
+//	@Param			is_active	query		bool	false	"Is Active"
+//	@Param			search		query		string	false	"Search term across name, domain, industry, slug"
+//	@Param			sort_by		query		string	false	"Sort by field"	Enums(name,created_at,updated_at,domain,industry,team_size,is_active)
+//	@Param			sort_order	query		string	false	"Sort order"	Enums(ASC,DESC)
+//	@Success		200			{object}	response.SuccessResponse{data=[]responsedto.OrganizationSummary}
+//	@Failure		400			{object}	response.ErrorResponse
+//	@Failure		401			{object}	response.ErrorResponse
+//	@Failure		500			{object}	response.ErrorResponse
+//	@Router			/organization [get]
+func (h *OrganizationHandler) GetAllOrganizations(g *gin.Context) {
+	var filter requestdto.OrganizationFilterRequest
+
+	if err := g.ShouldBindQuery(&filter); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid query parameters",
+			},
+		}
+		g.JSON(http.StatusBadRequest, errorResponse)
+		return
+	}
+
+	results, pagination, err := h.service.GetAllOrganizations(filter)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	orgResponses := make([]responsedto.OrganizationSummary, 0, len(results))
+	for _, org := range results {
+		orgResponses = append(orgResponses, responsedto.OrganizationFromModel(org))
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "All organizations retrieved successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       orgResponses,
+		Meta:       &pagination,
+	}
+	g.JSON(http.StatusOK, successResponse)
+}
+
 // CreateOrganization godoc
 //
 // @Summary      Register a new Organization

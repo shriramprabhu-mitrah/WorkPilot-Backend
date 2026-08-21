@@ -33,6 +33,9 @@ func (s *stubOrganizationRepository) GetByName(name string) (models.Organization
 func (s *stubOrganizationRepository) GetByID(id uuid.UUID) (models.Organization, *response.Error) {
 	return s.organization, nil
 }
+func (s *stubOrganizationRepository) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error) {
+	return []models.Organization{s.organization}, response.Pagination{Page: 1, PageSize: 10, TotalItems: 1, TotalPages: 1}, nil
+}
 func (s *stubOrganizationRepository) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
 	return nil
 }

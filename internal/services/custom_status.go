@@ -199,7 +199,7 @@ func (s *customStatusService) CreateStatus(req requestdto.CreateCustomStatusRequ
 		ResourceID:     status.ID.String(),
 		Title:          status.Name,
 		Details:        fmt.Sprintf("Custom Status '%s' created for project '%s' by %s", status.Name, projectName, userName),
-		Type:           models.AuditLogTypeActivity,
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -399,7 +399,7 @@ func (s *customStatusService) UpdateStatus(req requestdto.UpdateCustomStatusRequ
 			ResourceID:     status.ID.String(),
 			Title:          status.Name,
 			Details:        detail,
-			Type:           models.AuditLogTypeActivity,
+			Type:           models.AuditLogTypeAudit,
 			CreatedAt:      time.Now(),
 		}
 		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -463,7 +463,7 @@ func (s *customStatusService) DeleteStatus(statusID, projectID, userID, orgID uu
 		ResourceID:     statusID.String(),
 		Title:          status.Name,
 		Details:        fmt.Sprintf("Custom Status '%s' deleted for project '%s' by %s", status.Name, projectName, userName),
-		Type:           models.AuditLogTypeActivity,
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {

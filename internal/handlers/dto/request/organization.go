@@ -100,3 +100,16 @@ type OrganizationMemberListFilter struct {
 	Timezone         string `json:"timezone,omitempty"`
 	IncludeOrgAdmins bool   `json:"include_org_admins,omitempty"`
 }
+
+type OrganizationFilterRequest struct {
+	response.PaginationQuery
+	response.SortQuery
+	Name     string `form:"name"`
+	Domain   string `form:"domain"`
+	Industry string `form:"industry"`
+	TeamSize string `form:"team_size"`
+	Country  string `form:"country"`
+	IsActive *bool  `form:"is_active"`
+	Search   string `form:"search"`
+}
+

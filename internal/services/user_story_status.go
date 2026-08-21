@@ -188,7 +188,7 @@ func (s *userStoryStatusService) CreateStatus(req requestdto.CreateUserStoryStat
 		ResourceType:   "user_story_status",
 		ResourceID:     status.ID.String(),
 		Details:        fmt.Sprintf("User Story Status '%s' created", status.Name),
-		Type:           models.AuditLogTypeActivity,
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -357,7 +357,7 @@ func (s *userStoryStatusService) UpdateStatus(req requestdto.UpdateUserStoryStat
 			ResourceType:   "user_story_status",
 			ResourceID:     status.ID.String(),
 			Details:        fmt.Sprintf("User Story Status '%s' updated", status.Name),
-			Type:           models.AuditLogTypeActivity,
+			Type:           models.AuditLogTypeAudit,
 			CreatedAt:      time.Now(),
 		}
 		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
@@ -439,7 +439,7 @@ func (s *userStoryStatusService) DeleteStatus(statusID, projectID, userID, orgID
 		ResourceType:   "user_story_status",
 		ResourceID:     statusID.String(),
 		Details:        fmt.Sprintf("User Story Status '%s' deleted", status.Name),
-		Type:           models.AuditLogTypeActivity,
+		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
 	if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {

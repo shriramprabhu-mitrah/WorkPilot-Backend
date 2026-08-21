@@ -882,6 +882,142 @@ const docTemplate = `{
                 }
             }
         },
+        "/organization": {
+            "get": {
+                "description": "Returns a list of all registered Organizations with filtering, sorting, and pagination.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Organizations"
+                ],
+                "summary": "Get all Organizations",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page Number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Page Size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization Name",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Industry",
+                        "name": "industry",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Team Size",
+                        "name": "team_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Country",
+                        "name": "country",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Is Active",
+                        "name": "is_active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search term across name, domain, industry, slug",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "name",
+                            "created_at",
+                            "updated_at",
+                            "domain",
+                            "industry",
+                            "team_size",
+                            "is_active"
+                        ],
+                        "type": "string",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ASC",
+                            "DESC"
+                        ],
+                        "type": "string",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.OrganizationSummary"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/organization/create": {
             "post": {
                 "description": "Creates a new Organization account. Send as multipart/form-data. Optionally include a 'logo' file to set the organization logo.",
