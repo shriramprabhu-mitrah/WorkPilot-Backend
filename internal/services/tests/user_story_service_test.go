@@ -34,16 +34,17 @@ func (s *userStoryAuthRepoStub) GetUserByID(id uuid.UUID) (models.User, *respons
 }
 
 type stubUserStoryRepo struct {
-	stories          map[uuid.UUID]*models.UserStory
-	seqNumber        int
-	validSprints     map[uuid.UUID]bool
-	storyTaskStats   map[uuid.UUID]models.StoryTaskStats
-	taskRepo         taskrepo.TaskRepository
-	customStatusRepo *stubCustomStatusRepo
-	createErr        *response.Error
-	getErr           *response.Error
-	updateErr        *response.Error
-	deleteErr        *response.Error
+	stories             map[uuid.UUID]*models.UserStory
+	seqNumber           int
+	validSprints        map[uuid.UUID]bool
+	storyTaskStats      map[uuid.UUID]models.StoryTaskStats
+	taskRepo            taskrepo.TaskRepository
+	customStatusRepo    *stubCustomStatusRepo
+	userStoryStatusRepo *stubUserStoryStatusRepo
+	createErr           *response.Error
+	getErr              *response.Error
+	updateErr           *response.Error
+	deleteErr           *response.Error
 }
 
 func (s *stubUserStoryRepo) CreateUserStory(userStory *models.UserStory) *response.Error {
@@ -234,21 +235,27 @@ func (s *stubUserStoryRepo) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 		if activeCount > 0 {
 			story.IsClosed = (completedCount == activeCount)
 		} else {
-			isFinal := false
-			if s.customStatusRepo != nil {
-				cs, err := s.customStatusRepo.GetStatusByID(story.StatusID, story.ProjectID)
+			isClosed := false
+			if s.userStoryStatusRepo != nil {
+				cs, err := s.userStoryStatusRepo.GetStatusByID(story.StatusID, story.ProjectID)
 				if err == nil {
-					isFinal = cs.IsFinal
-				} else {
-					isFinal = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(story.Status)]
+					isClosed = cs.IsClosed
 				}
-			} else {
-				isFinal = models.DefaultStatusIsFinal[models.NormalizeTaskStatus(story.Status)]
 			}
-			story.IsClosed = isFinal
+			story.IsClosed = isClosed
 		}
 	}
 	return nil
+}
+
+func (s *stubUserStoryRepo) CountStoriesByStatusID(projectID, statusID uuid.UUID) (int64, *response.Error) {
+	var count int64
+	for _, story := range s.stories {
+		if !story.DeletedAt.Valid && story.ProjectID == projectID && story.StatusID == statusID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
@@ -267,7 +274,7 @@ func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:       "User Story Title",
@@ -312,7 +319,7 @@ func TestUserStoryService_CreateUserStory_ForbiddenIfNoAccess(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Some title",
@@ -350,7 +357,7 @@ func TestUserStoryService_CreateUserStory_InvalidSprintID(t *testing.T) {
 		validSprints: map[uuid.UUID]bool{sprintID: false}, // Sprint does not belong to the project
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Title",
@@ -388,7 +395,7 @@ func TestUserStoryService_CreateUserStory_InvalidAssigneeID(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	req := dto.CreateUserStoryRequest{
 		Title:      "Title",
@@ -434,7 +441,7 @@ func TestUserStoryService_GetUserStoryByID_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -473,7 +480,7 @@ func TestUserStoryService_UpdateUserStory_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	newTitle := "New Title"
 	newPriority := "critical"
@@ -528,7 +535,7 @@ func TestUserStoryService_UpdateUserStory_SprintID(t *testing.T) {
 		validSprints: map[uuid.UUID]bool{sprintID: true},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	// 1. Update to a new Sprint ID
 	newSprintID := uuid.Must(uuid.NewV4())
@@ -654,7 +661,7 @@ func TestUserStoryService_DeleteUserStory_Success(t *testing.T) {
 		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	err := service.DeleteUserStory(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -695,7 +702,7 @@ func TestUserStoryService_ReorderUserStories_Success(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	// Reorder them: story2 first, then story1
 	err := service.ReorderUserStories(projectID, userID, orgID, []uuid.UUID{story2ID, story1ID})
@@ -737,7 +744,7 @@ func TestUserStoryService_ProgressCalculation(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -788,7 +795,7 @@ func TestUserStoryService_GetUserStoryByID_IncludesTasks(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
 	if err != nil {
@@ -835,7 +842,7 @@ func TestUserStoryService_GetUserStories_IncludesTasks(t *testing.T) {
 		},
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	stories, _, err := service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{})
 	if err != nil {
@@ -869,17 +876,19 @@ func TestUserStoryService_CreateUserStory_CustomStatus(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 	customStatusRepo := &stubCustomStatusRepo{}
+	userStoryStatusRepo := &stubUserStoryStatusRepo{}
 
 	// Add a specific custom status to project
 	customStatusID := uuid.Must(uuid.NewV4())
-	customStatusRepo.CreateStatus(&models.CustomStatus{
+	userStoryStatusRepo.CreateStatus(&models.UserStoryStatus{
 		ID:        customStatusID,
 		ProjectID: projectID,
 		Name:      "Ready For Dev",
 		Color:     "#FFFF00",
 	})
+	userStoryRepo.userStoryStatusRepo = userStoryStatusRepo
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, userStoryStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
 
 	// 1. Create with custom status ID
 	req := dto.CreateUserStoryRequest{
@@ -933,10 +942,11 @@ func TestUserStoryService_CreateUserStory_StatusPrecedence(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 	customStatusRepo := &stubCustomStatusRepo{}
+	userStoryStatusRepo := &stubUserStoryStatusRepo{}
 
 	// Create custom status 1
 	statusID1 := uuid.Must(uuid.NewV4())
-	customStatusRepo.CreateStatus(&models.CustomStatus{
+	userStoryStatusRepo.CreateStatus(&models.UserStoryStatus{
 		ID:        statusID1,
 		ProjectID: projectID,
 		Name:      "Design Phase",
@@ -945,14 +955,15 @@ func TestUserStoryService_CreateUserStory_StatusPrecedence(t *testing.T) {
 
 	// Create custom status 2
 	statusID2 := uuid.Must(uuid.NewV4())
-	customStatusRepo.CreateStatus(&models.CustomStatus{
+	userStoryStatusRepo.CreateStatus(&models.UserStoryStatus{
 		ID:        statusID2,
 		ProjectID: projectID,
 		Name:      "Build Phase",
 		Color:     "#0000FF",
 	})
+	userStoryRepo.userStoryStatusRepo = userStoryStatusRepo
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, userStoryStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
 
 	// StatusID (statusID1) should take precedence over Status Name ("Build Phase")
 	req := dto.CreateUserStoryRequest{
@@ -989,8 +1000,10 @@ func TestUserStoryService_CreateUserStory_InvalidStatus(t *testing.T) {
 	}
 	userStoryRepo := &stubUserStoryRepo{stories: make(map[uuid.UUID]*models.UserStory)}
 	customStatusRepo := &stubCustomStatusRepo{}
+	userStoryStatusRepo := &stubUserStoryStatusRepo{}
+	userStoryRepo.userStoryStatusRepo = userStoryStatusRepo
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, customStatusRepo, userStoryStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
 
 	// 1. Invalid status ID
 	invalidStatusID := uuid.Must(uuid.NewV4())
@@ -1046,13 +1059,15 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		tasks: make(map[uuid.UUID]*models.Task),
 	}
 	customStatusRepo := &stubCustomStatusRepo{}
+	userStoryStatusRepo := &stubUserStoryStatusRepo{}
 	userStoryRepo := &stubUserStoryRepo{
-		stories:          make(map[uuid.UUID]*models.UserStory),
-		taskRepo:         taskRepo,
-		customStatusRepo: customStatusRepo,
+		stories:             make(map[uuid.UUID]*models.UserStory),
+		taskRepo:            taskRepo,
+		customStatusRepo:    customStatusRepo,
+		userStoryStatusRepo: userStoryStatusRepo,
 	}
 
-	usService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
+	usService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, userStoryStatusRepo, &stubAuditLogRepo{}, zap.NewNop())
 	tService := services.InitTaskService(authRepo, projectRepo, taskRepo, userStoryRepo, &stubAuditLogRepo{}, customStatusRepo, zap.NewNop())
 
 	// 1. Create a new User Story -> defaults to is_closed: false

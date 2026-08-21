@@ -458,3 +458,87 @@ func (h *userStoryHandler) ReorderUserStories(g *gin.Context) {
 
 	g.JSON(successResponse.StatusCode, successResponse)
 }
+
+// UpdateUserStoryStatus godoc
+// @Summary Update User Story Status
+// @Description Update the status of a specific user story using the dedicated User Story status endpoint.
+// @Tags UserStory
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param user_story_id path string true "User Story ID"
+// @Param request body requestdto.UpdateUserStoryStatusAssignmentRequest true "Update User Story Status Request Body"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 422 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/status [patch]
+func (h *userStoryHandler) UpdateUserStoryStatus(g *gin.Context) {
+	var payload requestdto.UpdateUserStoryStatusAssignmentRequest
+
+	if err := g.Bind(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusUnprocessableEntity,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	storyIDParam := g.Param("user_story_id")
+	storyID, errorResponse := utils.StringToUUID(storyIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	payload.UserID = userUUID
+	payload.ProjectID = projectID
+	payload.UserStoryID = storyID
+	payload.OrganizationID = organizationUUID
+
+	storyRes, err := h.service.UpdateUserStoryStatus(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Successfully Updated User Story Status",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       storyRes,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}

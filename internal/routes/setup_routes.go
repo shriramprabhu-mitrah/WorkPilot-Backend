@@ -20,6 +20,7 @@ func SetupRoutes(deps models.Config) {
 		LabelRoutes(deps, api)
 		CommentsRoutes(deps, api)
 		CustomStatusRoutes(deps, api)
+		UserStoryStatusRoutes(deps, api)
 		WorkItemRoutes(deps, api)
 		DashboardRoutes(deps, api)
 	}

@@ -38,6 +38,14 @@ type UpdateUserStoryRequest struct {
 	IsNullFields   map[string]bool `json:"-"`
 }
 
+type UpdateUserStoryStatusAssignmentRequest struct {
+	StatusID       uuid.UUID `json:"status_id" binding:"required"`
+	UserStoryID    uuid.UUID `json:"-"`
+	ProjectID      uuid.UUID `json:"-"`
+	UserID         uuid.UUID `json:"-"`
+	OrganizationID uuid.UUID `json:"-"`
+}
+
 func (r *UpdateUserStoryRequest) UnmarshalJSON(data []byte) error {
 	type Alias UpdateUserStoryRequest
 	var temp Alias

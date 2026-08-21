@@ -14,6 +14,7 @@ import (
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
+	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
 	workitemrepo "github.com/ms-kanban-server/internal/repository/work-item-repo"
 	"go.uber.org/zap"
 )
@@ -23,13 +24,14 @@ type WorkItemService interface {
 }
 
 type workItemService struct {
-	authRepo         authrepo.AuthRepository
-	projectRepo      projectrepo.ProjectRepository
-	workItemRepo     workitemrepo.WorkItemRepository
-	customStatusRepo customstatusrepo.CustomStatusRepository
-	taskRepo         taskrepo.TaskRepository
-	userStoryRepo    userstoryrepo.UserStoryRepository
-	logger           *zap.Logger
+	authRepo            authrepo.AuthRepository
+	projectRepo         projectrepo.ProjectRepository
+	workItemRepo        workitemrepo.WorkItemRepository
+	customStatusRepo    customstatusrepo.CustomStatusRepository
+	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository
+	taskRepo            taskrepo.TaskRepository
+	userStoryRepo       userstoryrepo.UserStoryRepository
+	logger              *zap.Logger
 }
 
 func InitWorkItemService(
@@ -37,18 +39,20 @@ func InitWorkItemService(
 	projectRepo projectrepo.ProjectRepository,
 	workItemRepo workitemrepo.WorkItemRepository,
 	customStatusRepo customstatusrepo.CustomStatusRepository,
+	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository,
 	taskRepo taskrepo.TaskRepository,
 	userStoryRepo userstoryrepo.UserStoryRepository,
 	logger *zap.Logger,
 ) WorkItemService {
 	return &workItemService{
-		authRepo:         authRepo,
-		projectRepo:      projectRepo,
-		workItemRepo:     workItemRepo,
-		customStatusRepo: customStatusRepo,
-		taskRepo:         taskRepo,
-		userStoryRepo:    userStoryRepo,
-		logger:           logger,
+		authRepo:            authRepo,
+		projectRepo:         projectRepo,
+		workItemRepo:        workItemRepo,
+		customStatusRepo:    customStatusRepo,
+		userStoryStatusRepo: userStoryStatusRepo,
+		taskRepo:            taskRepo,
+		userStoryRepo:       userStoryRepo,
+		logger:              logger,
 	}
 }
 
@@ -154,11 +158,11 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 			}
 		}
 
-		var customStatuses []models.CustomStatus
-		if s.customStatusRepo != nil {
-			statuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+		var userStoryStatuses []models.UserStoryStatus
+		if s.userStoryStatusRepo != nil {
+			statuses, err := s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
 			if err == nil {
-				customStatuses = statuses
+				userStoryStatuses = statuses
 			}
 		}
 
@@ -177,7 +181,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 			}
 		}
 
-		storyResp := mapToUserStoryResponse(*story, customStatuses, totalTasks, completedTasks, progress)
+		storyResp := mapToUserStoryResponse(*story, userStoryStatuses, totalTasks, completedTasks, progress)
 		workItem := &responsedto.WorkItemResponse{
 			WorkItemType:          "user_story",
 			ID:                    story.ID,

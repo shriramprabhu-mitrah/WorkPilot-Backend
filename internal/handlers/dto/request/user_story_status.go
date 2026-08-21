@@ -1,0 +1,26 @@
+package request
+
+import (
+	"github.com/gofrs/uuid"
+)
+
+type CreateUserStoryStatusRequest struct {
+	Name           string    `json:"name" binding:"required,min=1,max=50"`
+	Color          string    `json:"color" binding:"required"`
+	DisplayOrder   int       `json:"display_order" binding:"gte=0"`
+	IsClosed       *bool     `json:"is_closed" binding:"omitempty"`
+	ProjectID      uuid.UUID `json:"-"`
+	UserID         uuid.UUID `json:"-"`
+	OrganizationID uuid.UUID `json:"-"`
+}
+
+type UpdateUserStoryStatusRequest struct {
+	Name           *string   `json:"name" binding:"omitempty,min=1,max=50"`
+	Color          *string   `json:"color" binding:"omitempty"`
+	DisplayOrder   *int      `json:"display_order" binding:"omitempty,gte=0"`
+	IsClosed       *bool     `json:"is_closed" binding:"omitempty"`
+	StatusID       uuid.UUID `json:"-"`
+	ProjectID      uuid.UUID `json:"-"`
+	UserID         uuid.UUID `json:"-"`
+	OrganizationID uuid.UUID `json:"-"`
+}

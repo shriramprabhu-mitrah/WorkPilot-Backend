@@ -10,6 +10,7 @@ import (
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
+	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
 	workitemrepo "github.com/ms-kanban-server/internal/repository/work-item-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
@@ -20,11 +21,12 @@ func WorkItemRoutes(deps models.Config, api *gin.RouterGroup) {
 	projectRepo := projectrepo.InitProjectRepository(deps)
 	workItemRepo := workitemrepo.InitWorkItemRepository(deps)
 	customStatusRepo := customstatusrepo.InitCustomStatusRepository(deps)
+	userStoryStatusRepo := userstorystatusrepo.InitUserStoryStatusRepository(deps)
 	taskRepo := taskrepo.InitTaskRepository(deps)
 	userStoryRepo := userstoryrepo.InitUserStoryRepository(deps)
 
 	// initialize service
-	workItemService := services.InitWorkItemService(authRepo, projectRepo, workItemRepo, customStatusRepo, taskRepo, userStoryRepo, deps.Logger)
+	workItemService := services.InitWorkItemService(authRepo, projectRepo, workItemRepo, customStatusRepo, userStoryStatusRepo, taskRepo, userStoryRepo, deps.Logger)
 
 	// initialize handler
 	workItemHandler := handlers.InitWorkItemHandler(workItemService, deps.Logger)

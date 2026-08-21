@@ -22,6 +22,7 @@ type UserStoryRepository interface {
 	GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUID]models.StoryTaskStats, *response.Error)
 	GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error)
 	RecalculateUserStoryIsClosed(userStoryID uuid.UUID) *response.Error
+	CountStoriesByStatusID(projectID, statusID uuid.UUID) (int64, *response.Error)
 }
 
 func InitUserStoryRepository(deps models.Config) UserStoryRepository {
