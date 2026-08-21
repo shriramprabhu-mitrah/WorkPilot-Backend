@@ -356,7 +356,7 @@ func (s *stubAttachmentProjectRepo) GetProjectByID(id uuid.UUID) (models.Project
 	s.project.ID = id
 	return s.project, nil
 }
-func (s *stubAttachmentProjectRepo) CreateProjectMember(row models.ProjectMember) *response.Error { return nil }
+func (s *stubAttachmentProjectRepo) CreateProjectMember(row *models.ProjectMember) *response.Error { return nil }
 func (s *stubAttachmentProjectRepo) GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
 func (s *stubAttachmentProjectRepo) RemoveProjectMember(projectID, userID uuid.UUID) *response.Error { return nil }
 func (s *stubAttachmentProjectRepo) GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
@@ -509,7 +509,7 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 		if len(f.attachmentRepo.attachments) != 1 {
 			t.Errorf("expected 1 attachment in DB, got %d", len(f.attachmentRepo.attachments))
 		}
-		if len(f.auditRepo.logs) != 1 || f.auditRepo.logs[0].Action != "uploaded" {
+		if len(f.auditRepo.logs) != 1 || f.auditRepo.logs[0].Action != "attachment_uploaded" {
 			t.Errorf("expected uploaded audit log, got logs: %v", f.auditRepo.logs)
 		}
 	})

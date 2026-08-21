@@ -324,7 +324,7 @@ func (s *taskService) resolveStatusIDAndName(projectID uuid.UUID, statusID *uuid
 }
 
 func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *responsedto.TaskResponse, *response.Error) {
-	project, _, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	project, result, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
@@ -509,10 +509,12 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		TaskID:         &task.ID,
 		Action:         "created",
 		ResourceType:   "task",
 		ResourceID:     task.ID.String(),
-		Details:        fmt.Sprintf("Task %s created", task.Key),
+		Title:          task.Title,
+		Details:        fmt.Sprintf("The task '%s' was created by %s", task.Title, result.UserName),
 		CreatedAt:      time.Now(),
 		Type:           models.AuditLogTypeActivity,
 	}
@@ -527,7 +529,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 }
 
 func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error) {
-	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+	_, result, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -553,9 +555,12 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
+		TaskID:         &taskID,
 		Action:         "viewed",
 		ResourceType:   "task",
 		ResourceID:     taskID.String(),
+		Title:          task.Title,
+		Details:        fmt.Sprintf("The task '%s' was viewed by %s", task.Title, result.UserName),
 		Type:           models.AuditLogTypeView,
 		CreatedAt:      time.Now(),
 	}
@@ -1117,20 +1122,33 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	}
 
 	// 5. Create Audit Log
+	changedBy := user.UserName
+	if changedBy == "" {
+		changedBy = user.FullName
+	}
+	if changedBy == "" {
+		changedBy = user.Email
+	}
+	if changedBy == "" {
+		changedBy = req.UserID.String()
+	}
+
 	var detail string
 	if len(changes) > 0 {
-		detail = fmt.Sprintf("Task %s updated: %s", task.Key, strings.Join(changes, ", "))
+		detail = fmt.Sprintf("Task '%s' updated by %s: %s", task.Title, changedBy, strings.Join(changes, ", "))
 	} else {
-		detail = fmt.Sprintf("Task %s updated", task.Key)
+		detail = fmt.Sprintf("Task '%s' details updated by %s", task.Title, changedBy)
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		TaskID:         &task.ID,
 		Action:         "updated",
 		ResourceType:   "task",
 		ResourceID:     task.ID.String(),
+		Title:          task.Title,
 		Details:        detail,
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
@@ -1162,7 +1180,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 }
 
 func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error {
-	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+	_, user, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return err
 	}
@@ -1203,10 +1221,11 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
+		TaskID:         &taskID,
 		Action:         "restored",
 		ResourceType:   "task",
 		ResourceID:     taskID.String(),
-		Details:        fmt.Sprintf("Task %s restored", task.Key),
+		Details:        fmt.Sprintf("Task '%s' restored by %s", task.Title, user.UserName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -1222,7 +1241,7 @@ func (s *taskService) RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *r
 }
 
 func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error) {
-	project, _, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	project, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -1299,10 +1318,11 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		TaskID:         &clonedTask.ID,
 		Action:         "cloned",
 		ResourceType:   "task",
 		ResourceID:     clonedTask.ID.String(),
-		Details:        fmt.Sprintf("Task %s cloned from %s", clonedTask.Key, origTask.Key),
+		Details:        fmt.Sprintf("Task '%s'-'%s' cloned from '%s'-'%s' by %s", clonedTask.Title, clonedTask.Key, origTask.Title, origTask.Key, user.UserName),
 		CreatedAt:      time.Now(),
 		Type:           models.AuditLogTypeActivity,
 	}
@@ -1663,6 +1683,7 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 				UserID:         &req.UserID,
 				OrganizationID: &req.OrganizationID,
 				ProjectID:      &req.ProjectID,
+				TaskID:         &task.ID,
 				Action:         "updated",
 				ResourceType:   "task",
 				ResourceID:     task.ID.String(),
@@ -1790,6 +1811,7 @@ func (s *taskService) AttachLabelToTask(projectID, taskID, labelID, userID, orgI
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
+		TaskID:         &taskID,
 		Action:         "updated",
 		ResourceType:   "label",
 		ResourceID:     taskID.String(),
@@ -1849,6 +1871,7 @@ func (s *taskService) RemoveLabelFromTask(projectID, taskID, labelID, userID, or
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
+		TaskID:         &taskID,
 		Action:         "removed",
 		ResourceType:   "label",
 		ResourceID:     taskID.String(),
@@ -1911,6 +1934,7 @@ func (s *taskService) BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*response
 			UserID:         &req.UserID,
 			OrganizationID: &req.OrganizationID,
 			ProjectID:      &req.ProjectID,
+			TaskID:         &taskID,
 			Action:         "deleted",
 			ResourceType:   "task",
 			ResourceID:     taskID.String(),

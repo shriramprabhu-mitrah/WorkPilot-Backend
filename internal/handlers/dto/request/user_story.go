@@ -28,6 +28,7 @@ type UpdateUserStoryRequest struct {
 	StatusID       *uuid.UUID      `json:"status_id" binding:"omitempty"`
 	Status         *string         `json:"status" binding:"omitempty"`
 	StoryPoints    *int            `json:"story_points" binding:"omitempty,min=0"`
+	IsClosed       *bool           `json:"is_closed"`
 	AssigneeID     *uuid.UUID      `json:"assignee_id"`
 	SprintID       *uuid.UUID      `json:"sprint_id"`
 	UserStoryID    uuid.UUID       `json:"-"`

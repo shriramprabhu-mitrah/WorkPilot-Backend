@@ -33,6 +33,9 @@ type ProjectActivityResponse struct {
 	CreatedAt      string       `json:"timestamp"`
 	TaskKey        string       `json:"task_key,omitempty"`
 	Title          string       `json:"title,omitempty"`
+	TaskName       string       `json:"task_name,omitempty"`
+	UserStoryName  string       `json:"user_story_name,omitempty"`
+	SprintName     string       `json:"sprint_name,omitempty"`
 }
 
 type ProjectMemberResponse struct {

@@ -718,7 +718,7 @@ func (s *organizationService) GetInvitationByToken(token string) (models.Organiz
 	}
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 		OrganizationID: &invitation.OrganizationID,
-		Action:         "view",
+		Action:         "viewed",
 		ResourceType:   "invitation",
 		ResourceID:     invitation.Token,
 		Type:           models.AuditLogTypeAudit,
@@ -756,7 +756,7 @@ func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.Org
 
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
 		OrganizationID: &id,
-		Action:         "view",
+		Action:         "viewed",
 		ResourceType:   "users_in_organization",
 		ResourceID:     id.String(),
 		Type:           models.AuditLogTypeAudit,

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -196,7 +197,7 @@ func (s *userStoryService) checkAuthorization(projectID, userID uuid.UUID) (mode
 }
 
 func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*responsedto.UserStoryResponse, *response.Error) {
-	_, _, authorized, err := s.checkAuthorization(req.ProjectID, req.ReporterID)
+	_, user, authorized, err := s.checkAuthorization(req.ProjectID, req.ReporterID)
 	if err != nil {
 		return nil, err
 	}
@@ -319,9 +320,11 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		UserID:         &req.ReporterID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		UserStoryID:    &story.ID,
 		Action:         "created",
 		ResourceType:   "user_story",
 		ResourceID:     story.ID.String(),
+		Details:        fmt.Sprintf("User Story '%s' created by %s", story.Title, user.UserName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -335,7 +338,7 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 }
 
 func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error) {
-	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+	_, user, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -389,9 +392,11 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
+		UserStoryID:    &story.ID,
 		Action:         "viewed",
 		ResourceType:   "user_story",
 		ResourceID:     story.ID.String(),
+		Details:        fmt.Sprintf("User Story '%s' viewed by %s", story.Title, user.UserName),
 		Type:           models.AuditLogTypeView,
 		CreatedAt:      time.Now(),
 	}
@@ -435,12 +440,24 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 	}
 
 	// Fetch existing user story
-	_, err = s.userStoryRepo.GetUserStoryByID(req.UserStoryID, req.ProjectID)
+	existingStory, err := s.userStoryRepo.GetUserStoryByID(req.UserStoryID, req.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
+	changedBy := user.UserName
+	if changedBy == "" {
+		changedBy = user.FullName
+	}
+	if changedBy == "" {
+		changedBy = user.Email
+	}
+	if changedBy == "" {
+		changedBy = req.UserID.String()
+	}
+
 	updates := make(map[string]interface{})
+	var changes []string
 
 	// Title length validation
 	if req.Title != nil {
@@ -452,15 +469,24 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 			}
 		}
 		updates["title"] = *req.Title
+		if *req.Title != existingStory.Title {
+			changes = append(changes, fmt.Sprintf("title changed from '%s' to '%s'", existingStory.Title, *req.Title))
+		}
 	}
 
 	if req.Description != nil {
 		sanitizedDescription := strings.TrimSpace(utils.SanitizeHTML(*req.Description))
 		updates["description"] = sanitizedDescription
+		if sanitizedDescription != existingStory.Description {
+			changes = append(changes, "description changed")
+		}
 	}
 
 	if req.Priority != nil {
 		updates["priority"] = *req.Priority
+		if *req.Priority != existingStory.Priority {
+			changes = append(changes, fmt.Sprintf("priority changed from '%s' to '%s'", existingStory.Priority, *req.Priority))
+		}
 	}
 
 	if req.StatusID != nil || req.Status != nil {
@@ -474,14 +500,27 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 		}
 		updates["status_id"] = resolvedStatusID
 		updates["status"] = resolvedStatusName
+		if resolvedStatusName != existingStory.Status {
+			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", existingStory.Status, resolvedStatusName))
+		}
 	}
 
 	if req.StoryPoints != nil {
 		updates["story_points"] = *req.StoryPoints
+		if *req.StoryPoints != existingStory.StoryPoints {
+			changes = append(changes, fmt.Sprintf("story points changed from %d to %d", existingStory.StoryPoints, *req.StoryPoints))
+		}
 	}
 
 	// Assignee check
 	if req.IsAssigneeIDNull() || (req.AssigneeID != nil && *req.AssigneeID == uuid.Nil) {
+		oldAssignee := "nil"
+		if existingStory.AssigneeID != nil {
+			oldAssignee = existingStory.AssigneeID.String()
+		}
+		if oldAssignee != "nil" {
+			changes = append(changes, fmt.Sprintf("assignee changed from %s to nil", oldAssignee))
+		}
 		updates["assignee_id"] = nil
 	} else if req.AssigneeID != nil {
 		assigneeUser, err := s.authRepo.GetUserByID(*req.AssigneeID)
@@ -515,11 +554,33 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 				Message:    "Assignee must be a member of the project",
 			}
 		}
+		oldAssignee := "nil"
+		if existingStory.AssigneeID != nil {
+			oldAssignee = existingStory.AssigneeID.String()
+		}
+		newAssignee := req.AssigneeID.String()
+		if oldAssignee != newAssignee {
+			changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
+		}
 		updates["assignee_id"] = *req.AssigneeID
+	}
+
+	if req.IsClosed != nil {
+		updates["is_closed"] = *req.IsClosed
+		if *req.IsClosed != existingStory.IsClosed {
+			changes = append(changes, fmt.Sprintf("is_closed changed from %t to %t", existingStory.IsClosed, *req.IsClosed))
+		}
 	}
 
 	// Sprint check
 	if req.IsSprintIDNull() || (req.SprintID != nil && *req.SprintID == uuid.Nil) {
+		oldSprint := "nil"
+		if existingStory.SprintID != nil {
+			oldSprint = existingStory.SprintID.String()
+		}
+		if oldSprint != "nil" {
+			changes = append(changes, fmt.Sprintf("sprint changed from %s to nil", oldSprint))
+		}
 		updates["sprint_id"] = nil
 	} else if req.SprintID != nil {
 		inProject, err := s.userStoryRepo.IsSprintInProject(*req.SprintID, req.ProjectID)
@@ -532,6 +593,14 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 				StatusCode: http.StatusBadRequest,
 				Message:    "Sprint must belong to the same project",
 			}
+		}
+		oldSprint := "nil"
+		if existingStory.SprintID != nil {
+			oldSprint = existingStory.SprintID.String()
+		}
+		newSprint := req.SprintID.String()
+		if oldSprint != newSprint {
+			changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
 		}
 		updates["sprint_id"] = *req.SprintID
 	}
@@ -572,13 +641,23 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 	}
 	res := mapToUserStoryResponse(*updatedStory, customStatuses, total, completed, progress)
 
+	var detail string
+	if len(changes) > 0 {
+		detail = fmt.Sprintf("User Story '%s' updated by %s: %s", updatedStory.Title, changedBy, strings.Join(changes, ", "))
+	} else {
+		detail = fmt.Sprintf("User Story '%s' details updated by %s", updatedStory.Title, changedBy)
+	}
+
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      &req.ProjectID,
+		UserStoryID:    &updatedStory.ID,
 		Action:         "updated",
 		ResourceType:   "user_story",
 		ResourceID:     updatedStory.ID.String(),
+		Title:          updatedStory.Title,
+		Details:        detail,
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -592,7 +671,7 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 }
 
 func (s *userStoryService) DeleteUserStory(userStoryID, projectID, userID, orgID uuid.UUID) *response.Error {
-	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+	_, user, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return err
 	}
@@ -604,20 +683,27 @@ func (s *userStoryService) DeleteUserStory(userStoryID, projectID, userID, orgID
 		}
 	}
 
-	// Fetch story first to verify existence
-	_, getErr := s.userStoryRepo.GetUserStoryByID(userStoryID, projectID)
+	// Fetch existingStory first to verify existence
+	existingStory, getErr := s.userStoryRepo.GetUserStoryByID(userStoryID, projectID)
 	if getErr != nil {
 		return getErr
+	}
+
+	err = s.userStoryRepo.DeleteUserStory(userStoryID, projectID)
+	if err != nil {
+		return err
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
-		Action:         "created",
+		UserStoryID:    &userStoryID,
+		Action:         "deleted",
 		ResourceType:   "user_story",
 		ResourceID:     userStoryID.String(),
-		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("User Story '%s' deleted by %s", existingStory.Title, user.UserName),
+		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 
@@ -626,7 +712,7 @@ func (s *userStoryService) DeleteUserStory(userStoryID, projectID, userID, orgID
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return s.userStoryRepo.DeleteUserStory(userStoryID, projectID)
+	return nil
 }
 
 func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error) {
@@ -688,7 +774,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
-		Action:         "retrieved",
+		Action:         "viewed",
 		ResourceType:   "user_story",
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
@@ -802,7 +888,7 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.Cust
 }
 
 func (s *userStoryService) ReorderUserStories(projectID, userID, orgID uuid.UUID, storyIDs []uuid.UUID) *response.Error {
-	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+	_, user, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		return err
 	}
@@ -814,12 +900,19 @@ func (s *userStoryService) ReorderUserStories(projectID, userID, orgID uuid.UUID
 		}
 	}
 
+	err = s.userStoryRepo.ReorderUserStories(projectID, storyIDs)
+	if err != nil {
+		return err
+	}
+
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
 		ProjectID:      &projectID,
 		Action:         "reordered",
 		ResourceType:   "user_story",
+		ResourceID:     storyIDs[0].String(),
+		Details:        fmt.Sprintf("User Story was reordered by %s", user.UserName),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -829,5 +922,6 @@ func (s *userStoryService) ReorderUserStories(projectID, userID, orgID uuid.UUID
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return s.userStoryRepo.ReorderUserStories(projectID, storyIDs)
+	return nil
 }
+

@@ -3,6 +3,7 @@ package response
 import (
 	"strings"
 
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 )
 
@@ -149,10 +150,27 @@ func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
 		Details:        audit.Details,
 		CreatedAt:      audit.CreatedAt,
 		Title:          audit.Title,
+		TaskName:       audit.TaskName,
+		UserStoryName:  audit.UserStoryName,
+		SprintName:     audit.SprintName,
+		TaskID:         audit.TaskID,
+		UserStoryID:    audit.UserStoryID,
+		TaskKey:        audit.TaskKey,
 		Type:           audit.Type,
 	}
 
-	if strings.ToLower(audit.ResourceType) == "task" {
+	if audit.User.ID != uuid.Nil {
+		avatarURL := &audit.User.AvatarURL
+		resp.User = &UserSummary{
+			ID:        audit.User.ID,
+			FullName:  audit.User.FullName,
+			Email:     audit.User.Email,
+			AvatarURL: avatarURL,
+			Role:      audit.User.Role,
+		}
+	}
+
+	if resp.TaskKey == "" && strings.EqualFold(audit.ResourceType, "task") {
 		resp.TaskKey = audit.TaskKey
 	}
 

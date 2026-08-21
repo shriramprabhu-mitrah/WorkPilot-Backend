@@ -259,23 +259,41 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		return responsedto.CommentedUserResponse{}, err
 	}
 
-	var action string
-	var resourceType string
-	var resourceID string
+	user, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		s.logger.Error("Failed to fetch user details after creating comment", zap.String("user_id", req.UserID.String()))
+		return responsedto.CommentedUserResponse{}, err
+	}
+
+	userName := user.UserName
+	if userName == "" {
+		userName = user.FullName
+	}
+	if userName == "" {
+		userName = user.Email
+	}
+	if userName == "" {
+		userName = req.UserID.String()
+	}
+
+	var resourceTitle string
+	var detail string
 
 	if req.UserStoryID != nil {
-		resourceType = "UserStory"
-		resourceID = req.UserStoryID.String()
-		action = fmt.Sprintf("Comment created on User Story : %v ", req.UserStoryID)
-		if req.ParentCommentID != nil {
-			action = fmt.Sprintf("Reply added to comment : %v ", req.ParentCommentID)
+		story, storyErr := s.userStoryRepo.GetUserStoryByID(*req.UserStoryID, *projectID)
+		if storyErr == nil && story != nil {
+			resourceTitle = story.Title
+			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, story.Title, comment.Content)
+		} else {
+			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, req.UserStoryID.String(), comment.Content)
 		}
-	} else {
-		resourceType = "Task"
-		resourceID = req.TaskID.String()
-		action = fmt.Sprintf("Comment created on Task : %v ", req.TaskID)
-		if req.ParentCommentID != nil {
-			action = fmt.Sprintf("Reply added to comment : %v ", req.ParentCommentID)
+	} else if req.TaskID != nil {
+		task, taskErr := s.taskRepo.GetTaskByID(*req.TaskID, *projectID)
+		if taskErr == nil && task != nil {
+			resourceTitle = task.Title
+			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, task.Title, comment.Content)
+		} else {
+			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, req.TaskID.String(), comment.Content)
 		}
 	}
 
@@ -283,21 +301,18 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
+		TaskID:         req.TaskID,
+		UserStoryID:    req.UserStoryID,
 		Action:         "created",
-		ResourceType:   resourceType,
-		ResourceID:     resourceID,
-		Details:        action,
+		ResourceType:   "comment",
+		ResourceID:     comment.ID.String(),
+		Title:          resourceTitle,
+		Details:        detail,
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 
 	s.auditRepo.CreateAuditLog(auditLog)
-
-	user, err := s.authRepo.GetUserByID(req.UserID)
-	if err != nil {
-		s.logger.Error("Failed to fetch user details after creating comment", zap.String("user_id", req.UserID.String()))
-		return responsedto.CommentedUserResponse{}, err
-	}
 
 	var avatarURL *string
 	if user.AvatarURL != "" {
@@ -363,10 +378,10 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 	var resourceID, action string
 	if comment.UserStoryID != nil {
 		resourceID = comment.UserStoryID.String()
-		action = "Comment created on User Story : " + resourceID
+		action = "Comment viewed on User Story : " + resourceID
 	} else if comment.TaskID != nil {
 		resourceID = comment.TaskID.String()
-		action = "Comment created on Task : " + resourceID
+		action = "Comment viewed on Task : " + resourceID
 	}
 
 	auditLog := models.AuditLog{
@@ -374,7 +389,7 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
 		Action:         "viewed",
-		ResourceType:   "Comment",
+		ResourceType:   "comment",
 		ResourceID:     resourceID,
 		Details:        action,
 		Type:           models.AuditLogTypeAudit,
@@ -384,6 +399,19 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 	s.auditRepo.CreateAuditLog(auditLog)
 
 	return &commentResponse, nil
+}
+
+func resolveUserName(user models.User, fallbackID uuid.UUID) string {
+	if user.UserName != "" {
+		return user.UserName
+	}
+	if user.FullName != "" {
+		return user.FullName
+	}
+	if user.Email != "" {
+		return user.Email
+	}
+	return fallbackID.String()
 }
 
 func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (responsedto.CommentedUserResponse, *response.Error) {
@@ -449,52 +477,78 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 		}
 	}
 
+	user, userErr := s.authRepo.GetUserByID(req.UserID)
+	userName := req.UserID.String()
+	if userErr == nil {
+		userName = resolveUserName(user, req.UserID)
+	}
+
+	var resourceTitle string
+	var targetStr string
+	if comment.UserStoryID != nil && projectID != nil {
+		story, storyErr := s.userStoryRepo.GetUserStoryByID(*comment.UserStoryID, *projectID)
+		if storyErr == nil && story != nil {
+			resourceTitle = story.Title
+			targetStr = fmt.Sprintf("userstory: %s", story.Title)
+		} else {
+			targetStr = fmt.Sprintf("userstory: %s", comment.UserStoryID.String())
+		}
+	} else if comment.TaskID != nil && projectID != nil {
+		task, taskErr := s.taskRepo.GetTaskByID(*comment.TaskID, *projectID)
+		if taskErr == nil && task != nil {
+			resourceTitle = task.Title
+			targetStr = fmt.Sprintf("task: %s", task.Title)
+		} else {
+			targetStr = fmt.Sprintf("task: %s", comment.TaskID.String())
+		}
+	}
+
+	var detail string
+	if comment.Content != req.Content {
+		detail = fmt.Sprintf("%s updated comment on the %s: content changed from '%s' to '%s'", userName, targetStr, comment.Content, req.Content)
+	} else {
+		detail = fmt.Sprintf("%s updated comment on the %s", userName, targetStr)
+	}
+
 	updateComment := models.Comments{
 		Content: req.Content,
 	}
 
-	var resourceID, action string
-	if comment.UserStoryID != nil {
-		resourceID = comment.UserStoryID.String()
-		action = "Comment Updated on User Story : " + resourceID
-	} else if comment.TaskID != nil {
-		resourceID = comment.TaskID.String()
-		action = "Comment Updated on Task : " + resourceID
+	err = s.commentsRepo.UpdateComment(req.CommentID, &updateComment)
+	if err != nil {
+		return responsedto.CommentedUserResponse{}, err
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
+		TaskID:         comment.TaskID,
+		UserStoryID:    comment.UserStoryID,
 		Action:         "updated",
-		ResourceType:   "Comment",
+		ResourceType:   "comment",
 		ResourceID:     req.CommentID.String(),
-		Details:        action,
+		Title:          resourceTitle,
+		Details:        detail,
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
 	s.auditRepo.CreateAuditLog(auditLog)
 
-	user, err := s.authRepo.GetUserByID(req.UserID)
-	if err != nil {
-		s.logger.Error("Failed to fetch user details after creating comment", zap.String("user_id", req.UserID.String()))
-		return responsedto.CommentedUserResponse{}, err
-	}
-
 	var avatarURL *string
-	if user.AvatarURL != "" {
+	if userErr == nil && user.AvatarURL != "" {
 		avatarURL = &user.AvatarURL
 	}
 
 	response := responsedto.CommentedUserResponse{
 		ID:        req.CommentID,
-		UserID:    user.ID,
+		UserID:    req.UserID,
 		UserName:  user.UserName,
 		FullName:  user.FullName,
 		AvatarURL: avatarURL,
 	}
 
-	return response, s.commentsRepo.UpdateComment(req.CommentID, &updateComment)
+	return response, nil
 }
 
 func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *response.Error {
@@ -560,18 +614,34 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 		}
 	}
 
+	user, _ := s.authRepo.GetUserByID(req.UserID)
+	userName := resolveUserName(user, req.UserID)
+
+	var resourceTitle string
+	var targetStr string
+	if comment.UserStoryID != nil && projectID != nil {
+		story, storyErr := s.userStoryRepo.GetUserStoryByID(*comment.UserStoryID, *projectID)
+		if storyErr == nil && story != nil {
+			resourceTitle = story.Title
+			targetStr = fmt.Sprintf("userstory: %s", story.Title)
+		} else {
+			targetStr = fmt.Sprintf("userstory: %s", comment.UserStoryID.String())
+		}
+	} else if comment.TaskID != nil && projectID != nil {
+		task, taskErr := s.taskRepo.GetTaskByID(*comment.TaskID, *projectID)
+		if taskErr == nil && task != nil {
+			resourceTitle = task.Title
+			targetStr = fmt.Sprintf("task: %s", task.Title)
+		} else {
+			targetStr = fmt.Sprintf("task: %s", comment.TaskID.String())
+		}
+	}
+
+	detail := fmt.Sprintf("Comment on the %s was deleted by %s", targetStr, userName)
+
 	hasReplies, err := s.commentsRepo.HasReplies(req.CommentID)
 	if err != nil {
 		return err
-	}
-
-	var resourceID, action string
-	if comment.UserStoryID != nil {
-		resourceID = comment.UserStoryID.String()
-		action = "Comment : \" " + comment.Content + " \" deleted on User Story : " + resourceID
-	} else if comment.TaskID != nil {
-		resourceID = comment.TaskID.String()
-		action = "Comment : \" " + comment.Content + " \" deleted on Task : " + resourceID
 	}
 
 	if hasReplies {
@@ -579,10 +649,13 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			UserID:         &req.UserID,
 			OrganizationID: &req.OrganizationID,
 			ProjectID:      projectID,
+			TaskID:         comment.TaskID,
+			UserStoryID:    comment.UserStoryID,
 			Action:         "deleted",
-			ResourceType:   "Comment",
+			ResourceType:   "comment",
 			ResourceID:     req.CommentID.String(),
-			Details:        action,
+			Title:          resourceTitle,
+			Details:        detail,
 			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
 		}
@@ -599,10 +672,13 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
+		TaskID:         comment.TaskID,
+		UserStoryID:    comment.UserStoryID,
 		Action:         "deleted",
-		ResourceType:   "Comment",
+		ResourceType:   "comment",
 		ResourceID:     req.CommentID.String(),
-		Details:        action,
+		Title:          resourceTitle,
+		Details:        detail,
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}
@@ -642,14 +718,27 @@ func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]res
 		commentResponse = append(commentResponse, responsedto.CommentsFromModel(comment))
 	}
 
+	user, _ := s.authRepo.GetUserByID(req.UserID)
+	userName := resolveUserName(user, req.UserID)
+
+	taskTitle := taskID.String()
+	if projectID != nil {
+		task, taskErr := s.taskRepo.GetTaskByID(taskID, *projectID)
+		if taskErr == nil && task != nil && task.Title != "" {
+			taskTitle = task.Title
+		}
+	}
+
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
+		TaskID:         &taskID,
 		Action:         "viewed",
-		ResourceType:   "Comment",
+		ResourceType:   "comment",
 		ResourceID:     taskID.String(),
-		Details:        fmt.Sprintf("User %s viewed comments on task %s", req.UserID.String(), taskID.String()),
+		Title:          taskTitle,
+		Details:        fmt.Sprintf("Comments on task '%s' viewed by %s", taskTitle, userName),
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
@@ -694,22 +783,38 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 		commentResponse = append(commentResponse, responsedto.CommentsFromModel(comment))
 	}
 
-	var taskOrStoryIDStr, action string
-	if req.TaskID != nil {
-		taskOrStoryIDStr = req.TaskID.String()
-		action = "viewed comments on task " + taskOrStoryIDStr
-	} else if req.UserStoryID != nil {
-		taskOrStoryIDStr = req.UserStoryID.String()
-		action = "viewed comments on user story " + taskOrStoryIDStr
+	user, _ := s.authRepo.GetUserByID(req.UserID)
+	userName := resolveUserName(user, req.UserID)
+
+	var resourceTitle, action string
+	if req.TaskID != nil && projectID != nil {
+		task, taskErr := s.taskRepo.GetTaskByID(*req.TaskID, *projectID)
+		taskTitle := req.TaskID.String()
+		if taskErr == nil && task != nil && task.Title != "" {
+			taskTitle = task.Title
+		}
+		resourceTitle = taskTitle
+		action = fmt.Sprintf("Comment replies on task '%s' viewed by %s", taskTitle, userName)
+	} else if req.UserStoryID != nil && projectID != nil {
+		story, storyErr := s.userStoryRepo.GetUserStoryByID(*req.UserStoryID, *projectID)
+		storyTitle := req.UserStoryID.String()
+		if storyErr == nil && story != nil && story.Title != "" {
+			storyTitle = story.Title
+		}
+		resourceTitle = storyTitle
+		action = fmt.Sprintf("Comment replies on user story '%s' viewed by %s", storyTitle, userName)
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
+		TaskID:         req.TaskID,
+		UserStoryID:    req.UserStoryID,
 		Action:         "viewed",
-		ResourceType:   "Comment",
+		ResourceType:   "comment",
 		ResourceID:     req.CommentID.String(),
+		Title:          resourceTitle,
 		Details:        action,
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
@@ -750,14 +855,27 @@ func (s *commentsService) GetCommentsByUserStoryID(req requestdto.GetComments) (
 		commentResponse = append(commentResponse, responsedto.CommentsFromModel(comment))
 	}
 
+	user, _ := s.authRepo.GetUserByID(req.UserID)
+	userName := resolveUserName(user, req.UserID)
+
+	storyTitle := userStoryID.String()
+	if projectID != nil {
+		story, storyErr := s.userStoryRepo.GetUserStoryByID(userStoryID, *projectID)
+		if storyErr == nil && story != nil && story.Title != "" {
+			storyTitle = story.Title
+		}
+	}
+
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
+		UserStoryID:    &userStoryID,
 		Action:         "viewed",
-		ResourceType:   "Comment",
+		ResourceType:   "comment",
 		ResourceID:     userStoryID.String(),
-		Details:        fmt.Sprintf("User %s viewed comments on user story %s", req.UserID.String(), userStoryID.String()),
+		Title:          storyTitle,
+		Details:        fmt.Sprintf("Comments on user story '%s' viewed by %s", storyTitle, userName),
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}

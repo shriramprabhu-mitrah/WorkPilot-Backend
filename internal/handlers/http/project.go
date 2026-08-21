@@ -497,10 +497,15 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			project_id	path		string	true	"Project ID (UUID)"
+//	@Param			type		path		string	true	"Activity Type" Enums(view, activity)
 //	@Param			page		query		int		false	"Page number" default(1)
 //	@Param			page_size	query		int		false	"Page size" default(10)
 //	@Param			action		query		string	false	"Filter by action"
-//	@Param			resource_type	query		string	false	"Filter by resource type"
+//	@Param			resource_type	query		string	false	"Filter by resource type" Enums(project, task, userstory, sprint, comment)
+//	@Param			resource_id	query		string	false	"Filter by resource ID"
+//	@Param			task_id		query		string	false	"Filter by task ID (UUID)"
+//	@Param			user_story_id	query		string	false	"Filter by user story ID (UUID)"
+//	@Param			sprint_id	query		string	false	"Filter by sprint ID (UUID)"
 //	@Param			user_id		query		string	false	"Filter by user ID"
 //	@Param			start_date	query		string	false	"Start date (ISO-8601)"
 //	@Param			end_date		query		string	false	"End date (ISO-8601)"
@@ -509,7 +514,7 @@ func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 //	@Failure		401			{object}	response.ErrorResponse
 //	@Failure		403			{object}	response.ErrorResponse
 //	@Failure		500			{object}	response.ErrorResponse
-//	@Router			/project/{project_id}/activity [get]
+//	@Router			/project/{project_id}/activity/{type} [get]
 func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 	var filter requestdto.ProjectActivityFilterRequest
 
@@ -524,6 +529,10 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 		}
 		g.JSON(errorResponse.Error.StatusCode, errorResponse)
 		return
+	}
+
+	if typeParam := g.Param("type"); typeParam != "" {
+		filter.Type = typeParam
 	}
 
 	projectIDParam := g.Param("project_id")

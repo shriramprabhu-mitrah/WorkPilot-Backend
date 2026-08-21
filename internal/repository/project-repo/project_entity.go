@@ -15,7 +15,7 @@ type ProjectRepository interface {
 	UpdateProject(projectID uuid.UUID, updates map[string]interface{}) *response.Error
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error)
 	GetProjectByID(id uuid.UUID) (models.Project, *response.Error)
-	CreateProjectMember(row models.ProjectMember) *response.Error
+	CreateProjectMember(row *models.ProjectMember) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
 	RemoveProjectMember(projectID, userID uuid.UUID) *response.Error
 	GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
