@@ -40,6 +40,12 @@ func (s *stubOrganizationRepository) UpdateOrganization(OrganizationID uuid.UUID
 	return nil
 }
 func (s *stubOrganizationRepository) DeleteOrganization(id uuid.UUID) *response.Error { return nil }
+func (s *stubOrganizationRepository) GetProjectCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	return make(map[uuid.UUID]int64), nil
+}
+func (s *stubOrganizationRepository) GetMemberCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	return make(map[uuid.UUID]int64), nil
+}
 func (s *stubOrganizationRepository) UpdateUserStatus(userID uuid.UUID, req models.User) *response.Error {
 	return nil
 }
@@ -82,6 +88,10 @@ func (s *stubOrganizationRepository) UpdateStatusAndRole(userID uuid.UUID, req m
 }
 func (s *stubOrganizationRepository) DeleteUser(id uuid.UUID) *response.Error {
 	return nil
+}
+
+func (s *stubOrganizationRepository) GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+	return []models.User{s.memberUser}, response.Pagination{Page: 1, PageSize: 10, TotalItems: 1, TotalPages: 1}, nil
 }
 
 func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {

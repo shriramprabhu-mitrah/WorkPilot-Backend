@@ -401,3 +401,176 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 
 	return users, pagination, nil
 }
+
+func (d *organizationDatabase) GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+	var users []models.User
+	var totalItems int64
+
+	filter.PaginationQuery.Normalize(10)
+	filter.SortQuery.Normalize("created_at", "DESC")
+
+	offset := (filter.Page - 1) * filter.PageSize
+
+	baseQuery := d.DB.Model(&models.User{})
+
+	if filter.OrganizationID != nil && *filter.OrganizationID != uuid.Nil {
+		baseQuery = baseQuery.Where("organization_id = ?", *filter.OrganizationID)
+	}
+
+	if filter.Search != "" {
+		searchTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Search)) + "%"
+		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ? OR LOWER(email) LIKE ? OR LOWER(username) LIKE ?", searchTerm, searchTerm, searchTerm)
+	}
+
+	if filter.FullName != "" {
+		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.FullName))+"%")
+	}
+
+	if filter.Email != "" {
+		baseQuery = baseQuery.Where("LOWER(email) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Email))+"%")
+	}
+
+	if filter.Username != "" {
+		baseQuery = baseQuery.Where("LOWER(username) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Username))+"%")
+	}
+
+	if filter.Role != "" {
+		baseQuery = baseQuery.Where("LOWER(role) = ?", strings.ToLower(strings.TrimSpace(filter.Role)))
+	}
+
+	if filter.IsActive != nil {
+		baseQuery = baseQuery.Where("is_active = ?", *filter.IsActive)
+	}
+
+	if filter.IsVerified != nil {
+		baseQuery = baseQuery.Where("is_verified = ?", *filter.IsVerified)
+	}
+
+	if filter.Timezone != "" {
+		baseQuery = baseQuery.Where("LOWER(timezone) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Timezone))+"%")
+	}
+
+	orderClause := "created_at DESC"
+	if filter.SortBy != "" {
+		direction := "ASC"
+		if strings.ToUpper(filter.SortOrder) == "DESC" {
+			direction = "DESC"
+		}
+		allowed := map[string]string{
+			"full_name":  "full_name",
+			"name":       "full_name",
+			"email":      "email",
+			"username":   "username",
+			"role":       "role",
+			"created_at": "created_at",
+			"joined_at":  "joined_at",
+			"is_active":  "is_active",
+		}
+		if col, ok := allowed[filter.SortBy]; ok {
+			orderClause = fmt.Sprintf("%s %s", col, direction)
+		}
+	}
+
+	if err := baseQuery.Count(&totalItems).Error; err != nil {
+		d.logger.Error("Database error occurred while counting users", zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if err := baseQuery.
+		Preload("Organization").
+		Order(orderClause).
+		Limit(filter.PageSize).
+		Offset(offset).
+		Find(&users).Error; err != nil {
+		d.logger.Error("Database error occurred while fetching users", zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := response.Pagination{
+		Page:        filter.Page,
+		PageSize:    filter.PageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     filter.Page < totalPages,
+		HasPrevious: filter.Page > 1,
+	}
+
+	return users, pagination, nil
+}
+
+func (d *organizationDatabase) GetProjectCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	counts := make(map[uuid.UUID]int64)
+	if len(orgIDs) == 0 {
+		return counts, nil
+	}
+
+	type result struct {
+		OrganizationID uuid.UUID `gorm:"column:organization_id"`
+		Count          int64     `gorm:"column:count"`
+	}
+
+	var results []result
+	if err := d.DB.Model(&models.Project{}).
+		Select("organization_id, count(*) as count").
+		Where("organization_id IN ? AND deleted_at IS NULL", orgIDs).
+		Group("organization_id").
+		Scan(&results).Error; err != nil {
+		d.logger.Error("Failed to count projects by organization IDs", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to count projects by organization IDs",
+		}
+	}
+
+	for _, r := range results {
+		counts[r.OrganizationID] = r.Count
+	}
+
+	return counts, nil
+}
+
+func (d *organizationDatabase) GetMemberCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	counts := make(map[uuid.UUID]int64)
+	if len(orgIDs) == 0 {
+		return counts, nil
+	}
+
+	type result struct {
+		OrganizationID uuid.UUID `gorm:"column:organization_id"`
+		Count          int64     `gorm:"column:count"`
+	}
+
+	var results []result
+	if err := d.DB.Model(&models.User{}).
+		Select("organization_id, count(*) as count").
+		Where("organization_id IN ? AND deleted_at IS NULL", orgIDs).
+		Group("organization_id").
+		Scan(&results).Error; err != nil {
+		d.logger.Error("Failed to count members by organization IDs", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to count members by organization IDs",
+		}
+	}
+
+	for _, r := range results {
+		counts[r.OrganizationID] = r.Count
+	}
+
+	return counts, nil
+}

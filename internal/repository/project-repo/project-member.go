@@ -182,3 +182,35 @@ func (d *projectDatabase) UpdateProjectMember(projectID, userID uuid.UUID, proje
 
 	return nil
 }
+
+func (d *projectDatabase) GetMemberCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	counts := make(map[uuid.UUID]int64)
+	if len(projectIDs) == 0 {
+		return counts, nil
+	}
+
+	type result struct {
+		ProjectID uuid.UUID `gorm:"column:project_id"`
+		Count     int64     `gorm:"column:count"`
+	}
+
+	var results []result
+	if err := d.db.Model(&models.ProjectMember{}).
+		Select("project_id, count(*) as count").
+		Where("project_id IN ? AND deleted_at IS NULL", projectIDs).
+		Group("project_id").
+		Scan(&results).Error; err != nil {
+		d.logger.Error("Failed to count members by project IDs", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to count members by project IDs",
+		}
+	}
+
+	for _, r := range results {
+		counts[r.ProjectID] = r.Count
+	}
+
+	return counts, nil
+}

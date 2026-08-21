@@ -217,7 +217,7 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 		return
 	}
 
-	organizationResponse := responsedto.OrganizationFromModel(result)
+	organizationResponse := responsedto.OrganizationFromModel(result, 0, 0)
 
 	successResponse := &response.SuccessResponse{
 		Message:    "Organization detail received successfully",
@@ -267,7 +267,7 @@ func (h *OrganizationHandler) GetAllOrganizations(g *gin.Context) {
 		return
 	}
 
-	results, pagination, err := h.service.GetAllOrganizations(filter)
+	orgResponses, pagination, err := h.service.GetAllOrganizations(filter)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -275,11 +275,6 @@ func (h *OrganizationHandler) GetAllOrganizations(g *gin.Context) {
 		}
 		g.JSON(err.StatusCode, errorResponse)
 		return
-	}
-
-	orgResponses := make([]responsedto.OrganizationSummary, 0, len(results))
-	for _, org := range results {
-		orgResponses = append(orgResponses, responsedto.OrganizationFromModel(org))
 	}
 
 	successResponse := &response.SuccessResponse{
@@ -649,6 +644,70 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
 
+}
+
+// GetAllMembers godoc
+//
+//	@Summary		Get all system members/users (Super Admin)
+//	@Description	Returns a paginated list of all members across all organizations with search, filters, and sorting.
+//	@Tags			Organizations
+//	@Produce		json
+//	@Param			page			query		int		false	"Page Number"		default(1)
+//	@Param			page_size		query		int		false	"Page Size"			default(10)
+//	@Param			search			query		string	false	"Search query (full_name, email, username)"
+//	@Param			full_name		query		string	false	"Full Name"
+//	@Param			email			query		string	false	"Email"
+//	@Param			username		query		string	false	"Username"
+//	@Param			role			query		string	false	"Role (e.g. super_admin, org_admin, member)"
+//	@Param			organization_id	query		string	false	"Organization ID"
+//	@Param			is_active		query		bool	false	"Is Active"
+//	@Param			is_verified		query		bool	false	"Is Verified"
+//	@Param			timezone		query		string	false	"Timezone"
+//	@Param			sort_by			query		string	false	"Sort by field"	Enums(full_name,email,username,role,created_at,joined_at,is_active)
+//	@Param			sort_order		query		string	false	"Sort order"	Enums(ASC,DESC)
+//	@Success		200				{object}	response.SuccessResponse{data=[]responsedto.UserProfile}
+//	@Failure		400				{object}	response.ErrorResponse
+//	@Failure		401				{object}	response.ErrorResponse
+//	@Failure		403				{object}	response.ErrorResponse
+//	@Failure		500				{object}	response.ErrorResponse
+//	@Router			/organization/all-members [get]
+func (h *OrganizationHandler) GetAllMembers(g *gin.Context) {
+	var filter requestdto.GlobalMemberListFilter
+
+	if err := g.ShouldBindQuery(&filter); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid query parameters",
+			},
+		}
+		g.JSON(http.StatusBadRequest, errorResponse)
+		return
+	}
+
+	users, pagination, respErr := h.service.GetAllMembers(filter)
+	if respErr != nil {
+		g.JSON(respErr.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *respErr,
+		})
+		return
+	}
+
+	usersResponse := make([]responsedto.UserProfile, 0, len(users))
+	for _, user := range users {
+		usersResponse = append(usersResponse, responsedto.UserProfileFromModel(user))
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "All members retrieved successfully.",
+		Data:       usersResponse,
+		Meta:       &pagination,
+	})
 }
 
 // RemoveUser godoc

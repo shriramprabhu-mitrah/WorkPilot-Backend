@@ -12,6 +12,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/email"
 	"github.com/ms-kanban-server/internal/pkg/models"
@@ -25,7 +26,7 @@ import (
 
 type OrganizationService interface {
 	GetOrganizationByID(id, userID uuid.UUID) (models.Organization, *response.Error)
-	GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error)
+	GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]responsedto.OrganizationSummary, response.Pagination, *response.Error)
 	CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error)
 	UpdateOrganization(id uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
@@ -35,6 +36,7 @@ type OrganizationService interface {
 	AcceptInvitation(userID uuid.UUID, token string) *response.Error
 	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
 	GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
+	GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	RemoveUser(payload dto.RemoveUser) *response.Error
 }
 
@@ -74,12 +76,29 @@ func (s *organizationService) GetOrganizationByID(id, userID uuid.UUID) (models.
 	return organization, nil
 }
 
-func (s *organizationService) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error) {
+func (s *organizationService) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]responsedto.OrganizationSummary, response.Pagination, *response.Error) {
 	organizations, pagination, err := s.OrganizationRepo.GetAllOrganizations(filter)
 	if err != nil {
 		return nil, response.Pagination{}, err
 	}
-	return organizations, pagination, nil
+
+	orgSummaries := make([]responsedto.OrganizationSummary, 0, len(organizations))
+	if len(organizations) > 0 {
+		orgIDs := make([]uuid.UUID, len(organizations))
+		for i, o := range organizations {
+			orgIDs[i] = o.ID
+		}
+
+		projectCounts, _ := s.OrganizationRepo.GetProjectCountsByOrganizationIDs(orgIDs)
+		memberCounts, _ := s.OrganizationRepo.GetMemberCountsByOrganizationIDs(orgIDs)
+
+		for _, o := range organizations {
+			summary := responsedto.OrganizationFromModel(o, int(projectCounts[o.ID]), int(memberCounts[o.ID]))
+			orgSummaries = append(orgSummaries, summary)
+		}
+	}
+
+	return orgSummaries, pagination, nil
 }
 
 func (s *organizationService) CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error) {
@@ -777,6 +796,29 @@ func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.Org
 	}
 
 	return user, pagination, nil
+}
+
+func (s *organizationService) GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+	filter.PaginationQuery.Normalize(10)
+	filter.SortQuery.Normalize("created_at", "DESC")
+
+	users, pagination, err := s.OrganizationRepo.GetAllMembers(filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		Action:       "viewed",
+		ResourceType: "all_users",
+		Type:         models.AuditLogTypeAudit,
+		Details:      "Super Admin viewed all system users/members",
+		CreatedAt:    time.Now(),
+	})
+	if auditErr != nil {
+		return users, pagination, auditErr
+	}
+
+	return users, pagination, nil
 }
 
 func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error {

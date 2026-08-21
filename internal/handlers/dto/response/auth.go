@@ -15,8 +15,10 @@ type OrganizationSummary struct {
 	TeamSize  string    `json:"team_size,omitempty"`
 	Country   string    `json:"country,omitempty"`
 	LogoURL   string    `json:"logo_url,omitempty"`
-	IsActive  bool      `json:"is_active"`
-	CreatedAt time.Time `json:"created_at"`
+	IsActive      bool      `json:"is_active"`
+	CreatedAt     time.Time `json:"created_at"`
+	TotalProjects int       `json:"total_projects"`
+	TotalMembers  int       `json:"total_members"`
 }
 
 type UserProfile struct {
@@ -43,6 +45,8 @@ type ProjectSummary struct {
 	CreatedBy      uuid.UUID `json:"created_by"`
 	CreatedAt      time.Time `json:"created_at"`
 	SprintCount    int       `json:"sprint_count"`
+	TotalTasks     int       `json:"total_tasks"`
+	TotalMembers   int       `json:"total_members"`
 	Sprints        []Sprint  `json:"sprints,omitzero"`
 }
 
