@@ -61,30 +61,15 @@ func (d *auditDatabase) GetAuditLogs(req requestdto.GetAudit) ([]models.AuditLog
 		baseQuery = baseQuery.Where("resource_id = ? OR task_id = ? OR user_story_id = ?", req.ResourceID, req.ResourceID, req.ResourceID)
 	}
 
-	sec := strings.ToLower(strings.TrimSpace(req.Type))
-	if sec == "" {
-		sec = strings.ToLower(strings.TrimSpace(req.ActivityType))
-	}
-
-	pattern := "%view%"
-	switch sec {
-	case "all":
-		baseQuery = baseQuery.Where("type != ? AND LOWER(action) NOT LIKE ?", models.AuditLogTypeView, pattern)
-	case "comments":
-		baseQuery = baseQuery.Where("LOWER(resource_type) IN ('comment', 'comments', 'comment_attachment') OR LOWER(action) LIKE '%comment%' OR LOWER(action) LIKE '%reply%'")
-	case "activity":
-		baseQuery = baseQuery.Where("(type = ? OR type IS NULL OR type = '') AND LOWER(resource_type) NOT IN ('comment', 'comments', 'comment_attachment') AND LOWER(action) NOT LIKE ?", models.AuditLogTypeActivity, pattern)
-	case "view":
-		baseQuery = baseQuery.Where("type = ? OR LOWER(action) LIKE ?", models.AuditLogTypeView, pattern)
-	default:
-		// Default behavior: if user_id is provided without specific activity_type override, filter user_id
-		if req.UserID != nil && *req.UserID != uuid.Nil && req.ResourceID == "" && req.TaskID == nil && req.UserStoryID == nil {
-			baseQuery = baseQuery.Where("user_id = ?", req.UserID)
-		}
-		if strings.EqualFold(sec, string(models.AuditLogTypeActivity)) {
-			baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) NOT LIKE ?)", models.AuditLogTypeActivity, pattern)
-		} else if sec == "view" {
-			baseQuery = baseQuery.Where("type = ? OR ((type IS NULL OR type = '') AND LOWER(action) LIKE ?)", models.AuditLogTypeView, pattern)
+	if req.Type != "" && strings.ToLower(strings.TrimSpace(req.Type)) != "all" {
+		auditType := strings.ToLower(strings.TrimSpace(req.Type))
+		switch auditType {
+		case "view":
+			baseQuery = baseQuery.Where("LOWER(type) = ? OR (type IS NULL AND LOWER(action) LIKE '%view%')", auditType)
+		case "activity":
+			baseQuery = baseQuery.Where("LOWER(type) = ? OR (type IS NULL AND LOWER(action) NOT LIKE '%view%')", auditType)
+		default:
+			baseQuery = baseQuery.Where("LOWER(type) = ?", auditType)
 		}
 	}
 
@@ -188,7 +173,10 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 	}
 
 	// Fetch user story details (title, serial_number)
-	userStoryMap := make(map[uuid.UUID]struct{ Title string; SerialNumber int64 })
+	userStoryMap := make(map[uuid.UUID]struct {
+		Title        string
+		SerialNumber int64
+	})
 	if len(userStoryIDs) > 0 {
 		type StoryInfo struct {
 			ID           uuid.UUID
@@ -198,7 +186,10 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		var stories []StoryInfo
 		if err := db.Unscoped().Model(&models.UserStory{}).Where("id IN ?", userStoryIDs).Select("id, title, serial_number").Find(&stories).Error; err == nil {
 			for _, s := range stories {
-				userStoryMap[s.ID] = struct{ Title string; SerialNumber int64 }{Title: s.Title, SerialNumber: s.SerialNumber}
+				userStoryMap[s.ID] = struct {
+					Title        string
+					SerialNumber int64
+				}{Title: s.Title, SerialNumber: s.SerialNumber}
 			}
 		}
 	}

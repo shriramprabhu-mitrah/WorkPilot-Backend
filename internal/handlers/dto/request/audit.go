@@ -9,7 +9,6 @@ type GetAudit struct {
 	response.PaginationQuery
 	UserID         *uuid.UUID `json:"-" swaggerignore:"true"`
 	OrganizationID *uuid.UUID `json:"-" swaggerignore:"true"`
-	ActivityType   string     `json:"-" swaggerignore:"true"`
 	ResourceType   string     `form:"resource_type"`
 	ResourceID     string     `form:"resource_id"`
 	TaskID         *uuid.UUID `form:"task_id"`

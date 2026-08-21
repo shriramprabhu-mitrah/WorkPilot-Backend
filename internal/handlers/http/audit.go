@@ -65,7 +65,7 @@ func (h *auditHandler) GetAuditLogs(g *gin.Context) {
 	if activityType == "" {
 		activityType = string(models.AuditLogTypeView)
 	}
-	req.ActivityType = activityType
+	req.Type = activityType
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
 	if !ok {
 		return

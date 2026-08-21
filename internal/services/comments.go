@@ -199,10 +199,15 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	var authorized bool
 	var err *response.Error
 
+	var taskID *uuid.UUID
+	var userStoryID *uuid.UUID
+
 	if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
+		userStoryID = req.UserStoryID
 	} else if req.TaskID != nil {
 		projectID, authorized, err = s.checkAuthorization(req.UserID, *req.TaskID)
+		taskID = req.TaskID
 	} else {
 		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrBadRequest,
@@ -228,7 +233,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	}
 
 	if req.ParentCommentID != nil {
-		err := s.validateParentComment(*req.ParentCommentID, req.TaskID, req.UserStoryID, *projectID, req.OrganizationID)
+		err := s.validateParentComment(*req.ParentCommentID, taskID, userStoryID, *projectID, req.OrganizationID)
 		if err != nil {
 			return responsedto.CommentedUserResponse{}, err
 		}
@@ -245,8 +250,8 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	}
 
 	comment := &models.Comments{
-		TaskID:          req.TaskID,
-		UserStoryID:     req.UserStoryID,
+		TaskID:          taskID,
+		UserStoryID:     userStoryID,
 		UserID:          req.UserID,
 		ProjectID:       *projectID,
 		OrganizationID:  req.OrganizationID,
@@ -279,21 +284,21 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	var resourceTitle string
 	var detail string
 
-	if req.UserStoryID != nil {
-		story, storyErr := s.userStoryRepo.GetUserStoryByID(*req.UserStoryID, *projectID)
+	if userStoryID != nil {
+		story, storyErr := s.userStoryRepo.GetUserStoryByID(*userStoryID, *projectID)
 		if storyErr == nil && story != nil {
 			resourceTitle = story.Title
 			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, story.Title, comment.Content)
 		} else {
-			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, req.UserStoryID.String(), comment.Content)
+			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, userStoryID.String(), comment.Content)
 		}
-	} else if req.TaskID != nil {
-		task, taskErr := s.taskRepo.GetTaskByID(*req.TaskID, *projectID)
+	} else if taskID != nil {
+		task, taskErr := s.taskRepo.GetTaskByID(*taskID, *projectID)
 		if taskErr == nil && task != nil {
 			resourceTitle = task.Title
 			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, task.Title, comment.Content)
 		} else {
-			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, req.TaskID.String(), comment.Content)
+			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, taskID.String(), comment.Content)
 		}
 	}
 
@@ -301,8 +306,8 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		TaskID:         req.TaskID,
-		UserStoryID:    req.UserStoryID,
+		TaskID:         taskID,
+		UserStoryID:    userStoryID,
 		Action:         "created",
 		ResourceType:   "comment",
 		ResourceID:     comment.ID.String(),
@@ -320,11 +325,13 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	}
 
 	response := responsedto.CommentedUserResponse{
-		ID:        comment.ID,
-		UserID:    user.ID,
-		UserName:  user.UserName,
-		FullName:  user.FullName,
-		AvatarURL: avatarURL,
+		ID:          comment.ID,
+		TaskID:      taskID,
+		UserStoryID: userStoryID,
+		UserID:      user.ID,
+		UserName:    user.UserName,
+		FullName:    user.FullName,
+		AvatarURL:   avatarURL,
 	}
 
 	return response, nil
@@ -376,10 +383,15 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 	commentResponse := responsedto.CommentsFromModel(*comment)
 
 	var resourceID, action string
+	var taskID *uuid.UUID
+	var userStoryID *uuid.UUID
+
 	if comment.UserStoryID != nil {
+		userStoryID = comment.UserStoryID
 		resourceID = comment.UserStoryID.String()
 		action = "Comment viewed on User Story : " + resourceID
 	} else if comment.TaskID != nil {
+		taskID = comment.TaskID
 		resourceID = comment.TaskID.String()
 		action = "Comment viewed on Task : " + resourceID
 	}
@@ -388,6 +400,8 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
+		TaskID:         taskID,
+		UserStoryID:    userStoryID,
 		Action:         "viewed",
 		ResourceType:   "comment",
 		ResourceID:     resourceID,
@@ -485,7 +499,11 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 
 	var resourceTitle string
 	var targetStr string
+	var taskID *uuid.UUID
+	var userStoryID *uuid.UUID
+
 	if comment.UserStoryID != nil && projectID != nil {
+		userStoryID = comment.UserStoryID
 		story, storyErr := s.userStoryRepo.GetUserStoryByID(*comment.UserStoryID, *projectID)
 		if storyErr == nil && story != nil {
 			resourceTitle = story.Title
@@ -494,6 +512,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 			targetStr = fmt.Sprintf("userstory: %s", comment.UserStoryID.String())
 		}
 	} else if comment.TaskID != nil && projectID != nil {
+		taskID = comment.TaskID
 		task, taskErr := s.taskRepo.GetTaskByID(*comment.TaskID, *projectID)
 		if taskErr == nil && task != nil {
 			resourceTitle = task.Title
@@ -523,8 +542,8 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		TaskID:         comment.TaskID,
-		UserStoryID:    comment.UserStoryID,
+		TaskID:         taskID,
+		UserStoryID:    userStoryID,
 		Action:         "updated",
 		ResourceType:   "comment",
 		ResourceID:     req.CommentID.String(),
@@ -541,11 +560,13 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 	}
 
 	response := responsedto.CommentedUserResponse{
-		ID:        req.CommentID,
-		UserID:    req.UserID,
-		UserName:  user.UserName,
-		FullName:  user.FullName,
-		AvatarURL: avatarURL,
+		ID:          req.CommentID,
+		TaskID:      taskID,
+		UserStoryID: userStoryID,
+		UserID:      req.UserID,
+		UserName:    user.UserName,
+		FullName:    user.FullName,
+		AvatarURL:   avatarURL,
 	}
 
 	return response, nil
@@ -619,7 +640,11 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 
 	var resourceTitle string
 	var targetStr string
+	var taskID *uuid.UUID
+	var userStoryID *uuid.UUID
+
 	if comment.UserStoryID != nil && projectID != nil {
+		userStoryID = comment.UserStoryID
 		story, storyErr := s.userStoryRepo.GetUserStoryByID(*comment.UserStoryID, *projectID)
 		if storyErr == nil && story != nil {
 			resourceTitle = story.Title
@@ -628,6 +653,7 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			targetStr = fmt.Sprintf("userstory: %s", comment.UserStoryID.String())
 		}
 	} else if comment.TaskID != nil && projectID != nil {
+		taskID = comment.TaskID
 		task, taskErr := s.taskRepo.GetTaskByID(*comment.TaskID, *projectID)
 		if taskErr == nil && task != nil {
 			resourceTitle = task.Title
@@ -649,8 +675,8 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			UserID:         &req.UserID,
 			OrganizationID: &req.OrganizationID,
 			ProjectID:      projectID,
-			TaskID:         comment.TaskID,
-			UserStoryID:    comment.UserStoryID,
+			TaskID:         taskID,
+			UserStoryID:    userStoryID,
 			Action:         "deleted",
 			ResourceType:   "comment",
 			ResourceID:     req.CommentID.String(),
@@ -672,8 +698,8 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		TaskID:         comment.TaskID,
-		UserStoryID:    comment.UserStoryID,
+		TaskID:         taskID,
+		UserStoryID:    userStoryID,
 		Action:         "deleted",
 		ResourceType:   "comment",
 		ResourceID:     req.CommentID.String(),
@@ -752,10 +778,15 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 	var authorized bool
 	var err *response.Error
 
+	var taskID *uuid.UUID
+	var userStoryID *uuid.UUID
+
 	if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
+		userStoryID = req.UserStoryID
 	} else if req.TaskID != nil {
 		projectID, authorized, err = s.checkAuthorization(req.UserID, *req.TaskID)
+		taskID = req.TaskID
 	}
 
 	if err != nil {
@@ -787,17 +818,17 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 	userName := resolveUserName(user, req.UserID)
 
 	var resourceTitle, action string
-	if req.TaskID != nil && projectID != nil {
-		task, taskErr := s.taskRepo.GetTaskByID(*req.TaskID, *projectID)
-		taskTitle := req.TaskID.String()
+	if taskID != nil && projectID != nil {
+		task, taskErr := s.taskRepo.GetTaskByID(*taskID, *projectID)
+		taskTitle := taskID.String()
 		if taskErr == nil && task != nil && task.Title != "" {
 			taskTitle = task.Title
 		}
 		resourceTitle = taskTitle
 		action = fmt.Sprintf("Comment replies on task '%s' viewed by %s", taskTitle, userName)
-	} else if req.UserStoryID != nil && projectID != nil {
-		story, storyErr := s.userStoryRepo.GetUserStoryByID(*req.UserStoryID, *projectID)
-		storyTitle := req.UserStoryID.String()
+	} else if userStoryID != nil && projectID != nil {
+		story, storyErr := s.userStoryRepo.GetUserStoryByID(*userStoryID, *projectID)
+		storyTitle := userStoryID.String()
 		if storyErr == nil && story != nil && story.Title != "" {
 			storyTitle = story.Title
 		}
@@ -809,8 +840,8 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		TaskID:         req.TaskID,
-		UserStoryID:    req.UserStoryID,
+		TaskID:         taskID,
+		UserStoryID:    userStoryID,
 		Action:         "viewed",
 		ResourceType:   "comment",
 		ResourceID:     req.CommentID.String(),
