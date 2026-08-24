@@ -1964,6 +1964,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/organization/status/{organization_id}": {
+            "patch": {
+                "description": "Super admin can activate or deactivate an Organization by setting is_active.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Organizations"
+                ],
+                "summary": "Activate or deactivate Organization",
+                "parameters": [
+                    {
+                        "description": "Organization Status Payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/organization/update": {
             "patch": {
                 "description": "Updates Organization profile. Send as multipart/form-data. Include a 'logo' file field to replace the logo.",
@@ -8214,6 +8278,17 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 30,
                     "minLength": 1
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.UpdateOrganizationStatusRequest": {
+            "type": "object",
+            "required": [
+                "is_active"
+            ],
+            "properties": {
+                "is_active": {
+                    "type": "boolean"
                 }
             }
         },
