@@ -22,40 +22,46 @@ type OrganizationSummary struct {
 }
 
 type UserProfile struct {
-	ID             uuid.UUID  `json:"id"`
-	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
-	Name           string     `json:"name"`
-	Username       string     `json:"username"`
-	Email          string     `json:"email"`
-	Role           string     `json:"role,omitempty"`
-	AvatarURL      *string    `json:"avatar_url"`
-	Timezone       string     `json:"timezone,omitempty"`
-	IsActive       bool       `json:"is_active"`
-	IsVerified     bool       `json:"is_verified"`
-	CreatedAt      time.Time  `json:"created_at"`
-	JoinedAt       time.Time  `json:"joined_at,omitempty"`
+	ID               uuid.UUID  `json:"id"`
+	OrganizationID   *uuid.UUID `json:"organization_id,omitempty"`
+	OrganizationName string     `json:"organization_name,omitempty"`
+	Name             string     `json:"name"`
+	Username         string     `json:"username"`
+	Email            string     `json:"email"`
+	Role             string     `json:"role,omitempty"`
+	AvatarURL        *string    `json:"avatar_url"`
+	Timezone         string     `json:"timezone,omitempty"`
+	IsActive         bool       `json:"is_active"`
+	IsVerified       bool       `json:"is_verified"`
+	CreatedAt        time.Time  `json:"created_at"`
+	JoinedAt         time.Time  `json:"joined_at,omitempty"`
 }
 
 type ProjectSummary struct {
-	ID             uuid.UUID `json:"id"`
-	OrganizationID uuid.UUID `json:"organization_id"`
-	Name           string    `json:"name"`
-	Description    string    `json:"description,omitempty"`
-	Status         string    `json:"status"`
-	CreatedBy      uuid.UUID `json:"created_by"`
-	CreatedAt      time.Time `json:"created_at"`
-	SprintCount    int       `json:"sprint_count"`
-	TotalTasks     int       `json:"total_tasks"`
-	TotalMembers   int       `json:"total_members"`
-	Sprints        []Sprint  `json:"sprints,omitempty"`
+	ID               uuid.UUID `json:"id"`
+	OrganizationID   uuid.UUID `json:"organization_id"`
+	OrganizationName string    `json:"organization_name,omitempty"`
+	Name             string    `json:"name"`
+	Key              string    `json:"key,omitempty"`
+	ProjectKey       string    `json:"project_key,omitempty"`
+	Description      string    `json:"description,omitempty"`
+	Status           string    `json:"status"`
+	CreatedBy        uuid.UUID `json:"created_by"`
+	CreatedAt        time.Time `json:"created_at"`
+	SprintCount      int       `json:"sprint_count"`
+	TotalTasks       int       `json:"total_tasks"`
+	TotalMembers     int       `json:"total_members"`
+	Sprints          []Sprint  `json:"sprints,omitempty"`
 }
 
 type ProjectMember struct {
-	UserID    uuid.UUID `json:"user_id"`
-	Username  string    `json:"username"`
-	FullName  string    `json:"full_name"`
-	Role      string    `json:"role"`
-	AvatarURL *string   `json:"avatar_url"`
+	UserID           uuid.UUID `json:"user_id"`
+	Username         string    `json:"username"`
+	FullName         string    `json:"full_name"`
+	Role             string    `json:"role"`
+	AvatarURL        *string   `json:"avatar_url"`
+	OrganizationName string    `json:"organization_name,omitempty"`
+	ProjectKey       string    `json:"project_key,omitempty"`
 }
 
 type Sprint struct {

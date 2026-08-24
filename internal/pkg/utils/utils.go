@@ -222,3 +222,46 @@ func StringToTime(str string) (*time.Time, error) {
 	}
 	return &t, nil
 }
+
+func GenerateProjectPrefix(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "TASK"
+	}
+	parts := strings.FieldsFunc(name, func(r rune) bool {
+		return r == ' ' || r == '-' || r == '_'
+	})
+
+	var prefix string
+	if len(parts) > 1 {
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if len(part) > 0 {
+				prefix += strings.ToUpper(string(part[0]))
+			}
+		}
+	} else {
+		runes := []rune(strings.ToUpper(name))
+		if len(runes) > 3 {
+			prefix = string(runes[:3])
+		} else {
+			prefix = string(runes)
+		}
+	}
+
+	cleaned := ""
+	for _, r := range prefix {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			cleaned += string(r)
+		}
+	}
+
+	if len(cleaned) < 2 {
+		cleaned = "WP"
+	}
+	if len(cleaned) > 10 {
+		cleaned = cleaned[:10]
+	}
+	return cleaned
+}
+

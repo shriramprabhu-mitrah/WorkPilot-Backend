@@ -467,6 +467,7 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	}
 
 	if err := baseQuery.
+		Preload("Organization").
 		Order("created_at DESC").
 		Limit(filter.PageSize).
 		Offset(offset).

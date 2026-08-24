@@ -67,6 +67,7 @@ func (d *projectDatabase) GetProjectsMembersByProjectID(projectID uuid.UUID, fil
 		Preload("Project.Organization").
 		Preload("Project.Creator").
 		Preload("User").
+		Preload("User.Organization").
 		Preload("Role").
 		Preload("Role.Permissions").
 		Preload("AddedBy").

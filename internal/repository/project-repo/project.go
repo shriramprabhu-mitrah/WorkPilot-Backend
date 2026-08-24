@@ -330,6 +330,7 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 	}
 
 	if err := baseQuery.
+		Preload("Organization").
 		Order(orderClause).
 		Limit(filter.PageSize).
 		Offset(offset).
