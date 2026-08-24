@@ -122,7 +122,7 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uui
 	projectMemberPayload := &models.ProjectMember{
 		UserID:    req.UserID,
 		AddedByID: req.UserID,
-		RoleID:    uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002"),
+		RoleID:    result.RoleID,
 		JoinedAt:  time.Now(),
 	}
 

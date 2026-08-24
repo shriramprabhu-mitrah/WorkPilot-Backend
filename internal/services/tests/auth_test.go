@@ -259,7 +259,7 @@ func TestSignInReturnsUnauthorizedForInvalidPassword(t *testing.T) {
 		user: models.User{ID: uuid.Must(uuid.NewV4()),
 			Email:        "user@example.com",
 			PasswordHash: hash,
-			RoleID:       uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+			RoleID:       uuid.Must(uuid.NewV7()),
 			Role:         models.Role{Name: "developer"},
 			IsActive:     true,
 		},
@@ -284,7 +284,7 @@ func TestSignInRejectsInactiveUser(t *testing.T) {
 		t.Fatalf("failed to hash password: %v", err)
 	}
 
-	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, IsActive: false, IsVerified: true}}
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, IsActive: false, IsVerified: true}}
 	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
@@ -305,7 +305,7 @@ func TestSignInRejectsUnverifiedUser(t *testing.T) {
 		t.Fatalf("failed to hash password: %v", err)
 	}
 
-	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, IsActive: true, IsVerified: false}}
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "user@example.com", PasswordHash: hash, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, IsActive: true, IsVerified: false}}
 	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
@@ -326,7 +326,7 @@ func TestSignInReturnsAuthTokensForValidCredentials(t *testing.T) {
 		t.Fatalf("failed to hash password: %v", err)
 	}
 
-	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, IsActive: true, IsVerified: true}}
+	repo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV7()), Email: "user@example.com", PasswordHash: hash, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, IsActive: true, IsVerified: true}}
 	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
 
 	result, authErr := service.SignIn(dto.SignInRequest{Email: "user@example.com", Password: "correct-password"})
@@ -391,7 +391,7 @@ func TestRefreshTokenReturnsNewAccessTokenForValidRefreshToken(t *testing.T) {
 	userID := uuid.Must(uuid.NewV7())
 	tokenID := uuid.Must(uuid.NewV7())
 	repo := &stubAuthRepository{
-		user: models.User{ID: userID, Email: "user@example.com", RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, IsActive: true, IsVerified: true},
+		user: models.User{ID: userID, Email: "user@example.com", RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, IsActive: true, IsVerified: true},
 		refreshToken: models.RefreshToken{
 			ID:        tokenID,
 			UserID:    userID,
@@ -555,7 +555,7 @@ func TestSignIn_AutoActivatesUserWithPendingInvitation(t *testing.T) {
 			ID:           userUUID,
 			Email:        "inactive-invited@example.com",
 			PasswordHash: correctHash,
-			RoleID:       uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+			RoleID:       uuid.Must(uuid.NewV7()),
 			Role:         models.Role{Name: "member"},
 			IsActive:     false,
 			IsVerified:   true,
@@ -564,7 +564,7 @@ func TestSignIn_AutoActivatesUserWithPendingInvitation(t *testing.T) {
 			ID:             uuid.Must(uuid.NewV4()),
 			OrganizationID: orgID,
 			Email:          "inactive-invited@example.com",
-			RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+			RoleID:         uuid.Must(uuid.NewV7()),
 			Role:           models.Role{Name: "member"},
 			Status:         models.InvitationStatusPending,
 			ExpiresAt:      time.Now().Add(24 * time.Hour),
@@ -606,7 +606,7 @@ func TestSignIn_RejectsInactiveUserWithoutPendingInvitation(t *testing.T) {
 			ID:           userUUID,
 			Email:        "inactive-blocked@example.com",
 			PasswordHash: correctHash,
-			RoleID:       uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+			RoleID:       uuid.Must(uuid.NewV7()),
 			Role:         models.Role{Name: "member"},
 			IsActive:     false,
 		},

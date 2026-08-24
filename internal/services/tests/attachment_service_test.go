@@ -377,7 +377,7 @@ func (s *stubAttachmentProjectRepo) GetProjectMemberByUserAndProjectID(userID, p
 	if s.member != nil {
 		return s.member, nil
 	}
-	return &models.ProjectMember{UserID: userID, ProjectID: projectID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}}, nil
+	return &models.ProjectMember{UserID: userID, ProjectID: projectID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}}, nil
 }
 func (s *stubAttachmentProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, roleID uuid.UUID) *response.Error { return nil }
 
@@ -453,7 +453,7 @@ func newTestFixture(orgID, projectID, taskID, userID uuid.UUID) *testFixture {
 		Project:   models.Project{ID: projectID, OrganizationID: orgID},
 	}}
 	projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
-	authRepo := &stubAuthRepository{user: models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, OrganizationID: &orgID}}
+	authRepo := &stubAuthRepository{user: models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, OrganizationID: &orgID}}
 	auditRepo := &stubAttachmentAuditLogRepo{}
 	storageClient := &mockStorageClient{}
 

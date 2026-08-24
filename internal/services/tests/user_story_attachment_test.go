@@ -105,7 +105,7 @@ func newUserStoryAttachmentTestFixture(orgID, projectID, storyID, userID uuid.UU
 	cleanupRepo := &stubFileCleanupRepo{orphanedFiles: make(map[uuid.UUID]*models.OrphanedFile)}
 	commentsRepo := &stubCommentRepo{comments: make(map[uuid.UUID]*models.Comments)}
 	projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
-	authRepo := &stubAuthRepository{user: models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, OrganizationID: &orgID}}
+	authRepo := &stubAuthRepository{user: models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, OrganizationID: &orgID}}
 	auditRepo := &stubAttachmentAuditLogRepo{}
 	storageClient := &mockStorageClient{}
 

@@ -12,8 +12,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
-	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
+	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/services"
@@ -22,11 +22,11 @@ import (
 
 type mockAttachmentService struct {
 	services.AttachmentService
-	errResponse         *response.Error
-	uploadAttachmentsFn func(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error)
-	getAttachmentsFn    func(ctx context.Context, taskID, projectID, userID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error)
+	errResponse          *response.Error
+	uploadAttachmentsFn  func(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error)
+	getAttachmentsFn     func(ctx context.Context, taskID, projectID, userID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error)
 	downloadAttachmentFn func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
-	deleteAttachmentFn  func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error
+	deleteAttachmentFn   func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error
 
 	uploadCommentFn   func(ctx context.Context, commentID, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
 	getCommentFn      func(ctx context.Context, commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error)
@@ -115,12 +115,12 @@ func (m *mockAttachmentService) DeleteCommentAttachment(ctx context.Context, att
 func setupTestContext(mockSvc *mockAttachmentService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	
+
 	h := handlers.InitAttachmentHandler(mockSvc, zap.NewNop())
-	
+
 	// Inject fake user_id middleware mock
 	r.Use(func(c *gin.Context) {
-		c.Set("user_id", "00000000-0000-0000-0000-000000000001")
+		c.Set("user_id", uuid.Must(uuid.NewV7()).String())
 		c.Next()
 	})
 

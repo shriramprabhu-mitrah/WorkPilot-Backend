@@ -42,11 +42,11 @@ func (m *mockProjectRepoForStatus) GetProjectMemberByUserAndProjectID(userID, pr
 	var roleID uuid.UUID
 	switch m.projectRole {
 	case "project_manager":
-		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003")
+		roleID = uuid.Must(uuid.NewV7())
 	case "org_admin":
-		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002")
+		roleID = uuid.Must(uuid.NewV7())
 	default:
-		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
+		roleID = uuid.Must(uuid.NewV7())
 	}
 	return &models.ProjectMember{
 		UserID:    userID,
@@ -72,7 +72,7 @@ func (m *mockAuthRepoForStatus) GetUserByID(id uuid.UUID) (models.User, *respons
 	if m.user != nil {
 		return *m.user, nil
 	}
-	return models.User{ID: id, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true}, nil
+	return models.User{ID: id, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true}, nil
 }
 
 func (m *mockAuthRepoForStatus) GetRoleByName(name string) (*models.Role, *response.Error) {
@@ -93,7 +93,7 @@ func TestCustomStatusService_CreateCustomStatus(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleProjectManager),
@@ -192,7 +192,7 @@ func TestCustomStatusService_UpdateCustomStatus(t *testing.T) {
 	statusID := uuid.Must(uuid.NewV7())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleProjectManager),
@@ -276,7 +276,7 @@ func TestCustomStatusService_DeleteCustomStatus(t *testing.T) {
 	statusID := uuid.Must(uuid.NewV7())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleProjectManager),
@@ -336,7 +336,7 @@ func TestTaskService_StatusTransitionsAndColors(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleDeveloper), // Developer role
@@ -429,7 +429,7 @@ func TestCustomStatusService_GetStatuses(t *testing.T) {
 	statusID := uuid.Must(uuid.NewV4())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleDeveloper),
@@ -499,7 +499,7 @@ func TestCustomStatusService_OverrideDefaultStatus(t *testing.T) {
 	statusID := uuid.Must(uuid.NewV4())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleProjectManager),

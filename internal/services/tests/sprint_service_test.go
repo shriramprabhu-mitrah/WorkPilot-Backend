@@ -249,7 +249,7 @@ func TestSprintService_DeleteSprint_DelegatesToRepository(t *testing.T) {
 	authRepo := &sprintAuthRepoStub{user: models.User{
 		ID:             userID,
 		OrganizationID: &orgID,
-		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002"),
+		RoleID:         uuid.Must(uuid.NewV7()),
 		Role:           models.Role{Name: "org_admin"},
 	}}
 	sprintRepo := &sprintRepoStub{}

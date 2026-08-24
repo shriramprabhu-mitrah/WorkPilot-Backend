@@ -228,16 +228,16 @@ func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID u
 	if role == "" {
 		role = "developer"
 	}
-	roleID := uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
+	roleID := uuid.Must(uuid.NewV7())
 	switch role {
 	case "project_manager":
-		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003")
+		roleID = uuid.Must(uuid.NewV7())
 	case "org_admin":
-		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002")
+		roleID = uuid.Must(uuid.NewV7())
 	case "qa", "tester":
-		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000005")
+		roleID = uuid.Must(uuid.NewV7())
 	case "viewer", "stakeholder":
-		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000006")
+		roleID = uuid.Must(uuid.NewV7())
 	}
 	return &models.ProjectMember{
 		UserID:    userID,
@@ -455,7 +455,7 @@ func TestGetProjectActivity_TaskAndUserMapping(t *testing.T) {
 						FullName:  "John Doe",
 						Email:     "john@example.com",
 						AvatarURL: "http://example.com/avatar.png",
-						RoleID:    uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+						RoleID:    uuid.Must(uuid.NewV7()),
 						Role:      models.Role{Name: "member"},
 					},
 					Title:   "My Awesome Task",
@@ -687,9 +687,9 @@ func TestGetRecentProjects_TaskFiltering(t *testing.T) {
 	projectRepo := &stubProjectRepo{
 		getProjectsByUserIDFunc: func(uID uuid.UUID) ([]models.ProjectMember, *response.Error) {
 			return []models.ProjectMember{
-				{ProjectID: projectA, UserID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectA, Name: "Project A", Status: "active"}},
-				{ProjectID: projectB, UserID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectB, Name: "Project B", Status: "active"}},
-				{ProjectID: projectD, UserID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectD, Name: "Project D", Status: "active"}},
+				{ProjectID: projectA, UserID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectA, Name: "Project A", Status: "active"}},
+				{ProjectID: projectB, UserID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectB, Name: "Project B", Status: "active"}},
+				{ProjectID: projectD, UserID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectD, Name: "Project D", Status: "active"}},
 			}, nil
 		},
 	}
@@ -751,4 +751,3 @@ func TestGetRecentProjects_TaskFiltering(t *testing.T) {
 		}
 	})
 }
-
