@@ -233,6 +233,7 @@ type TaskFilter struct {
 	Match          string      `form:"match"`
 	SequenceNumber *int        `form:"sequence_number"`
 	SerialNumber   *int64      `form:"serial_number"`
+	UnassignedTask bool        `form:"unassigned_task"`
 	StatusIDs      []uuid.UUID `form:"-"` // Internal resolved status IDs
 }
 

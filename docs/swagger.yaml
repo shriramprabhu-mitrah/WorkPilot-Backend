@@ -4254,6 +4254,10 @@ paths:
         in: query
         name: is_deleted
         type: boolean
+      - description: Filter tasks that are not assigned to any sprint and user story
+        in: query
+        name: unassigned_task
+        type: boolean
       - description: Match mode
         enum:
         - any

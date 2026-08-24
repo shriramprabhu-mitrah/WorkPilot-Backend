@@ -198,6 +198,10 @@ func (d *taskDatabase) GetTasks(projectID uuid.UUID, filter dto.TaskFilter) ([]m
 		}
 	}
 
+	if filter.UnassignedTask {
+		query = query.Where("sprint_id IS NULL AND user_story_id IS NULL")
+	}
+
 	if len(filter.UserStory) > 0 {
 		var hasNull bool
 		var uuids []uuid.UUID
