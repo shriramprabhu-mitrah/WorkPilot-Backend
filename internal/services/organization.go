@@ -116,9 +116,15 @@ func (s *organizationService) CreateOrganization(row models.Organization) (*dto.
 		return nil, err
 	}
 
+	orgAdminRole, roleErr := s.AuthRepo.GetRoleByName("org_admin")
+	if roleErr != nil {
+		s.OrganizationRepo.DeleteOrganization(organization.ID)
+		return nil, roleErr
+	}
+
 	user := models.User{
 		OrganizationID: &organization.ID,
-		Role:           string(dto.RoleOrgAdmin),
+		RoleID:         orgAdminRole.ID,
 		IsActive:       true,
 		JoinedAt:       time.Now(),
 	}
@@ -130,7 +136,7 @@ func (s *organizationService) CreateOrganization(row models.Organization) (*dto.
 	}
 
 	tokencredentials := dto.JWtcredentials{
-		Role:           user.Role,
+		Role:           "org_admin",
 		UserID:         row.CreatedBy,
 		OrganizationID: &organization.ID,
 	}
@@ -335,8 +341,23 @@ func (s *organizationService) UpdateUserRole(payload dto.UpdateUserRole) *respon
 		}
 	}
 
+	var roleID uuid.UUID
+	if payload.RoleID != uuid.Nil {
+		roleID = payload.RoleID
+	} else {
+		roleName := "developer"
+		if payload.Role == "org_admin" {
+			roleName = "org_admin"
+		}
+		role, roleErr := s.AuthRepo.GetRoleByName(roleName)
+		if roleErr != nil {
+			return roleErr
+		}
+		roleID = role.ID
+	}
+
 	request := result
-	request.Role = payload.Role
+	request.RoleID = roleID
 
 	err = s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
 	if err != nil {
@@ -366,7 +387,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 	if invErr != nil {
 		return invErr
 	}
-	if inviter.Role != string(dto.RoleOrgAdmin) || inviter.OrganizationID == nil || *inviter.OrganizationID != organizationID {
+	if inviter.Role.Name != "org_admin" || inviter.OrganizationID == nil || *inviter.OrganizationID != organizationID {
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -383,6 +404,11 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		}
 	}
 
+	developerRole, roleErr := s.AuthRepo.GetRoleByName("developer")
+	if roleErr != nil {
+		return roleErr
+	}
+
 	org, orgErr := s.OrganizationRepo.GetByID(organizationID)
 	if orgErr != nil {
 		return orgErr
@@ -390,6 +416,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 
 	for _, inviteItem := range inviteItems {
 		inviteEmail := strings.ToLower(strings.TrimSpace(inviteItem.Email))
+
 		existingUser, userErr := s.AuthRepo.GetByEmail(inviteEmail)
 		if userErr == nil {
 			if existingUser.OrganizationID != nil && *existingUser.OrganizationID != uuid.Nil {
@@ -400,7 +427,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 				}
 			}
 			existingUser.OrganizationID = &organizationID
-			existingUser.Role = string(dto.RoleMember)
+			existingUser.RoleID = developerRole.ID
 			existingUser.IsActive = false
 			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
 				return err
@@ -418,7 +445,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		invitation := models.OrganizationInvitation{
 			OrganizationID: organizationID,
 			Email:          inviteEmail,
-			Role:           string(dto.RoleMember),
+			RoleID:         developerRole.ID,
 			Status:         models.InvitationStatusPending,
 			ExpiresAt:      expiresAt,
 			CreatedBy:      inviterID,
@@ -450,14 +477,14 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		inviteLink := fmt.Sprintf("%s/api/v1/organization/invitations/accept?token=%s", config.GetEnv("BACKEND_API_URL", "http://localhost:6369"), invitation.Token)
 		tempPassword := ""
 		if userErr != nil {
-			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteEmail, organizationID)
+			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteEmail, organizationID, developerRole.ID)
 			if err != nil {
 				return err
 			}
 			tempPassword = invitationTempPassword
 		}
 
-		if err := email.SendOrganizationInvitation(inviteEmail, org.Name, invitation.Role, inviteLink, tempPassword); err != nil {
+		if err := email.SendOrganizationInvitation(inviteEmail, org.Name, developerRole.Name, inviteLink, tempPassword); err != nil {
 			s.logger.Warn("Failed to send organization invitation email", zap.Error(err))
 		}
 
@@ -594,7 +621,7 @@ func (s *organizationService) generateUniqueUsername(email string) (string, *res
 	}
 }
 
-func (s *organizationService) inviteUserWithTemporaryCredentials(email string, organizationID uuid.UUID) (string, *response.Error) {
+func (s *organizationService) inviteUserWithTemporaryCredentials(email string, organizationID uuid.UUID, roleID uuid.UUID) (string, *response.Error) {
 	tempPassword, err := s.generateTemporaryPassword(12)
 	if err != nil {
 		return "", err
@@ -618,7 +645,7 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 		IsActive:       false,
 		IsVerified:     true,
 		OrganizationID: &organizationID,
-		Role:           string(dto.RoleMember),
+		RoleID:         roleID,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -827,7 +854,7 @@ func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error
 		return err
 	}
 
-	if result.Role == string(dto.RoleOrgAdmin) {
+	if result.Role.Name == "org_admin" {
 		s.logger.Error("Unauthorized access: cannot remove organization admin",
 			zap.String("Organization Id", payload.OrganizationID.String()),
 			zap.String("User Organization Id", result.OrganizationID.String()))
@@ -867,7 +894,7 @@ func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error
 	// Clear organization-related fields and mark as inactive
 	request := result
 	request.OrganizationID = nil
-	request.Role = ""
+	request.RoleID = uuid.Nil
 	request.IsActive = false
 	request.JoinedAt = time.Time{}
 

@@ -65,21 +65,20 @@ func (s *workItemService) checkAuthorization(projectID, userID uuid.UUID) (model
 	if err != nil {
 		return models.Project{}, models.User{}, false, err
 	}
-	if user.Role == string(dto.RoleSuperAdmin) {
+	if user.Role.Name == string(dto.RoleSuperAdmin) {
 		return models.Project{}, models.User{}, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return project, user, true, nil
+
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "view")
+	if permErr != nil {
+		return models.Project{}, models.User{}, false, permErr
 	}
-	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
-	if err != nil {
-		return models.Project{}, models.User{}, false, err
-	}
-	return project, user, isMember, nil
+
+	return project, user, authorized, nil
 }
 
 func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialID int64, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error) {

@@ -58,7 +58,6 @@ type dashboardService struct {
 	logger        *zap.Logger
 }
 
-// checkAuthorization verifies if the user has access to the project
 func (s *dashboardService) checkAuthorization(projectID uuid.UUID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
@@ -72,7 +71,7 @@ func (s *dashboardService) checkAuthorization(projectID uuid.UUID, userID uuid.U
 		return models.Project{}, models.User{}, false, err
 	}
 
-	if user.Role == string(dto.RoleSuperAdmin) {
+	if user.Role.Name == string(dto.RoleSuperAdmin) {
 		return models.Project{}, models.User{}, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -80,17 +79,12 @@ func (s *dashboardService) checkAuthorization(projectID uuid.UUID, userID uuid.U
 		}
 	}
 
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return project, user, true, nil
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "view")
+	if permErr != nil {
+		return models.Project{}, models.User{}, false, permErr
 	}
 
-	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
-	if err != nil {
-		s.logger.Error("Failed to check project membership", zap.Error(fmt.Errorf("%v", err)))
-		return models.Project{}, models.User{}, false, err
-	}
-
-	return project, user, isMember, nil
+	return project, user, authorized, nil
 }
 
 // GetOverview returns dashboard overview with task counts

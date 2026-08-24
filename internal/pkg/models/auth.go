@@ -15,7 +15,8 @@ type User struct {
 	UserName       string         `json:"username" gorm:"column:username;size:30;not null;unique;index:idx_users_username"`
 	Email          string         `json:"email" validate:"required,email" gorm:"size:100;not null;unique;index:idx_users_email"`
 	PasswordHash   string         `json:"password_hash" validate:"required"`
-	Role           string         `json:"role" gorm:"size:30;index:idx_users_role"`
+	RoleID         uuid.UUID      `json:"role_id" gorm:"type:uuid;index:idx_users_role_id"`
+	Role           Role           `json:"role,omitzero" gorm:"foreignKey:RoleID"`
 	AvatarURL      string         `json:"avatar_url" gorm:"size:500"`
 	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
 	IsActive       bool           `json:"is_active"`

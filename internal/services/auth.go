@@ -20,6 +20,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	"go.uber.org/zap"
 )
 
@@ -38,6 +39,8 @@ type AuthService interface {
 	IsEmailAvailable(email string) (bool, *response.Error)
 	IsUsernameAvailable(username string) (bool, *response.Error)
 	GetUserByID(userID, organizationID uuid.UUID) (*models.User, *response.Error)
+	SetProjectRepository(repo projectrepo.ProjectRepository)
+	HasPermission(userID, projectID uuid.UUID, resource string, action string) (bool, *response.Error)
 }
 
 func InitAuthService(authRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) AuthService {
@@ -49,9 +52,10 @@ func InitAuthService(authRepo authrepo.AuthRepository, auditRepo auditrepo.Audit
 }
 
 type authService struct {
-	authRepo  authrepo.AuthRepository
-	auditRepo auditrepo.AuditLogRepository
-	logger    *zap.Logger
+	authRepo    authrepo.AuthRepository
+	projectRepo projectrepo.ProjectRepository
+	auditRepo   auditrepo.AuditLogRepository
+	logger      *zap.Logger
 }
 
 func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResponse, *response.Error) {
@@ -142,7 +146,7 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	}
 
 	tokencredentials := dto.JWtcredentials{
-		Role:           result.Role,
+		Role:           result.Role.Name,
 		UserID:         result.ID,
 		OrganizationID: &organizationID,
 		Platform:       string(credentials.Platform),
@@ -296,7 +300,7 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		}
 	}
 	tokencredentials := dto.JWtcredentials{
-		Role:           user.Role,
+		Role:           user.Role.Name,
 		UserID:         user.ID,
 		OrganizationID: &organizationID,
 		Platform:       string(credentials.Platform),
@@ -578,7 +582,7 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	}
 
 	tokencredentials := dto.JWtcredentials{
-		Role:           user.Role,
+		Role:           user.Role.Name,
 		UserID:         user.ID,
 		OrganizationID: &organizationID,
 		Platform:       string(credentials.Platform),
@@ -866,4 +870,12 @@ func (s *authService) GetUserByID(userID, organizationID uuid.UUID) (*models.Use
 	}
 
 	return &user, nil
+}
+
+func (s *authService) SetProjectRepository(repo projectrepo.ProjectRepository) {
+	s.projectRepo = repo
+}
+
+func (s *authService) HasPermission(userID, projectID uuid.UUID, resource string, action string) (bool, *response.Error) {
+	return CheckPermission(s.authRepo, s.projectRepo, userID, projectID, resource, action)
 }

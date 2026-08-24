@@ -69,24 +69,20 @@ func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UU
 		}
 	}
 
-	if user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == task.Project.OrganizationID {
-		return &task.ProjectID, true, nil
-	}
-
-	if user.OrganizationID == nil || *user.OrganizationID != task.Project.OrganizationID {
+	if user.Role.Name == string(requestdto.RoleSuperAdmin) {
 		return &task.ProjectID, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "You are not authorized to access this organization",
+			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
 
-	isMember, err := s.projectRepo.IsUserProjectMember(task.ProjectID, userID)
-	if err != nil {
-		return nil, false, err
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, task.ProjectID, "comments", "view")
+	if permErr != nil {
+		return nil, false, permErr
 	}
 
-	return &task.ProjectID, isMember, nil
+	return &task.ProjectID, authorized, nil
 }
 
 func (s *commentsService) checkUserStoryAuthorization(userID, userStoryID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
@@ -104,24 +100,20 @@ func (s *commentsService) checkUserStoryAuthorization(userID, userStoryID uuid.U
 		}
 	}
 
-	if user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == storyCtx.OrganizationID {
-		return &storyCtx.ProjectID, true, nil
-	}
-
-	if user.OrganizationID == nil || *user.OrganizationID != storyCtx.OrganizationID {
+	if user.Role.Name == string(requestdto.RoleSuperAdmin) {
 		return &storyCtx.ProjectID, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "You are not authorized to access this organization",
+			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
 
-	isMember, err := s.projectRepo.IsUserProjectMember(storyCtx.ProjectID, userID)
-	if err != nil {
-		return nil, false, err
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, storyCtx.ProjectID, "comments", "view")
+	if permErr != nil {
+		return nil, false, permErr
 	}
 
-	return &storyCtx.ProjectID, isMember, nil
+	return &storyCtx.ProjectID, authorized, nil
 }
 
 func (s *commentsService) validateParentComment(parentCommentID uuid.UUID, taskID *uuid.UUID, userStoryID *uuid.UUID, projectID, organizationID uuid.UUID) *response.Error {
@@ -225,6 +217,22 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	if !authorized {
 		s.logger.Error("You do not have permission to add comments to this project",
 			zap.String("user_id", req.UserID.String()))
+		return responsedto.CommentedUserResponse{}, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to add comments to this project",
+		}
+	}
+
+	hasCommentPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, *projectID, "comments", "comment")
+	if permErr != nil {
+		return responsedto.CommentedUserResponse{}, permErr
+	}
+	hasAddPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, *projectID, "comments", "add")
+	if permErr != nil {
+		return responsedto.CommentedUserResponse{}, permErr
+	}
+	if !hasCommentPermission && !hasAddPermission {
 		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -466,6 +474,18 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 		}
 	}
 
+	hasModifyPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, *projectID, "comments", "modify")
+	if permErr != nil {
+		return responsedto.CommentedUserResponse{}, permErr
+	}
+	if !hasModifyPermission {
+		return responsedto.CommentedUserResponse{}, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to modify comments on this task/story",
+		}
+	}
+
 	req.Content = utils.SanitizeHTML(req.Content)
 	req.Content = strings.TrimSpace(req.Content)
 	if req.Content == "" {
@@ -607,6 +627,18 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to view this comment",
+		}
+	}
+
+	hasDeletePermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, *projectID, "comments", "delete")
+	if permErr != nil {
+		return permErr
+	}
+	if !hasDeletePermission {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to delete comments on this task/story",
 		}
 	}
 

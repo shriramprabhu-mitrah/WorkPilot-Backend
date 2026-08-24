@@ -36,7 +36,8 @@ type OrganizationInvitation struct {
 	OrganizationID uuid.UUID        `json:"organization_id" gorm:"type:uuid;index:idx_org_invites_org_id;not null"`
 	Organization   Organization     `json:"organization,omitzero" gorm:"foreignKey:OrganizationID"`
 	Email          string           `json:"email" gorm:"size:100;not null;index:idx_org_invites_email"`
-	Role           string           `json:"role" gorm:"size:30;not null"`
+	RoleID         uuid.UUID        `json:"role_id" gorm:"type:uuid"`
+	Role           Role             `json:"role,omitzero" gorm:"foreignKey:RoleID"`
 	Token          string           `json:"token" gorm:"size:255;not null;unique;index:idx_org_invites_token"`
 	Status         InvitationStatus `json:"status" gorm:"size:20;not null;default:'pending'"`
 	ExpiresAt      time.Time        `json:"expires_at" gorm:"not null;type:timestamptz"`

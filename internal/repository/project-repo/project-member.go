@@ -67,6 +67,7 @@ func (d *projectDatabase) GetProjectsMembersByProjectID(projectID uuid.UUID, fil
 		Preload("Project.Organization").
 		Preload("Project.Creator").
 		Preload("User").
+		Preload("Role.Permissions").
 		Preload("AddedBy").
 		Order("project_members.joined_at DESC").
 		Limit(filter.PageSize).
@@ -148,13 +149,13 @@ func (d *projectDatabase) IsUserProjectMember(projectID, userID uuid.UUID) (bool
 	return count > 0, nil
 }
 
-func (d *projectDatabase) UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error {
+func (d *projectDatabase) UpdateProjectMember(projectID, userID uuid.UUID, roleID uuid.UUID) *response.Error {
 
 	result := d.db.
 		Model(&models.ProjectMember{}).
 		Where("project_id = ? AND user_id = ?", projectID, userID).
 		Updates(map[string]interface{}{
-			"project_role": projectRole,
+			"role_id": roleID,
 		})
 
 	if result.Error != nil {

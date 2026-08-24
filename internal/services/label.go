@@ -60,19 +60,12 @@ func (s *labelService) checkAdminOrPM(projectID, userID uuid.UUID) (models.Proje
 		return models.Project{}, models.User{}, false, err
 	}
 
-	isPMOrAdmin := (user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
-
-	if !isPMOrAdmin {
-		member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
-		if err != nil {
-			return models.Project{}, models.User{}, false, err
-		}
-		if member.ProjectRole == string(requestdto.ProjectRoleOrgAdmin) || member.ProjectRole == string(requestdto.ProjectRoleProjectManager) {
-			isPMOrAdmin = true
-		}
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "modify")
+	if permErr != nil {
+		return models.Project{}, models.User{}, false, permErr
 	}
 
-	return project, user, isPMOrAdmin, nil
+	return project, user, authorized, nil
 }
 
 func (s *labelService) checkProjectMember(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
@@ -86,16 +79,12 @@ func (s *labelService) checkProjectMember(projectID, userID uuid.UUID) (models.P
 		return models.Project{}, models.User{}, false, err
 	}
 
-	if user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return project, user, true, nil
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "view")
+	if permErr != nil {
+		return models.Project{}, models.User{}, false, permErr
 	}
 
-	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
-	if err != nil {
-		return models.Project{}, models.User{}, false, err
-	}
-
-	return project, user, isMember, nil
+	return project, user, authorized, nil
 }
 
 func (s *labelService) CreateLabel(req requestdto.CreateLabelRequest) (*responsedto.LabelResponse, *response.Error) {

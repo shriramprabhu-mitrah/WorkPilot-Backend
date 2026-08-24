@@ -56,6 +56,7 @@ func TestTaskRepository_GetTasks_Filters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to database: %v", err)
 	}
+	db.Exec("DISCARD PLANS")
 
 	// Run within a transaction to prevent test data from polluting the database
 	tx := db.Begin()
@@ -69,13 +70,18 @@ func TestTaskRepository_GetTasks_Filters(t *testing.T) {
 		t.Fatalf("failed to create organization: %v", err)
 	}
 
+	var devRole models.Role
+	if err := tx.Where("name = ? AND organization_id IS NULL", "developer").First(&devRole).Error; err != nil {
+		t.Fatalf("failed to find developer role: %v", err)
+	}
+
 	// Seed Users (Assignees) - must be created before project since project has a creator foreign key
 	user1 := models.User{
 		OrganizationID: &org.ID,
 		Email:          "user1@example.com",
 		UserName:       "user1",
 		PasswordHash:   "xxx",
-		Role:           "member",
+		RoleID:         devRole.ID,
 		IsActive:       true,
 	}
 	user2 := models.User{
@@ -83,7 +89,7 @@ func TestTaskRepository_GetTasks_Filters(t *testing.T) {
 		Email:          "user2@example.com",
 		UserName:       "user2",
 		PasswordHash:   "xxx",
-		Role:           "member",
+		RoleID:         devRole.ID,
 		IsActive:       true,
 	}
 	if err := tx.Create(&user1).Error; err != nil {

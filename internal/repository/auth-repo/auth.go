@@ -81,7 +81,7 @@ func (d *authDatabase) GetByEmail(email string) (models.User, *response.Error) {
 
 	var row models.User
 
-	err := d.db.Where("email = ?", email).Preload("Organization").First(&row).Error
+	err := d.db.Where("email = ?", email).Preload("Organization").Preload("Role.Permissions").First(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
@@ -113,7 +113,7 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 
 	var row models.User
 
-	if err := d.db.Where("id = ?", id).Preload("Organization").First(&row).Error; err != nil {
+	if err := d.db.Where("id = ?", id).Preload("Organization").Preload("Role.Permissions").First(&row).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 
 			d.logger.Error("The user associated with the refresh token could not be found",
@@ -137,8 +137,11 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 }
 
 func (d *authDatabase) CreateUser(row models.User) *response.Error {
-	if row.Role == "" {
-		row.Role = "guest"
+	if row.RoleID == uuid.Nil {
+		var role models.Role
+		if err := d.db.Where("name = ? AND organization_id IS NULL", "developer").First(&role).Error; err == nil {
+			row.RoleID = role.ID
+		}
 	}
 	if row.Timezone == "" {
 		row.Timezone = "UTC"
@@ -512,4 +515,25 @@ func (d *authDatabase) UpdateUserFields(userID uuid.UUID, updates map[string]int
 	}
 
 	return nil
+}
+
+func (d *authDatabase) GetRoleByName(name string) (*models.Role, *response.Error) {
+	var row models.Role
+	err := d.db.Where("name = ? AND organization_id IS NULL", name).First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Role not found",
+			}
+		}
+		d.logger.Error("Failed to get role by name", zap.String("name", name), zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve role",
+		}
+	}
+	return &row, nil
 }

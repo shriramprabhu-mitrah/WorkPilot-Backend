@@ -157,7 +157,7 @@ func (s *attachmentService) GetConfig() models.AttachmentConfig {
 // Single Consolidated Authorization Policy helper methods using TaskAccessContext to prevent duplicate DB queries
 
 func (s *attachmentService) CanAccessTask(user *models.User, taskCtx *models.TaskAccessContext) (bool, *response.Error) {
-	if user.Role == string(dto.RoleSuperAdmin) {
+	if user.Role.Name == string(dto.RoleSuperAdmin) {
 		return false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -165,23 +165,11 @@ func (s *attachmentService) CanAccessTask(user *models.User, taskCtx *models.Tas
 		}
 	}
 
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == taskCtx.OrganizationID {
-		return true, nil
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, user.ID, taskCtx.ProjectID, "tasks", "view")
+	if permErr != nil {
+		return false, permErr
 	}
-
-	if user.OrganizationID == nil || *user.OrganizationID != taskCtx.OrganizationID {
-		return false, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You are not authorized to access this organization",
-		}
-	}
-
-	isMember, err := s.projectRepo.IsUserProjectMember(taskCtx.ProjectID, user.ID)
-	if err != nil {
-		return false, err
-	}
-	return isMember, nil
+	return authorized, nil
 }
 
 func (s *attachmentService) CanAccessComment(user *models.User, comment *models.Comments, taskCtx *models.TaskAccessContext) (bool, *response.Error) {
@@ -205,16 +193,11 @@ func (s *attachmentService) CanDeleteAttachment(user *models.User, attachment *m
 		return true, nil
 	}
 
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == taskCtx.OrganizationID {
-		return true, nil
+	hasModify, permErr := CheckPermission(s.authRepo, s.projectRepo, user.ID, taskCtx.ProjectID, "tasks", "modify")
+	if permErr != nil {
+		return false, permErr
 	}
-
-	member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(user.ID, taskCtx.ProjectID)
-	if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
-		return true, nil
-	}
-
-	return false, nil
+	return hasModify, nil
 }
 
 func (s *attachmentService) CanDeleteCommentAttachment(user *models.User, attachment *models.CommentAttachment, comment *models.Comments, taskCtx *models.TaskAccessContext) (bool, *response.Error) {
@@ -231,20 +214,15 @@ func (s *attachmentService) CanDeleteCommentAttachment(user *models.User, attach
 		return true, nil
 	}
 
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == taskCtx.OrganizationID {
-		return true, nil
+	hasModify, permErr := CheckPermission(s.authRepo, s.projectRepo, user.ID, taskCtx.ProjectID, "comments", "modify")
+	if permErr != nil {
+		return false, permErr
 	}
-
-	member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(user.ID, taskCtx.ProjectID)
-	if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
-		return true, nil
-	}
-
-	return false, nil
+	return hasModify, nil
 }
 
 func (s *attachmentService) CanAccessUserStory(user *models.User, storyCtx *models.UserStoryAccessContext) (bool, *response.Error) {
-	if user.Role == string(dto.RoleSuperAdmin) {
+	if user.Role.Name == string(dto.RoleSuperAdmin) {
 		return false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -252,23 +230,11 @@ func (s *attachmentService) CanAccessUserStory(user *models.User, storyCtx *mode
 		}
 	}
 
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == storyCtx.OrganizationID {
-		return true, nil
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, user.ID, storyCtx.ProjectID, "user_stories", "view")
+	if permErr != nil {
+		return false, permErr
 	}
-
-	if user.OrganizationID == nil || *user.OrganizationID != storyCtx.OrganizationID {
-		return false, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "You are not authorized to access this organization",
-		}
-	}
-
-	isMember, err := s.projectRepo.IsUserProjectMember(storyCtx.ProjectID, user.ID)
-	if err != nil {
-		return false, err
-	}
-	return isMember, nil
+	return authorized, nil
 }
 
 func (s *attachmentService) CanDeleteUserStoryAttachment(user *models.User, attachment *models.UserStoryAttachment, storyCtx *models.UserStoryAccessContext) (bool, *response.Error) {
@@ -281,14 +247,9 @@ func (s *attachmentService) CanDeleteUserStoryAttachment(user *models.User, atta
 		return true, nil
 	}
 
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == storyCtx.OrganizationID {
-		return true, nil
+	hasModify, permErr := CheckPermission(s.authRepo, s.projectRepo, user.ID, storyCtx.ProjectID, "user_stories", "modify")
+	if permErr != nil {
+		return false, permErr
 	}
-
-	member, memErr := s.projectRepo.GetProjectMemberByUserAndProjectID(user.ID, storyCtx.ProjectID)
-	if memErr == nil && (member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager)) {
-		return true, nil
-	}
-
-	return false, nil
+	return hasModify, nil
 }

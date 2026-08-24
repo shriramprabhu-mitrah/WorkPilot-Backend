@@ -207,7 +207,7 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 		return
 	}
 
-	result, err := h.service.GetOrganizationByID(id,userUUID)
+	result, err := h.service.GetOrganizationByID(id, userUUID)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,

@@ -74,21 +74,20 @@ func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (models.Pr
 	if err != nil {
 		return models.Project{}, models.User{}, false, err
 	}
-	if user.Role == string(dto.RoleSuperAdmin) {
+	if user.Role.Name == string(dto.RoleSuperAdmin) {
 		return models.Project{}, models.User{}, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return project, user, true, nil
+
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "tasks", "view")
+	if permErr != nil {
+		return models.Project{}, models.User{}, false, permErr
 	}
-	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
-	if err != nil {
-		return models.Project{}, models.User{}, false, err
-	}
-	return project, user, isMember, nil
+
+	return project, user, authorized, nil
 }
 
 func GenerateProjectPrefix(name string) string {
@@ -208,7 +207,7 @@ func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap 
 			FullName:  task.Reporter.FullName,
 			Email:     task.Reporter.Email,
 			AvatarURL: avatarURL,
-			Role:      task.Reporter.Role,
+			Role:      task.Reporter.Role.Name,
 		}
 	}
 
@@ -222,7 +221,7 @@ func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap 
 			FullName:  task.Assignee.FullName,
 			Email:     task.Assignee.Email,
 			AvatarURL: avatarURL,
-			Role:      task.Assignee.Role,
+			Role:      task.Assignee.Role.Name,
 		}
 	}
 	return response
@@ -332,6 +331,18 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 		return uuid.Nil, nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view tasks in this project",
+		}
+	}
+
+	hasAddPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "tasks", "add")
+	if permErr != nil {
+		return uuid.Nil, nil, permErr
+	}
+	if !hasAddPermission {
+		return uuid.Nil, nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to create tasks in this project",
 		}
 	}
@@ -378,7 +389,7 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 			return uuid.Nil, nil, err
 		}
 		if !isMember {
-			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+			if assigneeUser.Role.Name == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
 				isMember = true
 			}
 		}
@@ -574,7 +585,7 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 }
 
 func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error) {
-	project, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	_, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -582,28 +593,25 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view tasks in this project",
+		}
+	}
+
+	hasModifyPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "tasks", "modify")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !hasModifyPermission {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to update tasks in this project",
 		}
 	}
 
-	isPMOrAdmin := (user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
-
-	var member *models.ProjectMember
-	if !isPMOrAdmin {
-		member, err = s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
-		if err != nil {
-			return nil, err
-		}
-
-		if member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager) {
-			isPMOrAdmin = true
-		} else if member.ProjectRole == string(dto.ProjectRoleViewer) {
-			return nil, &response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "Viewers do not have permission to update tasks",
-			}
-		}
+	isPMOrAdmin, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "projects", "modify")
+	if permErr != nil {
+		return nil, permErr
 	}
 
 	task, err := s.taskRepo.GetTaskByID(req.TaskID, req.ProjectID)
@@ -651,7 +659,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			return nil, err
 		}
 		if !isMember {
-			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+			if assigneeUser.Role.Name == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
 				isMember = true
 			}
 		}
@@ -1249,6 +1257,18 @@ func (s *taskService) CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResp
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view tasks in this project",
+		}
+	}
+
+	hasAddPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "tasks", "add")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !hasAddPermission {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to clone tasks in this project",
 		}
 	}
@@ -1438,28 +1458,7 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 }
 
 func (s *taskService) checkIsPMOrAdmin(projectID, userID uuid.UUID) (bool, *response.Error) {
-	project, err := s.projectRepo.GetProjectByID(projectID)
-	if err != nil {
-		return false, err
-	}
-	user, err := s.authRepo.GetUserByID(userID)
-	if err != nil {
-		return false, err
-	}
-	if user.Role == string(dto.RoleSuperAdmin) {
-		return false, nil
-	}
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return true, nil
-	}
-	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
-	if err != nil {
-		return false, nil
-	}
-	if member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager) {
-		return true, nil
-	}
-	return false, nil
+	return CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "modify")
 }
 
 func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*responsedto.BulkUpdateTasksResponse, *response.Error) {
@@ -1519,7 +1518,7 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 				continue
 			}
 			if !isMember {
-				if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+				if assigneeUser.Role.Name == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
 					isMember = true
 				}
 			}
@@ -1742,34 +1741,11 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 }
 
 func (s *taskService) checkProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
-	project, err := s.projectRepo.GetProjectByID(projectID)
+	authorized, err := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "tasks", "modify")
 	if err != nil {
 		return false, err
 	}
-
-	user, err := s.authRepo.GetUserByID(userID)
-	if err != nil {
-		return false, err
-	}
-
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return true, nil
-	}
-
-	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
-	if err != nil {
-		return false, err
-	}
-
-	if member.ProjectRole == string(dto.ProjectRoleViewer) {
-		return false, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "Viewers do not have permission to modify task labels",
-		}
-	}
-
-	return true, nil
+	return authorized, nil
 }
 
 func (s *taskService) AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error {
@@ -1893,6 +1869,18 @@ func (s *taskService) BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*response
 		return nil, err
 	}
 	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view tasks in this project",
+		}
+	}
+
+	hasDeletePermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "tasks", "delete")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !hasDeletePermission {
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,

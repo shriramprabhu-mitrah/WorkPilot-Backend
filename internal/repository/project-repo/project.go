@@ -492,7 +492,7 @@ func (d *projectDatabase) GetProjectByID(id uuid.UUID) (models.Project, *respons
 	return row, nil
 }
 
-func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.ProjectActivityFilter,) ([]models.AuditLog, response.Pagination, *response.Error) {
+func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID, filter dto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error) {
 	var logs []models.AuditLog
 	var totalItems int64
 
@@ -579,20 +579,20 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.Proj
 	switch resType {
 	case "task":
 		baseQuery = baseQuery.Where(
-			"task_id IS NOT NULL OR "+
+			"task_id IS NOT NULL OR " +
 				"LOWER(resource_type) IN ('task', 'task_attachment')",
 		)
 
 	case "userstory", "user_story":
 		baseQuery = baseQuery.Where(
-			"user_story_id IS NOT NULL OR "+
-				"LOWER(resource_type) IN "+
+			"user_story_id IS NOT NULL OR " +
+				"LOWER(resource_type) IN " +
 				"('user_story', 'userstory', 'user_story_attachment')",
 		)
 
 	case "sprint":
 		baseQuery = baseQuery.Where(
-			"sprint_id IS NOT NULL OR "+
+			"sprint_id IS NOT NULL OR " +
 				"LOWER(resource_type) IN ('sprint', 'sprints')",
 		)
 
@@ -607,9 +607,9 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.Proj
 
 	case "comments", "comment":
 		baseQuery = baseQuery.Where(
-			"LOWER(resource_type) IN "+
-				"('comment', 'comments', 'comment_attachment') "+
-				"OR LOWER(action) LIKE '%comment%' "+
+			"LOWER(resource_type) IN " +
+				"('comment', 'comments', 'comment_attachment') " +
+				"OR LOWER(action) LIKE '%comment%' " +
 				"OR LOWER(action) LIKE '%reply%'",
 		)
 
@@ -745,12 +745,12 @@ func (d *projectDatabase) GetProjectActivity(projectID uuid.UUID,filter dto.Proj
 	}
 
 	pagination := response.Pagination{
-		Page:         filter.Page,
-		PageSize:     filter.PageSize,
-		TotalItems:   int(totalItems),
-		TotalPages:   totalPages,
-		HasNext:      filter.Page < totalPages,
-		HasPrevious:  filter.Page > 1,
+		Page:        filter.Page,
+		PageSize:    filter.PageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     filter.Page < totalPages,
+		HasPrevious: filter.Page > 1,
 	}
 
 	return logs, pagination, nil
@@ -995,6 +995,7 @@ func (d *projectDatabase) GetProjectMemberByUserAndProjectID(userID, projectID u
 	var member models.ProjectMember
 
 	if err := d.db.
+		Preload("Role.Permissions").
 		Where("user_id = ? AND project_id = ?", userID, projectID).
 		First(&member).Error; err != nil {
 
