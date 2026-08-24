@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 )
 
 func OrganizationFromModel(org models.Organization, projectCount int, memberCount int) OrganizationSummary {
@@ -30,18 +31,19 @@ func UserProfileFromModel(user models.User) UserProfile {
 		avatarURL = &user.AvatarURL
 	}
 	return UserProfile{
-		ID:             user.ID,
-		OrganizationID: user.OrganizationID,
-		Name:           user.FullName,
-		Username:       user.UserName,
-		Email:          user.Email,
-		Role:           user.Role.Name,
-		AvatarURL:      avatarURL,
-		Timezone:       user.Timezone,
-		IsActive:       user.IsActive,
-		IsVerified:     user.IsVerified,
-		CreatedAt:      user.CreatedAt,
-		JoinedAt:       user.JoinedAt,
+		ID:               user.ID,
+		OrganizationID:   user.OrganizationID,
+		OrganizationName: user.Organization.Name,
+		Name:             user.FullName,
+		Username:         user.UserName,
+		Email:            user.Email,
+		Role:             user.Role.Name,
+		AvatarURL:        avatarURL,
+		Timezone:         user.Timezone,
+		IsActive:         user.IsActive,
+		IsVerified:       user.IsVerified,
+		CreatedAt:        user.CreatedAt,
+		JoinedAt:         user.JoinedAt,
 	}
 }
 
@@ -51,18 +53,23 @@ func ProjectSummaryFromModel(project models.Project, taskCount int, memberCount 
 		sprints = append(sprints, SprintFromModel(sprint))
 	}
 
+	key := utils.GenerateProjectPrefix(project.Name)
+
 	return ProjectSummary{
-		ID:             project.ID,
-		OrganizationID: project.OrganizationID,
-		Name:           project.Name,
-		Description:    project.Description,
-		Status:         project.Status,
-		CreatedBy:      project.CreatedBy,
-		CreatedAt:      project.CreatedAt,
-		SprintCount:    project.SprintCount,
-		TotalTasks:     taskCount,
-		TotalMembers:   memberCount,
-		Sprints:        sprints,
+		ID:               project.ID,
+		OrganizationID:   project.OrganizationID,
+		OrganizationName: project.Organization.Name,
+		Name:             project.Name,
+		Key:              key,
+		ProjectKey:       key,
+		Description:      project.Description,
+		Status:           project.Status,
+		CreatedBy:        project.CreatedBy,
+		CreatedAt:        project.CreatedAt,
+		SprintCount:      project.SprintCount,
+		TotalTasks:       taskCount,
+		TotalMembers:     memberCount,
+		Sprints:          sprints,
 	}
 }
 
@@ -71,12 +78,18 @@ func ProjectMemberFromModel(member models.ProjectMember) ProjectMember {
 	if member.User.AvatarURL != "" {
 		avatarURL = &member.User.AvatarURL
 	}
+	orgName := member.User.Organization.Name
+	if orgName == "" {
+		orgName = member.Project.Organization.Name
+	}
 	return ProjectMember{
-		UserID:    member.UserID,
-		Username:  member.User.UserName,
-		FullName:  member.User.FullName,
-		Role:      member.Role.Name,
-		AvatarURL: avatarURL,
+		UserID:           member.UserID,
+		Username:         member.User.UserName,
+		FullName:         member.User.FullName,
+		Role:             member.Role.Name,
+		AvatarURL:        avatarURL,
+		OrganizationName: orgName,
+		ProjectKey:       utils.GenerateProjectPrefix(member.Project.Name),
 	}
 }
 

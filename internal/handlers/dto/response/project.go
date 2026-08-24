@@ -7,17 +7,20 @@ import (
 )
 
 type ProjectDetail struct {
-	ProjectID      uuid.UUID       `json:"id"`
-	OrganizationID uuid.UUID       `json:"organization_id"`
-	Name           string          `json:"name"`
-	Description    string          `json:"description,omitempty"`
-	Status         string          `json:"status"`
-	CreatedBy      uuid.UUID       `json:"created_by"`
-	Creator        string          `json:"creator"`
-	CreatedAt      time.Time       `json:"created_at"`
-	Members        []ProjectMember `json:"members"`
-	Sprints        []Sprint        `json:"sprints"`
-	Metrics        ProjectMetrics  `json:"metrics"`
+	ProjectID        uuid.UUID       `json:"id"`
+	OrganizationID   uuid.UUID       `json:"organization_id"`
+	OrganizationName string          `json:"organization_name,omitempty"`
+	Name             string          `json:"name"`
+	Key              string          `json:"key,omitempty"`
+	ProjectKey       string          `json:"project_key,omitempty"`
+	Description      string          `json:"description,omitempty"`
+	Status           string          `json:"status"`
+	CreatedBy        uuid.UUID       `json:"created_by"`
+	Creator          string          `json:"creator"`
+	CreatedAt        time.Time       `json:"created_at"`
+	Members          []ProjectMember `json:"members"`
+	Sprints          []Sprint        `json:"sprints"`
+	Metrics          ProjectMetrics  `json:"metrics"`
 }
 
 type ProjectActivityResponse struct {
@@ -39,18 +42,23 @@ type ProjectActivityResponse struct {
 }
 
 type ProjectMemberResponse struct {
-	UserID    uuid.UUID `json:"user_id"`
-	Username  string    `json:"username"`
-	FullName  string    `json:"full_name"`
-	Role      string    `json:"role"`
-	AvatarURL *string   `json:"avatar_url"`
+	UserID           uuid.UUID `json:"user_id"`
+	Username         string    `json:"username"`
+	FullName         string    `json:"full_name"`
+	Role             string    `json:"role"`
+	AvatarURL        *string   `json:"avatar_url"`
+	OrganizationName string    `json:"organization_name,omitempty"`
+	ProjectKey       string    `json:"project_key,omitempty"`
 }
 
 type ProjectResponse struct {
-	ProjectID   uuid.UUID `json:"project_id"`
-	Role        string    `json:"role"`
-	ProjectName string    `json:"project_name"`
-	Status      string    `json:"status"`
+	ProjectID        uuid.UUID `json:"project_id"`
+	Role             string    `json:"role"`
+	ProjectName      string    `json:"project_name"`
+	Status           string    `json:"status"`
+	OrganizationName string    `json:"organization_name,omitempty"`
+	ProjectKey       string    `json:"project_key,omitempty"`
+	Key              string    `json:"key,omitempty"`
 }
 
 type GetProjectByUserIDResponse struct {
