@@ -9,6 +9,7 @@ import (
 	"github.com/gofrs/uuid"
 	configs "github.com/ms-kanban-server/config"
 	"github.com/ms-kanban-server/drivers/postgres"
+	"github.com/ms-kanban-server/drivers/migration"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
@@ -69,6 +70,8 @@ func TestTaskRepository_GetTasks_Filters(t *testing.T) {
 	if err := tx.Create(&org).Error; err != nil {
 		t.Fatalf("failed to create organization: %v", err)
 	}
+
+	_ = migration.SeedDefaultRoles(tx)
 
 	var devRole models.Role
 	if err := tx.Where("name = ? AND organization_id IS NULL", "developer").First(&devRole).Error; err != nil {

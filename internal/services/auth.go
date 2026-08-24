@@ -145,8 +145,13 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		}
 	}
 
+	roleName := result.Role.Name
+	if roleName == "" {
+		roleName = "member"
+	}
+
 	tokencredentials := dto.JWtcredentials{
-		Role:           result.Role.Name,
+		Role:           roleName,
 		UserID:         result.ID,
 		OrganizationID: &organizationID,
 		Platform:       string(credentials.Platform),
@@ -299,8 +304,13 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 			Message:    "Please verify your email address before signing in",
 		}
 	}
+	roleName := user.Role.Name
+	if roleName == "" {
+		roleName = "member"
+	}
+
 	tokencredentials := dto.JWtcredentials{
-		Role:           user.Role.Name,
+		Role:           roleName,
 		UserID:         user.ID,
 		OrganizationID: &organizationID,
 		Platform:       string(credentials.Platform),
@@ -523,6 +533,14 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 		return errorResponse
 	}
 
+	devRole, _ := s.authRepo.GetRoleByName("member")
+	var roleID uuid.UUID
+	var role models.Role
+	if devRole != nil {
+		roleID = devRole.ID
+		role = *devRole
+	}
+
 	result := models.User{
 		ID:           uuid.Must(uuid.NewV7()),
 		Email:        cleanEmail,
@@ -531,6 +549,8 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 		UserName:     cleanUsername,
 		AvatarURL:    credentials.AvatarURL,
 		Timezone:     credentials.Timezone,
+		RoleID:       roleID,
+		Role:         role,
 		IsActive:     false,
 		IsVerified:   false,
 	}
@@ -581,8 +601,17 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 		return nil, err
 	}
 
+	if dbUser, getErr := s.authRepo.GetUserByID(user.ID); getErr == nil {
+		user = &dbUser
+	}
+
+	roleName := user.Role.Name
+	if roleName == "" {
+		roleName = "member"
+	}
+
 	tokencredentials := dto.JWtcredentials{
-		Role:           user.Role.Name,
+		Role:           roleName,
 		UserID:         user.ID,
 		OrganizationID: &organizationID,
 		Platform:       string(credentials.Platform),
