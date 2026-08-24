@@ -1,10 +1,7 @@
 package migration
 
 import (
-	"fmt"
-
 	"github.com/ms-kanban-server/internal/pkg/models"
-	"github.com/ms-kanban-server/internal/pkg/utils"
 	"gorm.io/gorm"
 )
 
