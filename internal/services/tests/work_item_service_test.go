@@ -71,7 +71,7 @@ func (s *stubWorkItemProjectRepo) GetProjectMemberByUserAndProjectID(userID, pro
 	if !s.members[key] {
 		return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Project member not found"}
 	}
-	return &models.ProjectMember{UserID: userID, ProjectID: projectID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}}, nil
+	return &models.ProjectMember{UserID: userID, ProjectID: projectID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}}, nil
 }
 func (s *stubWorkItemProjectRepo) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
 	return nil
@@ -122,8 +122,8 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 
 	authRepo := &stubWorkItemAuthRepo{
 		users: map[uuid.UUID]models.User{
-			userIDMember:    {ID: userIDMember, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, OrganizationID: &orgID},
-			userIDNonMember: {ID: userIDNonMember, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, OrganizationID: &orgID},
+			userIDMember:    {ID: userIDMember, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, OrganizationID: &orgID},
+			userIDNonMember: {ID: userIDNonMember, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "developer"}, OrganizationID: &orgID},
 		},
 	}
 

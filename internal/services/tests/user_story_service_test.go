@@ -265,7 +265,7 @@ func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}, FullName: "John Doe"},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, FullName: "John Doe"},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -310,7 +310,7 @@ func TestUserStoryService_CreateUserStory_ForbiddenIfNoAccess(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -345,7 +345,7 @@ func TestUserStoryService_CreateUserStory_InvalidSprintID(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -384,8 +384,8 @@ func TestUserStoryService_CreateUserStory_InvalidAssigneeID(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID:     {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
-			assigneeID: {ID: assigneeID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}, IsActive: false}, // Assignee is inactive
+			userID:     {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
+			assigneeID: {ID: assigneeID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, IsActive: false}, // Assignee is inactive
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -422,7 +422,7 @@ func TestUserStoryService_GetUserStoryByID_Success(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -461,7 +461,7 @@ func TestUserStoryService_UpdateUserStory_Success(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -516,7 +516,7 @@ func TestUserStoryService_UpdateUserStory_SprintID(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -643,7 +643,7 @@ func TestUserStoryService_DeleteUserStory_Success(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -685,7 +685,7 @@ func TestUserStoryService_ReorderUserStories_Success(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -724,7 +724,7 @@ func TestUserStoryService_ProgressCalculation(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -773,7 +773,7 @@ func TestUserStoryService_GetUserStoryByID_IncludesTasks(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -820,7 +820,7 @@ func TestUserStoryService_GetUserStories_IncludesTasks(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -868,7 +868,7 @@ func TestUserStoryService_CreateUserStory_CustomStatus(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}, FullName: "John Doe"},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, FullName: "John Doe"},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -934,7 +934,7 @@ func TestUserStoryService_CreateUserStory_StatusPrecedence(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}, FullName: "John Doe"},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, FullName: "John Doe"},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -992,7 +992,7 @@ func TestUserStoryService_CreateUserStory_InvalidStatus(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -1049,7 +1049,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002"), Role: models.Role{Name: string(dto.RoleOrgAdmin)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID:uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleOrgAdmin)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
