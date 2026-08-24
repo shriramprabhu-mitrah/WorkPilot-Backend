@@ -299,4 +299,61 @@ func TestTaskRepository_GetTasks_Filters(t *testing.T) {
 			t.Errorf("expected 2 tasks, got %d", len(res))
 		}
 	})
+
+	t.Run("unassigned_task=true -> matches tasks with no sprint and no user story", func(t *testing.T) {
+		// 1. Initially t2 and t3 are unassigned (sprint_id and user_story_id are both nil)
+		res, _, err := repo.GetTasks(proj.ID, dto.TaskFilter{
+			UnassignedTask: true,
+		})
+		if err != nil {
+			t.Fatalf("GetTasks failed: %v", err)
+		}
+		if len(res) != 2 {
+			t.Errorf("expected 2 tasks, got %d", len(res))
+		}
+
+		// 2. Seed a UserStory and Task 4 (has user story but no sprint)
+		story1 := models.UserStory{
+			ProjectID:  proj.ID,
+			Title:      "User Story 1",
+			ReporterID: user1.ID,
+			StatusID:   statusTodo.ID,
+		}
+		if err := tx.Create(&story1).Error; err != nil {
+			t.Fatalf("failed to create user story: %v", err)
+		}
+
+		t4 := models.Task{
+			ProjectID:      proj.ID,
+			StatusID:       statusTodo.ID,
+			Status:         statusTodo.Name,
+			AssigneeID:     nil,
+			SprintID:       nil,
+			UserStoryID:    &story1.ID,
+			Priority:       "medium",
+			Type:           "task",
+			Title:          "Task 4",
+			Key:            "TEST-4",
+			SequenceNumber: 4,
+		}
+		if err := tx.Create(&t4).Error; err != nil {
+			t.Fatalf("failed to create task 4: %v", err)
+		}
+
+		// 3. Query again: it should still only return 2 tasks (t2 and t3), t4 should be excluded
+		res, _, err = repo.GetTasks(proj.ID, dto.TaskFilter{
+			UnassignedTask: true,
+		})
+		if err != nil {
+			t.Fatalf("GetTasks failed: %v", err)
+		}
+		if len(res) != 2 {
+			t.Errorf("expected 2 tasks after seeding task with user story, got %d", len(res))
+		}
+		for _, task := range res {
+			if task.ID == t1.ID || task.ID == t4.ID {
+				t.Errorf("task %s should not be returned by unassigned_task filter", task.Title)
+			}
+		}
+	})
 }

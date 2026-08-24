@@ -4437,6 +4437,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "Filter tasks that are not assigned to any sprint and user story",
+                        "name": "unassigned_task",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "any",
                             "all"

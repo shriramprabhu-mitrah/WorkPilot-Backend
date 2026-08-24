@@ -514,6 +514,7 @@ func parseMultiQueryParam(g *gin.Context, key string) []string {
 // @Param search query string false "Search query for title, description or key"
 // @Param labels query string false "Comma-separated labels"
 // @Param is_deleted query boolean false "Get soft deleted tasks"
+// @Param unassigned_task query boolean false "Filter tasks that are not assigned to any sprint and user story"
 // @Param match query string false "Match mode" Enums(any,all)
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
