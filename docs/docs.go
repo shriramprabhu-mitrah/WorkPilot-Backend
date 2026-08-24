@@ -8793,6 +8793,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "key": {
+                    "type": "string"
+                },
                 "members": {
                     "type": "array",
                     "items": {
@@ -8806,6 +8809,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "organization_id": {
+                    "type": "string"
+                },
+                "organization_name": {
+                    "type": "string"
+                },
+                "project_key": {
                     "type": "string"
                 },
                 "sprints": {
@@ -8826,6 +8835,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "full_name": {
+                    "type": "string"
+                },
+                "organization_name": {
+                    "type": "string"
+                },
+                "project_key": {
                     "type": "string"
                 },
                 "role": {
@@ -8874,7 +8889,16 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_response.ProjectResponse": {
             "type": "object",
             "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "organization_name": {
+                    "type": "string"
+                },
                 "project_id": {
+                    "type": "string"
+                },
+                "project_key": {
                     "type": "string"
                 },
                 "project_name": {
@@ -9081,6 +9105,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "organization_id": {
+                    "type": "string"
+                },
+                "organization_name": {
                     "type": "string"
                 },
                 "role": {
