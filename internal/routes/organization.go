@@ -9,7 +9,9 @@ import (
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	organizationrepo "github.com/ms-kanban-server/internal/repository/organization-repo"
+	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	publicrepo "github.com/ms-kanban-server/internal/repository/public-repo"
+	rolerepo "github.com/ms-kanban-server/internal/repository/role-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
@@ -19,9 +21,14 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 	OrganizationRepo := organizationrepo.InitOrganizationRepository(deps)
 	AuthRepo := authrepo.InitAuthRepository(deps)
 	auditRepo := auditrepo.InitAuditRepository(deps)
+	roleRepo := rolerepo.InitRoleRepository(deps)
+	projectRepo := projectrepo.InitProjectRepository(deps)
 
 	// initialize services
 	OrganizationService := services.InitOrganizationService(OrganizationRepo, AuthRepo, auditRepo, deps.Logger)
+	roleService := services.InitRoleService(roleRepo, deps.Logger)
+	authService := services.InitAuthService(AuthRepo, auditRepo, deps.Logger)
+	authService.SetProjectRepository(projectRepo)
 
 	publicRepo := publicrepo.InitPublicRepository(deps)
 	publicService := services.InitPublicService(publicRepo, deps.Logger)
@@ -31,6 +38,7 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 
 	// initialize handlers
 	OrganizationHandler := handlers.InitOrganizationHandler(OrganizationService, publicService, storageClient, deps.Logger)
+	roleHandler := handlers.InitRoleHandler(roleService, authService, deps.Logger)
 
 	middleware := middleware.InitMiddleware(deps.Logger)
 
@@ -49,5 +57,12 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 		org.GET("/get-users", middleware.ValidateJWT(), OrganizationHandler.GetUserInOrganization)
 		org.GET("/all-members", middleware.ValidateJWT(), middleware.Authorize("super_admin"), OrganizationHandler.GetAllMembers)
 		org.DELETE("/remove-user/:user_id", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.RemoveUser)
+
+		// Role management endpoints
+		org.POST("/roles", middleware.ValidateJWT(), roleHandler.CreateRole)
+		org.GET("/roles", middleware.ValidateJWT(), roleHandler.GetRoles)
+		org.GET("/roles/:role_id", middleware.ValidateJWT(), roleHandler.GetRole)
+		org.PATCH("/roles/:role_id", middleware.ValidateJWT(), roleHandler.UpdateRole)
+		org.DELETE("/roles/:role_id", middleware.ValidateJWT(), roleHandler.DeleteRole)
 	}
 }

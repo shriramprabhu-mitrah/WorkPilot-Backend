@@ -35,7 +35,7 @@ func UserProfileFromModel(user models.User) UserProfile {
 		Name:           user.FullName,
 		Username:       user.UserName,
 		Email:          user.Email,
-		Role:           user.Role,
+		Role:           user.Role.Name,
 		AvatarURL:      avatarURL,
 		Timezone:       user.Timezone,
 		IsActive:       user.IsActive,
@@ -75,7 +75,7 @@ func ProjectMemberFromModel(member models.ProjectMember) ProjectMember {
 		UserID:    member.UserID,
 		Username:  member.User.UserName,
 		FullName:  member.User.FullName,
-		Role:      member.User.Role,
+		Role:      member.Role.Name,
 		AvatarURL: avatarURL,
 	}
 }
@@ -170,7 +170,7 @@ func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
 			FullName:  audit.User.FullName,
 			Email:     audit.User.Email,
 			AvatarURL: avatarURL,
-			Role:      audit.User.Role,
+			Role:      audit.User.Role.Name,
 		}
 	}
 

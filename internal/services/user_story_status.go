@@ -55,52 +55,19 @@ func InitUserStoryStatusService(
 }
 
 func (s *userStoryStatusService) checkAdminOrPM(projectID, userID uuid.UUID) (bool, *response.Error) {
-	project, err := s.projectRepo.GetProjectByID(projectID)
+	authorized, err := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "modify")
 	if err != nil {
 		return false, err
 	}
-
-	user, err := s.authRepo.GetUserByID(userID)
-	if err != nil {
-		return false, err
-	}
-
-	isPMOrAdmin := (user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
-
-	if !isPMOrAdmin {
-		member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
-		if err != nil {
-			return false, err
-		}
-		if member.ProjectRole == string(requestdto.ProjectRoleOrgAdmin) || member.ProjectRole == string(requestdto.ProjectRoleProjectManager) {
-			isPMOrAdmin = true
-		}
-	}
-
-	return isPMOrAdmin, nil
+	return authorized, nil
 }
 
 func (s *userStoryStatusService) checkProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
-	project, err := s.projectRepo.GetProjectByID(projectID)
+	authorized, err := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "view")
 	if err != nil {
 		return false, err
 	}
-
-	user, err := s.authRepo.GetUserByID(userID)
-	if err != nil {
-		return false, err
-	}
-
-	if user.Role == string(requestdto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return true, nil
-	}
-
-	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
-	if err != nil {
-		return false, err
-	}
-
-	return isMember, nil
+	return authorized, nil
 }
 
 func (s *userStoryStatusService) CreateStatus(req requestdto.CreateUserStoryStatusRequest) (*responsedto.UserStoryStatusResponse, *response.Error) {

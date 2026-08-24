@@ -24,7 +24,7 @@ type ProjectRepository interface {
 	DeleteProject(projectID, organizationID uuid.UUID) *response.Error
 	GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error)
 	GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error)
-	UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error
+	UpdateProjectMember(projectID, userID uuid.UUID, roleID uuid.UUID) *response.Error
 	GetMemberCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
 }
 

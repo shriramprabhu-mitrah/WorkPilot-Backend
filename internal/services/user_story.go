@@ -192,21 +192,20 @@ func (s *userStoryService) checkAuthorization(projectID, userID uuid.UUID) (mode
 	if err != nil {
 		return models.Project{}, models.User{}, false, err
 	}
-	if user.Role == string(dto.RoleSuperAdmin) {
+	if user.Role.Name == string(dto.RoleSuperAdmin) {
 		return models.Project{}, models.User{}, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "Super admins are not allowed to perform organization-level activities",
 		}
 	}
-	if user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-		return project, user, true, nil
+
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "user_stories", "view")
+	if permErr != nil {
+		return models.Project{}, models.User{}, false, permErr
 	}
-	isMember, err := s.projectRepo.IsUserProjectMember(projectID, userID)
-	if err != nil {
-		return models.Project{}, models.User{}, false, err
-	}
-	return project, user, isMember, nil
+
+	return project, user, authorized, nil
 }
 
 func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*responsedto.UserStoryResponse, *response.Error) {
@@ -215,6 +214,18 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 		return nil, err
 	}
 	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view user stories in this project",
+		}
+	}
+
+	hasAddPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.ReporterID, req.ProjectID, "user_stories", "add")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !hasAddPermission {
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -253,7 +264,7 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 			return nil, err
 		}
 		if !isMember {
-			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+			if assigneeUser.Role.Name == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
 				isMember = true
 			}
 		}
@@ -423,32 +434,19 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 }
 
 func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*responsedto.UserStoryResponse, *response.Error) {
-	project, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	_, user, _, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return nil, err
 	}
-	if !authorized {
+	authorizedUpdate, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "user_stories", "modify")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !authorizedUpdate {
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to update user stories in this project",
-		}
-	}
-
-	isPMOrAdmin := (user.Role == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID)
-	if !isPMOrAdmin {
-		member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
-		if err != nil {
-			return nil, err
-		}
-		if member.ProjectRole == string(dto.ProjectRoleOrgAdmin) || member.ProjectRole == string(dto.ProjectRoleProjectManager) {
-			isPMOrAdmin = true
-		} else if member.ProjectRole == string(dto.ProjectRoleViewer) {
-			return nil, &response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "Viewers do not have permission to update user stories",
-			}
 		}
 	}
 
@@ -555,7 +553,7 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 			return nil, err
 		}
 		if !isMember {
-			if assigneeUser.Role == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
+			if assigneeUser.Role.Name == string(dto.RoleOrgAdmin) && assigneeUser.OrganizationID != nil && *assigneeUser.OrganizationID == req.OrganizationID {
 				isMember = true
 			}
 		}
@@ -688,6 +686,18 @@ func (s *userStoryService) DeleteUserStory(userStoryID, projectID, userID, orgID
 		return err
 	}
 	if !authorized {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to delete user stories in this project",
+		}
+	}
+
+	hasDeletePermission, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "user_stories", "delete")
+	if permErr != nil {
+		return permErr
+	}
+	if !hasDeletePermission {
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -879,7 +889,7 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.User
 		FullName:  story.Reporter.FullName,
 		Email:     story.Reporter.Email,
 		AvatarURL: reporterAvatarURL,
-		Role:      story.Reporter.Role,
+		Role:      story.Reporter.Role.Name,
 	}
 
 	if story.Assignee != nil {
@@ -892,7 +902,7 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.User
 			FullName:  story.Assignee.FullName,
 			Email:     story.Assignee.Email,
 			AvatarURL: assigneeAvatarURL,
-			Role:      story.Assignee.Role,
+			Role:      story.Assignee.Role.Name,
 		}
 	}
 

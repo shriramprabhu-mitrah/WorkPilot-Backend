@@ -58,11 +58,13 @@ type UpdateUserStatus struct {
 }
 
 type UserRoleRequest struct {
+	RoleID string `json:"role_id"`
 	Role   Role   `json:"role"`
 	UserID string `json:"user_id"`
 }
 
 type UpdateUserRole struct {
+	RoleID         uuid.UUID  `json:"role_id"`
 	Role           string     `json:"role"`
 	UserID         uuid.UUID  `json:"user_id"`
 	OrganizationID *uuid.UUID `json:"-" swaggerignore:"true"`

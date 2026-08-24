@@ -8,6 +8,8 @@ import (
 func AutoMigrate(dbConn *gorm.DB) error {
 	// Perform auto-migration for your models here
 	err := dbConn.AutoMigrate(
+		&models.Role{},
+		&models.Permission{},
 		&models.Organization{},
 		&models.User{},
 		&models.RefreshToken{},
@@ -32,7 +34,59 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		return err
 	}
 
+	if err := SeedDefaultRoles(dbConn); err != nil {
+		return err
+	}
+
 	return MigrateGlobalSerialNumbers(dbConn)
+}
+
+func SeedDefaultRoles(dbConn *gorm.DB) error {
+	defaultRoles := []models.Role{
+		{
+			Name:        "super_admin",
+			Description: "Super Administrator with platform-wide access",
+			IsSystem:    true,
+		},
+		{
+			Name:        "org_admin",
+			Description: "Organization Administrator with full control over the organization",
+			IsSystem:    true,
+		},
+		{
+			Name:        "project_manager",
+			Description: "Project Manager with full control over assigned projects",
+			IsSystem:    true,
+		},
+		{
+			Name:        "developer",
+			Description: "Developer who can view projects and manage tasks/user stories",
+			IsSystem:    true,
+		},
+		{
+			Name:        "qa",
+			Description: "QA/Tester who can test tasks and report issues",
+			IsSystem:    true,
+		},
+		{
+			Name:        "stakeholder",
+			Description: "Stakeholder with read-only access to projects",
+			IsSystem:    true,
+		},
+	}
+
+	for _, r := range defaultRoles {
+		var count int64
+		if err := dbConn.Model(&models.Role{}).Where("name = ? AND organization_id IS NULL", r.Name).Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			if err := dbConn.Create(&r).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func MigrateGlobalSerialNumbers(dbConn *gorm.DB) error {

@@ -89,8 +89,9 @@ type ProjectFilter struct {
 }
 
 type ProjectMemberRequest struct {
-	UserID      uuid.UUID   `json:"user_id" binding:"required"`
-	ProjectRole ProjectRole `json:"project_role" binding:"required,oneof=project_manager developer tester viewer"`
+	UserID      uuid.UUID  `json:"user_id" binding:"required"`
+	RoleID      *uuid.UUID `json:"role_id,omitempty"`
+	ProjectRole string     `json:"project_role,omitempty"`
 }
 
 type CreateProjectMemberRequest struct {
@@ -189,9 +190,10 @@ type RemoveProjectMember struct {
 }
 
 type UpdateProjectMemberRequest struct {
-	MemberID       uuid.UUID   `json:"-" swaggerignore:"true"`
-	ProjectRole    ProjectRole `json:"project_role" binding:"required,oneof=project_manager developer tester viewer"`
-	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
-	ProjectID      uuid.UUID   `json:"-" swaggerignore:"true"`
-	UpdatedBy      uuid.UUID   `json:"-" swaggerignore:"true"`
+	MemberID       uuid.UUID  `json:"-" swaggerignore:"true"`
+	RoleID         *uuid.UUID `json:"role_id,omitempty"`
+	ProjectRole    string     `json:"project_role,omitempty"`
+	OrganizationID uuid.UUID  `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID  `json:"-" swaggerignore:"true"`
+	UpdatedBy      uuid.UUID  `json:"-" swaggerignore:"true"`
 }

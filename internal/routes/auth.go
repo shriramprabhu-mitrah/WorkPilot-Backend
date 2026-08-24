@@ -8,6 +8,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/storage"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
@@ -17,8 +18,11 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 	authRepo := authrepo.InitAuthRepository(deps)
 	auditRepo := auditrepo.InitAuditRepository(deps)
 
+	projectRepo := projectrepo.InitProjectRepository(deps)
+
 	// initialize services
 	authService := services.InitAuthService(authRepo, auditRepo, deps.Logger)
+	authService.SetProjectRepository(projectRepo)
 
 	// initialize storage client
 	storageClient := storage.NewS3Client(deps.Logger)
