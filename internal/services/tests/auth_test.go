@@ -633,3 +633,11 @@ func (s *stubAuthRepository) GetRoleByName(name string) (*models.Role, *response
 	return &models.Role{ID: uuid.Must(uuid.NewV4()), Name: name}, nil
 }
 
+func (s *stubAuthRepository) GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*models.Role, *response.Error) {
+	return &models.Role{ID: uuid.Must(uuid.NewV4()), Name: name, OrganizationID: &orgID}, nil
+}
+
+func (s *stubAuthRepository) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error) {
+	return &models.Role{ID: roleID, Name: "mock_role"}, nil
+}
+

@@ -116,6 +116,10 @@ func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uui
 	return items, response.Pagination{Page: filter.Page, PageSize: filter.PageSize, TotalItems: len(items), TotalPages: 1, HasNext: false, HasPrevious: false}, nil
 }
 
+func (s *stubOrganizationRepository) CreateDefaultRolesForOrg(orgID uuid.UUID) *response.Error {
+	return nil
+}
+
 func TestGetUserInOrganizationSupportsSearchAndStatusFilters(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	repo := &stubOrganizationRepository{

@@ -574,3 +574,125 @@ func (d *organizationDatabase) GetMemberCountsByOrganizationIDs(orgIDs []uuid.UU
 
 	return counts, nil
 }
+
+func (d *organizationDatabase) CreateDefaultRolesForOrg(orgID uuid.UUID) *response.Error {
+	rolesToSeed := []struct {
+		Name        string
+		Description string
+		IsSystem    bool
+		FilterPerms func(res, act string) bool
+	}{
+		{
+			Name:        "org_admin",
+			Description: "Organization administrator with full access to organization resources",
+			IsSystem:    true,
+			FilterPerms: func(res, act string) bool { return true },
+		},
+		{
+			Name:        "project_manager",
+			Description: "Project manager with access to manage projects, sprints, and team activities",
+			IsSystem:    true,
+			FilterPerms: func(res, act string) bool {
+				return !(res == "projects" && (act == "add" || act == "delete"))
+			},
+		},
+		{
+			Name:        "developer",
+			Description: "Software developer with access to view and modify user stories and tasks",
+			IsSystem:    true,
+			FilterPerms: func(res, act string) bool {
+				return (res == "projects" && act == "view") ||
+					(res == "sprints" && act == "view") ||
+					(res == "user_stories" && (act == "view" || act == "add" || act == "modify")) ||
+					(res == "tasks" && (act == "view" || act == "add" || act == "modify" || act == "delete")) ||
+					(res == "comments" && (act == "view" || act == "add" || act == "modify" || act == "delete" || act == "comment"))
+			},
+		},
+		{
+			Name:        "qa",
+			Description: "Quality assurance engineer with access to test tasks",
+			IsSystem:    true,
+			FilterPerms: func(res, act string) bool {
+				return (res == "projects" && act == "view") ||
+					(res == "sprints" && act == "view") ||
+					(res == "user_stories" && (act == "view" || act == "modify")) ||
+					(res == "tasks" && (act == "view" || act == "add" || act == "modify")) ||
+					(res == "comments" && (act == "view" || act == "add" || act == "comment"))
+			},
+		},
+		{
+			Name:        "stakeholder",
+			Description: "Read-only stakeholder with basic viewing and commenting privileges",
+			IsSystem:    true,
+			FilterPerms: func(res, act string) bool {
+				return (res == "projects" && act == "view") ||
+					(res == "sprints" && act == "view") ||
+					(res == "user_stories" && act == "view") ||
+					(res == "tasks" && act == "view") ||
+					(res == "comments" && (act == "view" || act == "comment"))
+			},
+		},
+	}
+
+	var perms []models.Permission
+	if err := d.DB.Find(&perms).Error; err != nil {
+		d.logger.Error("Failed to fetch permissions during org role seeding", zap.Error(err))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	for _, seed := range rolesToSeed {
+		var role models.Role
+		err := d.DB.Where("name = ? AND organization_id = ? AND deleted_at IS NULL", seed.Name, orgID).First(&role).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				role = models.Role{
+					ID:             uuid.Must(uuid.NewV7()),
+					OrganizationID: &orgID,
+					Name:           seed.Name,
+					Description:    seed.Description,
+					IsSystem:       seed.IsSystem,
+				}
+				if err := d.DB.Create(&role).Error; err != nil {
+					d.logger.Error("Failed to create org-scoped role", zap.Error(err), zap.String("name", seed.Name))
+					return &response.Error{
+						Code:       response.ErrInternalServerError,
+						StatusCode: http.StatusInternalServerError,
+						Message:    "Something went wrong. Please try again later.",
+					}
+				}
+
+				var assoc []models.RolePermission
+				for _, p := range perms {
+					if seed.FilterPerms(p.Resource, p.Action) {
+						assoc = append(assoc, models.RolePermission{
+							RoleID:       role.ID,
+							PermissionID: p.ID,
+						})
+					}
+				}
+				if len(assoc) > 0 {
+					if err := d.DB.Create(&assoc).Error; err != nil {
+						d.logger.Error("Failed to associate permissions to org-scoped role", zap.Error(err), zap.String("name", seed.Name))
+						return &response.Error{
+							Code:       response.ErrInternalServerError,
+							StatusCode: http.StatusInternalServerError,
+							Message:    "Something went wrong. Please try again later.",
+						}
+					}
+				}
+			} else {
+				d.logger.Error("Failed to check org role existence", zap.Error(err), zap.String("name", seed.Name))
+				return &response.Error{
+					Code:       response.ErrInternalServerError,
+					StatusCode: http.StatusInternalServerError,
+					Message:    "Something went wrong. Please try again later.",
+				}
+			}
+		}
+	}
+	return nil
+}
