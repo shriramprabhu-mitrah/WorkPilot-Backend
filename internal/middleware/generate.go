@@ -60,11 +60,18 @@ func generateJWT(tokencredentials dto.JWtcredentials, ttl time.Duration, logger 
 		organizationID = *tokencredentials.OrganizationID
 	}
 
+	role := tokencredentials.Role
+	if role == "" {
+		logger.Warn("Token credentials role is empty during JWT generation, defaulting to developer",
+			zap.String("userID", tokencredentials.UserID.String()))
+		role = "developer"
+	}
+
 	claims := &dto.ClaimsJWT{
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
-		Role:           tokencredentials.Role,
+		Role:           role,
 		UserID:         tokencredentials.UserID,
 		OrganizationID: organizationID,
 	}

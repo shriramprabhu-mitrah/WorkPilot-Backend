@@ -81,7 +81,11 @@ func (d *authDatabase) GetByEmail(email string) (models.User, *response.Error) {
 
 	var row models.User
 
-	err := d.db.Where("email = ?", email).Preload("Organization").Preload("Role.Permissions").First(&row).Error
+	err := d.db.Where("email = ?", email).
+		Preload("Organization").
+		Preload("Role").
+		Preload("Role.Permissions").
+		First(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errorResponse := response.Error{
@@ -106,6 +110,15 @@ func (d *authDatabase) GetByEmail(email string) (models.User, *response.Error) {
 		return models.User{}, &errorResponse
 	}
 
+	if row.RoleID == uuid.Nil || row.Role.Name == "" {
+		var role models.Role
+		if err := d.db.Where("name = ? AND organization_id IS NULL", "developer").First(&role).Error; err == nil {
+			row.RoleID = role.ID
+			row.Role = role
+			_ = d.db.Model(&models.User{}).Where("id = ?", row.ID).Update("role_id", role.ID).Error
+		}
+	}
+
 	return row, nil
 }
 
@@ -113,7 +126,11 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 
 	var row models.User
 
-	if err := d.db.Where("id = ?", id).Preload("Organization").Preload("Role.Permissions").First(&row).Error; err != nil {
+	if err := d.db.Where("id = ?", id).
+		Preload("Organization").
+		Preload("Role").
+		Preload("Role.Permissions").
+		First(&row).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 
 			d.logger.Error("The user associated with the refresh token could not be found",
@@ -133,14 +150,25 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 			Message:    "Something went wrong. Please try again later.",
 		}
 	}
+
+	if row.RoleID == uuid.Nil || row.Role.Name == "" {
+		var role models.Role
+		if err := d.db.Where("name = ? AND organization_id IS NULL", "developer").First(&role).Error; err == nil {
+			row.RoleID = role.ID
+			row.Role = role
+			_ = d.db.Model(&models.User{}).Where("id = ?", row.ID).Update("role_id", role.ID).Error
+		}
+	}
+
 	return row, nil
 }
 
 func (d *authDatabase) CreateUser(row models.User) *response.Error {
-	if row.RoleID == uuid.Nil {
+	if row.RoleID == uuid.Nil || row.Role.Name == "" {
 		var role models.Role
 		if err := d.db.Where("name = ? AND organization_id IS NULL", "developer").First(&role).Error; err == nil {
 			row.RoleID = role.ID
+			row.Role = role
 		}
 	}
 	if row.Timezone == "" {
