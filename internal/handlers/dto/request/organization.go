@@ -129,4 +129,8 @@ type GlobalMemberListFilter struct {
 	Timezone       string     `form:"timezone"`
 }
 
-
+type UpdateOrganizationStatusRequest struct {
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
+	IsActive       *bool     `json:"is_active" binding:"required"`
+}

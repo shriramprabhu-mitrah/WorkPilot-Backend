@@ -100,6 +100,38 @@ func (d *organizationDatabase) GetByID(id uuid.UUID) (models.Organization, *resp
 	return row, nil
 }
 
+func (d *organizationDatabase) GetByIDUnscoped(id uuid.UUID) (models.Organization, *response.Error) {
+
+	var row models.Organization
+
+	err := d.DB.Unscoped().Where("id = ?", id).First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errorResponse := response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Organization not found",
+			}
+			d.logger.Error("Organization not found in database",
+				zap.String("Id", id.String()),
+				zap.Error(err))
+			return models.Organization{}, &errorResponse
+		}
+
+		errorResponse := response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+
+		d.logger.Error("Database error occurred",
+			zap.String("Id", id.String()),
+			zap.Error(err))
+		return models.Organization{}, &errorResponse
+	}
+	return row, nil
+}
+
 func (d *organizationDatabase) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error) {
 	var rows []models.Organization
 	var totalItems int64
@@ -109,7 +141,7 @@ func (d *organizationDatabase) GetAllOrganizations(filter dto.OrganizationFilter
 
 	offset := (filter.Page - 1) * filter.PageSize
 
-	baseQuery := d.DB.Model(&models.Organization{})
+	baseQuery := d.DB.Unscoped().Model(&models.Organization{})
 
 	if filter.Name != "" {
 		name := "%" + strings.ToLower(strings.TrimSpace(filter.Name)) + "%"
@@ -238,6 +270,67 @@ func (d *organizationDatabase) UpdateOrganization(OrganizationID uuid.UUID, req 
 
 	return nil
 }
+
+func (d *organizationDatabase) SoftDeleteOrganization(orgID uuid.UUID) *response.Error {
+	result := d.DB.Unscoped().
+		Model(&models.Organization{}).
+		Where("id = ?", orgID).
+		Updates(map[string]interface{}{
+			"is_active":  false,
+			"deleted_at": gorm.Expr("NOW()"),
+		})
+
+	if result.Error != nil {
+		d.logger.Error("Database error occurred while soft deleting Organization", zap.Error(result.Error))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if result.RowsAffected == 0 {
+		d.logger.Error("Organization not found while soft deleting Organization", zap.String("organization_id", orgID.String()))
+		return &response.Error{
+			Code:       response.ErrNotFound,
+			StatusCode: http.StatusNotFound,
+			Message:    "Organization not found",
+		}
+	}
+
+	return nil
+}
+
+func (d *organizationDatabase) RestoreOrganization(orgID uuid.UUID) *response.Error {
+	result := d.DB.Unscoped().
+		Model(&models.Organization{}).
+		Where("id = ?", orgID).
+		Updates(map[string]interface{}{
+			"is_active":  true,
+			"deleted_at": nil,
+		})
+
+	if result.Error != nil {
+		d.logger.Error("Database error occurred while restoring Organization", zap.Error(result.Error))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if result.RowsAffected == 0 {
+		d.logger.Error("Organization not found while restoring Organization", zap.String("organization_id", orgID.String()))
+		return &response.Error{
+			Code:       response.ErrNotFound,
+			StatusCode: http.StatusNotFound,
+			Message:    "Organization not found",
+		}
+	}
+
+	return nil
+}
+
 
 func (d *organizationDatabase) DeleteOrganization(id uuid.UUID) *response.Error {
 
