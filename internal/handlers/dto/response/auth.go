@@ -47,7 +47,7 @@ type ProjectSummary struct {
 	SprintCount    int       `json:"sprint_count"`
 	TotalTasks     int       `json:"total_tasks"`
 	TotalMembers   int       `json:"total_members"`
-	Sprints        []Sprint  `json:"sprints,omitzero"`
+	Sprints        []Sprint  `json:"sprints,omitempty"`
 }
 
 type ProjectMember struct {
