@@ -125,14 +125,6 @@ func (s *roleService) UpdateRole(orgID, roleID uuid.UUID, req requestdto.UpdateR
 		return nil, err
 	}
 
-	if role.IsSystem {
-		return nil, &response.Error{
-			Code:       response.ErrForbidden,
-			StatusCode: http.StatusForbidden,
-			Message:    "System roles cannot be modified",
-		}
-	}
-
 	if role.OrganizationID == nil || *role.OrganizationID != orgID {
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
