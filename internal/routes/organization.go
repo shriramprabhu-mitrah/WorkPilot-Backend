@@ -40,6 +40,7 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 		org.POST("/create", middleware.ValidateJWT(), OrganizationHandler.CreateOrganization)
 		org.PATCH("/update", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.UpdateOrganization)
 		org.GET("/get", middleware.ValidateJWT(), OrganizationHandler.GetOrganizationByID)
+		org.GET("", middleware.ValidateJWT(), middleware.Authorize("super_admin"), OrganizationHandler.GetAllOrganizations)
 		org.PATCH("/user-status", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.UpdateUserStatus)
 		org.PATCH("/user-role", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.UpdateUserRole)
 		org.POST("/invite", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.InviteOrganizationMember)

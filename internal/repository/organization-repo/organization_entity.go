@@ -14,6 +14,7 @@ type OrganizationRepository interface {
 	CreateOrganization(row models.Organization) *response.Error
 	GetByName(name string) (models.Organization, *response.Error)
 	GetByID(id uuid.UUID) (models.Organization, *response.Error)
+	GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error)
 	UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
 	UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error

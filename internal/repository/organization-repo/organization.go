@@ -2,6 +2,7 @@ package organizationrepo
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"strings"
@@ -97,6 +98,107 @@ func (d *organizationDatabase) GetByID(id uuid.UUID) (models.Organization, *resp
 		return models.Organization{}, &errorResponse
 	}
 	return row, nil
+}
+
+func (d *organizationDatabase) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error) {
+	var rows []models.Organization
+	var totalItems int64
+
+	filter.PaginationQuery.Normalize(10)
+	filter.SortQuery.Normalize("created_at", "DESC")
+
+	offset := (filter.Page - 1) * filter.PageSize
+
+	baseQuery := d.DB.Model(&models.Organization{})
+
+	if filter.Name != "" {
+		name := "%" + strings.ToLower(strings.TrimSpace(filter.Name)) + "%"
+		baseQuery = baseQuery.Where("LOWER(name) LIKE ?", name)
+	}
+
+	if filter.Domain != "" {
+		domain := "%" + strings.ToLower(strings.TrimSpace(filter.Domain)) + "%"
+		baseQuery = baseQuery.Where("LOWER(domain) LIKE ?", domain)
+	}
+
+	if filter.Industry != "" {
+		baseQuery = baseQuery.Where("LOWER(industry) = ?", strings.ToLower(strings.TrimSpace(filter.Industry)))
+	}
+
+	if filter.TeamSize != "" {
+		baseQuery = baseQuery.Where("team_size = ?", strings.TrimSpace(filter.TeamSize))
+	}
+
+	if filter.Country != "" {
+		baseQuery = baseQuery.Where("LOWER(country) = ?", strings.ToLower(strings.TrimSpace(filter.Country)))
+	}
+
+	if filter.IsActive != nil {
+		baseQuery = baseQuery.Where("is_active = ?", *filter.IsActive)
+	}
+
+	if filter.Search != "" {
+		searchTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Search)) + "%"
+		baseQuery = baseQuery.Where("LOWER(name) LIKE ? OR LOWER(domain) LIKE ? OR LOWER(slug) LIKE ? OR LOWER(industry) LIKE ?", searchTerm, searchTerm, searchTerm, searchTerm)
+	}
+
+	orderClause := "created_at DESC"
+	if filter.SortBy != "" {
+		direction := "ASC"
+		if strings.ToUpper(filter.SortOrder) == "DESC" {
+			direction = "DESC"
+		}
+		allowed := map[string]string{
+			"name":       "name",
+			"created_at": "created_at",
+			"updated_at": "updated_at",
+			"domain":     "domain",
+			"industry":   "industry",
+			"team_size":  "team_size",
+			"is_active":  "is_active",
+		}
+		if col, ok := allowed[filter.SortBy]; ok {
+			orderClause = fmt.Sprintf("%s %s", col, direction)
+		}
+	}
+
+	if err := baseQuery.Count(&totalItems).Error; err != nil {
+		d.logger.Error("Database error occurred while counting organizations", zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	if err := baseQuery.
+		Order(orderClause).
+		Limit(filter.PageSize).
+		Offset(offset).
+		Find(&rows).Error; err != nil {
+		d.logger.Error("Database error occurred while fetching all organizations", zap.Error(err))
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	totalPages := int(math.Ceil(float64(totalItems) / float64(filter.PageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := response.Pagination{
+		Page:        filter.Page,
+		PageSize:    filter.PageSize,
+		TotalItems:  int(totalItems),
+		TotalPages:  totalPages,
+		HasNext:     filter.Page < totalPages,
+		HasPrevious: filter.Page > 1,
+	}
+
+	return rows, pagination, nil
 }
 
 func (d *organizationDatabase) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {

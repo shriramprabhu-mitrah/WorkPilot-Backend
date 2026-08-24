@@ -25,6 +25,7 @@ import (
 
 type OrganizationService interface {
 	GetOrganizationByID(id, userID uuid.UUID) (models.Organization, *response.Error)
+	GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error)
 	CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error)
 	UpdateOrganization(id uuid.UUID, req models.Organization) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
@@ -71,6 +72,14 @@ func (s *organizationService) GetOrganizationByID(id, userID uuid.UUID) (models.
 		return organization, auditErr
 	}
 	return organization, nil
+}
+
+func (s *organizationService) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error) {
+	organizations, pagination, err := s.OrganizationRepo.GetAllOrganizations(filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+	return organizations, pagination, nil
 }
 
 func (s *organizationService) CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error) {

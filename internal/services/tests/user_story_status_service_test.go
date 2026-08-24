@@ -248,7 +248,7 @@ func TestUserStoryStatusService_UpdateStatus(t *testing.T) {
 	statusRepo := &stubUserStoryStatusRepo{
 		statuses: map[uuid.UUID]map[string]*models.UserStoryStatus{
 			projectID: {
-				"ready_for_review": &models.UserStoryStatus{
+				"ready_for_review": {
 					ID:           statusID,
 					ProjectID:    projectID,
 					Name:         "Ready for Review",
@@ -319,7 +319,7 @@ func TestUserStoryStatusService_DeleteStatus(t *testing.T) {
 	statusRepo := &stubUserStoryStatusRepo{
 		statuses: map[uuid.UUID]map[string]*models.UserStoryStatus{
 			projectID: {
-				"ready_for_review": &models.UserStoryStatus{
+				"ready_for_review": {
 					ID:           statusID,
 					ProjectID:    projectID,
 					Name:         "Ready for Review",
@@ -347,7 +347,7 @@ func TestUserStoryStatusService_DeleteStatus(t *testing.T) {
 	statusRepo.DisableAutoDefaults = true
 	// We clear all default statuses so ready_for_review is the only status
 	statusRepo.statuses[projectID] = map[string]*models.UserStoryStatus{
-		"ready_for_review": &models.UserStoryStatus{
+		"ready_for_review": {
 			ID:           statusID,
 			ProjectID:    projectID,
 			Name:         "Ready for Review",

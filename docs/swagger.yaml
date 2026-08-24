@@ -1823,6 +1823,97 @@ paths:
       summary: Health check endpoint
       tags:
       - Public
+  /organization:
+    get:
+      description: Returns a list of all registered Organizations with filtering,
+        sorting, and pagination.
+      parameters:
+      - default: 1
+        description: Page Number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page Size
+        in: query
+        name: page_size
+        type: integer
+      - description: Organization Name
+        in: query
+        name: name
+        type: string
+      - description: Domain
+        in: query
+        name: domain
+        type: string
+      - description: Industry
+        in: query
+        name: industry
+        type: string
+      - description: Team Size
+        in: query
+        name: team_size
+        type: string
+      - description: Country
+        in: query
+        name: country
+        type: string
+      - description: Is Active
+        in: query
+        name: is_active
+        type: boolean
+      - description: Search term across name, domain, industry, slug
+        in: query
+        name: search
+        type: string
+      - description: Sort by field
+        enum:
+        - name
+        - created_at
+        - updated_at
+        - domain
+        - industry
+        - team_size
+        - is_active
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.OrganizationSummary'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get all Organizations
+      tags:
+      - Organizations
   /organization/create:
     post:
       consumes:
