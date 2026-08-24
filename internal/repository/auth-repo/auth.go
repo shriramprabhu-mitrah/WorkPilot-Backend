@@ -565,3 +565,45 @@ func (d *authDatabase) GetRoleByName(name string) (*models.Role, *response.Error
 	}
 	return &row, nil
 }
+
+func (d *authDatabase) GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*models.Role, *response.Error) {
+	var row models.Role
+	err := d.db.Where("name = ? AND organization_id = ?", name, orgID).First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Role not found",
+			}
+		}
+		d.logger.Error("Failed to get role by name and organization", zap.String("name", name), zap.String("org_id", orgID.String()), zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve role",
+		}
+	}
+	return &row, nil
+}
+
+func (d *authDatabase) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error) {
+	var row models.Role
+	err := d.db.Where("id = ? AND deleted_at IS NULL", roleID).First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Role not found",
+			}
+		}
+		d.logger.Error("Failed to get role by ID", zap.String("role_id", roleID.String()), zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to retrieve role",
+		}
+	}
+	return &row, nil
+}

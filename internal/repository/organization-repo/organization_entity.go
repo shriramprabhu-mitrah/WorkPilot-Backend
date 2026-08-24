@@ -27,6 +27,7 @@ type OrganizationRepository interface {
 	DeleteUser(id uuid.UUID) *response.Error
 	GetProjectCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
 	GetMemberCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
+	CreateDefaultRolesForOrg(orgID uuid.UUID) *response.Error
 }
 
 func InitOrganizationRepository(deps models.Config) OrganizationRepository {

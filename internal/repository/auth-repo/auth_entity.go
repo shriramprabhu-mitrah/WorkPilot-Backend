@@ -39,6 +39,8 @@ type AuthRepository interface {
 	GetPendingInvitationByEmail(email string) (models.OrganizationInvitation, *response.Error)
 	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
 	GetRoleByName(name string) (*models.Role, *response.Error)
+	GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*models.Role, *response.Error)
+	GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error)
 }
 
 func InitAuthRepository(deps models.Config) AuthRepository {

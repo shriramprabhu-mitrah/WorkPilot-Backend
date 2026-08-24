@@ -174,6 +174,12 @@ func (d *dummyAuthRepo) UpdateInvitation(invitation models.OrganizationInvitatio
 func (d *dummyAuthRepo) GetRoleByName(name string) (*models.Role, *response.Error) {
 	return &models.Role{ID: uuid.Must(uuid.NewV4()), Name: name}, nil
 }
+func (d *dummyAuthRepo) GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*models.Role, *response.Error) {
+	return &models.Role{ID: uuid.Must(uuid.NewV4()), Name: name, OrganizationID: &orgID}, nil
+}
+func (d *dummyAuthRepo) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error) {
+	return &models.Role{ID: roleID, Name: "mock_role"}, nil
+}
 
 type stubProjectRepo struct {
 	project                 models.Project

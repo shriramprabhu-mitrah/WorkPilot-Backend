@@ -995,6 +995,7 @@ func (d *projectDatabase) GetProjectMemberByUserAndProjectID(userID, projectID u
 	var member models.ProjectMember
 
 	if err := d.db.
+		Preload("Role").
 		Preload("Role.Permissions").
 		Where("user_id = ? AND project_id = ?", userID, projectID).
 		First(&member).Error; err != nil {

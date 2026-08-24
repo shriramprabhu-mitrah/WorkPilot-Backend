@@ -76,6 +76,14 @@ func (m *mockAuthRepoForStatus) GetRoleByName(name string) (*models.Role, *respo
 	return &models.Role{ID: uuid.Must(uuid.NewV4()), Name: name}, nil
 }
 
+func (m *mockAuthRepoForStatus) GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*models.Role, *response.Error) {
+	return &models.Role{ID: uuid.Must(uuid.NewV4()), Name: name, OrganizationID: &orgID}, nil
+}
+
+func (m *mockAuthRepoForStatus) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error) {
+	return &models.Role{ID: roleID, Name: "mock_role"}, nil
+}
+
 func TestCustomStatusService_CreateCustomStatus(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())

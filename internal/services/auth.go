@@ -146,7 +146,7 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	}
 
 	roleName := result.Role.Name
-	if roleName == "" {
+	if roleName == "" || roleName == "developer" {
 		roleName = "member"
 	}
 
@@ -305,7 +305,7 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 		}
 	}
 	roleName := user.Role.Name
-	if roleName == "" {
+	if roleName == "" || roleName == "developer" {
 		roleName = "member"
 	}
 
@@ -533,7 +533,7 @@ func (s *authService) SignUp(credentials dto.SignUpRequest) *response.Error {
 		return errorResponse
 	}
 
-	devRole, _ := s.authRepo.GetRoleByName("member")
+	devRole, _ := s.authRepo.GetRoleByName("developer")
 	var roleID uuid.UUID
 	var role models.Role
 	if devRole != nil {
@@ -606,7 +606,7 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 	}
 
 	roleName := user.Role.Name
-	if roleName == "" {
+	if roleName == "" || roleName == "developer" {
 		roleName = "member"
 	}
 

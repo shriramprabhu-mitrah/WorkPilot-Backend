@@ -116,7 +116,12 @@ func (s *organizationService) CreateOrganization(row models.Organization) (*dto.
 		return nil, err
 	}
 
-	orgAdminRole, roleErr := s.AuthRepo.GetRoleByName("org_admin")
+	if err := s.OrganizationRepo.CreateDefaultRolesForOrg(organization.ID); err != nil {
+		s.OrganizationRepo.DeleteOrganization(organization.ID)
+		return nil, err
+	}
+
+	orgAdminRole, roleErr := s.AuthRepo.GetRoleByNameAndOrg("org_admin", organization.ID)
 	if roleErr != nil {
 		s.OrganizationRepo.DeleteOrganization(organization.ID)
 		return nil, roleErr
@@ -341,20 +346,15 @@ func (s *organizationService) UpdateUserRole(payload dto.UpdateUserRole) *respon
 		}
 	}
 
-	var roleID uuid.UUID
-	if payload.RoleID != uuid.Nil {
-		roleID = payload.RoleID
-	} else {
-		roleName := "developer"
-		if payload.Role == "org_admin" {
-			roleName = "org_admin"
-		}
-		role, roleErr := s.AuthRepo.GetRoleByName(roleName)
-		if roleErr != nil {
-			return roleErr
-		}
-		roleID = role.ID
+	roleName := "developer"
+	if payload.Role == "org_admin" {
+		roleName = "org_admin"
 	}
+	role, roleErr := s.AuthRepo.GetRoleByNameAndOrg(roleName, *payload.OrganizationID)
+	if roleErr != nil {
+		return roleErr
+	}
+	roleID := role.ID
 
 	request := result
 	request.RoleID = roleID
@@ -404,7 +404,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 		}
 	}
 
-	developerRole, roleErr := s.AuthRepo.GetRoleByName("developer")
+	developerRole, roleErr := s.AuthRepo.GetRoleByNameAndOrg("developer", organizationID)
 	if roleErr != nil {
 		return roleErr
 	}
@@ -735,6 +735,7 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 	}
 
 	user.OrganizationID = &invitation.OrganizationID
+	user.RoleID = invitation.RoleID
 	user.Role = invitation.Role
 	user.IsActive = true
 	user.JoinedAt = time.Now()

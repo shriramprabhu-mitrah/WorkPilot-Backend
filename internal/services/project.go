@@ -383,7 +383,7 @@ func (s *projectService) GetAllProjects(filterPayload requestdto.GlobalProjectFi
 
 func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMemberRequest) *response.Error {
 
-	_, addedBy, authorized, err := s.checkAuthorization(req.ProjectID, req.AddedByID)
+	project, addedBy, authorized, err := s.checkAuthorization(req.ProjectID, req.AddedByID)
 	if err != nil {
 		return err
 	}
@@ -428,22 +428,37 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 
 		var roleID uuid.UUID
 		if member.RoleID != nil && *member.RoleID != uuid.Nil {
+			role, roleErr := s.authRepo.GetRoleByID(*member.RoleID)
+			if roleErr != nil {
+				return roleErr
+			}
+			if role.OrganizationID != nil && *role.OrganizationID != project.OrganizationID {
+				return &response.Error{
+					Code:       response.ErrForbidden,
+					StatusCode: http.StatusForbidden,
+					Message:    "The specified role does not belong to your organization",
+				}
+			}
 			roleID = *member.RoleID
 		} else {
+			roleName := "developer"
 			switch member.ProjectRole {
 			case "org_admin":
-				roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002")
+				roleName = "org_admin"
 			case "project_manager":
-				roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003")
+				roleName = "project_manager"
 			case "developer":
-				roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
+				roleName = "developer"
 			case "tester", "qa":
-				roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000005")
+				roleName = "qa"
 			case "viewer", "stakeholder":
-				roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000006")
-			default:
-				roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
+				roleName = "stakeholder"
 			}
+			role, roleErr := s.authRepo.GetRoleByNameAndOrg(roleName, project.OrganizationID)
+			if roleErr != nil {
+				return roleErr
+			}
+			roleID = role.ID
 		}
 
 		projectMember := models.ProjectMember{
@@ -1138,7 +1153,7 @@ func (s *projectService) GetRecentProjects(req requestdto.GetProjectByUserID) (*
 
 func (s *projectService) UpdateProjectMember(req requestdto.UpdateProjectMemberRequest) *response.Error {
 
-	_, updater, authorized, err := s.checkAuthorization(req.ProjectID, req.UpdatedBy)
+	project, updater, authorized, err := s.checkAuthorization(req.ProjectID, req.UpdatedBy)
 	if err != nil {
 		return err
 	}
@@ -1152,19 +1167,31 @@ func (s *projectService) UpdateProjectMember(req requestdto.UpdateProjectMemberR
 
 	var targetRoleID uuid.UUID
 	if req.RoleID != nil && *req.RoleID != uuid.Nil {
+		role, roleErr := s.authRepo.GetRoleByID(*req.RoleID)
+		if roleErr != nil {
+			return roleErr
+		}
+		if role.OrganizationID != nil && *role.OrganizationID != project.OrganizationID {
+			return &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "The specified role does not belong to your organization",
+			}
+		}
 		targetRoleID = *req.RoleID
 	} else {
+		roleName := "developer"
 		switch req.ProjectRole {
 		case "org_admin":
-			targetRoleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002")
+			roleName = "org_admin"
 		case "project_manager":
-			targetRoleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003")
+			roleName = "project_manager"
 		case "developer":
-			targetRoleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
+			roleName = "developer"
 		case "tester", "qa":
-			targetRoleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000005")
+			roleName = "qa"
 		case "viewer", "stakeholder":
-			targetRoleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000006")
+			roleName = "stakeholder"
 		default:
 			return &response.Error{
 				Code:       response.ErrValidation,
@@ -1172,6 +1199,11 @@ func (s *projectService) UpdateProjectMember(req requestdto.UpdateProjectMemberR
 				Message:    "Invalid project role",
 			}
 		}
+		role, roleErr := s.authRepo.GetRoleByNameAndOrg(roleName, project.OrganizationID)
+		if roleErr != nil {
+			return roleErr
+		}
+		targetRoleID = role.ID
 	}
 
 	err = s.validateProjectMemberRoleUpdate(req.ProjectID, req.UpdatedBy, req.MemberID, targetRoleID)
@@ -1298,8 +1330,8 @@ func (s *projectService) validateProjectMemberRoleUpdate(projectID, actorUserID,
 		}
 
 		// Cannot assign Org Admin or Project Manager role.
-		if targetRoleID == uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002") ||
-			targetRoleID == uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003") {
+		targetRole, roleErr := s.authRepo.GetRoleByID(targetRoleID)
+		if roleErr == nil && (targetRole.Name == "org_admin" || targetRole.Name == "project_manager") {
 
 			s.logger.Error("Project Manager cannot assign Org Admin or Project Manager role",
 				zap.String("user_id", actorUserID.String()),
