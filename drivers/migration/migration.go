@@ -1,10 +1,7 @@
 package migration
 
 import (
-	"fmt"
-
 	"github.com/ms-kanban-server/internal/pkg/models"
-	"github.com/ms-kanban-server/internal/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -36,16 +33,6 @@ func AutoMigrate(dbConn *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-
-	// if err := SeedDefaultRoles(dbConn); err != nil {
-	// 	return err
-	// }
-
-	err = MigrateProjectSlugs(dbConn)
-	if err != nil {
-		return err
-	}
-
 	return MigrateGlobalSerialNumbers(dbConn)
 }
 
@@ -103,57 +90,6 @@ func MigrateGlobalSerialNumbers(dbConn *gorm.DB) error {
 		} else {
 			_ = dbConn.Exec("SELECT setval('global_work_item_serial_seq', ?, true);", currentMax).Error
 		}
-	}
-
-	return nil
-}
-
-func MigrateProjectSlugs(dbConn *gorm.DB) error {
-	var projects []models.Project
-	// Fetch all projects (including soft-deleted) that do not have a slug set
-	err := dbConn.Unscoped().Where("slug IS NULL OR slug = ''").Find(&projects).Error
-	if err != nil {
-		return fmt.Errorf("failed to fetch projects without slug: %w", err)
-	}
-
-	for _, p := range projects {
-		slug := utils.Slugify(p.Name)
-		if slug == "" {
-			slug = "project"
-		}
-
-		uniqueSlug := slug
-		suffix := 1
-		for {
-			var count int64
-			// Check if this slug is taken by any other project (excluding current project)
-			err := dbConn.Unscoped().Model(&models.Project{}).Where("slug = ? AND id != ?", uniqueSlug, p.ID).Count(&count).Error
-			if err != nil {
-				return fmt.Errorf("failed to check slug uniqueness: %w", err)
-			}
-			if count == 0 {
-				break
-			}
-			uniqueSlug = fmt.Sprintf("%s-%d", slug, suffix)
-			suffix++
-		}
-
-		err = dbConn.Unscoped().Model(&models.Project{}).Where("id = ?", p.ID).Update("slug", uniqueSlug).Error
-		if err != nil {
-			return fmt.Errorf("failed to update project slug for project %s: %w", p.ID, err)
-		}
-	}
-
-	// Create unique index for active projects manually
-	isPostgres := dbConn.Dialector.Name() == "postgres"
-	if isPostgres {
-		err = dbConn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects (slug) WHERE deleted_at IS NULL;").Error
-		if err != nil {
-			return fmt.Errorf("failed to create unique index on project slugs: %w", err)
-		}
-	} else {
-		// Fallback for tests or other dialects
-		_ = dbConn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects (slug);")
 	}
 
 	return nil
