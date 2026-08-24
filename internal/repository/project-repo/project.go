@@ -1255,3 +1255,55 @@ func populateAuditLogDetails(db *gorm.DB, logs []models.AuditLog) {
 		}
 	}
 }
+
+func (d *projectDatabase) GetProjectBySlug(slug string) (models.Project, *response.Error) {
+	var row models.Project
+
+	err := d.db.
+		Where("slug = ?", slug).
+		Preload("Organization").
+		Preload("Creator").
+		First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errorResponse := response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Project not found",
+			}
+			d.logger.Error("Project slug not found in database",
+				zap.String("Slug", slug),
+				zap.Error(err))
+			return models.Project{}, &errorResponse
+		}
+
+		errorResponse := response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+		d.logger.Error("Failed to fetch project details by slug from database",
+			zap.String("Slug", slug),
+			zap.Error(err))
+		return models.Project{}, &errorResponse
+	}
+
+	return row, nil
+}
+
+func (d *projectDatabase) IsSlugExists(slug string, excludeProjectID *uuid.UUID) (bool, *response.Error) {
+	var count int64
+	query := d.db.Model(&models.Project{}).Where("slug = ?", slug)
+	if excludeProjectID != nil {
+		query = query.Where("id != ?", *excludeProjectID)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return false, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+	return count > 0, nil
+}
+

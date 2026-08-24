@@ -26,6 +26,8 @@ type ProjectRepository interface {
 	GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error)
 	UpdateProjectMember(projectID, userID uuid.UUID, roleID uuid.UUID) *response.Error
 	GetMemberCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
+	GetProjectBySlug(slug string) (models.Project, *response.Error)
+	IsSlugExists(slug string, excludeProjectID *uuid.UUID) (bool, *response.Error)
 }
 
 func InitProjectRepository(deps models.Config) ProjectRepository {

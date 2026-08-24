@@ -20,7 +20,7 @@ import (
 )
 
 type WorkItemService interface {
-	GetWorkItemBySerialNumber(projectID uuid.UUID, serialID int64, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error)
+	GetWorkItemBySerialNumber(projectIDOrSlug string, serialID int64, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error)
 }
 
 type workItemService struct {
@@ -81,8 +81,21 @@ func (s *workItemService) checkAuthorization(projectID, userID uuid.UUID) (model
 	return project, user, authorized, nil
 }
 
-func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialID int64, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error) {
-	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, serialID int64, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error) {
+	var project models.Project
+	var err *response.Error
+
+	projectUUID, parseErr := uuid.FromString(projectIDOrSlug)
+	if parseErr == nil {
+		project, err = s.projectRepo.GetProjectByID(projectUUID)
+	} else {
+		project, err = s.projectRepo.GetProjectBySlug(projectIDOrSlug)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, authorized, err := s.checkAuthorization(project.ID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +110,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 	// 1. Try finding Task with serialID
 	task, taskErr := s.workItemRepo.GetTaskBySerialNumber(serialID)
 	if taskErr == nil && task != nil {
-		if task.ProjectID != projectID {
+		if task.ProjectID != project.ID {
 			return nil, &response.Error{
 				Code:       response.ErrNotFound,
 				StatusCode: http.StatusNotFound,
@@ -110,7 +123,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 		maps.Copy(colorMap, models.DefaultStatusColors)
 		maps.Copy(isFinalMap, models.DefaultStatusIsFinal)
 		if s.customStatusRepo != nil {
-			statuses, err := s.customStatusRepo.GetStatusesByProjectID(projectID)
+			statuses, err := s.customStatusRepo.GetStatusesByProjectID(project.ID)
 			if err == nil {
 				for _, cs := range statuses {
 					colorMap[models.NormalizeTaskStatus(cs.Name)] = cs.Color
@@ -149,7 +162,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 	// 2. Try finding User Story with serialID
 	story, storyErr := s.workItemRepo.GetUserStoryBySerialNumber(serialID)
 	if storyErr == nil && story != nil {
-		if story.ProjectID != projectID {
+		if story.ProjectID != project.ID {
 			return nil, &response.Error{
 				Code:       response.ErrNotFound,
 				StatusCode: http.StatusNotFound,
@@ -159,7 +172,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 
 		var userStoryStatuses []models.UserStoryStatus
 		if s.userStoryStatusRepo != nil {
-			statuses, err := s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
+			statuses, err := s.userStoryStatusRepo.GetStatusesByProjectID(project.ID)
 			if err == nil {
 				userStoryStatuses = statuses
 			}
@@ -168,7 +181,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectID uuid.UUID, serialI
 		var totalTasks, completedTasks int64
 		var progress float64
 		if s.userStoryRepo != nil {
-			statsMap, err := s.userStoryRepo.GetStoryTaskStats(projectID)
+			statsMap, err := s.userStoryRepo.GetStoryTaskStats(project.ID)
 			if err == nil {
 				if stats, ok := statsMap[story.ID]; ok {
 					totalTasks = stats.TotalTasks

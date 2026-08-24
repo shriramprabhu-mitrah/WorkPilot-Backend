@@ -40,6 +40,28 @@ func (s *stubWorkItemProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, 
 	return p, nil
 }
 
+func (s *stubWorkItemProjectRepo) GetProjectBySlug(slug string) (models.Project, *response.Error) {
+	for _, p := range s.projects {
+		if p.Slug == slug {
+			return p, nil
+		}
+	}
+	return models.Project{}, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "Project not found"}
+}
+
+func (s *stubWorkItemProjectRepo) IsSlugExists(slug string, excludeProjectID *uuid.UUID) (bool, *response.Error) {
+	for _, p := range s.projects {
+		if excludeProjectID != nil && p.ID == *excludeProjectID {
+			continue
+		}
+		if p.Slug == slug {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+
 func (s *stubWorkItemProjectRepo) IsUserProjectMember(projectID, userID uuid.UUID) (bool, *response.Error) {
 	key := projectID.String() + "_" + userID.String()
 	return s.members[key], nil
@@ -129,8 +151,8 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 
 	projectRepo := &stubWorkItemProjectRepo{
 		projects: map[uuid.UUID]models.Project{
-			projectID1: {ID: projectID1, OrganizationID: orgID, Name: "Project 1"},
-			projectID2: {ID: projectID2, OrganizationID: orgID, Name: "Project 2"},
+			projectID1: {ID: projectID1, OrganizationID: orgID, Name: "Project 1", Slug: "project-1"},
+			projectID2: {ID: projectID2, OrganizationID: orgID, Name: "Project 2", Slug: "project-2"},
 		},
 		members: map[string]bool{
 			projectID1.String() + "_" + userIDMember.String(): true,
@@ -189,7 +211,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	service := services.InitWorkItemService(authRepo, projectRepo, workItemRepo, nil, nil, nil, nil, logger)
 
 	t.Run("Successfully retrieve Task by serial ID", func(t *testing.T) {
-		res, err := service.GetWorkItemBySerialNumber(projectID1, 101, userIDMember)
+		res, err := service.GetWorkItemBySerialNumber(projectID1.String(), 101, userIDMember)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -208,7 +230,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	})
 
 	t.Run("Successfully retrieve User Story by serial ID", func(t *testing.T) {
-		res, err := service.GetWorkItemBySerialNumber(projectID1, 202, userIDMember)
+		res, err := service.GetWorkItemBySerialNumber(projectID1.String(), 202, userIDMember)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -226,8 +248,31 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 		}
 	})
 
+	t.Run("Successfully retrieve Task by project slug", func(t *testing.T) {
+		res, err := service.GetWorkItemBySerialNumber("project-1", 101, userIDMember)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if res.WorkItemType != "task" {
+			t.Errorf("Expected WorkItemType 'task', got %s", res.WorkItemType)
+		}
+		if res.Title != "Implement login UI" {
+			t.Errorf("Expected Title 'Implement login UI', got %s", res.Title)
+		}
+	})
+
+	t.Run("Return 404 when project slug does not exist", func(t *testing.T) {
+		_, err := service.GetWorkItemBySerialNumber("invalid-slug", 101, userIDMember)
+		if err == nil {
+			t.Fatalf("Expected error for non-existent project slug, got nil")
+		}
+		if err.StatusCode != http.StatusNotFound {
+			t.Errorf("Expected status 404, got %d", err.StatusCode)
+		}
+	})
+
 	t.Run("Return 404 when serial ID does not exist", func(t *testing.T) {
-		_, err := service.GetWorkItemBySerialNumber(projectID1, 999, userIDMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 999, userIDMember)
 		if err == nil {
 			t.Fatalf("Expected error for non-existent serial ID, got nil")
 		}
@@ -238,7 +283,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 
 	t.Run("Return 404 when serial ID exists in another project", func(t *testing.T) {
 		// Serial 303 belongs to projectID2, but requested on projectID1
-		_, err := service.GetWorkItemBySerialNumber(projectID1, 303, userIDMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 303, userIDMember)
 		if err == nil {
 			t.Fatalf("Expected error for serial ID belonging to another project, got nil")
 		}
@@ -248,7 +293,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	})
 
 	t.Run("Return 404 when item is soft-deleted", func(t *testing.T) {
-		_, err := service.GetWorkItemBySerialNumber(projectID1, 404, userIDMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 404, userIDMember)
 		if err == nil {
 			t.Fatalf("Expected error for soft-deleted item, got nil")
 		}
@@ -258,7 +303,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	})
 
 	t.Run("Return 403 when user is not authorized for the project", func(t *testing.T) {
-		_, err := service.GetWorkItemBySerialNumber(projectID1, 101, userIDNonMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 101, userIDNonMember)
 		if err == nil {
 			t.Fatalf("Expected error for unauthorized user, got nil")
 		}
@@ -267,3 +312,4 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 		}
 	})
 }
+
