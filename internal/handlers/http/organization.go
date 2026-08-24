@@ -369,8 +369,8 @@ func (h *OrganizationHandler) UpdateOrganizationStatus(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Data: map[string]interface{}{
-			"organizationID": orgUUID,
-			"isActive":       *payload.IsActive,
+			"organization_id": orgUUID,
+			"is_active":       *payload.IsActive,
 		},
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
