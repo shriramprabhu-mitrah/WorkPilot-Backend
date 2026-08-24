@@ -14,6 +14,7 @@ import (
 
 var testProjRepo = &stubProjectRepo{
 	projectRole: string(dto.ProjectRoleProjectManager),
+	isMember:    true,
 }
 
 func strPtr(s string) *string {
@@ -245,7 +246,12 @@ func TestSprintService_DeleteSprint_DelegatesToRepository(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())
 	sprintID := uuid.Must(uuid.NewV4())
-	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	authRepo := &sprintAuthRepoStub{user: models.User{
+		ID:             userID,
+		OrganizationID: &orgID,
+		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002"),
+		Role:           models.Role{Name: "org_admin"},
+	}}
 	sprintRepo := &sprintRepoStub{}
 	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
@@ -514,6 +520,7 @@ func TestSprintService_TriggerDailySnapshots_SavesActiveSprintSnapshots(t *testi
 	projRepo := &stubProjectRepo{
 		projectRole: string(dto.ProjectRoleProjectManager),
 		project:     models.Project{OrganizationID: orgID},
+		isMember:    true,
 	}
 
 	service := services.InitSprintService(sprintRepo, projRepo, authRepo, &stubAuditLogRepo{}, logger)

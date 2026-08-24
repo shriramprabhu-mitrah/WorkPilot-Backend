@@ -647,7 +647,7 @@ func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "WorkPilot Backend"},
 		isMember: true,
@@ -688,7 +688,7 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	taskID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 		isMember: true,
@@ -757,7 +757,7 @@ func TestTaskService_UpdateTask_NullFields(t *testing.T) {
 	estHours := 8.5
 	actHours := 4.0
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 		isMember: true,
@@ -874,7 +874,7 @@ func TestTaskService_DeleteAndRestore_RetentionChecks(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	taskID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID},
 		isMember: true,
@@ -936,7 +936,7 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 	taskID := uuid.Must(uuid.NewV4())
 	assigneeID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 		isMember: true,
@@ -998,13 +998,15 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	globalMemberUser := models.User{
 		ID:             userID,
 		OrganizationID: &orgID,
-		Role:           string(dto.RoleMember),
+		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+		Role:           models.Role{Name: string(dto.RoleMember)},
 	}
 
 	nonAssigneeMember := models.User{
 		ID:             uuid.Must(uuid.NewV4()),
 		OrganizationID: &orgID,
-		Role:           string(dto.RoleMember),
+		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+		Role:           models.Role{Name: string(dto.RoleMember)},
 	}
 
 	authRepo := &sprintAuthRepoStub{user: globalMemberUser}
@@ -1065,7 +1067,8 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	pmUser := models.User{
 		ID:             uuid.Must(uuid.NewV4()),
 		OrganizationID: &orgID,
-		Role:           string(dto.RoleMember), // Global RoleMember, but PM in project
+		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+		Role:           models.Role{Name: string(dto.RoleMember)}, // Global RoleMember, but PM in project
 	}
 	authRepo.user = pmUser
 	projectRepo.projectRole = string(dto.ProjectRoleProjectManager)
@@ -1206,7 +1209,8 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	viewerUser := models.User{
 		ID:             uuid.Must(uuid.NewV4()),
 		OrganizationID: &orgID,
-		Role:           string(dto.RoleMember),
+		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+		Role:           models.Role{Name: string(dto.RoleMember)},
 	}
 	authRepo.user = viewerUser
 	projectRepo.projectRole = string(dto.ProjectRoleViewer)
@@ -1227,7 +1231,8 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	superAdminUser := models.User{
 		ID:             uuid.Must(uuid.NewV4()),
 		OrganizationID: &orgID,
-		Role:           string(dto.RoleSuperAdmin),
+		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000001"),
+		Role:           models.Role{Name: string(dto.RoleSuperAdmin)},
 	}
 	authRepo.user = superAdminUser
 	_, err = service.UpdateTask(dto.UpdateTaskRequest{
@@ -1252,7 +1257,8 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 		user: models.User{
 			ID:             userID,
 			OrganizationID: &orgID,
-			Role:           string(dto.RoleMember),
+			RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+			Role:           models.Role{Name: string(dto.RoleMember)},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -1287,7 +1293,7 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 
 	// Test 1: Non-PM/Admin user (Developer) gets 403 Forbidden
 	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
-	authRepo.user.Role = string(dto.RoleMember)
+	authRepo.user.Role.Name = string(dto.RoleMember)
 	req := dto.BulkUpdateTasksRequest{
 		Tasks: []dto.BulkUpdateTaskItem{
 			{
@@ -1391,7 +1397,7 @@ func TestTaskService_CreateAndUpdateTask_WithLabels(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
 		isMember: true,
@@ -1447,7 +1453,7 @@ func TestTaskService_GetTasks_LabelFiltering(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
 		isMember: true,
@@ -1534,7 +1540,7 @@ func TestTaskService_AttachAndRemoveLabel(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
 		isMember: true,
@@ -1590,7 +1596,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 
 	// Stubs
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember), IsActive: true}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}, IsActive: true}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 		isMember: true,
@@ -1649,7 +1655,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	}
 
 	// Case 5: Backdated due date allowed for PM/Admin
-	authRepo.user.Role = string(dto.RoleOrgAdmin)
+	authRepo.user.Role.Name = string(dto.RoleOrgAdmin)
 	_, createdTask, err := service.CreateTask(dto.CreateTaskRequest{
 		Title:          "Valid Title",
 		DueDate:        &backdated,
@@ -1664,7 +1670,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 	// Case 6: Actual Hours update on completed task
 	taskID := createdTask.ID
 	taskRepo.tasks[taskID].Status = string(dto.TaskStatusCompleted)
-	authRepo.user.Role = string(dto.RoleMember)
+	authRepo.user.Role.Name = string(dto.RoleMember)
 
 	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:         taskID,
@@ -1709,7 +1715,7 @@ func TestTaskService_BulkDeleteTasks(t *testing.T) {
 	taskID3 := uuid.Must(uuid.NewV4()) // already deleted
 	taskID4 := uuid.Must(uuid.NewV4()) // not found / invalid
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID},
 		isMember: true,
@@ -1781,7 +1787,7 @@ func TestTaskService_CreateTask_WithCrossProjectUserStory(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember), IsActive: true},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}, IsActive: true},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -1820,7 +1826,7 @@ func TestTaskService_GetTasks_StatusValidation(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
 		isMember: true,

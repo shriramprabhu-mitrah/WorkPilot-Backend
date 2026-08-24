@@ -171,6 +171,9 @@ func (d *dummyAuthRepo) GetPendingInvitationByEmail(email string) (models.Organi
 func (d *dummyAuthRepo) UpdateInvitation(invitation models.OrganizationInvitation) *response.Error {
 	return nil
 }
+func (d *dummyAuthRepo) GetRoleByName(name string) (*models.Role, *response.Error) {
+	return &models.Role{ID: uuid.Must(uuid.NewV4()), Name: name}, nil
+}
 
 type stubProjectRepo struct {
 	project                 models.Project
@@ -186,7 +189,7 @@ func (s *stubProjectRepo) CreateProjectWithMember(project *models.Project, proje
 	return nil
 }
 
-func (s *stubProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error {
+func (s *stubProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, roleID uuid.UUID) *response.Error {
 	return nil
 }
 
@@ -212,14 +215,28 @@ func (s *stubProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.Projec
 	return nil, nil
 }
 func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
+	if !s.isMember {
+		return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Project member not found"}
+	}
 	role := s.projectRole
 	if role == "" {
 		role = "developer"
 	}
+	roleID := uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
+	if role == "project_manager" {
+		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003")
+	} else if role == "org_admin" {
+		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002")
+	} else if role == "qa" || role == "tester" {
+		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000005")
+	} else if role == "viewer" || role == "stakeholder" {
+		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000006")
+	}
 	return &models.ProjectMember{
-		UserID:      userID,
-		ProjectID:   projectID,
-		ProjectRole: role,
+		UserID:    userID,
+		ProjectID: projectID,
+		RoleID:    roleID,
+		Role:      models.Role{Name: role},
 	}, nil
 }
 func (s *stubProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *response.Error) {
@@ -431,7 +448,8 @@ func TestGetProjectActivity_TaskAndUserMapping(t *testing.T) {
 						FullName:  "John Doe",
 						Email:     "john@example.com",
 						AvatarURL: "http://example.com/avatar.png",
-						Role:      "member",
+						RoleID:    uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+						Role:      models.Role{Name: "member"},
 					},
 					Title:   "My Awesome Task",
 					TaskKey: "PROJ-123",
@@ -662,9 +680,9 @@ func TestGetRecentProjects_TaskFiltering(t *testing.T) {
 	projectRepo := &stubProjectRepo{
 		getProjectsByUserIDFunc: func(uID uuid.UUID) ([]models.ProjectMember, *response.Error) {
 			return []models.ProjectMember{
-				{ProjectID: projectA, UserID: userID, ProjectRole: "developer", Project: models.Project{ID: projectA, Name: "Project A", Status: "active"}},
-				{ProjectID: projectB, UserID: userID, ProjectRole: "developer", Project: models.Project{ID: projectB, Name: "Project B", Status: "active"}},
-				{ProjectID: projectD, UserID: userID, ProjectRole: "developer", Project: models.Project{ID: projectD, Name: "Project D", Status: "active"}},
+				{ProjectID: projectA, UserID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectA, Name: "Project A", Status: "active"}},
+				{ProjectID: projectB, UserID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectB, Name: "Project B", Status: "active"}},
+				{ProjectID: projectD, UserID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, Project: models.Project{ID: projectD, Name: "Project D", Status: "active"}},
 			}, nil
 		},
 	}

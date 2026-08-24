@@ -6,10 +6,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.RoleResponse{}
 
 type RoleHandler struct {
 	roleService services.RoleService
@@ -129,6 +132,21 @@ func (h *RoleHandler) getOrgIDAndVerifyMember(c *gin.Context) (uuid.UUID, bool) 
 	return orgID, true
 }
 
+// CreateRole godoc
+//
+//	@Summary      Create Custom Role
+//	@Description  Creates a new custom role with custom permissions for the organization.
+//	@Tags         Roles
+//	@Accept       json
+//	@Produce      json
+//	@Security     BearerAuth
+//	@Param        request body requestdto.CreateRoleRequest true "Create Role Request"
+//	@Success      201 {object} response.SuccessResponse{data=responsedto.RoleResponse} "Role created successfully"
+//	@Failure      400 {object} response.ErrorResponse
+//	@Failure      401 {object} response.ErrorResponse
+//	@Failure      403 {object} response.ErrorResponse
+//	@Failure      500 {object} response.ErrorResponse
+//	@Router       /organization/roles [post]
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	orgID, authorized := h.getOrgIDAndVerifyAdmin(c)
 	if !authorized {
@@ -159,6 +177,18 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	})
 }
 
+// GetRoles godoc
+//
+//	@Summary      Get Organization Roles
+//	@Description  Lists all custom and system roles available in the organization.
+//	@Tags         Roles
+//	@Accept       json
+//	@Produce      json
+//	@Security     BearerAuth
+//	@Success      200 {object} response.SuccessResponse{data=[]responsedto.RoleResponse} "Roles fetched successfully"
+//	@Failure      401 {object} response.ErrorResponse
+//	@Failure      500 {object} response.ErrorResponse
+//	@Router       /organization/roles [get]
 func (h *RoleHandler) GetRoles(c *gin.Context) {
 	orgID, authorized := h.getOrgIDAndVerifyMember(c)
 	if !authorized {
@@ -179,6 +209,21 @@ func (h *RoleHandler) GetRoles(c *gin.Context) {
 	})
 }
 
+// GetRole godoc
+//
+//	@Summary      Get Role Details
+//	@Description  Retrieves detail specifications and permission toggles for a given role.
+//	@Tags         Roles
+//	@Accept       json
+//	@Produce      json
+//	@Security     BearerAuth
+//	@Param        role_id path string true "Role ID" Format(uuid)
+//	@Success      200 {object} response.SuccessResponse{data=responsedto.RoleResponse} "Role fetched successfully"
+//	@Failure      400 {object} response.ErrorResponse
+//	@Failure      401 {object} response.ErrorResponse
+//	@Failure      404 {object} response.ErrorResponse
+//	@Failure      500 {object} response.ErrorResponse
+//	@Router       /organization/roles/{role_id} [get]
 func (h *RoleHandler) GetRole(c *gin.Context) {
 	orgID, authorized := h.getOrgIDAndVerifyMember(c)
 	if !authorized {
@@ -210,6 +255,23 @@ func (h *RoleHandler) GetRole(c *gin.Context) {
 	})
 }
 
+// UpdateRole godoc
+//
+//	@Summary      Update Custom Role
+//	@Description  Updates a custom role's name, description, and permissions.
+//	@Tags         Roles
+//	@Accept       json
+//	@Produce      json
+//	@Security     BearerAuth
+//	@Param        role_id path string true "Role ID" Format(uuid)
+//	@Param        request body requestdto.UpdateRoleRequest true "Update Role Request"
+//	@Success      200 {object} response.SuccessResponse{data=responsedto.RoleResponse} "Role updated successfully"
+//	@Failure      400 {object} response.ErrorResponse
+//	@Failure      401 {object} response.ErrorResponse
+//	@Failure      403 {object} response.ErrorResponse
+//	@Failure      404 {object} response.ErrorResponse
+//	@Failure      500 {object} response.ErrorResponse
+//	@Router       /organization/roles/{role_id} [patch]
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	orgID, authorized := h.getOrgIDAndVerifyAdmin(c)
 	if !authorized {
@@ -251,6 +313,22 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	})
 }
 
+// DeleteRole godoc
+//
+//	@Summary      Delete Custom Role
+//	@Description  Deletes a custom role from the organization.
+//	@Tags         Roles
+//	@Accept       json
+//	@Produce      json
+//	@Security     BearerAuth
+//	@Param        role_id path string true "Role ID" Format(uuid)
+//	@Success      200 {object} response.SuccessResponse "Role deleted successfully"
+//	@Failure      400 {object} response.ErrorResponse
+//	@Failure      401 {object} response.ErrorResponse
+//	@Failure      403 {object} response.ErrorResponse
+//	@Failure      404 {object} response.ErrorResponse
+//	@Failure      500 {object} response.ErrorResponse
+//	@Router       /organization/roles/{role_id} [delete]
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	orgID, authorized := h.getOrgIDAndVerifyAdmin(c)
 	if !authorized {

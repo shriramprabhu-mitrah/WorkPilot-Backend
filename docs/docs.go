@@ -1609,6 +1609,361 @@ const docTemplate = `{
                 }
             }
         },
+        "/organization/roles": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists all custom and system roles available in the organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Get Organization Roles",
+                "responses": {
+                    "200": {
+                        "description": "Roles fetched successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new custom role with custom permissions for the organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Create Custom Role",
+                "parameters": [
+                    {
+                        "description": "Create Role Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Role created successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/organization/roles/{role_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves detail specifications and permission toggles for a given role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Get Role Details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role fetched successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a custom role from the organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Delete Custom Role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates a custom role's name, description, and permissions.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Update Custom Role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Role Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role updated successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/organization/update": {
             "patch": {
                 "description": "Updates Organization profile. Send as multipart/form-data. Include a 'logo' file field to replace the logo.",
@@ -7448,6 +7803,32 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.CreateRoleRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "permissions"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "permissions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            }
+        },
         "github_com_ms-kanban-server_internal_handlers_dto_request.CreateSprint": {
             "type": "object",
             "required": [
@@ -7667,44 +8048,19 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectMemberRequest": {
             "type": "object",
             "required": [
-                "project_role",
                 "user_id"
             ],
             "properties": {
                 "project_role": {
-                    "enum": [
-                        "project_manager",
-                        "developer",
-                        "tester",
-                        "viewer"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole"
-                        }
-                    ]
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "string"
                 }
             }
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole": {
-            "type": "string",
-            "enum": [
-                "org_admin",
-                "project_manager",
-                "developer",
-                "tester",
-                "viewer"
-            ],
-            "x-enum-varnames": [
-                "ProjectRoleOrgAdmin",
-                "ProjectRoleProjectManager",
-                "ProjectRoleDeveloper",
-                "ProjectRoleTester",
-                "ProjectRoleViewer"
-            ]
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.ProjectStatus": {
             "type": "string",
@@ -7863,22 +8219,12 @@ const docTemplate = `{
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectMemberRequest": {
             "type": "object",
-            "required": [
-                "project_role"
-            ],
             "properties": {
                 "project_role": {
-                    "enum": [
-                        "project_manager",
-                        "developer",
-                        "tester",
-                        "viewer"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole"
-                        }
-                    ]
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "string"
                 }
             }
         },
@@ -7895,6 +8241,28 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectStatus"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.UpdateRoleRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "permissions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        }
+                    }
                 }
             }
         },
@@ -8084,6 +8452,9 @@ const docTemplate = `{
             "properties": {
                 "role": {
                     "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.Role"
+                },
+                "role_id": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "string"
@@ -8432,6 +8803,41 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_system": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

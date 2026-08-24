@@ -136,6 +136,24 @@ definitions:
     required:
     - name
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.CreateRoleRequest:
+    properties:
+      description:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      permissions:
+        additionalProperties:
+          additionalProperties:
+            type: boolean
+          type: object
+        type: object
+    required:
+    - name
+    - permissions
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateSprint:
     properties:
       end_date:
@@ -290,33 +308,14 @@ definitions:
   github_com_ms-kanban-server_internal_handlers_dto_request.ProjectMemberRequest:
     properties:
       project_role:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole'
-        enum:
-        - project_manager
-        - developer
-        - tester
-        - viewer
+        type: string
+      role_id:
+        type: string
       user_id:
         type: string
     required:
-    - project_role
     - user_id
     type: object
-  github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole:
-    enum:
-    - org_admin
-    - project_manager
-    - developer
-    - tester
-    - viewer
-    type: string
-    x-enum-varnames:
-    - ProjectRoleOrgAdmin
-    - ProjectRoleProjectManager
-    - ProjectRoleDeveloper
-    - ProjectRoleTester
-    - ProjectRoleViewer
   github_com_ms-kanban-server_internal_handlers_dto_request.ProjectStatus:
     enum:
     - planning
@@ -432,15 +431,9 @@ definitions:
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectMemberRequest:
     properties:
       project_role:
-        allOf:
-        - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectRole'
-        enum:
-        - project_manager
-        - developer
-        - tester
-        - viewer
-    required:
-    - project_role
+        type: string
+      role_id:
+        type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateProjectRequest:
     properties:
@@ -452,6 +445,21 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectStatus'
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.UpdateRoleRequest:
+    properties:
+      description:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      permissions:
+        additionalProperties:
+          additionalProperties:
+            type: boolean
+          type: object
+        type: object
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateSprintRequest:
     properties:
@@ -584,6 +592,8 @@ definitions:
     properties:
       role:
         $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.Role'
+      role_id:
+        type: string
       user_id:
         type: string
     type: object
@@ -812,6 +822,29 @@ definitions:
       role:
         type: string
       status:
+        type: string
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_system:
+        type: boolean
+      name:
+        type: string
+      organization_id:
+        type: string
+      permissions:
+        additionalProperties:
+          additionalProperties:
+            type: boolean
+          type: object
+        type: object
+      updated_at:
         type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.Sprint:
@@ -2307,6 +2340,225 @@ paths:
       summary: Remove user from organization
       tags:
       - Organizations
+  /organization/roles:
+    get:
+      consumes:
+      - application/json
+      description: Lists all custom and system roles available in the organization.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Roles fetched successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Organization Roles
+      tags:
+      - Roles
+    post:
+      consumes:
+      - application/json
+      description: Creates a new custom role with custom permissions for the organization.
+      parameters:
+      - description: Create Role Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Role created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create Custom Role
+      tags:
+      - Roles
+  /organization/roles/{role_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a custom role from the organization.
+      parameters:
+      - description: Role ID
+        format: uuid
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role deleted successfully
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete Custom Role
+      tags:
+      - Roles
+    get:
+      consumes:
+      - application/json
+      description: Retrieves detail specifications and permission toggles for a given
+        role.
+      parameters:
+      - description: Role ID
+        format: uuid
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role fetched successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get Role Details
+      tags:
+      - Roles
+    patch:
+      consumes:
+      - application/json
+      description: Updates a custom role's name, description, and permissions.
+      parameters:
+      - description: Role ID
+        format: uuid
+        in: path
+        name: role_id
+        required: true
+        type: string
+      - description: Update Role Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.RoleResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update Custom Role
+      tags:
+      - Roles
   /organization/update:
     patch:
       consumes:

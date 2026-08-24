@@ -371,12 +371,15 @@ func (s *stubAttachmentProjectRepo) GetProjectMemberByUserAndProjectID(userID, p
 	if s.getMemErr != nil {
 		return nil, s.getMemErr
 	}
+	if !s.isMember {
+		return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Project member not found"}
+	}
 	if s.member != nil {
 		return s.member, nil
 	}
-	return &models.ProjectMember{UserID: userID, ProjectID: projectID, ProjectRole: "developer"}, nil
+	return &models.ProjectMember{UserID: userID, ProjectID: projectID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}}, nil
 }
-func (s *stubAttachmentProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error { return nil }
+func (s *stubAttachmentProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, roleID uuid.UUID) *response.Error { return nil }
 
 type stubAttachmentAuditLogRepo struct {
 	logs []models.AuditLog
@@ -450,7 +453,7 @@ func newTestFixture(orgID, projectID, taskID, userID uuid.UUID) *testFixture {
 		Project:   models.Project{ID: projectID, OrganizationID: orgID},
 	}}
 	projectRepo := &stubAttachmentProjectRepo{isMember: true, project: models.Project{OrganizationID: orgID}}
-	authRepo := &stubAuthRepository{user: models.User{ID: userID, Role: "member", OrganizationID: &orgID}}
+	authRepo := &stubAuthRepository{user: models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, OrganizationID: &orgID}}
 	auditRepo := &stubAttachmentAuditLogRepo{}
 	storageClient := &mockStorageClient{}
 
@@ -707,7 +710,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 
 	t.Run("Super Admin Denied Org-level Activity", func(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
-		f.authRepo.user.Role = string(dto.RoleSuperAdmin)
+		f.authRepo.user.Role.Name = string(dto.RoleSuperAdmin)
 
 		_, err := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
@@ -718,7 +721,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 	t.Run("Org Admin From Another Org Denied", func(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.projectRepo.isMember = false
-		f.authRepo.user.Role = string(dto.RoleOrgAdmin)
+		f.authRepo.user.Role.Name = string(dto.RoleOrgAdmin)
 		f.authRepo.user.OrganizationID = &anotherOrgID
 
 		_, err := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
