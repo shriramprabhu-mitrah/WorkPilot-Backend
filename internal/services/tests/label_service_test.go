@@ -85,7 +85,7 @@ func TestLabelService_CreateLabel(t *testing.T) {
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:     models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
 		isMember:    true,
@@ -147,7 +147,7 @@ func TestLabelService_UpdateAndDeleteLabel(t *testing.T) {
 	projectID := uuid.Must(uuid.NewV4())
 	labelID := uuid.Must(uuid.NewV4())
 
-	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, Role: string(dto.RoleMember)}}
+	authRepo := &sprintAuthRepoStub{user: models.User{ID: userID, OrganizationID: &orgID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: string(dto.RoleMember)}}}
 	projectRepo := &stubProjectRepo{
 		project:     models.Project{ID: projectID, OrganizationID: orgID, Name: "Project A"},
 		isMember:    true,

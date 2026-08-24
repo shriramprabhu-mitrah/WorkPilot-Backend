@@ -140,7 +140,7 @@ func TestUserStoryStatusService_CreateStatus(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, Role: "member", IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleProjectManager),
@@ -239,7 +239,7 @@ func TestUserStoryStatusService_UpdateStatus(t *testing.T) {
 	statusID := uuid.Must(uuid.NewV7())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, Role: "member", IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleProjectManager),
@@ -310,7 +310,7 @@ func TestUserStoryStatusService_DeleteStatus(t *testing.T) {
 	statusID := uuid.Must(uuid.NewV7())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, Role: "member", IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleProjectManager),
@@ -407,7 +407,7 @@ func TestUserStoryStatusService_GetStatuses(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 
 	authRepo := &mockAuthRepoForStatus{
-		user: &models.User{ID: userID, Role: "member", IsActive: true, OrganizationID: &orgID},
+		user: &models.User{ID: userID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
 	}
 	projectRepo := &mockProjectRepoForStatus{
 		projectRole: string(dto.ProjectRoleDeveloper),

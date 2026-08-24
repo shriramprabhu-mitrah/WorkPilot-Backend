@@ -48,7 +48,7 @@ func (s *stubWorkItemProjectRepo) IsUserProjectMember(projectID, userID uuid.UUI
 func (s *stubWorkItemProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error {
 	return nil
 }
-func (s *stubWorkItemProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error {
+func (s *stubWorkItemProjectRepo) UpdateProjectMember(projectID, userID uuid.UUID, roleID uuid.UUID) *response.Error {
 	return nil
 }
 func (s *stubWorkItemProjectRepo) UpdateProject(projectID uuid.UUID, req map[string]interface{}) *response.Error {
@@ -67,7 +67,11 @@ func (s *stubWorkItemProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]model
 	return nil, nil
 }
 func (s *stubWorkItemProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
-	return &models.ProjectMember{UserID: userID, ProjectID: projectID, ProjectRole: "developer"}, nil
+	key := projectID.String() + "_" + userID.String()
+	if !s.members[key] {
+		return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Project member not found"}
+	}
+	return &models.ProjectMember{UserID: userID, ProjectID: projectID, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}}, nil
 }
 func (s *stubWorkItemProjectRepo) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
 	return nil
@@ -118,8 +122,8 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 
 	authRepo := &stubWorkItemAuthRepo{
 		users: map[uuid.UUID]models.User{
-			userIDMember:    {ID: userIDMember, Role: "user", OrganizationID: &orgID},
-			userIDNonMember: {ID: userIDNonMember, Role: "user", OrganizationID: &orgID},
+			userIDMember:    {ID: userIDMember, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, OrganizationID: &orgID},
+			userIDNonMember: {ID: userIDNonMember, RoleID: uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"), Role: models.Role{Name: "developer"}, OrganizationID: &orgID},
 		},
 	}
 

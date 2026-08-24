@@ -27,7 +27,8 @@ func TestActivityLogging_UserStoryAndTaskSections(t *testing.T) {
 		FullName:       "Davy Jones",
 		UserName:       "davyjones",
 		Email:          "davy@example.com",
-		Role:           "member",
+		RoleID:         uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004"),
+		Role:           models.Role{Name: "member"},
 		AvatarURL:      avatarURL,
 	}
 
