@@ -29,6 +29,7 @@ type OrganizationService interface {
 	GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]responsedto.OrganizationSummary, response.Pagination, *response.Error)
 	CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error)
 	UpdateOrganization(id uuid.UUID, req models.Organization) *response.Error
+	UpdateOrganizationStatus(req dto.UpdateOrganizationStatusRequest) *response.Error
 	DeleteOrganization(id uuid.UUID) *response.Error
 	UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error
 	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
@@ -263,6 +264,43 @@ func (s *organizationService) DeleteOrganization(id uuid.UUID) *response.Error {
 	})
 	if auditErr != nil {
 		return auditErr
+	}
+
+	return nil
+}
+
+func (s *organizationService) UpdateOrganizationStatus(req dto.UpdateOrganizationStatusRequest) *response.Error {
+	org, err := s.OrganizationRepo.GetByIDUnscoped(req.OrganizationID)
+	if err != nil {
+		return err
+	}
+
+	if *req.IsActive {
+		err = s.OrganizationRepo.RestoreOrganization(req.OrganizationID)
+	} else {
+		err = s.OrganizationRepo.SoftDeleteOrganization(req.OrganizationID)
+	}
+	if err != nil {
+		return err
+	}
+
+	statusStr := "deactivated"
+	if *req.IsActive {
+		statusStr = "activated"
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		Action:         "updated",
+		ResourceType:   "organization_status",
+		ResourceID:     req.OrganizationID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("organization %s (%s)", org.Name, statusStr),
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		s.logger.Warn("Failed to create audit log for organization status update", zap.String("error", auditErr.Message))
 	}
 
 	return nil

@@ -229,13 +229,14 @@ func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID u
 		role = "developer"
 	}
 	roleID := uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
-	if role == "project_manager" {
+	switch role {
+	case "project_manager":
 		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003")
-	} else if role == "org_admin" {
+	case "org_admin":
 		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002")
-	} else if role == "qa" || role == "tester" {
+	case "qa", "tester":
 		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000005")
-	} else if role == "viewer" || role == "stakeholder" {
+	case "viewer", "stakeholder":
 		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000006")
 	}
 	return &models.ProjectMember{

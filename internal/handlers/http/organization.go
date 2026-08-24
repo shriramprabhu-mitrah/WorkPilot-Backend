@@ -287,6 +287,95 @@ func (h *OrganizationHandler) GetAllOrganizations(g *gin.Context) {
 	g.JSON(http.StatusOK, successResponse)
 }
 
+// UpdateOrganizationStatus godoc
+//
+// @Summary      Activate or deactivate Organization
+// @Description  Super admin can activate or deactivate an Organization by setting is_active.
+// @Tags         Organizations
+// @Accept       json
+// @Produce      json
+// @Param        payload body requestdto.UpdateOrganizationStatusRequest true "Organization Status Payload"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
+// @Failure      403 {object} response.ErrorResponse
+// @Failure      404 {object} response.ErrorResponse
+// @Failure      500 {object} response.ErrorResponse
+// @Router       /organization/status/{organization_id} [patch]
+func (h *OrganizationHandler) UpdateOrganizationStatus(g *gin.Context) {
+	var payload requestdto.UpdateOrganizationStatusRequest
+
+	if err := g.ShouldBindJSON(&payload); err != nil {
+		message := utils.ValidationErrorMessage(err, payload)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload for Organization status update", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	orgIDStr := g.Param("organization_id")
+	if orgIDStr == "" {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "organization_id is required",
+			},
+		}
+		h.logger.Error("organization_id is required")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	orgUUID, errorResponse := utils.StringToUUID(orgIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert organization_id to UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	actorID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	payload.UserID = actorID
+	payload.OrganizationID = orgUUID
+	err := h.service.UpdateOrganizationStatus(payload)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	message := "Organization deactivated successfully"
+	if *payload.IsActive {
+		message = "Organization activated successfully"
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    message,
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data: map[string]interface{}{
+			"organization_id": orgUUID,
+			"is_active":       *payload.IsActive,
+		},
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+}
+
 // CreateOrganization godoc
 //
 // @Summary      Register a new Organization

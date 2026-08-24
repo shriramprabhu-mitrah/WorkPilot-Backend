@@ -33,10 +33,21 @@ func (s *stubOrganizationRepository) GetByName(name string) (models.Organization
 func (s *stubOrganizationRepository) GetByID(id uuid.UUID) (models.Organization, *response.Error) {
 	return s.organization, nil
 }
+func (s *stubOrganizationRepository) GetByIDUnscoped(id uuid.UUID) (models.Organization, *response.Error) {
+	return s.organization, nil
+}
 func (s *stubOrganizationRepository) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error) {
 	return []models.Organization{s.organization}, response.Pagination{Page: 1, PageSize: 10, TotalItems: 1, TotalPages: 1}, nil
 }
 func (s *stubOrganizationRepository) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
+	return nil
+}
+func (s *stubOrganizationRepository) SoftDeleteOrganization(orgID uuid.UUID) *response.Error {
+	s.organization.IsActive = false
+	return nil
+}
+func (s *stubOrganizationRepository) RestoreOrganization(orgID uuid.UUID) *response.Error {
+	s.organization.IsActive = true
 	return nil
 }
 func (s *stubOrganizationRepository) DeleteOrganization(id uuid.UUID) *response.Error { return nil }
@@ -331,3 +342,43 @@ func TestInviteOrganizationMemberDeactivatesAndUpdatesUser(t *testing.T) {
 		t.Fatalf("expected invitation role to default to member, got Nil")
 	}
 }
+
+func TestUpdateOrganizationStatus(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	actorID := uuid.Must(uuid.NewV4())
+
+	repo := &stubOrganizationRepository{
+		organization: models.Organization{ID: orgID, Name: "Test Org", IsActive: true},
+	}
+	authRepo := &stubAuthRepository{}
+	service := InitOrganizationService(repo, authRepo, &stubAuditLogRepo{}, zap.NewNop())
+
+	// Test Deactivation
+	deactive := false
+	err := service.UpdateOrganizationStatus(dto.UpdateOrganizationStatusRequest{
+		UserID:         actorID,
+		OrganizationID: orgID,
+		IsActive:       &deactive,
+	})
+	if err != nil {
+		t.Fatalf("expected deactivation to succeed, got %v", err)
+	}
+	if repo.organization.IsActive != false {
+		t.Fatal("expected organization IsActive to be false")
+	}
+
+	// Test Activation
+	active := true
+	err = service.UpdateOrganizationStatus(dto.UpdateOrganizationStatusRequest{
+		UserID:         actorID,
+		OrganizationID: orgID,
+		IsActive:       &active,
+	})
+	if err != nil {
+		t.Fatalf("expected activation to succeed, got %v", err)
+	}
+	if repo.organization.IsActive != true {
+		t.Fatal("expected organization IsActive to be true")
+	}
+}
+

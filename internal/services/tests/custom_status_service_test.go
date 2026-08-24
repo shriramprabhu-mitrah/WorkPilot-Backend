@@ -39,11 +39,14 @@ func (m *mockProjectRepoForStatus) GetProjectMemberByUserAndProjectID(userID, pr
 	if m.member != nil {
 		return m.member, nil
 	}
-	roleID := uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
-	if m.projectRole == "project_manager" {
+	var roleID uuid.UUID
+	switch m.projectRole {
+	case "project_manager":
 		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000003")
-	} else if m.projectRole == "org_admin" {
+	case "org_admin":
 		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000002")
+	default:
+		roleID = uuid.FromStringOrNil("00000000-0000-0000-0000-000000000004")
 	}
 	return &models.ProjectMember{
 		UserID:    userID,
