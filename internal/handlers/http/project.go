@@ -229,7 +229,7 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 	filter.UserID = userUUID
 	filter.OrganizationID = organizationUUID
 
-	projects, pagination, err := h.service.GetProjectsByOrganizationID(filter)
+	projectResponses, pagination, err := h.service.GetProjectsByOrganizationID(filter)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
@@ -237,11 +237,6 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		}
 		g.JSON(err.StatusCode, errorResponse)
 		return
-	}
-
-	projectResponses := make([]responsedto.ProjectSummary, 0, len(projects))
-	for _, project := range projects {
-		projectResponses = append(projectResponses, responsedto.ProjectSummaryFromModel(project))
 	}
 
 	var filteredData any = projectResponses
@@ -259,6 +254,63 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		StatusCode: http.StatusOK,
 		Message:    "Projects retrieved successfully.",
 		Data:       filteredData,
+		Meta:       &pagination,
+	})
+}
+
+// GetAllProjects godoc
+//
+//	@Summary		Get all projects (Super Admin)
+//	@Description	Returns a paginated list of all projects across all organizations with search, filters, and sorting.
+//	@Tags			Projects
+//	@Produce		json
+//	@Param			page			query		int		false	"Page Number"		default(1)
+//	@Param			page_size		query		int		false	"Page Size"			default(10)
+//	@Param			search			query		string	false	"Search query (name, description)"
+//	@Param			name			query		string	false	"Project Name"
+//	@Param			status			query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
+//	@Param			organization_id	query		string	false	"Organization ID"
+//	@Param			created_by		query		string	false	"Creator User ID"
+//	@Param			include_sprints	query		bool	false	"Include project sprints"
+//	@Param			sort_by			query		string	false	"Sort by field"	Enums(name,created_at,updated_at,status)
+//	@Param			sort_order		query		string	false	"Sort order"	Enums(ASC,DESC)
+//	@Success		200				{object}	response.SuccessResponse	"Projects retrieved successfully"
+//	@Failure		400				{object}	response.ErrorResponse		"Invalid query parameters"
+//	@Failure		401				{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		403				{object}	response.ErrorResponse		"Forbidden"
+//	@Failure		500				{object}	response.ErrorResponse		"Internal server error"
+//	@Router			/project/all-projects [get]
+func (h *ProjectHandler) GetAllProjects(g *gin.Context) {
+	var filter requestdto.GlobalProjectFilterRequest
+
+	if err := g.ShouldBindQuery(&filter); err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid query parameters",
+			},
+		}
+		g.JSON(http.StatusBadRequest, errorResponse)
+		return
+	}
+
+	projectResponses, pagination, err := h.service.GetAllProjects(filter)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "All projects retrieved successfully.",
+		Data:       projectResponses,
 		Meta:       &pagination,
 	})
 }

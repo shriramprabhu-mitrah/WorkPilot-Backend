@@ -349,6 +349,8 @@ type stubAttachmentProjectRepo struct {
 func (s *stubAttachmentProjectRepo) CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error { return nil }
 func (s *stubAttachmentProjectRepo) UpdateProject(projectID uuid.UUID, updates map[string]interface{}) *response.Error { return nil }
 func (s *stubAttachmentProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
+func (s *stubAttachmentProjectRepo) GetAllProjects(filter dto.GlobalProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
+func (s *stubAttachmentProjectRepo) GetMemberCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) { return make(map[uuid.UUID]int64), nil }
 func (s *stubAttachmentProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *response.Error) {
 	if s.getProjErr != nil {
 		return models.Project{}, s.getProjErr

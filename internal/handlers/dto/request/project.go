@@ -69,6 +69,17 @@ type ProjectFilterRequest struct {
 	IncludeSprints bool          `form:"include_sprints"`
 }
 
+type GlobalProjectFilterRequest struct {
+	response.PaginationQuery
+	response.SortQuery
+	Search         string        `form:"search"`
+	Name           string        `form:"name"`
+	Status         ProjectStatus `form:"status"`
+	OrganizationID *uuid.UUID    `form:"organization_id"`
+	CreatedBy      *uuid.UUID    `form:"created_by"`
+	IncludeSprints bool          `form:"include_sprints"`
+}
+
 type ProjectFilter struct {
 	response.PaginationQuery
 	response.SortQuery

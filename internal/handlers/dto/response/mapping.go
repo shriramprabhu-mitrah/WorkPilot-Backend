@@ -7,18 +7,20 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 )
 
-func OrganizationFromModel(org models.Organization) OrganizationSummary {
+func OrganizationFromModel(org models.Organization, projectCount int, memberCount int) OrganizationSummary {
 	return OrganizationSummary{
-		ID:        org.ID,
-		Name:      org.Name,
-		Slug:      org.Slug,
-		Domain:    org.Domain,
-		Industry:  org.Industry,
-		TeamSize:  org.TeamSize,
-		Country:   org.Country,
-		LogoURL:   org.LogoURL,
-		IsActive:  org.IsActive,
-		CreatedAt: org.CreatedAt,
+		ID:            org.ID,
+		Name:          org.Name,
+		Slug:          org.Slug,
+		Domain:        org.Domain,
+		Industry:      org.Industry,
+		TeamSize:      org.TeamSize,
+		Country:       org.Country,
+		LogoURL:       org.LogoURL,
+		IsActive:      org.IsActive,
+		CreatedAt:     org.CreatedAt,
+		TotalProjects: projectCount,
+		TotalMembers:  memberCount,
 	}
 }
 
@@ -43,7 +45,7 @@ func UserProfileFromModel(user models.User) UserProfile {
 	}
 }
 
-func ProjectSummaryFromModel(project models.Project) ProjectSummary {
+func ProjectSummaryFromModel(project models.Project, taskCount int, memberCount int) ProjectSummary {
 	sprints := make([]Sprint, 0, len(project.Sprints))
 	for _, sprint := range project.Sprints {
 		sprints = append(sprints, SprintFromModel(sprint))
@@ -58,6 +60,8 @@ func ProjectSummaryFromModel(project models.Project) ProjectSummary {
 		CreatedBy:      project.CreatedBy,
 		CreatedAt:      project.CreatedAt,
 		SprintCount:    project.SprintCount,
+		TotalTasks:     taskCount,
+		TotalMembers:   memberCount,
 		Sprints:        sprints,
 	}
 }

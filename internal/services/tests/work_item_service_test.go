@@ -57,6 +57,12 @@ func (s *stubWorkItemProjectRepo) UpdateProject(projectID uuid.UUID, req map[str
 func (s *stubWorkItemProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter requestdto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
+func (s *stubWorkItemProjectRepo) GetAllProjects(filter requestdto.GlobalProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
+	return nil, response.Pagination{}, nil
+}
+func (s *stubWorkItemProjectRepo) GetMemberCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	return make(map[uuid.UUID]int64), nil
+}
 func (s *stubWorkItemProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error) {
 	return nil, nil
 }

@@ -23,7 +23,10 @@ type OrganizationRepository interface {
 	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
 	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
 	GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
+	GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	DeleteUser(id uuid.UUID) *response.Error
+	GetProjectCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
+	GetMemberCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
 }
 
 func InitOrganizationRepository(deps models.Config) OrganizationRepository {

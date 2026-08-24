@@ -22,7 +22,8 @@ import (
 type ProjectService interface {
 	CreateProject(req requestdto.CreateProjectRequest) (uuid.UUID, *response.Error)
 	UpdateProject(req requestdto.UpdateProjectRequest) *response.Error
-	GetProjectsByOrganizationID(filter requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
+	GetProjectsByOrganizationID(filter requestdto.ProjectFilterRequest) ([]responsedto.ProjectSummary, response.Pagination, *response.Error)
+	GetAllProjects(filterPayload requestdto.GlobalProjectFilterRequest) ([]responsedto.ProjectSummary, response.Pagination, *response.Error)
 	CreateProjectMemeber(req requestdto.CreateProjectMemberRequest) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
 	RemoveProjectMember(req requestdto.RemoveProjectMember) *response.Error
@@ -276,8 +277,7 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 	return nil
 }
 
-func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.ProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
-
+func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.ProjectFilterRequest) ([]responsedto.ProjectSummary, response.Pagination, *response.Error) {
 	if filterPayload.Status != "" {
 		if err := filterPayload.Status.Validate(); err != nil {
 			s.logger.Error("Invalid project status", zap.Error(err))
@@ -302,31 +302,26 @@ func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.Pr
 		return nil, response.Pagination{}, err
 	}
 
-	projectIDs := make([]uuid.UUID, len(projects))
-	for i, p := range projects {
-		projectIDs[i] = p.ID
-	}
-
-	sprintCounts, err := s.sprintRepo.GetSprintCountByProjectIDs(projectIDs)
-	if err != nil {
-		return nil, response.Pagination{}, err
-	}
-
-	for i := range projects {
-		projects[i].SprintCount = sprintCounts[projects[i].ID]
-	}
-
-	if filterPayload.IncludeSprints {
-		sprintsByProjectID, err := s.sprintRepo.GetSprintsByProjectIDs(projectIDs)
-		if err != nil {
-			return nil, response.Pagination{}, err
+	projectSummaries := make([]responsedto.ProjectSummary, 0, len(projects))
+	if len(projects) > 0 {
+		projectIDs := make([]uuid.UUID, len(projects))
+		for i, p := range projects {
+			projectIDs[i] = p.ID
 		}
 
-		for i := range projects {
-			projects[i].Sprints = sprintsByProjectID[projects[i].ID]
-			if projects[i].Sprints == nil {
-				projects[i].Sprints = []models.Sprint{}
+		sprintsByProjectID, _ := s.sprintRepo.GetSprintsByProjectIDs(projectIDs)
+		sprintCounts, _ := s.sprintRepo.GetSprintCountByProjectIDs(projectIDs)
+		taskCounts, _ := s.taskRepo.GetTaskCountsByProjectIDs(projectIDs)
+		memberCounts, _ := s.projectRepo.GetMemberCountsByProjectIDs(projectIDs)
+
+		for _, p := range projects {
+			p.Sprints = sprintsByProjectID[p.ID]
+			if p.Sprints == nil {
+				p.Sprints = []models.Sprint{}
 			}
+			p.SprintCount = sprintCounts[p.ID]
+			summary := responsedto.ProjectSummaryFromModel(p, int(taskCounts[p.ID]), int(memberCounts[p.ID]))
+			projectSummaries = append(projectSummaries, summary)
 		}
 	}
 
@@ -344,7 +339,63 @@ func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.Pr
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 
-	return projects, pagination, nil
+	return projectSummaries, pagination, nil
+}
+
+func (s *projectService) GetAllProjects(filterPayload requestdto.GlobalProjectFilterRequest) ([]responsedto.ProjectSummary, response.Pagination, *response.Error) {
+	if filterPayload.Status != "" {
+		if err := filterPayload.Status.Validate(); err != nil {
+			return nil, response.Pagination{}, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid status. Allowed values: active, archived, on_hold, completed, cancelled, planning",
+			}
+		}
+	}
+
+	filterPayload.PaginationQuery.Normalize(10)
+	filterPayload.SortQuery.Normalize("created_at", "DESC")
+
+	projects, pagination, err := s.projectRepo.GetAllProjects(filterPayload)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	projectSummaries := make([]responsedto.ProjectSummary, 0, len(projects))
+	if len(projects) > 0 {
+		projectIDs := make([]uuid.UUID, len(projects))
+		for i, p := range projects {
+			projectIDs[i] = p.ID
+		}
+
+		sprintsByProjectID, _ := s.sprintRepo.GetSprintsByProjectIDs(projectIDs)
+		sprintCounts, _ := s.sprintRepo.GetSprintCountByProjectIDs(projectIDs)
+		taskCounts, _ := s.taskRepo.GetTaskCountsByProjectIDs(projectIDs)
+		memberCounts, _ := s.projectRepo.GetMemberCountsByProjectIDs(projectIDs)
+
+		for _, p := range projects {
+			p.Sprints = sprintsByProjectID[p.ID]
+			if p.Sprints == nil {
+				p.Sprints = []models.Sprint{}
+			}
+			p.SprintCount = sprintCounts[p.ID]
+			summary := responsedto.ProjectSummaryFromModel(p, int(taskCounts[p.ID]), int(memberCounts[p.ID]))
+			projectSummaries = append(projectSummaries, summary)
+		}
+	}
+
+	auditLog := models.AuditLog{
+		Action:       "viewed",
+		ResourceType: "all_projects",
+		Type:         models.AuditLogTypeAudit,
+		CreatedAt:    time.Now(),
+	}
+	err = s.auditRepo.CreateAuditLog(auditLog)
+	if err != nil {
+		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+	}
+
+	return projectSummaries, pagination, nil
 }
 
 func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMemberRequest) *response.Error {

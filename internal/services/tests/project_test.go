@@ -199,6 +199,12 @@ func (s *stubProjectRepo) UpdateProject(projectID uuid.UUID, req map[string]inte
 func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter requestdto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }
+func (s *stubProjectRepo) GetAllProjects(filter requestdto.GlobalProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
+	return nil, response.Pagination{}, nil
+}
+func (s *stubProjectRepo) GetMemberCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
+	return make(map[uuid.UUID]int64), nil
+}
 func (s *stubProjectRepo) GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error) {
 	if s.getProjectsByUserIDFunc != nil {
 		return s.getProjectsByUserIDFunc(userID)

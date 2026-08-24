@@ -14,6 +14,7 @@ type ProjectRepository interface {
 	CreateProjectWithMember(project *models.Project, projectMember *models.ProjectMember) *response.Error
 	UpdateProject(projectID uuid.UUID, updates map[string]interface{}) *response.Error
 	GetProjectsByOrganizationID(organizationID uuid.UUID, filter dto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error)
+	GetAllProjects(filter dto.GlobalProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error)
 	GetProjectByID(id uuid.UUID) (models.Project, *response.Error)
 	CreateProjectMember(row *models.ProjectMember) *response.Error
 	GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error)
@@ -24,6 +25,7 @@ type ProjectRepository interface {
 	GetProjectsByUserID(userID uuid.UUID) ([]models.ProjectMember, *response.Error)
 	GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error)
 	UpdateProjectMember(projectID, userID uuid.UUID, projectRole string) *response.Error
+	GetMemberCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
 }
 
 func InitProjectRepository(deps models.Config) ProjectRepository {

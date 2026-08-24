@@ -702,6 +702,10 @@ definitions:
         type: string
       team_size:
         type: string
+      total_members:
+        type: integer
+      total_projects:
+        type: integer
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.ProjectActivityResponse:
     properties:
@@ -1914,6 +1918,109 @@ paths:
       summary: Get all Organizations
       tags:
       - Organizations
+  /organization/all-members:
+    get:
+      description: Returns a paginated list of all members across all organizations
+        with search, filters, and sorting.
+      parameters:
+      - default: 1
+        description: Page Number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page Size
+        in: query
+        name: page_size
+        type: integer
+      - description: Search query (full_name, email, username)
+        in: query
+        name: search
+        type: string
+      - description: Full Name
+        in: query
+        name: full_name
+        type: string
+      - description: Email
+        in: query
+        name: email
+        type: string
+      - description: Username
+        in: query
+        name: username
+        type: string
+      - description: Role (e.g. super_admin, org_admin, member)
+        in: query
+        name: role
+        type: string
+      - description: Organization ID
+        in: query
+        name: organization_id
+        type: string
+      - description: Is Active
+        in: query
+        name: is_active
+        type: boolean
+      - description: Is Verified
+        in: query
+        name: is_verified
+        type: boolean
+      - description: Timezone
+        in: query
+        name: timezone
+        type: string
+      - description: Sort by field
+        enum:
+        - full_name
+        - email
+        - username
+        - role
+        - created_at
+        - joined_at
+        - is_active
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserProfile'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get all system members/users (Super Admin)
+      tags:
+      - Organizations
   /organization/create:
     post:
       consumes:
@@ -2670,6 +2777,94 @@ paths:
       summary: Add project members
       tags:
       - Project Members
+  /project/all-projects:
+    get:
+      description: Returns a paginated list of all projects across all organizations
+        with search, filters, and sorting.
+      parameters:
+      - default: 1
+        description: Page Number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page Size
+        in: query
+        name: page_size
+        type: integer
+      - description: Search query (name, description)
+        in: query
+        name: search
+        type: string
+      - description: Project Name
+        in: query
+        name: name
+        type: string
+      - description: Project Status
+        enum:
+        - planning
+        - active
+        - on_hold
+        - completed
+        - cancelled
+        - archived
+        in: query
+        name: status
+        type: string
+      - description: Organization ID
+        in: query
+        name: organization_id
+        type: string
+      - description: Creator User ID
+        in: query
+        name: created_by
+        type: string
+      - description: Include project sprints
+        in: query
+        name: include_sprints
+        type: boolean
+      - description: Sort by field
+        enum:
+        - name
+        - created_at
+        - updated_at
+        - status
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Projects retrieved successfully
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get all projects (Super Admin)
+      tags:
+      - Projects
   /project/create:
     post:
       consumes:
