@@ -656,14 +656,11 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 	}
 
 	projectIDParam := g.Param("project_id")
-	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert the string into UUID")
-		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
-			Success: false,
-			Error:   *errorResponse,
-		})
-		return
+	projectUUID, err := uuid.FromString(projectIDParam)
+	if err == nil {
+		payload.ProjectID = projectUUID
+	} else {
+		payload.ProjectSlug = projectIDParam
 	}
 
 	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
@@ -672,16 +669,15 @@ func (h *ProjectHandler) GetProjectDetails(g *gin.Context) {
 	}
 
 	payload.OrganizationID = organizationUUID
-	payload.ProjectID = projectUUID
 	payload.UserID = userUUID
 
-	project, err := h.service.GetProjectDetails(payload)
-	if err != nil {
+	project, errResp := h.service.GetProjectDetails(payload)
+	if errResp != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,
-			Error:   *err,
+			Error:   *errResp,
 		}
-		g.JSON(err.StatusCode, errorResponse)
+		g.JSON(errResp.StatusCode, errorResponse)
 		return
 	}
 
@@ -957,3 +953,4 @@ func (h *ProjectHandler) UpdateProjectMember(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 
 }
+

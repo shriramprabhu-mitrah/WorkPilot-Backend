@@ -11,6 +11,7 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
@@ -111,8 +112,27 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uui
 		}
 	}
 
+	slug := utils.Slugify(req.Name)
+	if slug == "" {
+		slug = "project"
+	}
+	uniqueSlug := slug
+	suffix := 1
+	for {
+		exists, err := s.projectRepo.IsSlugExists(uniqueSlug, nil)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if !exists {
+			break
+		}
+		uniqueSlug = fmt.Sprintf("%s-%d", slug, suffix)
+		suffix++
+	}
+
 	projectPayload := &models.Project{
 		Name:           req.Name,
+		Slug:           uniqueSlug,
 		Description:    req.Description,
 		Status:         string(requestdto.ProjectStatusPlanning),
 		OrganizationID: req.OrganizationID,
@@ -216,6 +236,32 @@ func (s *projectService) UpdateProject(req requestdto.UpdateProjectRequest) *res
 		updates["status"] = newStatus
 		if newStatus != existingProject.Status {
 			changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", existingProject.Status, newStatus))
+		}
+	}
+
+	if req.Slug != nil {
+		newSlug := utils.Slugify(*req.Slug)
+		if newSlug == "" {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Slug cannot be empty",
+			}
+		}
+		if newSlug != existingProject.Slug {
+			exists, err := s.projectRepo.IsSlugExists(newSlug, &req.ProjectID)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "Project slug is already in use",
+				}
+			}
+			updates["slug"] = newSlug
+			changes = append(changes, fmt.Sprintf("slug changed from '%s' to '%s'", existingProject.Slug, newSlug))
 		}
 	}
 
@@ -770,10 +816,35 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 		}
 	}
 
-	project, err := s.projectRepo.GetProjectByID(req.ProjectID)
+	var project models.Project
+	if req.ProjectID != uuid.Nil {
+		project, err = s.projectRepo.GetProjectByID(req.ProjectID)
+	} else if req.ProjectSlug != "" {
+		project, err = s.projectRepo.GetProjectBySlug(req.ProjectSlug)
+	} else {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Project ID or Slug is required",
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
+
+	if project.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access to project",
+			zap.String("Project Organization ID", project.OrganizationID.String()),
+			zap.String("User Organization ID", req.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	req.ProjectID = project.ID
 
 	memberFilter := requestdto.ProjectMemberFilter{
 		PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 1000},
@@ -795,6 +866,7 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 
 	payload := responsedto.ProjectDetail{
 		ProjectID:      project.ID,
+		Slug:           project.Slug,
 		OrganizationID: project.OrganizationID,
 		Name:           project.Name,
 		Description:    project.Description,
@@ -1133,6 +1205,7 @@ func (s *projectService) GetRecentProjects(req requestdto.GetProjectByUserID) (*
 			resp.Project = append(resp.Project, responsedto.ProjectResponse{
 				ProjectID:   projectID,
 				Role:        member.Role.Name,
+				ProjectSlug: member.Project.Slug,
 				ProjectName: member.Project.Name,
 				Status:      member.Project.Status,
 			})

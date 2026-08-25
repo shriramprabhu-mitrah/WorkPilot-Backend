@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ms-kanban-server/internal/pkg/response"
-	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
@@ -48,11 +47,6 @@ func (h *workItemHandler) GetWorkItemBySerialNumber(g *gin.Context) {
 	}
 
 	projectIDParam := g.Param("project_id")
-	projectID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
 
 	serialIDParam := g.Param("serial_id")
 	serialID, err := strconv.ParseInt(serialIDParam, 10, 64)
@@ -65,7 +59,7 @@ func (h *workItemHandler) GetWorkItemBySerialNumber(g *gin.Context) {
 		return
 	}
 
-	res, errResp := h.service.GetWorkItemBySerialNumber(projectID, serialID, userUUID)
+	res, errResp := h.service.GetWorkItemBySerialNumber(projectIDParam, serialID, userUUID)
 	if errResp != nil {
 		g.JSON(errResp.StatusCode, errResp)
 		return

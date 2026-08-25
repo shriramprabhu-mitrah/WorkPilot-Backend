@@ -358,6 +358,17 @@ func (s *stubAttachmentProjectRepo) GetProjectByID(id uuid.UUID) (models.Project
 	s.project.ID = id
 	return s.project, nil
 }
+func (s *stubAttachmentProjectRepo) GetProjectBySlug(slug string) (models.Project, *response.Error) {
+	if s.getProjErr != nil {
+		return models.Project{}, s.getProjErr
+	}
+	s.project.Slug = slug
+	return s.project, nil
+}
+func (s *stubAttachmentProjectRepo) IsSlugExists(slug string, excludeProjectID *uuid.UUID) (bool, *response.Error) {
+	return false, nil
+}
+
 func (s *stubAttachmentProjectRepo) CreateProjectMember(row *models.ProjectMember) *response.Error { return nil }
 func (s *stubAttachmentProjectRepo) GetProjectsMembersByProjectID(projectID uuid.UUID, filter dto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) { return nil, response.Pagination{}, nil }
 func (s *stubAttachmentProjectRepo) RemoveProjectMember(projectID, userID uuid.UUID) *response.Error { return nil }

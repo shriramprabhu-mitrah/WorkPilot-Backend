@@ -12,6 +12,7 @@ type Project struct {
 	OrganizationID uuid.UUID      `json:"organization_id" gorm:"not null"`
 	Organization   Organization   `json:"organization,omitzero" gorm:"foreignKey:OrganizationID"`
 	Name           string         `json:"name" gorm:"type:varchar(150);not null"`
+	Slug           string         `json:"slug" gorm:"type:varchar(150)"`
 	Description    string         `json:"description,omitempty" gorm:"type:text"`
 	Status         string         `json:"status" gorm:"type:varchar(20);not null;default:'active'"`
 	CreatedBy      uuid.UUID      `json:"created_by" gorm:"not null;index"`

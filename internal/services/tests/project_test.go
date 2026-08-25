@@ -261,6 +261,13 @@ func (s *stubProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID u
 func (s *stubProjectRepo) GetProjectByID(id uuid.UUID) (models.Project, *response.Error) {
 	return s.project, nil
 }
+func (s *stubProjectRepo) GetProjectBySlug(slug string) (models.Project, *response.Error) {
+	return s.project, nil
+}
+func (s *stubProjectRepo) IsSlugExists(slug string, excludeProjectID *uuid.UUID) (bool, *response.Error) {
+	return false, nil
+}
+
 func (s *stubProjectRepo) DeleteProject(projectID, organizationID uuid.UUID) *response.Error {
 	return nil
 }

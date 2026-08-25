@@ -51,6 +51,7 @@ type CreateProjectRequest struct {
 
 type UpdateProjectRequest struct {
 	Name           *string        `json:"name" binding:"omitempty,min=3,max=150"`
+	Slug           *string        `json:"slug" binding:"omitempty,min=3,max=150"`
 	Description    *string        `json:"description"`
 	Status         *ProjectStatus `json:"status" form:"status"`
 	UserID         uuid.UUID      `json:"-" swaggerignore:"true"`
@@ -141,6 +142,7 @@ type ProjectActivityFilter struct {
 
 type GetProjectDetails struct {
 	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+	ProjectSlug    string    `json:"-" swaggerignore:"true"`
 	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
