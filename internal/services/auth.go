@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -940,13 +941,13 @@ func (s *authService) GetUserInsights(userID uuid.UUID) (*responsedto.UserTaskIn
 
 	var completionPercentage float64 = 0.0
 	if total > 0 {
-		completionPercentage = (float64(completed) / float64(total)) * 100
+		completionPercentage = math.Round((float64(completed)/float64(total))*100*100) / 100
 	}
 
 	return &responsedto.UserTaskInsightsResponse{
 		TotalAssigned:        total,
-		InProgress:            inProgress,
-		Completed:             completed,
-		CompletionPercentage:  completionPercentage,
+		InProgress:           inProgress,
+		Completed:            completed,
+		CompletionPercentage: completionPercentage,
 	}, nil
 }

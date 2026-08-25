@@ -638,9 +638,9 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			project_id	path		string	true	"Project ID (UUID)"
+//	@Param			project_id	path		string	true	"Project ID (UUID) or Project Slug"
 //	@Success		200	{object}	response.SuccessResponse{data=responsedto.ProjectDetail}	"Project retrieved successfully"
-//	@Failure		400	{object}	response.ErrorResponse	"Invalid project ID"
+//	@Failure		400	{object}	response.ErrorResponse	"Invalid project ID or Slug"
 //	@Failure		401	{object}	response.ErrorResponse	"Unauthorized"
 //	@Failure		403	{object}	response.ErrorResponse	"Forbidden"
 //	@Failure		404	{object}	response.ErrorResponse	"Project not found"

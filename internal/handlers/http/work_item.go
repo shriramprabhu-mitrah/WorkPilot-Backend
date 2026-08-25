@@ -31,7 +31,7 @@ func InitWorkItemHandler(service services.WorkItemService, logger *zap.Logger) W
 // @Description Retrieve a project work item (task or user story) using its global serial ID.
 // @Tags WorkItem
 // @Produce json
-// @Param project_id path string true "Project ID"
+// @Param project_id path string true "Project ID (UUID) or Project Slug"
 // @Param serial_id path int64 true "Global Serial ID"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse

@@ -3162,7 +3162,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID (UUID)",
+                        "description": "Project ID (UUID) or Project Slug",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -3188,7 +3188,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid project ID",
+                        "description": "Invalid project ID or Slug",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
                         }
@@ -6758,14 +6758,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID) or Project Slug",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "format": "int64",
                         "description": "Global Serial ID",
                         "name": "serial_id",
                         "in": "path",
