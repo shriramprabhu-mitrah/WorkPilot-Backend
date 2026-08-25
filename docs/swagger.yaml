@@ -687,6 +687,8 @@ definitions:
     properties:
       avatar_url:
         type: string
+      color:
+        type: string
       email:
         type: string
       full_name:
@@ -809,6 +811,8 @@ definitions:
   github_com_ms-kanban-server_internal_handlers_dto_response.ProjectMember:
     properties:
       avatar_url:
+        type: string
+      color:
         type: string
       full_name:
         type: string
@@ -974,6 +978,8 @@ definitions:
     properties:
       avatar_url:
         type: string
+      color:
+        type: string
       created_at:
         type: string
       email:
@@ -1002,6 +1008,8 @@ definitions:
   github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary:
     properties:
       avatar_url:
+        type: string
+      color:
         type: string
       email:
         type: string

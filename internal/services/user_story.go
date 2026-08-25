@@ -889,6 +889,7 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.User
 		FullName:  story.Reporter.FullName,
 		Email:     story.Reporter.Email,
 		AvatarURL: reporterAvatarURL,
+		Color:     story.Reporter.Color,
 		Role:      story.Reporter.Role.Name,
 	}
 
@@ -902,6 +903,7 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.User
 			FullName:  story.Assignee.FullName,
 			Email:     story.Assignee.Email,
 			AvatarURL: assigneeAvatarURL,
+			Color:     story.Assignee.Color,
 			Role:      story.Assignee.Role.Name,
 		}
 	}

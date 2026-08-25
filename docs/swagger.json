@@ -8799,6 +8799,9 @@
                 "avatar_url": {
                     "type": "string"
                 },
+                "color": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -8984,6 +8987,9 @@
             "type": "object",
             "properties": {
                 "avatar_url": {
+                    "type": "string"
+                },
+                "color": {
                     "type": "string"
                 },
                 "full_name": {
@@ -9235,6 +9241,9 @@
                 "avatar_url": {
                     "type": "string"
                 },
+                "color": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -9277,6 +9286,9 @@
             "type": "object",
             "properties": {
                 "avatar_url": {
+                    "type": "string"
+                },
+                "color": {
                     "type": "string"
                 },
                 "email": {

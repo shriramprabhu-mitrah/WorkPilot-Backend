@@ -51,6 +51,7 @@ func (s *auditService) GetAuditLogs(req requestdto.GetAudit) (*responsedto.Audit
 				FullName:  user.FullName,
 				Email:     user.Email,
 				AvatarURL: avatarURL,
+				Color:     user.Color,
 				Role:      user.Role.Name,
 			}
 		}

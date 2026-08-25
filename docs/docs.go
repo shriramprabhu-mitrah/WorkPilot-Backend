@@ -8806,6 +8806,9 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
+                "color": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -8991,6 +8994,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avatar_url": {
+                    "type": "string"
+                },
+                "color": {
                     "type": "string"
                 },
                 "full_name": {
@@ -9242,6 +9248,9 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
+                "color": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -9284,6 +9293,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avatar_url": {
+                    "type": "string"
+                },
+                "color": {
                     "type": "string"
                 },
                 "email": {

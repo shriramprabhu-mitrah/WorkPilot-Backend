@@ -15,6 +15,7 @@ type CommentsResponse struct {
 	FullName        string                      `json:"full_name"`
 	Email           string                      `json:"email"`
 	AvatarURL       *string                     `json:"avatar_url"`
+	Color           string                      `json:"color"`
 	Content         string                      `json:"content"`
 	ParentCommentID *uuid.UUID                  `json:"parent_comment_id,omitempty"`
 	CreatedAt       time.Time                   `json:"created_at"`
@@ -32,6 +33,7 @@ type ParentUserResponse struct {
 	FullName  string    `json:"full_name"`
 	Email     string    `json:"email"`
 	AvatarURL *string   `json:"avatar_url"`
+	Color     string    `json:"color"`
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -46,4 +48,5 @@ type CommentedUserResponse struct {
 	UserName    string     `json:"user_name"`
 	FullName    string     `json:"full_name"`
 	AvatarURL   *string    `json:"avatar_url"`
+	Color       string     `json:"color"`
 }

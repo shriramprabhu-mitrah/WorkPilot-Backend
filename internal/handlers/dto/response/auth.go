@@ -30,6 +30,7 @@ type UserProfile struct {
 	Email            string     `json:"email"`
 	Role             string     `json:"role,omitempty"`
 	AvatarURL        *string    `json:"avatar_url"`
+	Color            string     `json:"color"`
 	Timezone         string     `json:"timezone,omitempty"`
 	IsActive         bool       `json:"is_active"`
 	IsVerified       bool       `json:"is_verified"`
@@ -60,6 +61,7 @@ type ProjectMember struct {
 	FullName         string    `json:"full_name"`
 	Role             string    `json:"role"`
 	AvatarURL        *string   `json:"avatar_url"`
+	Color            string    `json:"color"`
 	OrganizationName string    `json:"organization_name,omitempty"`
 	ProjectKey       string    `json:"project_key,omitempty"`
 }
@@ -93,5 +95,6 @@ type UserSummary struct {
 	FullName  string    `json:"name"`
 	Email     string    `json:"email"`
 	AvatarURL *string   `json:"avatar_url"`
+	Color     string    `json:"color"`
 	Role      string    `json:"role,omitempty"`
 }

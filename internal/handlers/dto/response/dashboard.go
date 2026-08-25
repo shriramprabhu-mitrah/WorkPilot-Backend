@@ -33,6 +33,7 @@ type TeamWorkload struct {
 	UserName  string    `json:"user_name"`
 	FullName  string    `json:"full_name"`
 	AvatarURL string    `json:"avatar_url"`
+	Color     string    `json:"color"`
 	TaskCount int64     `json:"task_count"`
 	Points    float64   `json:"points"`
 }

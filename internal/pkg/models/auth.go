@@ -1,6 +1,9 @@
 package models
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -18,6 +21,7 @@ type User struct {
 	RoleID         uuid.UUID      `json:"role_id" gorm:"type:uuid;index:idx_users_role_id"`
 	Role           Role           `json:"role,omitzero" gorm:"foreignKey:RoleID"`
 	AvatarURL      string         `json:"avatar_url" gorm:"size:500"`
+	Color          string         `json:"color" gorm:"size:7;not null;default:'#3498DB'"`
 	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
 	IsActive       bool           `json:"is_active"`
 	IsVerified     bool           `json:"is_verified"`
@@ -51,12 +55,24 @@ type PasswordResetOTP struct {
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index:idx_password_reset_otps_deleted_at"`
 }
 
+// GenerateRandomHexColor generates a random valid hex color of format #RRGGBB in uppercase
+func GenerateRandomHexColor() string {
+	bytes := make([]byte, 3)
+	if _, err := rand.Read(bytes); err != nil {
+		return "#3498DB"
+	}
+	return "#" + strings.ToUpper(hex.EncodeToString(bytes))
+}
+
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.ID == uuid.Nil {
 		u.ID, err = uuid.NewV7()
 		if err != nil {
 			return err
 		}
+	}
+	if u.Color == "" {
+		u.Color = GenerateRandomHexColor()
 	}
 	return
 }
