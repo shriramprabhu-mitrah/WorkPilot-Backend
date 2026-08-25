@@ -20,6 +20,7 @@ import (
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"go.uber.org/zap"
 )
 
@@ -41,6 +42,7 @@ type userStoryService struct {
 	customStatusRepo    customstatusrepo.CustomStatusRepository
 	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository
 	auditRepo           auditrepo.AuditLogRepository
+	favoriteRepo        favoriterepo.FavoriteRepository
 	logger              *zap.Logger
 }
 
@@ -52,6 +54,7 @@ func InitUserStoryService(
 	customStatusRepo customstatusrepo.CustomStatusRepository,
 	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository,
 	auditRepo auditrepo.AuditLogRepository,
+	favoriteRepo favoriterepo.FavoriteRepository,
 	logger *zap.Logger,
 ) UserStoryService {
 	return &userStoryService{
@@ -62,8 +65,52 @@ func InitUserStoryService(
 		customStatusRepo:    customStatusRepo,
 		userStoryStatusRepo: userStoryStatusRepo,
 		auditRepo:           auditRepo,
+		favoriteRepo:        favoriteRepo,
 		logger:              logger,
 	}
+}
+
+func (s *userStoryService) getFavoriteUserStoryMap(userID uuid.UUID) map[uuid.UUID]bool {
+	favMap := make(map[uuid.UUID]bool)
+	if s.favoriteRepo == nil || userID == uuid.Nil {
+		return favMap
+	}
+	favs, err := s.favoriteRepo.GetFavoritesByUserID(userID, models.FavoriteItemTypeUserStory)
+	if err == nil {
+		for _, f := range favs {
+			if f.UserStoryID != nil {
+				favMap[*f.UserStoryID] = true
+			}
+		}
+	}
+	return favMap
+}
+
+func (s *userStoryService) getFavoriteTaskMap(userID uuid.UUID) map[uuid.UUID]bool {
+	favMap := make(map[uuid.UUID]bool)
+	if s.favoriteRepo == nil || userID == uuid.Nil {
+		return favMap
+	}
+	favs, err := s.favoriteRepo.GetFavoritesByUserID(userID, models.FavoriteItemTypeTask)
+	if err == nil {
+		for _, f := range favs {
+			if f.TaskID != nil {
+				favMap[*f.TaskID] = true
+			}
+		}
+	}
+	return favMap
+}
+
+func (s *userStoryService) isUserStoryFavorited(userID, userStoryID uuid.UUID) bool {
+	if s.favoriteRepo == nil || userID == uuid.Nil || userStoryID == uuid.Nil {
+		return false
+	}
+	isFav, err := s.favoriteRepo.IsFavorited(userID, models.FavoriteItemTypeUserStory, userStoryID)
+	if err != nil {
+		return false
+	}
+	return isFav
 }
 
 func (s *userStoryService) getStatusColorMap(projectID uuid.UUID) map[string]string {
@@ -400,9 +447,12 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 
 	colorMap := s.getStatusColorMap(projectID)
 	isFinalMap := s.getStatusIsFinalMap(projectID)
+	favTaskMap := s.getFavoriteTaskMap(userID)
 	taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
 	for _, t := range tasks {
-		taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap, isFinalMap))
+		tR := mapToTaskResponse(t, colorMap, isFinalMap)
+		tR.IsFavourite = favTaskMap[t.ID]
+		taskResponses = append(taskResponses, tR)
 	}
 
 	var userStoryStatuses []models.UserStoryStatus
@@ -410,6 +460,8 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
 	}
 	res := mapToUserStoryResponse(*story, userStoryStatuses, total, completed, progress)
+	isFav := s.isUserStoryFavorited(userID, story.ID)
+	res.IsFavourite = isFav
 	res.Tasks = taskResponses
 
 	auditLog := models.AuditLog{
@@ -766,6 +818,8 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 	if s.userStoryStatusRepo != nil {
 		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
 	}
+	favStoryMap := s.getFavoriteUserStoryMap(userID)
+	favTaskMap := s.getFavoriteTaskMap(userID)
 	resList := []responsedto.UserStoryResponse{}
 	for _, story := range stories {
 		var total, completed int64
@@ -784,10 +838,13 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 
 		taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
 		for _, t := range tasks {
-			taskResponses = append(taskResponses, mapToTaskResponse(t, colorMap, isFinalMap))
+			tR := mapToTaskResponse(t, colorMap, isFinalMap)
+			tR.IsFavourite = favTaskMap[t.ID]
+			taskResponses = append(taskResponses, tR)
 		}
 
 		storyRes := mapToUserStoryResponse(story, userStoryStatuses, total, completed, progress)
+		storyRes.IsFavourite = favStoryMap[story.ID]
 		storyRes.Tasks = taskResponses
 		resList = append(resList, storyRes)
 	}
@@ -811,6 +868,10 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 }
 
 func mapToUserStoryResponse(story models.UserStory, customStatuses []models.UserStoryStatus, totalTasks, completedTasks int64, progress float64) responsedto.UserStoryResponse {
+	var projectName string
+	if story.Project.Name != "" {
+		projectName = story.Project.Name
+	}
 	var sprintName string
 	if story.Sprint != nil {
 		sprintName = story.Sprint.Name
@@ -856,6 +917,7 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.User
 	res := responsedto.UserStoryResponse{
 		ID:                    story.ID,
 		ProjectID:             story.ProjectID,
+		ProjectName:           projectName,
 		SprintID:              story.SprintID,
 		SprintName:            sprintName,
 		SerialNumber:          story.SerialNumber,

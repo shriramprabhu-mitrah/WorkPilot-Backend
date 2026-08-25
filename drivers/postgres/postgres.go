@@ -14,7 +14,12 @@ import (
 func InitDB(config *configs.Config) (*gorm.DB, error) {
 	connectionString := buildConnectionString(config)
 
-	dbConn, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{})
+	preferSimple := strings.EqualFold(config.Database.PreferSimpleProtocol, "true")
+
+	dbConn, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  connectionString,
+		PreferSimpleProtocol: preferSimple,
+	}), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to the database: %w", err)
 	}

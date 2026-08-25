@@ -9,6 +9,7 @@ import (
 type TaskResponse struct {
 	ID                    uuid.UUID       `json:"id"`
 	ProjectID             uuid.UUID       `json:"project_id"`
+	ProjectName           string          `json:"project_name,omitempty"`
 	SprintID              *uuid.UUID      `json:"sprint_id"`
 	SprintName            string          `json:"sprint_name"`
 	UserStoryID           *uuid.UUID      `json:"user_story_id,omitempty"`
@@ -24,6 +25,7 @@ type TaskResponse struct {
 	Status                string          `json:"status"`
 	StatusColor           string          `json:"status_color"`
 	IsFinal               bool            `json:"is_final"`
+	IsFavourite           bool            `json:"is_favourite"`
 	AssigneeID            *uuid.UUID      `json:"assignee_id,omitempty"`
 	ReporterID            *uuid.UUID      `json:"reporter_id,omitempty"`
 	ReporterName          string          `json:"reporter_name,omitempty"`

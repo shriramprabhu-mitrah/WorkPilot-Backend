@@ -29,6 +29,7 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		&models.OrphanedFile{},
 		&models.CustomStatus{},
 		&models.UserStoryStatus{},
+		&models.Favorite{},
 	)
 	if err != nil {
 		return err
