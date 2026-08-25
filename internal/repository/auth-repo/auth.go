@@ -607,3 +607,38 @@ func (d *authDatabase) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Er
 	}
 	return &row, nil
 }
+
+func (d *authDatabase) GetUserInsights(userID, organizationID uuid.UUID) (total int64, inProgress int64, completed int64, err *response.Error) {
+	type rawInsights struct {
+		TotalAssigned int64
+		InProgress    int64
+		Completed     int64
+	}
+
+	var status rawInsights
+
+	dbErr := d.db.Table("tasks").
+		Select(`
+			COUNT(tasks.id) AS total_assigned,
+			COUNT(CASE WHEN custom_statuses.is_final != true THEN 1 END) AS in_progress,
+			COUNT(CASE WHEN custom_statuses.is_final = true THEN 1 END) AS completed
+		`).
+		Joins("JOIN projects ON projects.id = tasks.project_id").
+		Joins("JOIN custom_statuses ON custom_statuses.id = tasks.status_id").
+		Where("projects.organization_id = ? AND tasks.assignee_id = ?", organizationID, userID).
+		Where("tasks.deleted_at IS NULL").
+		Where("projects.deleted_at IS NULL").
+		Where("custom_statuses.deleted_at IS NULL").
+		Scan(&status).Error
+
+	if dbErr != nil {
+		d.logger.Error("Failed to fetch user task insights", zap.Error(dbErr), zap.String("user_id", userID.String()))
+		return 0, 0, 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch task insights",
+		}
+	}
+
+	return status.TotalAssigned, status.InProgress, status.Completed, nil
+}

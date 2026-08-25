@@ -13,6 +13,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/config"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/middleware"
 	mail "github.com/ms-kanban-server/internal/pkg/email"
 	"github.com/ms-kanban-server/internal/pkg/models"
@@ -41,6 +42,7 @@ type AuthService interface {
 	GetUserByID(userID, organizationID uuid.UUID) (*models.User, *response.Error)
 	SetProjectRepository(repo projectrepo.ProjectRepository)
 	HasPermission(userID, projectID uuid.UUID, resource string, action string) (bool, *response.Error)
+	GetUserInsights(userID uuid.UUID) (*responsedto.UserTaskInsightsResponse, *response.Error)
 }
 
 func InitAuthService(authRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) AuthService {
@@ -907,4 +909,44 @@ func (s *authService) SetProjectRepository(repo projectrepo.ProjectRepository) {
 
 func (s *authService) HasPermission(userID, projectID uuid.UUID, resource string, action string) (bool, *response.Error) {
 	return CheckPermission(s.authRepo, s.projectRepo, userID, projectID, resource, action)
+}
+
+func (s *authService) GetUserInsights(userID uuid.UUID) (*responsedto.UserTaskInsightsResponse, *response.Error) {
+	if userID == uuid.Nil {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Invalid user ID",
+		}
+	}
+
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user.OrganizationID == nil || *user.OrganizationID == uuid.Nil {
+		return nil, &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "User does not belong to any organization",
+		}
+	}
+
+	total, inProgress, completed, err := s.authRepo.GetUserInsights(userID, *user.OrganizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var completionPercentage float64 = 0.0
+	if total > 0 {
+		completionPercentage = (float64(completed) / float64(total)) * 100
+	}
+
+	return &responsedto.UserTaskInsightsResponse{
+		TotalAssigned:        total,
+		InProgress:            inProgress,
+		Completed:             completed,
+		CompletionPercentage:  completionPercentage,
+	}, nil
 }

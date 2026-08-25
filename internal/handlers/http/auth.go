@@ -958,3 +958,61 @@ func (h *authHandler) GetUserByID(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 
 }
+
+// GetUserInsights godoc
+//
+// @Summary      Get user task insights
+// @Description  Returns the task statistics of the currently authenticated user across the organization.
+// @Tags         Authentication
+// @Produce      json
+// @Success      200 {object} response.SuccessResponse{data=responsedto.UserTaskInsightsResponse} "Insights retrieved successfully"
+// @Failure      400 {object} response.ErrorResponse "Invalid user ID"
+// @Failure      401 {object} response.ErrorResponse "Unauthorized"
+// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Router       /auth/me/insights [get]
+func (h *authHandler) GetUserInsights(g *gin.Context) {
+	userID, exist := g.Get("user_id")
+	if !exist {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrUnauthorized,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Internal server error: missing user context",
+			},
+		}
+
+		h.logger.Error("User Id Invalid/Missing ")
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+	userIDStr := userID.(string)
+
+	id, errorResponse := utils.StringToUUID(userIDStr)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
+
+	result, err := h.service.GetUserInsights(id)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "User insights received successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       result,
+	}
+	g.JSON(successResponse.StatusCode, successResponse)
+}

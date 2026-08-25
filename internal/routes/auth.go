@@ -46,6 +46,7 @@ func AuthRoutes(deps models.Config, api *gin.RouterGroup) {
 		auth.POST("/password-reset/confirm", authHandler.ResetPassword)
 		auth.PATCH("/update", middleware.ValidateJWT(), authHandler.UpdateUser)
 		auth.GET("/me", middleware.ValidateJWT(), authHandler.GetUser)
+		auth.GET("/me/insights", middleware.ValidateJWT(), authHandler.GetUserInsights)
 		auth.GET("/validate", authHandler.Validate)
 		auth.GET("/:user_id", middleware.ValidateJWT(), authHandler.GetUserByID)
 	}

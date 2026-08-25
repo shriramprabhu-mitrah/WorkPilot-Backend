@@ -37,6 +37,10 @@ type stubAuthRepository struct {
 	createdOrganization     models.Organization
 	invitation              models.OrganizationInvitation
 	invitationErr           *response.Error
+	insightsTotal           int64
+	insightsInProgress      int64
+	insightsCompleted       int64
+	insightsErr             *response.Error
 }
 
 func (s *stubAuthRepository) GetByEmail(email string) (models.User, *response.Error) {
@@ -639,5 +643,104 @@ func (s *stubAuthRepository) GetRoleByNameAndOrg(name string, orgID uuid.UUID) (
 
 func (s *stubAuthRepository) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error) {
 	return &models.Role{ID: roleID, Name: "mock_role"}, nil
+}
+
+func (s *stubAuthRepository) GetUserInsights(userID, organizationID uuid.UUID) (total int64, inProgress int64, completed int64, err *response.Error) {
+	if s.insightsErr != nil {
+		return 0, 0, 0, s.insightsErr
+	}
+	return s.insightsTotal, s.insightsInProgress, s.insightsCompleted, nil
+}
+
+func TestAuthService_GetUserInsights(t *testing.T) {
+	userUUID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+
+	t.Run("successfully retrieves user insights", func(t *testing.T) {
+		repo := &stubAuthRepository{
+			user: models.User{
+				ID:             userUUID,
+				OrganizationID: &orgID,
+				IsActive:       true,
+			},
+			insightsTotal:      10,
+			insightsInProgress: 3,
+			insightsCompleted:  5,
+		}
+		service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
+
+		res, err := service.GetUserInsights(userUUID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if res.TotalAssigned != 10 {
+			t.Errorf("expected 10 total assigned, got %d", res.TotalAssigned)
+		}
+		if res.InProgress != 3 {
+			t.Errorf("expected 3 in progress, got %d", res.InProgress)
+		}
+		if res.Completed != 5 {
+			t.Errorf("expected 5 completed, got %d", res.Completed)
+		}
+		if res.CompletionPercentage != 50.0 {
+			t.Errorf("expected 50%% completion, got %f", res.CompletionPercentage)
+		}
+	})
+
+	t.Run("returns zero insights when user has no assigned tasks", func(t *testing.T) {
+		repo := &stubAuthRepository{
+			user: models.User{
+				ID:             userUUID,
+				OrganizationID: &orgID,
+				IsActive:       true,
+			},
+			insightsTotal:      0,
+			insightsInProgress: 0,
+			insightsCompleted:  0,
+		}
+		service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
+
+		res, err := service.GetUserInsights(userUUID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if res.CompletionPercentage != 0.0 {
+			t.Errorf("expected 0%% completion, got %f", res.CompletionPercentage)
+		}
+	})
+
+	t.Run("fails when user does not exist", func(t *testing.T) {
+		repo := &stubAuthRepository{
+			err: &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User not found"},
+		}
+		service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
+
+		_, err := service.GetUserInsights(userUUID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != http.StatusNotFound {
+			t.Errorf("expected 404 status code, got %d", err.StatusCode)
+		}
+	})
+
+	t.Run("fails when user has no organization", func(t *testing.T) {
+		repo := &stubAuthRepository{
+			user: models.User{
+				ID:             userUUID,
+				OrganizationID: nil,
+				IsActive:       true,
+			},
+		}
+		service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
+
+		_, err := service.GetUserInsights(userUUID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected 400 status code, got %d", err.StatusCode)
+		}
+	})
 }
 

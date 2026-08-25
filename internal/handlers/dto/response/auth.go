@@ -98,3 +98,10 @@ type UserSummary struct {
 	Color     string    `json:"color"`
 	Role      string    `json:"role,omitempty"`
 }
+
+type UserTaskInsightsResponse struct {
+	TotalAssigned        int64   `json:"total_assigned"`
+	InProgress           int64   `json:"in_progress"`
+	Completed            int64   `json:"completed"`
+	CompletionPercentage float64 `json:"completion_percentage"`
+}
