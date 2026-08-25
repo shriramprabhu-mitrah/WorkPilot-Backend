@@ -195,6 +195,7 @@ type stubProjectRepo struct {
 	getProjectActivity      func(projectID uuid.UUID, filter requestdto.ProjectActivityFilter) ([]models.AuditLog, response.Pagination, *response.Error)
 	updateProjectFunc       func(projectID uuid.UUID, updates map[string]interface{}) *response.Error
 	getProjectsByUserIDFunc func(userID uuid.UUID) ([]models.ProjectMember, *response.Error)
+	getProjectsByOrgIDFunc  func(organizationID uuid.UUID, filter requestdto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error)
 	createdLogs             []models.AuditLog
 	projectRole             string
 }
@@ -214,6 +215,9 @@ func (s *stubProjectRepo) UpdateProject(projectID uuid.UUID, req map[string]inte
 	return nil
 }
 func (s *stubProjectRepo) GetProjectsByOrganizationID(organizationID uuid.UUID, filter requestdto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
+	if s.getProjectsByOrgIDFunc != nil {
+		return s.getProjectsByOrgIDFunc(organizationID, filter)
+	}
 	return nil, response.Pagination{}, nil
 }
 func (s *stubProjectRepo) GetAllProjects(filter requestdto.GlobalProjectFilterRequest) ([]models.Project, response.Pagination, *response.Error) {
@@ -758,4 +762,44 @@ func TestGetRecentProjects_TaskFiltering(t *testing.T) {
 			t.Fatalf("expected 3 assigned projects, got %d", len(resp.Project))
 		}
 	})
+}
+
+func TestProjectService_GetProjectsByOrganizationID_AccessControl(t *testing.T) {
+	logger := zap.NewNop()
+	userID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+	userRole := "developer"
+
+	var capturedUserID uuid.UUID
+	var capturedUserRole string
+
+	projectRepo := &stubProjectRepo{
+		getProjectsByOrgIDFunc: func(organizationID uuid.UUID, filter requestdto.ProjectFilter) ([]models.Project, response.Pagination, *response.Error) {
+			capturedUserID = filter.UserID
+			capturedUserRole = filter.UserRole
+			return []models.Project{
+				{ID: uuid.Must(uuid.NewV4()), Name: "Assigned Project", OrganizationID: orgID},
+			}, response.Pagination{}, nil
+		},
+	}
+
+	service := services.InitProjectService(projectRepo, &dummyAuthRepo{orgID: &orgID}, &dummySprintRepo{}, &stubTaskRepo{}, &stubAuditLogRepo{}, logger)
+
+	req := requestdto.ProjectFilterRequest{
+		UserID:         userID,
+		OrganizationID: orgID,
+		UserRole:       userRole,
+	}
+
+	_, _, err := service.GetProjectsByOrganizationID(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if capturedUserID != userID {
+		t.Errorf("expected UserID %v, got %v", userID, capturedUserID)
+	}
+	if capturedUserRole != userRole {
+		t.Errorf("expected UserRole %q, got %q", userRole, capturedUserRole)
+	}
 }

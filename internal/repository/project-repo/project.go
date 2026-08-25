@@ -288,30 +288,35 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 	baseQuery := d.db.Model(&models.Project{}).
 		Where("organization_id = ?", organizationID)
 
+	if filter.UserRole != "org_admin" && filter.UserRole != "super_admin" && filter.UserID != uuid.Nil {
+		baseQuery = baseQuery.Joins("JOIN project_members ON project_members.project_id = projects.id").
+			Where("project_members.user_id = ? AND project_members.deleted_at IS NULL", filter.UserID)
+	}
+
 	if filter.Name != "" {
 		name := "%" + strings.ToLower(strings.TrimSpace(filter.Name)) + "%"
-		baseQuery = baseQuery.Where("LOWER(name) LIKE ?", name)
+		baseQuery = baseQuery.Where("LOWER(projects.name) LIKE ?", name)
 	}
 
 	if filter.Status != "" {
 		baseQuery = baseQuery.Where(
-			"LOWER(status) = ?",
+			"LOWER(projects.status) = ?",
 			strings.ToLower(strings.TrimSpace(filter.Status)),
 		)
 	}
 
 	// Determine order clause based on sorting parameters
-	orderClause := "created_at DESC"
+	orderClause := "projects.created_at DESC"
 	if filter.SortBy != "" {
 		direction := "ASC"
 		if strings.ToUpper(filter.SortOrder) == "DESC" {
 			direction = "DESC"
 		}
 		allowed := map[string]string{
-			"name":       "name",
-			"created_at": "created_at",
-			"updated_at": "updated_at",
-			"status":     "status",
+			"name":       "projects.name",
+			"created_at": "projects.created_at",
+			"updated_at": "projects.updated_at",
+			"status":     "projects.status",
 		}
 		if col, ok := allowed[filter.SortBy]; ok {
 			orderClause = fmt.Sprintf("%s %s", col, direction)
@@ -329,7 +334,12 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 		}
 	}
 
-	if err := baseQuery.
+	findQuery := baseQuery
+	if filter.UserRole != "org_admin" && filter.UserRole != "super_admin" && filter.UserID != uuid.Nil {
+		findQuery = findQuery.Select("projects.*")
+	}
+
+	if err := findQuery.
 		Preload("Organization").
 		Order(orderClause).
 		Limit(filter.PageSize).
