@@ -331,7 +331,6 @@ func (d *organizationDatabase) RestoreOrganization(orgID uuid.UUID) *response.Er
 	return nil
 }
 
-
 func (d *organizationDatabase) DeleteOrganization(id uuid.UUID) *response.Error {
 
 	result := d.DB.Where("id = ?", id).Delete(&models.Organization{})
@@ -431,31 +430,33 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	filter.PaginationQuery.Normalize(10)
 
 	offset := (filter.Page - 1) * filter.PageSize
-		baseQuery := d.DB.Model(&models.User{}).Where("organization_id = ? and is_active = ?", organizationID, true)
+	baseQuery := d.DB.Model(&models.User{}).
+		Joins("LEFT JOIN roles ON roles.id = users.role_id AND roles.deleted_at IS NULL").
+		Where("users.organization_id = ? and users.is_active = ?", organizationID, true)
 
 	if filter.FullName != "" {
-		baseQuery = baseQuery.Where("full_name ILIKE ?", "%"+strings.TrimSpace(filter.FullName)+"%")
+		baseQuery = baseQuery.Where("users.full_name ILIKE ?", "%"+strings.TrimSpace(filter.FullName)+"%")
 	}
 	if filter.Email != "" {
-		baseQuery = baseQuery.Where("email ILIKE ?", "%"+strings.TrimSpace(filter.Email)+"%")
+		baseQuery = baseQuery.Where("users.email ILIKE ?", "%"+strings.TrimSpace(filter.Email)+"%")
 	}
 	if filter.Username != "" {
-		baseQuery = baseQuery.Where("username ILIKE ?", "%"+strings.TrimSpace(filter.Username)+"%")
+		baseQuery = baseQuery.Where("users.username ILIKE ?", "%"+strings.TrimSpace(filter.Username)+"%")
 	}
 	if filter.Role != "" {
-		baseQuery = baseQuery.Where("LOWER(role) = ?", strings.ToLower(strings.TrimSpace(filter.Role)))
+		baseQuery = baseQuery.Where("LOWER(roles.name) = ?", strings.ToLower(strings.TrimSpace(filter.Role)))
 	}
 	if filter.IsActive != nil {
-		baseQuery = baseQuery.Where("is_active = ?", *filter.IsActive)
+		baseQuery = baseQuery.Where("users.is_active = ?", *filter.IsActive)
 	}
 	if filter.IsVerified != nil {
-		baseQuery = baseQuery.Where("is_verified = ?", *filter.IsVerified)
+		baseQuery = baseQuery.Where("users.is_verified = ?", *filter.IsVerified)
 	}
 	if filter.Timezone != "" {
-		baseQuery = baseQuery.Where("timezone ILIKE ?", "%"+strings.TrimSpace(filter.Timezone)+"%")
+		baseQuery = baseQuery.Where("users.timezone ILIKE ?", "%"+strings.TrimSpace(filter.Timezone)+"%")
 	}
 	if !filter.IncludeOrgAdmins {
-		baseQuery = baseQuery.Where("LOWER(role) != ? OR role IS NULL", "org_admin")
+		baseQuery = baseQuery.Where("LOWER(roles.name) != ? OR roles.name IS NULL", "org_admin")
 	}
 
 	if err := baseQuery.Count(&totalItems).Error; err != nil {
@@ -468,7 +469,8 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 
 	if err := baseQuery.
 		Preload("Organization").
-		Order("created_at DESC").
+		Preload("Role").
+		Order("users.created_at DESC").
 		Limit(filter.PageSize).
 		Offset(offset).
 		Find(&users).Error; err != nil {
@@ -505,60 +507,61 @@ func (d *organizationDatabase) GetAllMembers(filter dto.GlobalMemberListFilter) 
 
 	offset := (filter.Page - 1) * filter.PageSize
 
-	baseQuery := d.DB.Model(&models.User{})
+	baseQuery := d.DB.Model(&models.User{}).
+		Joins("LEFT JOIN roles ON roles.id = users.role_id AND roles.deleted_at IS NULL")
 
 	if filter.OrganizationID != nil && *filter.OrganizationID != uuid.Nil {
-		baseQuery = baseQuery.Where("organization_id = ?", *filter.OrganizationID)
+		baseQuery = baseQuery.Where("users.organization_id = ?", *filter.OrganizationID)
 	}
 
 	if filter.Search != "" {
 		searchTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Search)) + "%"
-		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ? OR LOWER(email) LIKE ? OR LOWER(username) LIKE ?", searchTerm, searchTerm, searchTerm)
+		baseQuery = baseQuery.Where("LOWER(users.full_name) LIKE ? OR LOWER(users.email) LIKE ? OR LOWER(users.username) LIKE ?", searchTerm, searchTerm, searchTerm)
 	}
 
 	if filter.FullName != "" {
-		baseQuery = baseQuery.Where("LOWER(full_name) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.FullName))+"%")
+		baseQuery = baseQuery.Where("LOWER(users.full_name) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.FullName))+"%")
 	}
 
 	if filter.Email != "" {
-		baseQuery = baseQuery.Where("LOWER(email) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Email))+"%")
+		baseQuery = baseQuery.Where("LOWER(users.email) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Email))+"%")
 	}
 
 	if filter.Username != "" {
-		baseQuery = baseQuery.Where("LOWER(username) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Username))+"%")
+		baseQuery = baseQuery.Where("LOWER(users.username) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Username))+"%")
 	}
 
 	if filter.Role != "" {
-		baseQuery = baseQuery.Where("LOWER(role) = ?", strings.ToLower(strings.TrimSpace(filter.Role)))
+		baseQuery = baseQuery.Where("LOWER(roles.name) = ?", strings.ToLower(strings.TrimSpace(filter.Role)))
 	}
 
 	if filter.IsActive != nil {
-		baseQuery = baseQuery.Where("is_active = ?", *filter.IsActive)
+		baseQuery = baseQuery.Where("users.is_active = ?", *filter.IsActive)
 	}
 
 	if filter.IsVerified != nil {
-		baseQuery = baseQuery.Where("is_verified = ?", *filter.IsVerified)
+		baseQuery = baseQuery.Where("users.is_verified = ?", *filter.IsVerified)
 	}
 
 	if filter.Timezone != "" {
-		baseQuery = baseQuery.Where("LOWER(timezone) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Timezone))+"%")
+		baseQuery = baseQuery.Where("LOWER(users.timezone) LIKE ?", "%"+strings.ToLower(strings.TrimSpace(filter.Timezone))+"%")
 	}
 
-	orderClause := "created_at DESC"
+	orderClause := "users.created_at DESC"
 	if filter.SortBy != "" {
 		direction := "ASC"
 		if strings.ToUpper(filter.SortOrder) == "DESC" {
 			direction = "DESC"
 		}
 		allowed := map[string]string{
-			"full_name":  "full_name",
-			"name":       "full_name",
-			"email":      "email",
-			"username":   "username",
-			"role":       "role",
-			"created_at": "created_at",
-			"joined_at":  "joined_at",
-			"is_active":  "is_active",
+			"full_name":  "users.full_name",
+			"name":       "users.full_name",
+			"email":      "users.email",
+			"username":   "users.username",
+			"role":       "roles.name",
+			"created_at": "users.created_at",
+			"joined_at":  "users.joined_at",
+			"is_active":  "users.is_active",
 		}
 		if col, ok := allowed[filter.SortBy]; ok {
 			orderClause = fmt.Sprintf("%s %s", col, direction)
@@ -576,6 +579,7 @@ func (d *organizationDatabase) GetAllMembers(filter dto.GlobalMemberListFilter) 
 
 	if err := baseQuery.
 		Preload("Organization").
+		Preload("Role").
 		Order(orderClause).
 		Limit(filter.PageSize).
 		Offset(offset).
