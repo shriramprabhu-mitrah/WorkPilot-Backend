@@ -272,6 +272,8 @@ definitions:
         type: integer
       is_closed:
         type: boolean
+      is_final:
+        type: boolean
       name:
         maxLength: 50
         minLength: 1
@@ -599,6 +601,8 @@ definitions:
         minimum: 0
         type: integer
       is_closed:
+        type: boolean
+      is_final:
         type: boolean
       name:
         maxLength: 50

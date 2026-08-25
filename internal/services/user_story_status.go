@@ -126,8 +126,13 @@ func (s *userStoryStatusService) CreateStatus(req requestdto.CreateUserStoryStat
 	}
 
 	isClosed := false
-	if req.IsClosed != nil {
+	isFinal := false
+	if req.IsFinal != nil {
+		isFinal = *req.IsFinal
+		isClosed = isFinal
+	} else if req.IsClosed != nil {
 		isClosed = *req.IsClosed
+		isFinal = isClosed
 	}
 
 	// 4. Create status
@@ -137,6 +142,7 @@ func (s *userStoryStatusService) CreateStatus(req requestdto.CreateUserStoryStat
 		Color:        req.Color,
 		DisplayOrder: req.DisplayOrder,
 		IsClosed:     isClosed,
+		IsFinal:      isFinal,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -304,6 +310,15 @@ func (s *userStoryStatusService) UpdateStatus(req requestdto.UpdateUserStoryStat
 	if req.IsClosed != nil {
 		if *req.IsClosed != status.IsClosed {
 			status.IsClosed = *req.IsClosed
+			status.IsFinal = *req.IsClosed
+			updated = true
+		}
+	}
+
+	if req.IsFinal != nil {
+		if *req.IsFinal != status.IsFinal {
+			status.IsFinal = *req.IsFinal
+			status.IsClosed = *req.IsFinal
 			updated = true
 		}
 	}
