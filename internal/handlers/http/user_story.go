@@ -316,6 +316,7 @@ func (h *userStoryHandler) DeleteUserStory(g *gin.Context) {
 // @Param priority query string false "User Story Priority" Enums(low,medium,high,critical)
 // @Param search query string false "Search query for title or description"
 // @Param fields query string false "Fields to return (comma separated)"
+// @Param is_unassigned_story query boolean false "Filter user stories that are not assigned to any sprint"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
