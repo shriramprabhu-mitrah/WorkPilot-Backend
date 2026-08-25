@@ -97,6 +97,7 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 		invitation, invErr := s.authRepo.GetPendingInvitationByEmail(result.Email)
 		if invErr == nil && invitation.ID != uuid.Nil && invitation.ExpiresAt.After(time.Now()) {
 			result.IsActive = true
+			result.Status = "active"
 			now := time.Now()
 			result.JoinedAt = now
 			if result.OrganizationID == nil || *result.OrganizationID == uuid.Nil {
