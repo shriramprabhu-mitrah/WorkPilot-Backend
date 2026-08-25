@@ -46,5 +46,6 @@ func ProjectRoutes(deps models.Config, api *gin.RouterGroup) {
 		prj.GET("/user/:user_id", middleware.ValidateJWT(), projectHandler.GetProjectByUser)
 		prj.GET("/recent", middleware.ValidateJWT(), projectHandler.GetRecentProjects)
 		prj.PATCH("/:project_id/member/:user_id", middleware.ValidateJWT(), projectHandler.UpdateProjectMember)
+		prj.GET("/:project_id/user-role", middleware.ValidateJWT(), projectHandler.GetProjectRole)
 	}
 }

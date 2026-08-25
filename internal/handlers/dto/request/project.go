@@ -150,6 +150,13 @@ type GetProjectDetails struct {
 type GetProjectByUserID struct {
 	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+}
+
+type GetUserProjectRoleRequest struct {
+	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 type DeleteProject struct {

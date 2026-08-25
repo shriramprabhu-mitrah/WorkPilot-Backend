@@ -75,6 +75,14 @@ type GetProjectByUserIDResponse struct {
 	Project   []ProjectResponse `json:"project"`
 }
 
+type GetUserProjectRoleResponse struct {
+	ProjectID   uuid.UUID `json:"project_id"`
+	ProjectName string    `json:"project_name"`
+	ProjectKey  string    `json:"project_key,omitempty"`
+	RoleID      uuid.UUID `json:"role_id"`
+	Role        string    `json:"role"`
+}
+
 type ProjectMetrics struct {
 	TotalTasks               int `json:"total_tasks"`
 	CompletedTasks           int `json:"completed_tasks"`

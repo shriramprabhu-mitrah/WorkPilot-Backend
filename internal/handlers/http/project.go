@@ -810,6 +810,67 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 	})
 }
 
+// GetProjectRole godoc
+//
+//	@Summary		Get user role in project
+//	@Description	Retrieve the role of the authenticated user in the specified project.
+//	@Tags			Projects
+//	@Accept			json
+//	@Produce		json
+//	@Param			project_id	path		string	true	"Project ID (UUID)"
+//	@Success		200		{object}	response.SuccessResponse{data=responsedto.GetUserProjectRoleResponse}
+//	@Failure		400		{object}	response.ErrorResponse	"Validation Error"
+//	@Failure		403		{object}	response.ErrorResponse	"Forbidden"
+//	@Failure		404		{object}	response.ErrorResponse	"Not Found"
+//	@Failure		500		{object}	response.ErrorResponse	"Internal Server Error"
+//	@Security		BearerAuth
+//	@Router			/project/{project_id}/user-role [get]
+func (h *ProjectHandler) GetProjectRole(g *gin.Context) {
+
+	projectIDParam := g.Param("project_id")
+	projectUUID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert the string into UUID")
+		g.JSON(errorResponse.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *errorResponse,
+		})
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	payload := requestdto.GetUserProjectRoleRequest{
+		ProjectID:      projectUUID,
+		UserID:         userUUID,
+		OrganizationID: organizationUUID,
+	}
+
+	roleResp, err := h.service.GetUserProjectRole(payload)
+	if err != nil {
+		g.JSON(err.StatusCode, &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		})
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "User project role retrieved successfully.",
+		Data:       roleResp,
+	})
+}
+
 // GetRecentProjects godoc
 //
 //	@Summary		Get recent projects
@@ -953,4 +1014,3 @@ func (h *ProjectHandler) UpdateProjectMember(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 
 }
-

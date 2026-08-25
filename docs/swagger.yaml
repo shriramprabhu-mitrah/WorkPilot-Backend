@@ -721,6 +721,19 @@ definitions:
       user_name:
         type: string
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.GetUserProjectRoleResponse:
+    properties:
+      project_id:
+        type: string
+      project_key:
+        type: string
+      project_name:
+        type: string
+      role:
+        type: string
+      role_id:
+        type: string
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.LabelResponse:
     properties:
       color:
@@ -3272,6 +3285,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Update project member role
+      tags:
+      - Projects
+  /project/{project_id}/user-role:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the role of the authenticated user in the specified project.
+      parameters:
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.GetUserProjectRoleResponse'
+              type: object
+        "400":
+          description: Validation Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user role in project
       tags:
       - Projects
   /project/add-members:

@@ -34,6 +34,7 @@ type ProjectService interface {
 	GetProjectsByUserID(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error)
 	GetRecentProjects(req requestdto.GetProjectByUserID) (*responsedto.GetProjectByUserIDResponse, *response.Error)
 	UpdateProjectMember(req requestdto.UpdateProjectMemberRequest) *response.Error
+	GetUserProjectRole(req requestdto.GetUserProjectRoleRequest) (*responsedto.GetUserProjectRoleResponse, *response.Error)
 }
 
 func InitProjectService(projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, sprintRepo sprintrepo.SprintRepository, taskRepo taskrepo.TaskRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) ProjectService {
@@ -1425,3 +1426,37 @@ func (s *projectService) validateProjectMemberRoleUpdate(projectID, actorUserID,
 
 	return nil
 }
+
+func (s *projectService) GetUserProjectRole(req requestdto.GetUserProjectRoleRequest) (*responsedto.GetUserProjectRoleResponse, *response.Error) {
+
+	result, err := s.authRepo.GetUserByID(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil || *result.OrganizationID != req.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization ID", req.OrganizationID.String()),
+			zap.String("User ID", req.UserID.String()))
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	member, repoErr := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, req.ProjectID)
+	if repoErr != nil {
+		return nil, repoErr
+	}
+
+	return &responsedto.GetUserProjectRoleResponse{
+		ProjectID:   req.ProjectID,
+		ProjectName: member.Project.Name,
+		ProjectKey:  member.Project.Slug,
+		RoleID:      member.RoleID,
+		Role:        member.Role.Name,
+	}, nil
+}
+
