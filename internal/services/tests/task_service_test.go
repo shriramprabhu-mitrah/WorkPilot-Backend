@@ -1909,3 +1909,115 @@ func TestTaskService_GetTasks_StatusValidation(t *testing.T) {
 		_ = res
 	})
 }
+
+func TestTaskService_AssignTaskToMe(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			IsActive:       true,
+			RoleID:         uuid.Must(uuid.NewV7()),
+			Role: models.Role{
+				Name: string(dto.RoleMember),
+			},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+		isMember: true,
+	}
+
+	existingTask := &models.Task{
+		ID:        taskID,
+		ProjectID: projectID,
+		Key:       "WP-1",
+		Title:     "Task Title",
+		Status:    string(dto.TaskStatusTodo),
+		Project:   models.Project{ID: projectID, OrganizationID: orgID},
+	}
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+
+	t.Run("successfully assigns task to self", func(t *testing.T) {
+		existingTask.AssigneeID = nil
+		existingTask.Assignee = nil
+
+		updated, err := service.AssignTaskToMe(taskID, userID, orgID, projectID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if updated.AssigneeID == nil || *updated.AssigneeID != userID {
+			t.Fatalf("expected assignee to be %v, got %v", userID, updated.AssigneeID)
+		}
+	})
+
+	t.Run("forbidden when user is not active member of project", func(t *testing.T) {
+		inactiveUserRepo := &sprintAuthRepoStub{
+			user: models.User{
+				ID:             userID,
+				OrganizationID: &orgID,
+				IsActive:       false,
+				RoleID:         uuid.Must(uuid.NewV7()),
+				Role: models.Role{
+					Name: string(dto.RoleMember),
+				},
+			},
+		}
+		inactiveService := services.InitTaskService(inactiveUserRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+
+		_, err := inactiveService.AssignTaskToMe(taskID, userID, orgID, projectID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected status code 403, got: %d", err.StatusCode)
+		}
+	})
+
+	t.Run("forbidden when user is not project member", func(t *testing.T) {
+		nonMemberProjectRepo := &stubProjectRepo{
+			project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+			isMember: false,
+		}
+		nonMemberService := services.InitTaskService(authRepo, nonMemberProjectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+
+		_, err := nonMemberService.AssignTaskToMe(taskID, userID, orgID, projectID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected status code 403, got: %d", err.StatusCode)
+		}
+	})
+
+	t.Run("returns not found for non-existent task", func(t *testing.T) {
+		nonExistentTaskID := uuid.Must(uuid.NewV4())
+		_, err := service.AssignTaskToMe(nonExistentTaskID, userID, orgID, projectID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != http.StatusNotFound {
+			t.Errorf("expected status code 404, got: %d", err.StatusCode)
+		}
+	})
+
+	t.Run("forbidden when task does not belong to specified project", func(t *testing.T) {
+		anotherProjectID := uuid.Must(uuid.NewV4())
+		_, err := service.AssignTaskToMe(taskID, userID, orgID, anotherProjectID)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected status code 403, got: %d", err.StatusCode)
+		}
+	})
+}
+

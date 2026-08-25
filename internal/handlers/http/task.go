@@ -799,3 +799,62 @@ func (h *taskHandler) RemoveLabelFromTask(g *gin.Context) {
 			"Label_id": labelUUID},
 	})
 }
+
+// AssignToMe godoc
+// @Summary Assign Task to Me
+// @Description Assign a specific task to the currently authenticated user
+// @Tags Task
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param task_id path string true "Task ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/{task_id}/assign-to-me [patch]
+func (h *taskHandler) AssignToMe(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
+	if !ok {
+		return
+	}
+
+	projectIDParam := g.Param("project_id")
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskIDParam := g.Param("task_id")
+	taskID, errorResponse := utils.StringToUUID(taskIDParam)
+	if errorResponse != nil {
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	taskRes, err := h.service.AssignTaskToMe(taskID, userUUID, organizationUUID, projectID)
+	if err != nil {
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *err,
+		}
+		g.JSON(err.StatusCode, errorResponse)
+		return
+	}
+
+	successResponse := &response.SuccessResponse{
+		Message:    "Task assigned to you successfully",
+		StatusCode: http.StatusOK,
+		Success:    true,
+		Data:       taskRes,
+	}
+
+	g.JSON(successResponse.StatusCode, successResponse)
+}

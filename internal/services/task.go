@@ -33,6 +33,7 @@ type TaskService interface {
 	BulkDeleteTasks(req dto.BulkDeleteTasksRequest) (*responsedto.BulkDeleteTasksResponse, *response.Error)
 	AttachLabelToTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
 	RemoveLabelFromTask(projectID, taskID, labelID, userID, orgID uuid.UUID) *response.Error
+	AssignTaskToMe(taskID, userID, organizationID, projectID uuid.UUID) (*responsedto.TaskResponse, *response.Error)
 }
 
 type taskService struct {
@@ -1955,4 +1956,131 @@ func isBackdated(t time.Time) bool {
 	tLocal := t.In(now.Location())
 	tDate := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, now.Location())
 	return tDate.Before(today)
+}
+
+func (s *taskService) AssignTaskToMe(taskID, userID, organizationID, projectID uuid.UUID) (*responsedto.TaskResponse, *response.Error) {
+	accessCtx, err := s.taskRepo.GetTaskAccessContext(taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	if accessCtx.ProjectID != projectID {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Task does not belong to the specified project",
+		}
+	}
+
+	project, user, authorized, err := s.checkAuthorization(accessCtx.ProjectID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view tasks in this project",
+		}
+	}
+
+	hasModifyPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, accessCtx.ProjectID, "tasks", "modify")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !hasModifyPermission {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to update tasks in this project",
+		}
+	}
+
+	isMember, projectErr := s.projectRepo.IsUserProjectMember(accessCtx.ProjectID, userID)
+	if projectErr != nil {
+		return nil, projectErr
+	}
+	if !isMember {
+		if user.Role.Name == string(dto.RoleOrgAdmin) && user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+			isMember = true
+		}
+	}
+	if !isMember || !user.IsActive {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You must be an active project member to assign tasks to yourself",
+		}
+	}
+
+	task, err := s.taskRepo.GetTaskByID(taskID, accessCtx.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var changes []string
+	oldAssignee := "nil"
+	if task.AssigneeID != nil {
+		oldAssignee = task.AssigneeID.String()
+	}
+	newAssignee := userID.String()
+
+	if oldAssignee != newAssignee {
+		changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
+
+		updates := map[string]interface{}{
+			"assignee_id": userID,
+		}
+
+		err = s.taskRepo.UpdateTask(task.ID, updates)
+		if err != nil {
+			return nil, err
+		}
+
+		// Refetch task to ensure preloaded values are fresh
+		task, err = s.taskRepo.GetTaskByID(task.ID, accessCtx.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+
+		changedBy := user.UserName
+		if changedBy == "" {
+			changedBy = user.FullName
+		}
+		if changedBy == "" {
+			changedBy = user.Email
+		}
+		if changedBy == "" {
+			changedBy = userID.String()
+		}
+
+		var detail string
+		if len(changes) > 0 {
+			detail = fmt.Sprintf("Task '%s' updated by %s: %s", task.Title, changedBy, strings.Join(changes, ", "))
+		} else {
+			detail = fmt.Sprintf("Task '%s' details updated by %s", task.Title, changedBy)
+		}
+
+		auditLog := models.AuditLog{
+			UserID:         &userID,
+			OrganizationID: &organizationID,
+			ProjectID:      &accessCtx.ProjectID,
+			TaskID:         &task.ID,
+			Action:         "updated",
+			ResourceType:   "task",
+			ResourceID:     task.ID.String(),
+			Title:          task.Title,
+			Details:        detail,
+			Type:           models.AuditLogTypeActivity,
+			CreatedAt:      time.Now(),
+		}
+		if err := s.auditRepo.CreateAuditLog(auditLog); err != nil {
+			s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		}
+	}
+
+	colorMap := s.getStatusColorMap(accessCtx.ProjectID)
+	isFinalMap := s.getStatusIsFinalMap(accessCtx.ProjectID)
+	res := mapToTaskResponse(*task, colorMap, isFinalMap)
+	return &res, nil
 }

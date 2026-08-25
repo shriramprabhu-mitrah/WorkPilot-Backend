@@ -63,5 +63,7 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 		tsk.GET("/:task_id/attachments", middleware.ValidateJWT(), attachmentHandler.GetAttachments)
 		tsk.GET("/:task_id/attachments/:attachment_id/download", middleware.ValidateJWT(), attachmentHandler.DownloadAttachment)
 		tsk.DELETE("/:task_id/attachments/:attachment_id", middleware.ValidateJWT(), attachmentHandler.DeleteAttachment)
+
+		tsk.PATCH("/:task_id/assign-to-me", middleware.ValidateJWT(), taskHandler.AssignToMe)
 	}
 }
