@@ -10,7 +10,7 @@ import (
 type SprintStatus string
 
 const (
-	SprintStatusPlanning  SprintStatus = "planning"
+	SprintStatusPlanned   SprintStatus = "planned"
 	SprintStatusActive    SprintStatus = "active"
 	SprintStatusOnHold    SprintStatus = "on_hold"
 	SprintStatusCompleted SprintStatus = "completed"
@@ -26,10 +26,10 @@ type CreateSprintRequest struct {
 }
 
 type CreateSprint struct {
-	Name      string `json:"name" binding:"required,min=2,max=100"`
-	Goal      string `json:"goal" `
-	StartDate string `json:"start_date" binding:"required"`
-	EndDate   string `json:"end_date" binding:"required"`
+	Name      string  `json:"name" binding:"required,min=2,max=1000"`
+	Goal      string  `json:"goal"`
+	StartDate *string `json:"start_date"`
+	EndDate   *string `json:"end_date"`
 }
 
 type UpdateSprintRequest struct {
@@ -37,7 +37,7 @@ type UpdateSprintRequest struct {
 	Goal           *string       `json:"goal" binding:"omitempty,max=500"`
 	StartDate      *string       `json:"start_date"`
 	EndDate        *string       `json:"end_date"`
-	Status         *SprintStatus `json:"status" binding:"omitempty,oneof=planning active on_hold completed cancelled archived"`
+	Status         *SprintStatus `json:"status" binding:"omitempty,oneof=planned active on_hold completed cancelled archived"`
 	ProjectID      uuid.UUID     `json:"-" swaggerignore:"true"`
 	UserID         uuid.UUID     `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID     `json:"-" swaggerignore:"true"`
@@ -78,4 +78,18 @@ type SprintBurndownResponse struct {
 	SprintName       string              `json:"sprint_name"`
 	TotalStoryPoints int                 `json:"total_story_points"`
 	BurndownData     []BurndownDataPoint `json:"burndown_data"`
+}
+
+type StartSprintRequest struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	SprintID  uuid.UUID `json:"-"`
+	UserID    uuid.UUID `json:"-"`
+	StartDate string    `json:"start_date" form:"start_date" binding:"required"`
+	EndDate   string    `json:"end_date" form:"end_date" binding:"required"`
+}
+
+type CompleteSprintRequest struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	SprintID  uuid.UUID `json:"-"`
+	UserID    uuid.UUID `json:"-"`
 }

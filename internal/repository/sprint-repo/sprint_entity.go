@@ -14,6 +14,8 @@ import (
 
 type SprintRepository interface {
 	CreateSprint(row *models.Sprint) *response.Error
+	StartSprint(sprintID uuid.UUID, startDate time.Time, endDate time.Time) *response.Error
+	CompleteSprint(sprintID uuid.UUID, projectID uuid.UUID, actualEndDate time.Time, velocity int) *response.Error
 	UpdateSprint(projectID, sprintID uuid.UUID, updates map[string]interface{}) *response.Error
 	DeleteSprint(id uuid.UUID) *response.Error
 	GetSprintByID(sprintID, projectID uuid.UUID) (*models.Sprint, *response.Error)

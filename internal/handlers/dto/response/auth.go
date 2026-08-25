@@ -7,14 +7,14 @@ import (
 )
 
 type OrganizationSummary struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Slug      string    `json:"slug,omitempty"`
-	Domain    string    `json:"domain"`
-	Industry  string    `json:"industry,omitempty"`
-	TeamSize  string    `json:"team_size,omitempty"`
-	Country   string    `json:"country,omitempty"`
-	LogoURL   string    `json:"logo_url,omitempty"`
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Slug          string    `json:"slug,omitempty"`
+	Domain        string    `json:"domain"`
+	Industry      string    `json:"industry,omitempty"`
+	TeamSize      string    `json:"team_size,omitempty"`
+	Country       string    `json:"country,omitempty"`
+	LogoURL       string    `json:"logo_url,omitempty"`
 	IsActive      bool      `json:"is_active"`
 	CreatedAt     time.Time `json:"created_at"`
 	TotalProjects int       `json:"total_projects"`
@@ -69,8 +69,8 @@ type Sprint struct {
 	Name      string         `json:"name"`
 	Goal      string         `json:"goal,omitempty"`
 	Status    string         `json:"status"`
-	StartDate time.Time      `json:"start_date"`
-	EndDate   time.Time      `json:"end_date"`
+	StartDate *time.Time     `json:"start_date"`
+	EndDate   *time.Time     `json:"end_date"`
 	Tasks     []TaskResponse `json:"tasks,omitempty"`
 }
 

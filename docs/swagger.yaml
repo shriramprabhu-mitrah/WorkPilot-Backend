@@ -161,15 +161,13 @@ definitions:
       goal:
         type: string
       name:
-        maxLength: 100
+        maxLength: 1000
         minLength: 2
         type: string
       start_date:
         type: string
     required:
-    - end_date
     - name
-    - start_date
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateSprintRequest:
     properties:
@@ -384,7 +382,7 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.SprintStatus:
     enum:
-    - planning
+    - planned
     - active
     - on_hold
     - completed
@@ -392,12 +390,24 @@ definitions:
     - archived
     type: string
     x-enum-varnames:
-    - SprintStatusPlanning
+    - SprintStatusPlanned
     - SprintStatusActive
     - SprintStatusOnHold
     - SprintStatusCompleted
     - SprintStatusCancelled
     - SprintStatusArchived
+  github_com_ms-kanban-server_internal_handlers_dto_request.StartSprintRequest:
+    properties:
+      end_date:
+        type: string
+      project_id:
+        type: string
+      start_date:
+        type: string
+    required:
+    - end_date
+    - start_date
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.UpdateCommentsRequest:
     properties:
       content:
@@ -485,7 +495,7 @@ definitions:
         allOf:
         - $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.SprintStatus'
         enum:
-        - planning
+        - planned
         - active
         - on_hold
         - completed
@@ -3845,7 +3855,7 @@ paths:
         type: integer
       - description: Sprint Status
         enum:
-        - planning
+        - planned
         - active
         - on_hold
         - completed
@@ -4188,6 +4198,53 @@ paths:
       summary: Trigger Sprint Snapshots
       tags:
       - Sprints
+  /projects/{project_id}/sprint/start:
+    post:
+      consumes:
+      - application/json
+      description: start a created sprint
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Start sprint payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.StartSprintRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Sprint started successfully
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Invalid request payload
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Start Sprint
+      tags:
+      - Sprint
   /projects/{project_id}/tasks:
     delete:
       consumes:
