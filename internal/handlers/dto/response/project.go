@@ -21,6 +21,7 @@ type ProjectDetail struct {
 	Members          []ProjectMember `json:"members"`
 	Sprints          []Sprint        `json:"sprints"`
 	Metrics          ProjectMetrics  `json:"metrics"`
+	Slug             string          `json:"slug,omitempty"`
 }
 
 type ProjectActivityResponse struct {
@@ -60,6 +61,7 @@ type ProjectResponse struct {
 	OrganizationName string    `json:"organization_name,omitempty"`
 	ProjectKey       string    `json:"project_key,omitempty"`
 	Key              string    `json:"key,omitempty"`
+	ProjectSlug      string    `json:"project_slug,omitempty"`
 }
 
 type GetProjectByUserIDResponse struct {
