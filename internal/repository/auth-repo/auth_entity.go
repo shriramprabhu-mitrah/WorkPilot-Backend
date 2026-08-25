@@ -41,6 +41,7 @@ type AuthRepository interface {
 	GetRoleByName(name string) (*models.Role, *response.Error)
 	GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*models.Role, *response.Error)
 	GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error)
+	GetUserInsights(userID, organizationID uuid.UUID) (total int64, inProgress int64, completed int64, err *response.Error)
 }
 
 func InitAuthRepository(deps models.Config) AuthRepository {

@@ -235,6 +235,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/me/insights": {
+            "get": {
+                "description": "Returns the task statistics of the currently authenticated user across the organization.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Get user task insights",
+                "responses": {
+                    "200": {
+                        "description": "Insights retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserTaskInsightsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/password-reset/confirm": {
             "post": {
                 "description": "Validates the reset OTP and updates the user's password.",
@@ -8476,6 +8526,11 @@ const docTemplate = `{
                     "maxLength": 150,
                     "minLength": 3
                 },
+                "slug": {
+                    "type": "string",
+                    "maxLength": 150,
+                    "minLength": 3
+                },
                 "status": {
                     "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.ProjectStatus"
                 }
@@ -8979,6 +9034,9 @@ const docTemplate = `{
                 "project_key": {
                     "type": "string"
                 },
+                "slug": {
+                    "type": "string"
+                },
                 "sprints": {
                     "type": "array",
                     "items": {
@@ -9067,6 +9125,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project_name": {
+                    "type": "string"
+                },
+                "project_slug": {
                     "type": "string"
                 },
                 "role": {
@@ -9309,6 +9370,23 @@ const docTemplate = `{
                 },
                 "role": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.UserTaskInsightsResponse": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "completion_percentage": {
+                    "type": "number"
+                },
+                "in_progress": {
+                    "type": "integer"
+                },
+                "total_assigned": {
+                    "type": "integer"
                 }
             }
         },

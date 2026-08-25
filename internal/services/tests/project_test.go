@@ -188,6 +188,9 @@ func (d *dummyAuthRepo) GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*mode
 func (d *dummyAuthRepo) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error) {
 	return &models.Role{ID: roleID, Name: "mock_role"}, nil
 }
+func (d *dummyAuthRepo) GetUserInsights(userID, organizationID uuid.UUID) (total int64, inProgress int64, completed int64, err *response.Error) {
+	return 0, 0, 0, nil
+}
 
 type stubProjectRepo struct {
 	project                 models.Project
