@@ -9,6 +9,7 @@ import (
 type UserStoryResponse struct {
 	ID                    uuid.UUID      `json:"id"`
 	ProjectID             uuid.UUID      `json:"project_id"`
+	ProjectName           string         `json:"project_name,omitempty"`
 	SprintID              *uuid.UUID     `json:"sprint_id,omitempty"`
 	SprintName            string         `json:"sprint_name,omitempty"`
 	SerialNumber          int64          `json:"serial_number"`
@@ -20,6 +21,7 @@ type UserStoryResponse struct {
 	Status                string         `json:"status"`
 	StatusColor           string         `json:"status_color"`
 	IsClosed              bool           `json:"is_closed"`
+	IsFavourite           bool           `json:"is_favourite"`
 	StoryPoints           int            `json:"story_points"`
 	AssigneeID            *uuid.UUID     `json:"assignee_id,omitempty"`
 	AssigneeName          string         `json:"assignee_name,omitempty"`

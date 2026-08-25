@@ -18,6 +18,7 @@ import (
 	userstoryattachmentrepo "github.com/ms-kanban-server/internal/repository/user-story-attachment-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
@@ -35,17 +36,20 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 	commentAttachmentRepo := commentattachmentrepo.InitCommentAttachmentRepository(deps)
 	cleanupRepo := filecleanuprepo.InitFileCleanupRepository(deps)
 	userStoryAttachmentRepo := userstoryattachmentrepo.InitUserStoryAttachmentRepository(deps)
+	favoriteRepo := favoriterepo.InitFavoriteRepository(deps)
 
 	// initialize services
-	userStoryService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, userStoryStatusRepo, auditRepo, deps.Logger)
+	userStoryService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, userStoryStatusRepo, auditRepo, favoriteRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
 	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, userStoryAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
 	commentsService := services.InitCommentsService(commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, deps.Logger)
+	favoriteService := services.InitFavoriteService(favoriteRepo, userStoryRepo, taskRepo, projectRepo, customStatusRepo, userStoryStatusRepo, deps.Logger)
 
 	// initialize handlers
 	userStoryHandler := handlers.InitUserStoryHandler(userStoryService, deps.Logger)
 	attachmentHandler := handlers.InitAttachmentHandler(attachmentService, deps.Logger)
 	commentsHandler := handlers.InitCommentsHandler(commentsService, deps.Logger)
+	favoriteHandler := handlers.InitFavoriteHandler(favoriteService, deps.Logger)
 
 	middleware := middleware.InitMiddleware(deps.Logger)
 
@@ -58,6 +62,10 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 		us.PATCH("/:user_story_id", middleware.ValidateJWT(), userStoryHandler.UpdateUserStory)
 		us.PATCH("/:user_story_id/status", middleware.ValidateJWT(), userStoryHandler.UpdateUserStoryStatus)
 		us.DELETE("/:user_story_id", middleware.ValidateJWT(), userStoryHandler.DeleteUserStory)
+
+		// Favorite routes
+		us.POST("/:user_story_id/favorite", middleware.ValidateJWT(), favoriteHandler.AddUserStoryFavorite)
+		us.DELETE("/:user_story_id/favorite", middleware.ValidateJWT(), favoriteHandler.RemoveUserStoryFavorite)
 
 		// Attachment routes
 		us.POST("/:user_story_id/attachments", middleware.ValidateJWT(), attachmentHandler.UploadUserStoryAttachment)

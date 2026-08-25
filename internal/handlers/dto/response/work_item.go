@@ -18,6 +18,7 @@ type WorkItemResponse struct {
 	StatusID              uuid.UUID          `json:"status_id"`
 	Status                string             `json:"status"`
 	StatusColor           string             `json:"status_color,omitempty"`
+	IsFavourite           bool               `json:"is_favourite"`
 	StoryPoints           int                `json:"story_points"`
 	SprintID              *uuid.UUID         `json:"sprint_id,omitempty"`
 	SprintName            string             `json:"sprint_name,omitempty"`

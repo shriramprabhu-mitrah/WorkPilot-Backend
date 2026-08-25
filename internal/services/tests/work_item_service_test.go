@@ -208,7 +208,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 		},
 	}
 
-	service := services.InitWorkItemService(authRepo, projectRepo, workItemRepo, nil, nil, nil, nil, logger)
+	service := services.InitWorkItemService(authRepo, projectRepo, workItemRepo, nil, nil, nil, nil, nil, logger)
 
 	t.Run("Successfully retrieve Task by serial ID", func(t *testing.T) {
 		res, err := service.GetWorkItemBySerialNumber(projectID1.String(), 101, userIDMember)
