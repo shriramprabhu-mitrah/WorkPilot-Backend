@@ -984,6 +984,7 @@ func (d *projectDatabase) GetProjectsByUserID(userID uuid.UUID) ([]models.Projec
 
 	if err := d.db.
 		Preload("Project").
+		Preload("Role").
 		Where("user_id = ?", userID).
 		Find(&projects).Error; err != nil {
 
