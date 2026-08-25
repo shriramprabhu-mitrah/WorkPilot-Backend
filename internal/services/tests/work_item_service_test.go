@@ -116,7 +116,7 @@ type stubWorkItemRepo struct {
 	stories map[int64]*models.UserStory
 }
 
-func (s *stubWorkItemRepo) GetTaskBySerialNumber(serialNumber int64) (*models.Task, *response.Error) {
+func (s *stubWorkItemRepo) GetTaskBySerialNumberWithProjectSlugOrId(projectId uuid.UUID, serialNumber int64) (*models.Task, *response.Error) {
 	task, ok := s.tasks[serialNumber]
 	if !ok || !task.DeletedAt.Time.IsZero() {
 		return nil, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "Task not found"}

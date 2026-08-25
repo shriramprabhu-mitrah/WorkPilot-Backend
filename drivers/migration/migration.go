@@ -37,9 +37,9 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		return err
 	}
 
-	if err := SeedDefaultRoles(dbConn); err != nil {
-		return err
-	}
+	// if err := SeedDefaultRoles(dbConn); err != nil {
+	// 	return err
+	// }
 
 	err = MigrateProjectSlugs(dbConn)
 	if err != nil {
@@ -158,4 +158,3 @@ func MigrateProjectSlugs(dbConn *gorm.DB) error {
 
 	return nil
 }
-

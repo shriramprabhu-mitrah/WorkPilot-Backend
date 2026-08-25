@@ -3,16 +3,17 @@ package workitemrepo
 import (
 	"net/http"
 
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-func (d *workItemDatabase) GetTaskBySerialNumber(serialNumber int64) (*models.Task, *response.Error) {
+func (d *workItemDatabase) GetTaskBySerialNumberWithProjectSlugOrId(projectId uuid.UUID, serialNumber int64) (*models.Task, *response.Error) {
 	var task models.Task
 	err := d.db.Preload("Sprint").Preload("Assignee").Preload("Reporter").Preload("Labels").
-		Where("serial_number = ?", serialNumber).
+		Where("project_id = ?", projectId).Where("sequence_number = ?", serialNumber).
 		First(&task).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {

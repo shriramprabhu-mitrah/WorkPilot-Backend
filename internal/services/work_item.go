@@ -108,7 +108,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 	}
 
 	// 1. Try finding Task with serialID
-	task, taskErr := s.workItemRepo.GetTaskBySerialNumber(serialID)
+	task, taskErr := s.workItemRepo.GetTaskBySerialNumberWithProjectSlugOrId(project.ID,serialID)
 	if taskErr == nil && task != nil {
 		if task.ProjectID != project.ID {
 			return nil, &response.Error{

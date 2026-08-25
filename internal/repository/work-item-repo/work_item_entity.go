@@ -1,6 +1,7 @@
 package workitemrepo
 
 import (
+	"github.com/gofrs/uuid"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	redisclient "github.com/redis/go-redis/v9"
@@ -9,7 +10,7 @@ import (
 )
 
 type WorkItemRepository interface {
-	GetTaskBySerialNumber(serialNumber int64) (*models.Task, *response.Error)
+	GetTaskBySerialNumberWithProjectSlugOrId(prjectId uuid.UUID, serialNumber int64) (*models.Task, *response.Error)
 	GetUserStoryBySerialNumber(serialNumber int64) (*models.UserStory, *response.Error)
 }
 
