@@ -226,8 +226,12 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 		return
 	}
 
+	roleVal, _ := g.Get("role")
+	userRole, _ := roleVal.(string)
+
 	filter.UserID = userUUID
 	filter.OrganizationID = organizationUUID
+	filter.UserRole = userRole
 
 	projectResponses, pagination, err := h.service.GetProjectsByOrganizationID(filter)
 	if err != nil {

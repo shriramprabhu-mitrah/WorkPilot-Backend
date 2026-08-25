@@ -278,6 +278,8 @@ func (s *projectService) GetProjectsByOrganizationID(filterPayload requestdto.Pr
 		Name:            filterPayload.Name,
 		Status:          string(filterPayload.Status),
 		IncludeSprints:  filterPayload.IncludeSprints,
+		UserID:          filterPayload.UserID,
+		UserRole:        filterPayload.UserRole,
 	}
 
 	projects, pagination, err := s.projectRepo.GetProjectsByOrganizationID(filterPayload.OrganizationID, filter)
