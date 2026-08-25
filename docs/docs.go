@@ -8141,6 +8141,9 @@ const docTemplate = `{
                 "is_closed": {
                     "type": "boolean"
                 },
+                "is_final": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string",
                     "maxLength": 50,
@@ -8606,6 +8609,9 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "is_closed": {
+                    "type": "boolean"
+                },
+                "is_final": {
                     "type": "boolean"
                 },
                 "name": {

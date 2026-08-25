@@ -52,6 +52,7 @@ func (s *stubUserStoryStatusRepo) ensureDefaultStatuses(projectID uuid.UUID) {
 				DisplayOrder: d.order,
 				IsDefault:    true,
 				IsClosed:     d.name == "Completed",
+				IsFinal:      d.name == "Completed",
 			}
 		}
 	}
@@ -169,6 +170,9 @@ func TestUserStoryStatusService_CreateStatus(t *testing.T) {
 	if res.IsClosed {
 		t.Errorf("Expected is_closed to default to false, got true")
 	}
+	if res.IsFinal {
+		t.Errorf("Expected is_final to default to false, got true")
+	}
 
 	// Test 1b: Successful custom status creation with IsClosed = true
 	isClosedTrue := true
@@ -181,6 +185,22 @@ func TestUserStoryStatusService_CreateStatus(t *testing.T) {
 	}
 	if !res1b.IsClosed {
 		t.Errorf("Expected is_closed to be true, got false")
+	}
+	if !res1b.IsFinal {
+		t.Errorf("Expected is_final to be true, got false")
+	}
+
+	// Test 1c: Successful custom status creation with IsFinal = true
+	isFinalTrue := true
+	req1c := req
+	req1c.Name = "Done Final Custom"
+	req1c.IsFinal = &isFinalTrue
+	res1c, err := service.CreateStatus(req1c)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if !res1c.IsFinal || !res1c.IsClosed {
+		t.Errorf("Expected is_final and is_closed to be true, got is_final: %t, is_closed: %t", res1c.IsFinal, res1c.IsClosed)
 	}
 
 	// Test 2: Invalid color (422)
@@ -283,6 +303,41 @@ func TestUserStoryStatusService_UpdateStatus(t *testing.T) {
 	}
 	if res.Name != newName || res.Color != newColor || res.DisplayOrder != newOrder || !res.IsClosed {
 		t.Errorf("Unexpected updated status details: %+v", res)
+	}
+	if !res.IsFinal {
+		t.Errorf("Expected is_final to be updated to true (synced with is_closed), got false")
+	}
+
+	// Test 1b: Successful update of is_final
+	isFinalTrue := true
+	req1b := dto.UpdateUserStoryStatusRequest{
+		IsFinal:   &isFinalTrue,
+		StatusID:  statusID,
+		ProjectID: projectID,
+		UserID:    userID,
+	}
+	res1b, err := service.UpdateStatus(req1b)
+	if err != nil {
+		t.Fatalf("Expected no error updating is_final, got %v", err)
+	}
+	if !res1b.IsFinal || !res1b.IsClosed {
+		t.Errorf("Expected is_final and is_closed to be true, got is_final: %t, is_closed: %t", res1b.IsFinal, res1b.IsClosed)
+	}
+
+	// Test 1c: Sync update is_final to false
+	isFinalFalse := false
+	req1c := dto.UpdateUserStoryStatusRequest{
+		IsFinal:   &isFinalFalse,
+		StatusID:  statusID,
+		ProjectID: projectID,
+		UserID:    userID,
+	}
+	res1c, err := service.UpdateStatus(req1c)
+	if err != nil {
+		t.Fatalf("Expected no error updating is_final to false, got %v", err)
+	}
+	if res1c.IsFinal || res1c.IsClosed {
+		t.Errorf("Expected is_final and is_closed to be false, got is_final: %t, is_closed: %t", res1c.IsFinal, res1c.IsClosed)
 	}
 
 	// Test 2: Unauthorized user (403)

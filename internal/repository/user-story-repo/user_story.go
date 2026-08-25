@@ -353,7 +353,7 @@ func (d *userStoryDatabase) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 			var storyStatusIsClosed bool
 			err = d.db.Table("user_story_statuses").
 				Where("id = ? AND deleted_at IS NULL", story.StatusID).
-				Select("is_closed").
+				Select("is_closed OR is_final").
 				Scan(&storyStatusIsClosed).Error
 			if err == nil {
 				isClosed = storyStatusIsClosed

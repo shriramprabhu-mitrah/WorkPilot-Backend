@@ -8134,6 +8134,9 @@
                 "is_closed": {
                     "type": "boolean"
                 },
+                "is_final": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string",
                     "maxLength": 50,
@@ -8599,6 +8602,9 @@
                     "minimum": 0
                 },
                 "is_closed": {
+                    "type": "boolean"
+                },
+                "is_final": {
                     "type": "boolean"
                 },
                 "name": {

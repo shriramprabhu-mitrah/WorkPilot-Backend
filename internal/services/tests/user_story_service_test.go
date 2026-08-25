@@ -239,7 +239,7 @@ func (s *stubUserStoryRepo) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) 
 			if s.userStoryStatusRepo != nil {
 				cs, err := s.userStoryStatusRepo.GetStatusByID(story.StatusID, story.ProjectID)
 				if err == nil {
-					isClosed = cs.IsClosed
+					isClosed = cs.IsClosed || cs.IsFinal
 				}
 			}
 			story.IsClosed = isClosed

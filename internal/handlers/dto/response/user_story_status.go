@@ -13,6 +13,7 @@ type UserStoryStatusResponse struct {
 	DisplayOrder int        `json:"display_order"`
 	IsDefault    bool       `json:"is_default"`
 	IsClosed     bool       `json:"is_closed"`
+	IsFinal      bool       `json:"is_final"`
 }
 
 func UserStoryStatusFromModel(cs models.UserStoryStatus) UserStoryStatusResponse {
@@ -25,5 +26,6 @@ func UserStoryStatusFromModel(cs models.UserStoryStatus) UserStoryStatusResponse
 		DisplayOrder: cs.DisplayOrder,
 		IsDefault:    cs.IsDefault,
 		IsClosed:     cs.IsClosed,
+		IsFinal:      cs.IsFinal,
 	}
 }
