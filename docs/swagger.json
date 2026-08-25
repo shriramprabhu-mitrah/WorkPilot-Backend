@@ -7414,8 +7414,13 @@
                         "required": true
                     },
                     {
+<<<<<<< HEAD
                         "type": "string",
                         "description": "Global Serial ID or Key (e.g. US-1, MP-1)",
+=======
+                        "type": "integer",
+                        "description": "Global Serial ID",
+>>>>>>> 092f889 (Added swagger for project slug)
                         "name": "serial_id",
                         "in": "path",
                         "required": true
