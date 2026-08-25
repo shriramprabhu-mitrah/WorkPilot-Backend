@@ -151,6 +151,21 @@ func (s *stubUserStoryRepo) GetUserStories(projectID uuid.UUID, filter dto.UserS
 		if filter.IsClosed != nil && story.IsClosed != *filter.IsClosed {
 			continue
 		}
+		if filter.IsUnassignedStory {
+			if story.SprintID != nil && *story.SprintID != uuid.Nil {
+				continue
+			}
+		} else if filter.Sprint != "" {
+			if filter.Sprint == "null" || filter.Sprint == "none" {
+				if story.SprintID != nil && *story.SprintID != uuid.Nil {
+					continue
+				}
+			} else {
+				if story.SprintID == nil || story.SprintID.String() != filter.Sprint {
+					continue
+				}
+			}
+		}
 		res = append(res, *story)
 	}
 	return res, response.Pagination{}, nil
@@ -1049,7 +1064,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 
 	authRepo := &userStoryAuthRepoStub{
 		users: map[uuid.UUID]models.User{
-			userID: {ID: userID, OrganizationID: &orgID, RoleID:uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleOrgAdmin)}},
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleOrgAdmin)}},
 		},
 	}
 	projectRepo := &stubProjectRepo{
@@ -1242,5 +1257,67 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 	}
 	if updatedStory.IsClosed {
 		t.Errorf("expected is_closed false after explicit update, got true")
+	}
+}
+
+func TestUserStoryService_GetUserStories_UnassignedFilter(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, FullName: "John Doe"},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "WorkPilot Backend"},
+		isMember: true,
+	}
+
+	sprintID := uuid.Must(uuid.NewV4())
+	story1 := models.UserStory{
+		ID:        uuid.Must(uuid.NewV4()),
+		ProjectID: projectID,
+		SprintID:  &sprintID,
+		Title:     "Story 1",
+	}
+	story2 := models.UserStory{
+		ID:        uuid.Must(uuid.NewV4()),
+		ProjectID: projectID,
+		SprintID:  nil,
+		Title:     "Story 2",
+	}
+
+	stories := map[uuid.UUID]*models.UserStory{
+		story1.ID: &story1,
+		story2.ID: &story2,
+	}
+	userStoryRepo := &stubUserStoryRepo{
+		stories: stories,
+	}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+
+	// Test 1: Fetch all (default)
+	res, _, err := service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res) != 2 {
+		t.Errorf("expected 2 stories, got %d", len(res))
+	}
+
+	// Test 2: Filter by IsUnassignedStory = true
+	res, _, err = service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{
+		IsUnassignedStory: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res) != 1 {
+		t.Errorf("expected 1 unassigned story, got %d", len(res))
+	} else if res[0].ID != story2.ID {
+		t.Errorf("expected story 2, got %v", res[0].Title)
 	}
 }

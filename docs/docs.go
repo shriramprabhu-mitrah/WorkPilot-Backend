@@ -6033,6 +6033,12 @@ const docTemplate = `{
                         "description": "Fields to return (comma separated)",
                         "name": "fields",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter user stories that are not assigned to any sprint",
+                        "name": "is_unassigned_story",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7211,6 +7217,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Global Serial ID",
                         "name": "serial_id",
                         "in": "path",

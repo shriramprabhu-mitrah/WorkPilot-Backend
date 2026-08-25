@@ -106,7 +106,9 @@ func (d *userStoryDatabase) GetUserStories(projectID uuid.UUID, filter dto.UserS
 		query = query.Where("reporter_id = ?", filter.Reporter)
 	}
 
-	if filter.Sprint != "" {
+	if filter.IsUnassignedStory {
+		query = query.Where("sprint_id IS NULL")
+	} else if filter.Sprint != "" {
 		if filter.Sprint == "null" || filter.Sprint == "none" {
 			query = query.Where("sprint_id IS NULL")
 		} else {

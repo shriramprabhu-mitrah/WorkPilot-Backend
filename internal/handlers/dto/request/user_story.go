@@ -81,16 +81,17 @@ func (r *UpdateUserStoryRequest) IsAssigneeIDNull() bool {
 type UserStoryFilter struct {
 	response.PaginationQuery
 	response.SortQuery
-	Status         string `form:"status"`
-	Assignee       string `form:"assignee_id"`
-	Reporter       string `form:"reporter_id"`
-	Sprint         string `form:"sprint_id"`
-	Search         string `form:"search"`
-	Priority       string `form:"priority"`
-	Fields         string `form:"fields"`
-	SequenceNumber *int64 `form:"sequence_number"`
-	SerialNumber   *int64 `form:"serial_number"`
-	IsClosed       *bool  `form:"is_closed"`
+	Status            string `form:"status"`
+	Assignee          string `form:"assignee_id"`
+	Reporter          string `form:"reporter_id"`
+	Sprint            string `form:"sprint_id"`
+	Search            string `form:"search"`
+	Priority          string `form:"priority"`
+	Fields            string `form:"fields"`
+	SequenceNumber    *int64 `form:"sequence_number"`
+	SerialNumber      *int64 `form:"serial_number"`
+	IsUnassignedStory bool   `form:"is_unassigned_story"`
+	IsClosed          *bool  `form:"is_closed"`
 }
 
 type ReorderUserStoriesRequest struct {

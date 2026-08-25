@@ -5365,6 +5365,10 @@ paths:
         in: query
         name: fields
         type: string
+      - description: Filter user stories that are not assigned to any sprint
+        in: query
+        name: is_unassigned_story
+        type: boolean
       produces:
       - application/json
       responses:
@@ -6156,6 +6160,7 @@ paths:
         required: true
         type: string
       - description: Global Serial ID
+        format: int64
         in: path
         name: serial_id
         required: true
