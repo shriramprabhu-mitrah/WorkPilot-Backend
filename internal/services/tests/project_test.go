@@ -25,6 +25,14 @@ func (d *dummySprintRepo) CreateSprint(sprint *models.Sprint) *response.Error {
 	return nil
 }
 
+func (d *dummySprintRepo) StartSprint(sprintID uuid.UUID, startDate time.Time, endDate time.Time) *response.Error {
+	return nil
+}
+
+func (d *dummySprintRepo) CompleteSprint(sprintID uuid.UUID, projectID uuid.UUID, actualEndDate time.Time, velocity int) *response.Error {
+	return nil
+}
+
 func (d *dummySprintRepo) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
 	return 0, nil
 }

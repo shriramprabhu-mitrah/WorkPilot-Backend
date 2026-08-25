@@ -66,6 +66,16 @@ type sprintRepoStub struct {
 	lastIsSprintDateRangeExistsStart   time.Time
 	lastIsSprintDateRangeExistsEnd     time.Time
 	lastIsSprintDateRangeExistsExclude uuid.UUID
+	startErr                           *response.Error
+	lastStartSprintID                  uuid.UUID
+	lastStartDate                      time.Time
+	lastEndDate                        time.Time
+	completeErr                        *response.Error
+	lastCompleteSprintID               uuid.UUID
+	lastCompleteProjectID              uuid.UUID
+	lastCompleteActualEnd              time.Time
+	lastCompleteVelocity               int
+	lastMoveIncompleteTasksSprintID    uuid.UUID
 	createSnapshotErr                  *response.Error
 	lastSnapshotCreated                models.SprintSnapshot
 }
@@ -136,6 +146,36 @@ func (s *sprintRepoStub) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, 
 	return s.completedStoryPoints, s.completedStoryPointsErr
 }
 
+func (s *sprintRepoStub) StartSprint(sprintID uuid.UUID, startDate time.Time, endDate time.Time) *response.Error {
+	s.lastStartSprintID = sprintID
+	s.lastStartDate = startDate
+	s.lastEndDate = endDate
+	if s.getSprintByIDRes != nil && s.getSprintByIDRes.ID == sprintID {
+		s.getSprintByIDRes.Status = "active"
+		s.getSprintByIDRes.StartDate = &startDate
+		s.getSprintByIDRes.EndDate = &endDate
+	}
+	return s.startErr
+}
+
+func (s *sprintRepoStub) CompleteSprint(sprintID uuid.UUID, projectID uuid.UUID, actualEndDate time.Time, velocity int) *response.Error {
+	s.lastCompleteSprintID = sprintID
+	s.lastCompleteProjectID = projectID
+	s.lastCompleteActualEnd = actualEndDate
+	s.lastCompleteVelocity = velocity
+	if s.getSprintByIDRes != nil && s.getSprintByIDRes.ID == sprintID {
+		s.getSprintByIDRes.Status = "completed"
+		s.getSprintByIDRes.ActualEndDate = &actualEndDate
+		s.getSprintByIDRes.Velocity = &velocity
+	}
+	return s.completeErr
+}
+
+func (s *sprintRepoStub) MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error {
+	s.lastMoveIncompleteTasksSprintID = sprintID
+	return nil
+}
+
 func TestSprintService_CreateSprint_RejectsUnauthorizedUserOrganization(t *testing.T) {
 	logger := zap.NewNop()
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: nil}}
@@ -155,7 +195,7 @@ func TestSprintService_CreateSprint_RejectsUnauthorizedUserOrganization(t *testi
 	}
 }
 
-func TestSprintService_CreateSprint_ReturnsBadRequestForInvalidDateRange(t *testing.T) {
+func TestSprintService_CreateSprint_SavesSprintWithPlannedStatusAndNullDates(t *testing.T) {
 	logger := zap.NewNop()
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())
@@ -168,19 +208,21 @@ func TestSprintService_CreateSprint_ReturnsBadRequestForInvalidDateRange(t *test
 		UserID:         userID,
 		OrganizationID: orgID,
 		Sprints: []dto.CreateSprint{{
-			Name:      "Sprint 1",
-			StartDate: "2026-07-12",
-			EndDate:   "2026-07-10",
+			Name: "Sprint 1",
+			Goal: "Complete onboarding",
 		}},
 	})
-	if err == nil {
-		t.Fatal("expected validation error, got nil")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
-	if err.Code != response.ErrBadRequest {
-		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	if sprintRepo.lastCreateSprint.Status != "planned" {
+		t.Fatalf("expected status planned, got %s", sprintRepo.lastCreateSprint.Status)
 	}
-	if err.Message != "end_date cannot be before start_date" {
-		t.Fatalf("unexpected message: %s", err.Message)
+	if sprintRepo.lastCreateSprint.StartDate != nil {
+		t.Fatalf("expected StartDate to be nil, got %v", sprintRepo.lastCreateSprint.StartDate)
+	}
+	if sprintRepo.lastCreateSprint.EndDate != nil {
+		t.Fatalf("expected EndDate to be nil, got %v", sprintRepo.lastCreateSprint.EndDate)
 	}
 }
 
@@ -192,16 +234,13 @@ func TestSprintService_CreateSprint_SuccessfullyPersistsSprints(t *testing.T) {
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
 	sprintRepo := &sprintRepoStub{}
 	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
-
 	createReq := dto.CreateSprintRequest{
 		ProjectID:      projectID,
 		UserID:         userID,
 		OrganizationID: orgID,
 		Sprints: []dto.CreateSprint{{
-			Name:      "Sprint 1",
-			Goal:      "Ship MVP",
-			StartDate: "2026-07-12",
-			EndDate:   "2026-07-18",
+			Name: "Sprint 1",
+			Goal: "Ship MVP",
 		}},
 	}
 
@@ -271,7 +310,10 @@ func TestSprintService_UpdateSprint_RejectsInvalidDateFormat(t *testing.T) {
 	sprintID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
-	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC), EndDate: time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)}}
+
+	startDate := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: &startDate, EndDate: &endDate}}
 	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
@@ -296,7 +338,9 @@ func TestSprintService_UpdateSprint_DelegatesToRepository(t *testing.T) {
 	sprintID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
-	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC), EndDate: time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)}}
+	startDate := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	sprintRepo := &sprintRepoStub{getSprintByIDRes: &models.Sprint{StartDate: &startDate, EndDate: &endDate}}
 	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
@@ -400,15 +444,16 @@ func TestSprintService_UpdateSprint_CalculatesVelocityUponCompletion(t *testing.
 	userID := uuid.Must(uuid.NewV4())
 	projectID := uuid.Must(uuid.NewV4())
 	sprintID := uuid.Must(uuid.NewV4())
-
+	startDate := time.Now()
+	endDate := time.Now().Add(7 * 24 * time.Hour)
 	existingSprint := &models.Sprint{
 		ID:        sprintID,
 		ProjectID: projectID,
 		Name:      "Sprint 1",
 		Goal:      "Test Goal",
 		Status:    "active",
-		StartDate: time.Now(),
-		EndDate:   time.Now().Add(7 * 24 * time.Hour),
+		StartDate: &startDate,
+		EndDate:   &endDate,
 	}
 
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
@@ -454,8 +499,8 @@ func TestSprintService_GetSprintBurndown_GeneratesCorrectMetrics(t *testing.T) {
 		ID:        sprintID,
 		ProjectID: projectID,
 		Name:      "Sprint 1",
-		StartDate: sprintStart,
-		EndDate:   sprintEnd,
+		StartDate: &sprintStart,
+		EndDate:   &sprintEnd,
 		Status:    "active",
 	}
 
@@ -556,8 +601,8 @@ func TestSprintService_CreateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 		UserID:         userID,
 		OrganizationID: orgID,
 		Sprints: []dto.CreateSprint{
-			{Name: "Sprint 1", StartDate: "2026-07-12", EndDate: "2026-07-18"},
-			{Name: "Sprint 1", StartDate: "2026-07-12", EndDate: "2026-07-18"},
+			{Name: "Sprint 1"},
+			{Name: "Sprint 1"},
 		},
 	})
 	if err != nil {
@@ -572,13 +617,15 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 	projectID := uuid.Must(uuid.NewV4())
 	sprintID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	startdate := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	enddate := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
 	sprintRepo := &sprintRepoStub{
 		getSprintByIDRes: &models.Sprint{
 			ID:        sprintID,
 			ProjectID: projectID,
 			Name:      "Sprint 1",
-			StartDate: time.Now(),
-			EndDate:   time.Now().Add(7 * 24 * time.Hour),
+			StartDate: &startdate,
+			EndDate:   &enddate,
 		},
 	}
 	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
@@ -588,8 +635,8 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 		UserID:         userID,
 		OrganizationID: orgID,
 		SprintID:       sprintID,
-		StartDate:      strPtr("2026-08-01"),
-		EndDate:        strPtr("2026-08-08"),
+		StartDate:      strPtr("2026-09-01"),
+		EndDate:        strPtr("2026-09-08"),
 		Name:           strPtr("Sprint 1"),
 	})
 	if err != nil {
@@ -611,15 +658,17 @@ func TestSprintService_UpdateSprint_AuditLogDetails(t *testing.T) {
 			UserName:       "sprint_master",
 		},
 	}
+	startdate := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	enddate := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
 	sprintRepo := &sprintRepoStub{
 		getSprintByIDRes: &models.Sprint{
 			ID:        sprintID,
 			ProjectID: projectID,
 			Name:      "Old Sprint",
 			Goal:      "Old Goal",
-			Status:    "planning",
-			StartDate: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
-			EndDate:   time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
+			Status:    "planned",
+			StartDate: &startdate,
+			EndDate:   &enddate,
 		},
 	}
 	auditRepo := &stubAuditLogRepo{}
@@ -628,8 +677,8 @@ func TestSprintService_UpdateSprint_AuditLogDetails(t *testing.T) {
 	newName := "New Sprint"
 	newGoal := "New Goal"
 	newStatus := dto.SprintStatusActive
-	newStartDate := "2026-08-02"
-	newEndDate := "2026-08-12"
+	newStartDate := "2026-09-02"
+	newEndDate := "2026-09-12"
 
 	err := service.UpdateSprint(dto.UpdateSprintRequest{
 		ProjectID:      projectID,
@@ -651,8 +700,341 @@ func TestSprintService_UpdateSprint_AuditLogDetails(t *testing.T) {
 	}
 
 	log := auditRepo.createdLogs[0]
-	expectedDetail := "Sprint updated by sprint_master: start date changed from '2026-08-01' to '2026-08-02', end date changed from '2026-08-10' to '2026-08-12', name changed from 'Old Sprint' to 'New Sprint', goal changed from 'Old Goal' to 'New Goal', status changed from 'planning' to 'active'"
+	expectedDetail := "Sprint updated by sprint_master: start date changed from '2026-09-01' to '2026-09-02', end date changed from '2026-09-10' to '2026-09-12', name changed from 'Old Sprint' to 'New Sprint', goal changed from 'Old Goal' to 'New Goal', status changed from 'planned' to 'active'"
 	if log.Details != expectedDetail {
 		t.Errorf("expected audit log detail:\n%s\ngot:\n%s", expectedDetail, log.Details)
+	}
+}
+
+func TestSprintService_StartSprint_Success(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           models.Role{Name: string(dto.RoleOrgAdmin)},
+		},
+	}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Sprint 1",
+			Status:    "planned",
+		},
+	}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	resp, err := service.StartSprint(dto.StartSprintRequest{
+		ProjectID: projectID,
+		SprintID:  sprintID,
+		UserID:    userID,
+		StartDate: "2026-09-01",
+		EndDate:   "2026-09-14",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if resp.Status != "active" {
+		t.Fatalf("expected status active, got %s", resp.Status)
+	}
+	if sprintRepo.lastStartSprintID != sprintID {
+		t.Fatalf("expected repo call with sprint ID %s, got %s", sprintID, sprintRepo.lastStartSprintID)
+	}
+}
+
+func TestSprintService_StartSprint_FailsIfNotPlanned(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           models.Role{Name: string(dto.RoleOrgAdmin)},
+		},
+	}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Sprint 1",
+			Status:    "active",
+		},
+	}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	_, err := service.StartSprint(dto.StartSprintRequest{
+		ProjectID: projectID,
+		SprintID:  sprintID,
+		UserID:    userID,
+		StartDate: "2026-09-01",
+		EndDate:   "2026-09-14",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_CompleteSprint_Success(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+	startDate := time.Now()
+	endDate := time.Now().Add(14 * 24 * time.Hour)
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           models.Role{Name: string(dto.RoleOrgAdmin)},
+		},
+	}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Sprint 1",
+			Status:    "active",
+			StartDate: &startDate,
+			EndDate:   &endDate,
+		},
+		completedStoryPoints: 10,
+	}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	resp, err := service.CompleteSprint(dto.CompleteSprintRequest{
+		ProjectID: projectID,
+		SprintID:  sprintID,
+		UserID:    userID,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if sprintRepo.lastCompleteSprintID != sprintID {
+		t.Fatalf("expected repo complete call with sprint ID %s, got %s", sprintID, sprintRepo.lastCompleteSprintID)
+	}
+	if sprintRepo.lastCompleteVelocity != 10 {
+		t.Fatalf("expected completed velocity 10, got %d", sprintRepo.lastCompleteVelocity)
+	}
+	if sprintRepo.lastMoveIncompleteTasksSprintID != sprintID {
+		t.Fatalf("expected incomplete tasks moved to backlog, but repo was not called")
+	}
+	if resp.Status != "completed" {
+		t.Fatalf("expected status completed, got %s", resp.Status)
+	}
+}
+
+func TestSprintService_CompleteSprint_FailsIfNotActive(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           models.Role{Name: string(dto.RoleOrgAdmin)},
+		},
+	}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Sprint 1",
+			Status:    "planned",
+		},
+	}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	_, err := service.CompleteSprint(dto.CompleteSprintRequest{
+		ProjectID: projectID,
+		SprintID:  sprintID,
+		UserID:    userID,
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_CreateSprint_WithDates_Success(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	_, err := service.CreateSprint(dto.CreateSprintRequest{
+		ProjectID:      uuid.Must(uuid.NewV4()),
+		UserID:         userID,
+		OrganizationID: orgID,
+		Sprints: []dto.CreateSprint{{
+			Name:      "Sprint 1",
+			Goal:      "Complete onboarding",
+			StartDate: strPtr("2026-08-25T09:00:00Z"),
+			EndDate:   strPtr("2026-09-01T18:00:00Z"),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if sprintRepo.lastCreateSprint.Status != "planned" {
+		t.Fatalf("expected status planned, got %s", sprintRepo.lastCreateSprint.Status)
+	}
+	if sprintRepo.lastCreateSprint.StartDate == nil {
+		t.Fatal("expected StartDate to be set")
+	}
+	if sprintRepo.lastCreateSprint.EndDate == nil {
+		t.Fatal("expected EndDate to be set")
+	}
+}
+
+func TestSprintService_CreateSprint_WithDates_FailsIfOneMissing(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	_, err := service.CreateSprint(dto.CreateSprintRequest{
+		ProjectID:      uuid.Must(uuid.NewV4()),
+		UserID:         userID,
+		OrganizationID: orgID,
+		Sprints: []dto.CreateSprint{{
+			Name:      "Sprint 1",
+			Goal:      "Complete onboarding",
+			StartDate: strPtr("2026-08-25T09:00:00Z"),
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_CreateSprint_WithDates_FailsIfEndBeforeStart(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
+	sprintRepo := &sprintRepoStub{}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	_, err := service.CreateSprint(dto.CreateSprintRequest{
+		ProjectID:      uuid.Must(uuid.NewV4()),
+		UserID:         userID,
+		OrganizationID: orgID,
+		Sprints: []dto.CreateSprint{{
+			Name:      "Sprint 1",
+			Goal:      "Complete onboarding",
+			StartDate: strPtr("2026-09-01T18:00:00Z"),
+			EndDate:   strPtr("2026-08-25T09:00:00Z"),
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_StartSprint_FailsIfDatesMissing(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           models.Role{Name: string(dto.RoleOrgAdmin)},
+		},
+	}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Sprint 1",
+			Status:    "planned",
+		},
+	}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	_, err := service.StartSprint(dto.StartSprintRequest{
+		ProjectID: projectID,
+		SprintID:  sprintID,
+		UserID:    userID,
+		StartDate: "",
+		EndDate:   "2026-09-14",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
+	}
+}
+
+func TestSprintService_StartSprint_FailsIfEndDateBeforeStartDate(t *testing.T) {
+	logger := zap.NewNop()
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	authRepo := &sprintAuthRepoStub{
+		user: models.User{
+			ID:             userID,
+			OrganizationID: &orgID,
+			Role:           models.Role{Name: string(dto.RoleOrgAdmin)},
+		},
+	}
+	sprintRepo := &sprintRepoStub{
+		getSprintByIDRes: &models.Sprint{
+			ID:        sprintID,
+			ProjectID: projectID,
+			Name:      "Sprint 1",
+			Status:    "planned",
+		},
+	}
+	service := services.InitSprintService(sprintRepo, testProjRepo, authRepo, &stubAuditLogRepo{}, logger)
+
+	_, err := service.StartSprint(dto.StartSprintRequest{
+		ProjectID: projectID,
+		SprintID:  sprintID,
+		UserID:    userID,
+		StartDate: "2026-09-14",
+		EndDate:   "2026-09-01",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Code != response.ErrBadRequest {
+		t.Fatalf("expected ErrBadRequest, got %s", err.Code)
 	}
 }

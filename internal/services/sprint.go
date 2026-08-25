@@ -8,6 +8,8 @@ import (
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -20,6 +22,8 @@ import (
 
 type SprintService interface {
 	CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *response.Error)
+	StartSprint(req requestdto.StartSprintRequest) (*responsedto.SprintResponse, *response.Error)
+	CompleteSprint(req requestdto.CompleteSprintRequest) (*responsedto.SprintResponse, *response.Error)
 	DeleteSprint(req dto.DeleteSprint) *response.Error
 	UpdateSprint(req dto.UpdateSprintRequest) *response.Error
 	GetSprints(req dto.GetSprint, filter dto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error)
@@ -93,63 +97,68 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *r
 		}
 	}
 
-	type validatedSprint struct {
-		Name      string
-		Goal      string
-		StartDate time.Time
-		EndDate   time.Time
-	}
-
-	validatedList := make([]validatedSprint, 0, len(req.Sprints))
-
-	for _, spr := range req.Sprints {
-
-		startDate, startErr := utils.StringToTime(spr.StartDate)
-		if startErr != nil {
-			s.logger.Error("Invalid start_date",
-				zap.Error(startErr))
-			return uuid.Nil, &response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
-			}
-		}
-
-		endDate, endErr := utils.StringToTime(spr.EndDate)
-		if endErr != nil {
-			s.logger.Error("Invalid end_date",
-				zap.Error(endErr))
-			return uuid.Nil, &response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "Invalid end_date. Expected format: YYYY-MM-DD",
-			}
-		}
-
-		if endDate.Before(*startDate) {
-			return uuid.Nil, &response.Error{
-				Code:       response.ErrBadRequest,
-				StatusCode: http.StatusBadRequest,
-				Message:    "end_date cannot be before start_date",
-			}
-		}
-
-		validatedList = append(validatedList, validatedSprint{
-			Name:      spr.Name,
-			Goal:      spr.Goal,
-			StartDate: *startDate,
-			EndDate:   *endDate,
-		})
-	}
-
 	var sprint *models.Sprint
 
-	for _, vSpr := range validatedList {
+	// First validate dates for all sprints
+	for _, spr := range req.Sprints {
+		var hasStart = spr.StartDate != nil && *spr.StartDate != "" && *spr.StartDate != "null"
+		var hasEnd = spr.EndDate != nil && *spr.EndDate != "" && *spr.EndDate != "null"
+
+		if (hasStart && !hasEnd) || (!hasStart && hasEnd) {
+			return uuid.Nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Both start_date and end_date must be provided if either is specified",
+			}
+		}
+
+		if hasStart && hasEnd {
+			start, err := parseDateString(*spr.StartDate)
+			if err != nil {
+				return uuid.Nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    fmt.Sprintf("Invalid start_date: %v", err),
+				}
+			}
+			end, err := parseDateString(*spr.EndDate)
+			if err != nil {
+				return uuid.Nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    fmt.Sprintf("Invalid end_date: %v", err),
+				}
+			}
+			if end.Before(start) {
+				return uuid.Nil, &response.Error{
+					Code:       response.ErrBadRequest,
+					StatusCode: http.StatusBadRequest,
+					Message:    "end_date cannot be before start_date",
+				}
+			}
+		}
+	}
+
+	for _, spr := range req.Sprints {
+		var startDatePtr *time.Time
+		var endDatePtr *time.Time
+
+		var hasStart = spr.StartDate != nil && *spr.StartDate != "" && *spr.StartDate != "null"
+		var hasEnd = spr.EndDate != nil && *spr.EndDate != "" && *spr.EndDate != "null"
+
+		if hasStart && hasEnd {
+			start, _ := parseDateString(*spr.StartDate)
+			end, _ := parseDateString(*spr.EndDate)
+			startDatePtr = &start
+			endDatePtr = &end
+		}
+
 		sprint = &models.Sprint{
-			Name:        vSpr.Name,
-			Goal:        vSpr.Goal,
-			StartDate:   vSpr.StartDate,
-			EndDate:     vSpr.EndDate,
+			Name:        spr.Name,
+			Goal:        spr.Goal,
+			Status:      "planned",
+			StartDate:   startDatePtr,
+			EndDate:     endDatePtr,
 			ProjectID:   req.ProjectID,
 			CreatedByID: req.UserID,
 		}
@@ -180,6 +189,353 @@ func (s *sprintService) CreateSprint(req dto.CreateSprintRequest) (uuid.UUID, *r
 	}
 
 	return sprint.ID, nil
+}
+
+func (s *sprintService) StartSprint(req requestdto.StartSprintRequest) (*responsedto.SprintResponse, *response.Error) {
+
+	// 1. Get user
+	result, errResp := s.authRepo.GetUserByID(req.UserID)
+	if errResp != nil {
+		s.logger.Error(
+			"Failed to get user",
+			zap.String("userID", req.UserID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		return nil, errResp
+	}
+
+	// 3. Validate organization
+	if result.OrganizationID == nil {
+		s.logger.Error(
+			"User organization ID is nil",
+			zap.String("userID", req.UserID.String()),
+		)
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to start this sprint",
+		}
+	}
+
+	// 2. Get sprint using sprint ID + project ID
+	sprint, errResp := s.sprintRepo.GetSprintByID(
+		req.SprintID,
+		req.ProjectID,
+	)
+	if errResp != nil {
+		s.logger.Error(
+			"Failed to get sprint",
+			zap.String("sprintID", req.SprintID.String()),
+			zap.String("projectID", req.ProjectID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		return nil, errResp
+	}
+
+	// 4. Check project member
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, sprint.ProjectID)
+
+	isOrgAdmin := result.Role.Name == string(dto.RoleOrgAdmin)
+
+	// If user is not a project member and is not organization admin
+	if err != nil {
+		if !isOrgAdmin {
+			s.logger.Warn(
+				"User is not a project member",
+				zap.String("userID", req.UserID.String()),
+				zap.String("projectID", sprint.ProjectID.String()),
+			)
+
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to start this sprint",
+			}
+		}
+	} else {
+
+		// 5. Check project role
+		if member.Role.Name != string(requestdto.ProjectRoleOrgAdmin) &&
+			member.Role.Name != string(requestdto.ProjectRoleProjectManager) &&
+			!isOrgAdmin {
+
+			s.logger.Warn(
+				"User is not authorized to start sprint",
+				zap.String("userID", req.UserID.String()),
+				zap.String("projectID", sprint.ProjectID.String()),
+				zap.String("projectRole", member.Role.Name),
+			)
+
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to start this sprint",
+			}
+		}
+	}
+
+	// 6. Only planned sprint can be started
+	if sprint.Status != "planned" {
+		s.logger.Warn(
+			"Sprint cannot be started",
+			zap.String("sprintID", req.SprintID.String()),
+			zap.String("status", sprint.Status),
+		)
+
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Only planned sprints can be started",
+		}
+	}
+
+	// 7. Parse and validate start and end dates from user input
+	if req.StartDate == "" {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "start_date must be provided",
+		}
+	}
+	if req.EndDate == "" {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "end_date must be provided",
+		}
+	}
+
+	parsedStartDate, parseStartErr := parseDateString(req.StartDate)
+	if parseStartErr != nil {
+		s.logger.Error("Invalid start_date", zap.String("startDate", req.StartDate), zap.Error(parseStartErr))
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    fmt.Sprintf("Invalid start_date: %v", parseStartErr),
+		}
+	}
+
+	parsedEndDate, parseEndErr := parseDateString(req.EndDate)
+	if parseEndErr != nil {
+		s.logger.Error("Invalid end_date", zap.String("endDate", req.EndDate), zap.Error(parseEndErr))
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    fmt.Sprintf("Invalid end_date: %v", parseEndErr),
+		}
+	}
+
+	if parsedEndDate.Before(parsedStartDate) || parsedEndDate.Equal(parsedStartDate) {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "end_date cannot be before or equal to start_date",
+		}
+	}
+
+	// 8. Update sprint
+	errResp = s.sprintRepo.StartSprint(req.SprintID, parsedStartDate, parsedEndDate)
+
+	if errResp != nil {
+		s.logger.Error(
+			"Failed to start sprint",
+			zap.String("sprintID", req.SprintID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		return nil, errResp
+	}
+
+	// 9. Build response
+	responseData := &responsedto.SprintResponse{
+		ID:        sprint.ID,
+		Name:      sprint.Name,
+		Goal:      sprint.Goal,
+		Status:    "active",
+		StartDate: &parsedStartDate,
+		EndDate:   &parsedEndDate,
+	}
+
+	s.logger.Info(
+		"Sprint started successfully",
+		zap.String("sprintID", req.SprintID.String()),
+		zap.String("projectID", req.ProjectID.String()),
+		zap.String("userID", req.UserID.String()),
+	)
+
+	return responseData, nil
+
+}
+
+func (s *sprintService) CompleteSprint(req requestdto.CompleteSprintRequest) (*responsedto.SprintResponse, *response.Error) {
+
+	// 1. Get user
+	user, errResp := s.authRepo.GetUserByID(req.UserID)
+	if errResp != nil {
+		s.logger.Error(
+			"Failed to get user",
+			zap.String("userID", req.UserID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		return nil, errResp
+	}
+
+	// 2. Get sprint using sprint ID and project ID
+	sprint, errResp := s.sprintRepo.GetSprintByID(
+		req.SprintID,
+		req.ProjectID,
+	)
+	if errResp != nil {
+		s.logger.Error(
+			"Failed to get sprint",
+			zap.String("sprintID", req.SprintID.String()),
+			zap.String("projectID", req.ProjectID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		return nil, errResp
+	}
+
+	// 3. Validate organization
+	if user.OrganizationID == nil {
+		s.logger.Error(
+			"User organization ID is nil",
+			zap.String("userID", req.UserID.String()),
+		)
+
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to complete this sprint",
+		}
+	}
+
+	// 4. Check project membership
+	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, sprint.ProjectID)
+
+	isOrgAdmin := user.Role.Name == string(dto.RoleOrgAdmin)
+
+	// User is not a project member
+	if err != nil {
+
+		if !isOrgAdmin {
+			s.logger.Warn(
+				"User is not a project member",
+				zap.String("userID", req.UserID.String()),
+				zap.String("projectID", sprint.ProjectID.String()),
+			)
+
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to complete this sprint",
+			}
+		}
+
+	} else {
+
+		// 5. Check project role
+		if member.Role.Name != string(requestdto.ProjectRoleOrgAdmin) &&
+			member.Role.Name != string(requestdto.ProjectRoleProjectManager) &&
+			!isOrgAdmin {
+
+			s.logger.Warn(
+				"User is not authorized to complete sprint",
+				zap.String("userID", req.UserID.String()),
+				zap.String("projectID", sprint.ProjectID.String()),
+				zap.String("projectRole", member.Role.Name),
+			)
+
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to complete this sprint",
+			}
+		}
+	}
+
+	// 6. Only active sprint can be completed
+	if sprint.Status != "active" {
+		s.logger.Warn(
+			"Sprint cannot be completed",
+			zap.String("sprintID", req.SprintID.String()),
+			zap.String("status", sprint.Status),
+		)
+
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Only active sprints can be completed",
+		}
+	}
+
+	// 7. Generate actual end date on backend
+	actualEndDate := time.Now()
+
+	// 8. Calculate velocity from completed tasks story points
+	velocity, errResp := s.sprintRepo.GetCompletedTasksStoryPoints(req.SprintID)
+	if errResp != nil {
+		s.logger.Error("Failed to calculate completed task story points for sprint velocity", zap.String("sprintID", req.SprintID.String()), zap.Error(fmt.Errorf("%v", errResp)))
+		return nil, errResp
+	}
+
+	// 9. Rollover incomplete tasks to backlog
+	errResp = s.sprintRepo.MoveIncompleteTasksToBacklog(req.SprintID)
+	if errResp != nil {
+		s.logger.Error("Failed to move incomplete tasks to backlog during sprint completion", zap.String("sprintID", req.SprintID.String()), zap.Error(fmt.Errorf("%v", errResp)))
+		return nil, errResp
+	}
+
+	// 10. Complete sprint in database
+	errResp = s.sprintRepo.CompleteSprint(req.SprintID, req.ProjectID, actualEndDate, velocity)
+	if errResp != nil {
+		s.logger.Error(
+			"Failed to complete sprint",
+			zap.String("sprintID", req.SprintID.String()),
+			zap.String("projectID", req.ProjectID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		return nil, errResp
+	}
+
+	// 11. Fetch the updated sprint
+	updatedSprint, errResp := s.sprintRepo.GetSprintByID(req.SprintID, req.ProjectID)
+	if errResp != nil {
+		s.logger.Error(
+			"Failed to get updated sprint",
+			zap.String("sprintID", req.SprintID.String()),
+			zap.String("projectID", req.ProjectID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		return nil, errResp
+	}
+
+	// 12. Build response using updated database values
+	responseData := &responsedto.SprintResponse{
+		ID:            updatedSprint.ID,
+		Name:          updatedSprint.Name,
+		Goal:          updatedSprint.Goal,
+		Status:        updatedSprint.Status,
+		StartDate:     updatedSprint.StartDate,
+		EndDate:       updatedSprint.EndDate,
+		ActualEndDate: updatedSprint.ActualEndDate,
+	}
+
+	// 11. Log success
+	s.logger.Info(
+		"Sprint completed successfully",
+		zap.String("sprintID", req.SprintID.String()),
+		zap.String("userID", req.UserID.String()),
+		zap.String("projectID", req.ProjectID.String()),
+	)
+
+	return responseData, nil
 }
 
 func (s *sprintService) DeleteSprint(req dto.DeleteSprint) *response.Error {
@@ -281,9 +637,11 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 	}
 
 	if *result.OrganizationID != req.OrganizationID {
-		s.logger.Error("Unauthorized Access",
-			zap.String("Organization Id", req.OrganizationID.String()),
-			zap.String("User Organization Id", result.OrganizationID.String()))
+		s.logger.Error(
+			"Unauthorized access",
+			zap.String("organizationID", req.OrganizationID.String()),
+			zap.String("userOrganizationID", result.OrganizationID.String()),
+		)
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
@@ -333,59 +691,167 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 
 	startDate := existingSprint.StartDate
 	endDate := existingSprint.EndDate
+
 	updates := make(map[string]interface{})
 	var changes []string
 
+	now := time.Now()
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	if req.StartDate != nil {
-		d, err := utils.StringToTime(*req.StartDate)
+		// Empty string is not allowed if pointer is provided
+		if strings.TrimSpace(*req.StartDate) == "" {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "start_date cannot be empty",
+			}
+		}
+
+		parsedStartDate, err := utils.StringToTime(*req.StartDate)
 		if err != nil {
+			s.logger.Error(
+				"Invalid start_date",
+				zap.String("startDate", *req.StartDate),
+				zap.Error(err),
+			)
+
 			return &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid start_date. Expected format: YYYY-MM-DD",
 			}
 		}
-		startDate = *d
-		updates["start_date"] = startDate
-		if startDate.Format("2006-01-02") != existingSprint.StartDate.Format("2006-01-02") {
-			changes = append(changes, fmt.Sprintf("start date changed from '%s' to '%s'", existingSprint.StartDate.Format("2006-01-02"), startDate.Format("2006-01-02")))
+
+		if parsedStartDate.Before(today) {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Past start date is not allowed",
+			}
+		}
+
+		if endDate != nil && parsedStartDate.After(*endDate) {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Start date cannot be after end date",
+			}
+		}
+
+		startDate = parsedStartDate
+		updates["start_date"] = parsedStartDate
+
+		oldDate := "NULL"
+
+		if existingSprint.StartDate != nil {
+			oldDate = existingSprint.StartDate.Format("2006-01-02")
+		}
+
+		newDate := parsedStartDate.Format("2006-01-02")
+
+		if oldDate != newDate {
+			changes = append(
+				changes,
+				fmt.Sprintf(
+					"start date changed from '%s' to '%s'",
+					oldDate,
+					newDate,
+				),
+			)
 		}
 	}
 
 	if req.EndDate != nil {
-		d, err := utils.StringToTime(*req.EndDate)
+
+		// Empty string is not allowed if pointer is provided
+		if strings.TrimSpace(*req.EndDate) == "" {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "end_date cannot be empty",
+			}
+		}
+
+		parsedEndDate, err := utils.StringToTime(*req.EndDate)
 		if err != nil {
+			s.logger.Error(
+				"Invalid end_date",
+				zap.String("endDate", *req.EndDate),
+				zap.Error(err),
+			)
+
 			return &response.Error{
 				Code:       response.ErrBadRequest,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Invalid end_date. Expected format: YYYY-MM-DD",
 			}
 		}
-		endDate = *d
-		updates["end_date"] = endDate
-		if endDate.Format("2006-01-02") != existingSprint.EndDate.Format("2006-01-02") {
-			changes = append(changes, fmt.Sprintf("end date changed from '%s' to '%s'", existingSprint.EndDate.Format("2006-01-02"), endDate.Format("2006-01-02")))
-		}
-	}
 
-	if startDate.After(endDate) {
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Sprint start date cannot be after end date",
+		if parsedEndDate.Before(today) {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Past end date is not allowed",
+			}
+		}
+
+		if startDate != nil && parsedEndDate.Before(*startDate) {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "End date cannot be before start date",
+			}
+		}
+
+		endDate = parsedEndDate
+		updates["end_date"] = parsedEndDate
+
+		oldDate := "NULL"
+
+		if existingSprint.EndDate != nil {
+			oldDate = existingSprint.EndDate.Format("2006-01-02")
+		}
+
+		newDate := parsedEndDate.Format("2006-01-02")
+
+		if oldDate != newDate {
+			changes = append(
+				changes,
+				fmt.Sprintf(
+					"end date changed from '%s' to '%s'",
+					oldDate,
+					newDate,
+				),
+			)
 		}
 	}
 
 	if req.Name != nil {
 		updates["name"] = *req.Name
 		if *req.Name != existingSprint.Name {
-			changes = append(changes, fmt.Sprintf("name changed from '%s' to '%s'", existingSprint.Name, *req.Name))
+			changes = append(
+				changes,
+				fmt.Sprintf(
+					"name changed from '%s' to '%s'",
+					existingSprint.Name,
+					*req.Name,
+				),
+			)
 		}
 	}
+
 	if req.Goal != nil {
 		updates["goal"] = *req.Goal
 		if *req.Goal != existingSprint.Goal {
-			changes = append(changes, fmt.Sprintf("goal changed from '%s' to '%s'", existingSprint.Goal, *req.Goal))
+			changes = append(
+				changes,
+				fmt.Sprintf(
+					"goal changed from '%s' to '%s'",
+					existingSprint.Goal,
+					*req.Goal,
+				),
+			)
 		}
 	}
 
@@ -398,15 +864,24 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		}
 	}
 
-	if req.Status != nil && newStatus == "completed" && existingSprint.Status != "completed" {
-		v, err := s.sprintRepo.GetCompletedTasksStoryPoints(req.SprintID)
+	if req.Status != nil &&
+		newStatus == "completed" &&
+		existingSprint.Status != "completed" {
+		// Get completed task story points
+		velocity, err := s.sprintRepo.GetCompletedTasksStoryPoints(
+			req.SprintID,
+		)
 		if err != nil {
 			return err
 		}
-		updates["velocity"] = v
+
+		updates["velocity"] = velocity
+		updates["actual_end_date"] = time.Now()
 
 		if existingSprint.Status != "completed" {
-			err := s.sprintRepo.MoveIncompleteTasksToBacklog(req.SprintID)
+			err := s.sprintRepo.MoveIncompleteTasksToBacklog(
+				req.SprintID,
+			)
 			if err != nil {
 				return err
 			}
@@ -424,7 +899,6 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 		detail = fmt.Sprintf("Sprint details updated by %s", changedBy)
 	}
 
-	// audit log creation
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
@@ -441,7 +915,10 @@ func (s *sprintService) UpdateSprint(req dto.UpdateSprintRequest) *response.Erro
 
 	err = s.auditRepo.CreateAuditLog(auditLog)
 	if err != nil {
-		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
+		s.logger.Warn(
+			"Failed to create audit log",
+			zap.Any("error", err),
+		)
 	}
 
 	return s.sprintRepo.UpdateSprint(req.ProjectID, req.SprintID, updates)
@@ -616,6 +1093,14 @@ func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uui
 	sprint, errResp := s.sprintRepo.GetSprintByID(sprintID, projectID)
 	if errResp != nil {
 		return nil, errResp
+	}
+
+	if sprint.StartDate == nil || sprint.EndDate == nil {
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Burndown chart cannot be generated for sprints without start and end dates",
+		}
 	}
 
 	// 3. Fetch snapshots
@@ -810,4 +1295,20 @@ func (s *sprintService) TriggerDailySnapshots(projectUUID, userUUID, orgUUID uui
 		s.logger.Warn("Failed to create audit log", zap.Any("error", err))
 	}
 	return nil
+}
+
+func parseDateString(str string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, str); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse(time.RFC3339Nano, str); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02", str); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05", str); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("expected format: YYYY-MM-DD")
 }

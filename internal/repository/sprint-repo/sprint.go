@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -17,8 +18,7 @@ import (
 )
 
 func (d *sprintDatabase) CreateSprint(row *models.Sprint) *response.Error {
-
-	if err := d.db.Create(&row).Error; err != nil {
+	if err := d.db.Create(row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
 			d.logger.Error("Duplicated Key conflict",
 				zap.Error(err))
@@ -31,6 +31,93 @@ func (d *sprintDatabase) CreateSprint(row *models.Sprint) *response.Error {
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,
 			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	return nil
+}
+
+func (r *sprintDatabase) StartSprint(sprintID uuid.UUID, startDate time.Time, endDate time.Time) *response.Error {
+
+	result := r.db.
+		Model(&models.Sprint{}).
+		Where("id = ?", sprintID).
+		Where("status = ?", "planned").
+		Updates(map[string]interface{}{
+			"status":     "active",
+			"start_date": startDate,
+			"end_date":   endDate,
+		})
+
+	if result.Error != nil {
+		r.logger.Error(
+			"Failed to start sprint",
+			zap.String("sprintID", sprintID.String()),
+			zap.Error(result.Error),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to start sprint",
+		}
+	}
+
+	if result.RowsAffected == 0 {
+		r.logger.Warn(
+			"Sprint cannot be started",
+			zap.String("sprintID", sprintID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Only planned sprints can be started",
+		}
+	}
+
+	return nil
+}
+
+func (r *sprintDatabase) CompleteSprint(sprintID uuid.UUID, projectID uuid.UUID, actualEndDate time.Time, velocity int) *response.Error {
+
+	result := r.db.
+		Model(&models.Sprint{}).
+		Where("id = ?", sprintID).
+		Where("project_id = ?", projectID).
+		Where("status = ?", "active").
+		Updates(map[string]interface{}{
+			"status":          "completed",
+			"actual_end_date": actualEndDate,
+			"velocity":        velocity,
+		})
+
+	if result.Error != nil {
+		r.logger.Error(
+			"Failed to complete sprint",
+			zap.String("sprintID", sprintID.String()),
+			zap.String("projectID", projectID.String()),
+			zap.Error(result.Error),
+		)
+
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to complete sprint",
+		}
+	}
+
+	if result.RowsAffected == 0 {
+		r.logger.Warn(
+			"Sprint cannot be completed",
+			zap.String("sprintID", sprintID.String()),
+			zap.String("projectID", projectID.String()),
+		)
+
+		return &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Only active sprints can be completed",
 		}
 	}
 

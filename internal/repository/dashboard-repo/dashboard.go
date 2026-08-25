@@ -314,12 +314,25 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 	}
 
 	// 2. Validate sprint dates
-	if sprint.EndDate.Before(sprint.StartDate) {
+	if sprint.StartDate == nil || sprint.EndDate == nil {
+		r.logger.Error(
+			"Sprint dates are nil",
+			zap.String("sprintID", sprintID.String()),
+		)
+
+		return nil, &response.Error{
+			Code:       response.ErrBadRequest,
+			Message:    "Sprint start date and end date must be set",
+			StatusCode: http.StatusBadRequest,
+		}
+	}
+
+	if sprint.EndDate.Before(*sprint.StartDate) {
 		r.logger.Error(
 			"Invalid sprint dates",
 			zap.String("sprintID", sprintID.String()),
-			zap.Time("startDate", sprint.StartDate),
-			zap.Time("endDate", sprint.EndDate),
+			zap.Time("startDate", *sprint.StartDate),
+			zap.Time("endDate", *sprint.EndDate),
 		)
 
 		return nil, &response.Error{

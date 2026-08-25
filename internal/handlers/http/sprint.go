@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -101,6 +104,217 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 	}
 
 	g.JSON(successResponse.StatusCode, successResponse)
+}
+
+// StartSprint godoc
+// @Summary Start Sprint
+// @Description start a created sprint
+// @Tags Sprint
+// @Accept json
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param request body requestdto.StartSprintRequest true "Start sprint payload"
+// @Success 201 {object} response.SuccessResponse "Sprint started successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Failure 403 {object} response.ErrorResponse "Forbidden"
+// @Failure 409 {object} response.ErrorResponse "Conflict"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /projects/{project_id}/sprint/start [post]
+func (h *sprintHandler) StartSprint(g *gin.Context) {
+	// Get project ID from path parameter
+	projectIDParam := g.Param("project_id")
+
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error(
+			"Failed to convert project ID to UUID",
+			zap.String("projectID", projectIDParam),
+
+			zap.Error(fmt.Errorf("%v", errorResponse)),
+		)
+
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	// Get sprint ID from query parameter
+	sprintIDParam := g.Query("sprint_id")
+
+	if sprintIDParam == "" {
+		errResp := &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "sprint_id query parameter is required",
+		}
+
+		g.JSON(
+			errResp.StatusCode,
+			&response.ErrorResponse{
+				Success: false,
+				Error:   *errResp,
+			},
+		)
+		return
+	}
+
+	sprintID, errorResponse := utils.StringToUUID(sprintIDParam)
+	if errorResponse != nil {
+		h.logger.Error(
+			"Failed to convert sprint ID to UUID",
+			zap.String("sprintID", sprintIDParam),
+			zap.Error(fmt.Errorf("%v", errorResponse)),
+		)
+
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	// Get user ID from context
+	userID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	var req requestdto.StartSprintRequest
+	if err := g.ShouldBind(&req); err != nil && !errors.Is(err, io.EOF) {
+		message := utils.ValidationErrorMessage(err, req)
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrValidation,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			},
+		}
+		h.logger.Error("Invalid request payload for starting sprint", zap.Error(err))
+		g.JSON(errorResponse.Error.StatusCode, errorResponse)
+		return
+	}
+
+	req.ProjectID = projectID
+	req.SprintID = sprintID
+	req.UserID = userID
+
+	// Call service
+	sprint, errResp := h.service.StartSprint(req)
+
+	if errResp != nil {
+		h.logger.Error(
+			"Failed to start sprint",
+			zap.String("projectID", projectID.String()),
+			zap.String("sprintID", sprintID.String()),
+			zap.String("userID", userID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		}
+
+		g.JSON(errResp.StatusCode, errorResponse)
+		return
+	}
+
+	// Return success response
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Sprint started successfully.",
+		Data:       sprint,
+	})
+}
+
+func (h *sprintHandler) CompleteSprint(g *gin.Context) {
+
+	projectIDParam := g.Param("project_id")
+
+	projectID, errorResponse := utils.StringToUUID(projectIDParam)
+	if errorResponse != nil {
+		h.logger.Error(
+			"Failed to convert project ID to UUID",
+			zap.String("projectID", projectIDParam),
+
+			zap.Error(fmt.Errorf("%v", errorResponse)),
+		)
+
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	// 1. Get sprint ID from path parameter
+	sprintIDParam := g.Query("sprint_id")
+
+	if sprintIDParam == "" {
+		errResp := &response.Error{
+			Code:       response.ErrBadRequest,
+			StatusCode: http.StatusBadRequest,
+			Message:    "sprint_id query parameter is required",
+		}
+
+		g.JSON(
+			errResp.StatusCode,
+			&response.ErrorResponse{
+				Success: false,
+				Error:   *errResp,
+			},
+		)
+		return
+	}
+
+	sprintID, errorResponse := utils.StringToUUID(sprintIDParam)
+	if errorResponse != nil {
+		h.logger.Error(
+			"Failed to convert sprint ID to UUID",
+			zap.String("sprintID", sprintIDParam),
+			zap.Error(fmt.Errorf("%v", errorResponse)),
+		)
+
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	// 2. Get user ID from authentication context
+	userID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	// 3. Build request
+	req := requestdto.CompleteSprintRequest{
+		SprintID:  sprintID,
+		UserID:    userID,
+		ProjectID: projectID,
+	}
+
+	// 4. Call service
+	sprint, errResp := h.service.CompleteSprint(req)
+
+	if errResp != nil {
+		h.logger.Error(
+			"Failed to complete sprint",
+			zap.String("sprintID", sprintID.String()),
+			zap.String("userID", userID.String()),
+			zap.Error(fmt.Errorf("%v", errResp)),
+		)
+
+		errorResponse := &response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		}
+
+		g.JSON(errResp.StatusCode, errorResponse)
+		return
+	}
+
+	// 5. Return success response
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Sprint completed successfully.",
+		Data:       sprint,
+	})
 }
 
 // DeleteSprint godoc
@@ -268,7 +482,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Param project_id path string true "Project ID"
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Page size" default(10)
-// @Param status query string false "Sprint Status" Enums(planning,active,on_hold,completed,cancelled,archived)
+// @Param status query string false "Sprint Status" Enums(planned,active,on_hold,completed,cancelled,archived)
 // @Param search query string false "Search sprint by name"
 // @Param sort_by query string false "Sort by field" Enums(name,created_at,updated_at,start_date,end_date,status)
 // @Param sort_order query string false "Sort order" Enums(ASC,DESC)

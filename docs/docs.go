@@ -3868,7 +3868,7 @@ const docTemplate = `{
                     },
                     {
                         "enum": [
-                            "planning",
+                            "planned",
                             "active",
                             "on_hold",
                             "completed",
@@ -3997,6 +3997,77 @@ const docTemplate = `{
                 "responses": {
                     "201": {
                         "description": "Sprint(s) created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{project_id}/sprint/start": {
+            "post": {
+                "description": "start a created sprint",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sprint"
+                ],
+                "summary": "Start Sprint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Start sprint payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.StartSprintRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Sprint started successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -7902,9 +7973,7 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_request.CreateSprint": {
             "type": "object",
             "required": [
-                "end_date",
-                "name",
-                "start_date"
+                "name"
             ],
             "properties": {
                 "end_date": {
@@ -7915,7 +7984,7 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string",
-                    "maxLength": 100,
+                    "maxLength": 1000,
                     "minLength": 2
                 },
                 "start_date": {
@@ -8227,7 +8296,7 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_request.SprintStatus": {
             "type": "string",
             "enum": [
-                "planning",
+                "planned",
                 "active",
                 "on_hold",
                 "completed",
@@ -8235,13 +8304,31 @@ const docTemplate = `{
                 "archived"
             ],
             "x-enum-varnames": [
-                "SprintStatusPlanning",
+                "SprintStatusPlanned",
                 "SprintStatusActive",
                 "SprintStatusOnHold",
                 "SprintStatusCompleted",
                 "SprintStatusCancelled",
                 "SprintStatusArchived"
             ]
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_request.StartSprintRequest": {
+            "type": "object",
+            "required": [
+                "end_date",
+                "start_date"
+            ],
+            "properties": {
+                "end_date": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                }
+            }
         },
         "github_com_ms-kanban-server_internal_handlers_dto_request.UpdateCommentsRequest": {
             "type": "object",
@@ -8367,7 +8454,7 @@ const docTemplate = `{
                 },
                 "status": {
                     "enum": [
-                        "planning",
+                        "planned",
                         "active",
                         "on_hold",
                         "completed",
