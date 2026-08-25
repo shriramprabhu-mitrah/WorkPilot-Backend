@@ -2979,7 +2979,7 @@ paths:
       - application/json
       description: Retrieve a project's details along with its members and sprints.
       parameters:
-      - description: Project ID (UUID)
+      - description: Project ID (UUID) or Project Slug
         in: path
         name: project_id
         required: true
@@ -2997,7 +2997,7 @@ paths:
                   $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.ProjectDetail'
               type: object
         "400":
-          description: Invalid project ID
+          description: Invalid project ID or Slug
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
         "401":
@@ -5833,13 +5833,12 @@ paths:
       description: Retrieve a project work item (task or user story) using its global
         serial ID.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID) or Project Slug
         in: path
         name: project_id
         required: true
         type: string
       - description: Global Serial ID
-        format: int64
         in: path
         name: serial_id
         required: true
