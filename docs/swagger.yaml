@@ -6257,7 +6257,6 @@ paths:
         required: true
         type: string
       - description: Global Serial ID
-        format: int64
         in: path
         name: serial_id
         required: true

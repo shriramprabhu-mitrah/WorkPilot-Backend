@@ -7290,7 +7290,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "format": "int64",
                         "description": "Global Serial ID",
                         "name": "serial_id",
                         "in": "path",
