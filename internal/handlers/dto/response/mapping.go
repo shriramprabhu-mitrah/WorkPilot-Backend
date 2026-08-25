@@ -39,6 +39,7 @@ func UserProfileFromModel(user models.User) UserProfile {
 		Email:            user.Email,
 		Role:             user.Role.Name,
 		AvatarURL:        avatarURL,
+		Color:            user.Color,
 		Timezone:         user.Timezone,
 		IsActive:         user.IsActive,
 		IsVerified:       user.IsVerified,
@@ -88,6 +89,7 @@ func ProjectMemberFromModel(member models.ProjectMember) ProjectMember {
 		FullName:         member.User.FullName,
 		Role:             member.Role.Name,
 		AvatarURL:        avatarURL,
+		Color:            member.User.Color,
 		OrganizationName: orgName,
 		ProjectKey:       utils.GenerateProjectPrefix(member.Project.Name),
 	}
@@ -124,6 +126,7 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 		FullName:        comment.User.FullName,
 		Email:           comment.User.Email,
 		AvatarURL:       avatarURL,
+		Color:           comment.User.Color,
 		Content:         comment.Content,
 		ParentCommentID: comment.ParentCommentID,
 		CreatedAt:       comment.CreatedAt,
@@ -145,6 +148,7 @@ func CommentsFromModel(comment models.Comments) CommentsResponse {
 			FullName:  comment.ParentComment.User.FullName,
 			Email:     comment.ParentComment.User.Email,
 			AvatarURL: parentAvatarURL,
+			Color:     comment.ParentComment.User.Color,
 			Content:   comment.ParentComment.Content,
 			CreatedAt: comment.ParentComment.CreatedAt,
 			UpdatedAt: comment.ParentComment.UpdatedAt,
@@ -183,6 +187,7 @@ func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
 			FullName:  audit.User.FullName,
 			Email:     audit.User.Email,
 			AvatarURL: avatarURL,
+			Color:     audit.User.Color,
 			Role:      audit.User.Role.Name,
 		}
 	}

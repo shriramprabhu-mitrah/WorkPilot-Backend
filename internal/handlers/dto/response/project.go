@@ -47,6 +47,7 @@ type ProjectMemberResponse struct {
 	FullName         string    `json:"full_name"`
 	Role             string    `json:"role"`
 	AvatarURL        *string   `json:"avatar_url"`
+	Color            string    `json:"color"`
 	OrganizationName string    `json:"organization_name,omitempty"`
 	ProjectKey       string    `json:"project_key,omitempty"`
 }
@@ -67,6 +68,7 @@ type GetProjectByUserIDResponse struct {
 	FullName  string            `json:"full_name"`
 	Email     string            `json:"email"`
 	AvatarURL *string           `json:"avatar_url"`
+	Color     string            `json:"color"`
 	Role      string            `json:"role,omitempty"`
 	Project   []ProjectResponse `json:"project"`
 }

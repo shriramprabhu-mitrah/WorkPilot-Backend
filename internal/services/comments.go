@@ -340,6 +340,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		UserName:    user.UserName,
 		FullName:    user.FullName,
 		AvatarURL:   avatarURL,
+		Color:       user.Color,
 	}
 
 	return response, nil
@@ -587,6 +588,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 		UserName:    user.UserName,
 		FullName:    user.FullName,
 		AvatarURL:   avatarURL,
+		Color:       user.Color,
 	}
 
 	return response, nil

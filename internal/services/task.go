@@ -170,6 +170,7 @@ func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap 
 			FullName:  task.Reporter.FullName,
 			Email:     task.Reporter.Email,
 			AvatarURL: avatarURL,
+			Color:     task.Reporter.Color,
 			Role:      task.Reporter.Role.Name,
 		}
 	}
@@ -184,6 +185,7 @@ func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap 
 			FullName:  task.Assignee.FullName,
 			Email:     task.Assignee.Email,
 			AvatarURL: avatarURL,
+			Color:     task.Assignee.Color,
 			Role:      task.Assignee.Role.Name,
 		}
 	}

@@ -185,6 +185,7 @@ func (r *dashboardDatabase) GetTeamWorkload(projectID uuid.UUID) ([]responsedto.
 			users.username AS user_name,
 			COALESCE(users.full_name, '') AS full_name,
 			COALESCE(users.avatar_url, '') AS avatar_url,
+			COALESCE(users.color, '') AS color,
 			COUNT(tasks.id) AS task_count,
 			COALESCE(SUM(tasks.story_points), 0) AS points
 		`).
@@ -197,7 +198,8 @@ func (r *dashboardDatabase) GetTeamWorkload(projectID uuid.UUID) ([]responsedto.
 			users.id,
 			users.username,
 			users.full_name,
-			users.avatar_url
+			users.avatar_url,
+			users.color
 		`).
 		Order("users.username").
 		Scan(&result).Error

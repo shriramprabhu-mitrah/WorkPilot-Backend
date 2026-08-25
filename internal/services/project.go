@@ -709,6 +709,7 @@ func (s *projectService) GetProjectActivity(userID uuid.UUID, userRole string, u
 				FullName:  item.User.FullName,
 				Email:     item.User.Email,
 				AvatarURL: avatarURL,
+				Color:     item.User.Color,
 				Role:      item.User.Role.Name,
 			}
 		}
@@ -1027,6 +1028,7 @@ func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) 
 		FullName:  result.FullName,
 		UserName:  result.UserName,
 		AvatarURL: avatarURL,
+		Color:     result.Color,
 		Email:     result.Email,
 		Role:      result.Role.Name,
 		Project:   make([]responsedto.ProjectResponse, 0, len(projectMembers)),
@@ -1118,6 +1120,7 @@ func (s *projectService) GetRecentProjects(req requestdto.GetProjectByUserID) (*
 		FullName:  result.FullName,
 		UserName:  result.UserName,
 		AvatarURL: avatarURL,
+		Color:     result.Color,
 		Email:     result.Email,
 		Role:      result.Role.Name,
 		Project:   make([]responsedto.ProjectResponse, 0, len(projectMembers)),
