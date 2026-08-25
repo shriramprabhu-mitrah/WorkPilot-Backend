@@ -8146,9 +8146,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/{project_id}/sprint-burndown/{sprint_id}": {
+        "/{project_id}/sprint-burndown": {
             "get": {
-                "description": "Retrieve the sprint burndown data for a specific sprint within a project",
+                "description": "Get sprint burndown chart data for dashboard. If sprint_id is provided, returns that sprint's burndown. If omitted, returns burndown for all active sprints of the project.",
                 "produces": [
                     "application/json"
                 ],
@@ -8168,15 +8168,26 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Sprint ID",
                         "name": "sprint_id",
-                        "in": "path",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.DashboardSprintBurndownResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -9399,6 +9410,17 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.DashboardSprintBurndownResponse": {
+            "type": "object",
+            "properties": {
+                "sprints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData"
+                    }
+                }
+            }
+        },
         "github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse": {
             "type": "object",
             "properties": {
@@ -9763,6 +9785,40 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse"
                     }
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown": {
+            "type": "object",
+            "properties": {
+                "actual_hours": {
+                    "type": "number"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "day": {
+                    "type": "integer"
+                },
+                "ideal_hours": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData": {
+            "type": "object",
+            "properties": {
+                "burndown": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown"
+                    }
+                },
+                "sprint_id": {
+                    "type": "string"
+                },
+                "sprint_name": {
+                    "type": "string"
                 }
             }
         },

@@ -65,6 +65,10 @@ func (d *dummySprintRepo) GetActiveSprints() ([]models.Sprint, *response.Error) 
 	return nil, nil
 }
 
+func (d *dummySprintRepo) GetActiveSprintsByProjectID(projectID uuid.UUID) ([]models.Sprint, *response.Error) {
+	return nil, nil
+}
+
 func (d *dummySprintRepo) GetSprints(projectID uuid.UUID, filter requestdto.SprintFilter) ([]models.Sprint, response.Pagination, *response.Error) {
 	return nil, response.Pagination{}, nil
 }

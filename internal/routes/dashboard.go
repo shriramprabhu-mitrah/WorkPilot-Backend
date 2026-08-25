@@ -34,7 +34,7 @@ func DashboardRoutes(deps models.Config, api *gin.RouterGroup) {
 	{
 		dashbrd.GET("/overview", middleware.ValidateJWT(), dashboardhandler.GetOverview)
 		dashbrd.GET("/task-status", middleware.ValidateJWT(), dashboardhandler.GetTaskStatus)
-		dashbrd.GET("/sprint-burndown/:sprint_id", middleware.ValidateJWT(), dashboardhandler.GetSprintBurndown)
+		dashbrd.GET("/sprint-burndown", middleware.ValidateJWT(), dashboardhandler.GetSprintBurndown)
 		dashbrd.GET("/weekly-progress", middleware.ValidateJWT(), dashboardhandler.GetWeeklyProgress)
 		dashbrd.GET("/team-workload", middleware.ValidateJWT(), dashboardhandler.GetTeamWorkload)
 

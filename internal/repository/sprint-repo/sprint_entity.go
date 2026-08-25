@@ -28,6 +28,7 @@ type SprintRepository interface {
 	GetTotalStoryPoints(sprintID uuid.UUID) (int, *response.Error)
 	GetRemainingStoryPoints(sprintID uuid.UUID) (int, *response.Error)
 	GetActiveSprints() ([]models.Sprint, *response.Error)
+	GetActiveSprintsByProjectID(projectID uuid.UUID) ([]models.Sprint, *response.Error)
 	GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error)
 	MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error
 	GetSprintCountByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int, *response.Error)
