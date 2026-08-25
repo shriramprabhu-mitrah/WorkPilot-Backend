@@ -1297,7 +1297,7 @@ func TestUserStoryService_GetUserStories_UnassignedFilter(t *testing.T) {
 		stories: stories,
 	}
 
-	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, nil, zap.NewNop())
 
 	// Test 1: Fetch all (default)
 	res, _, err := service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{})
