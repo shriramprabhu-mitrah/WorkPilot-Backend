@@ -1944,7 +1944,7 @@ func TestTaskService_AssignTaskToMe(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, nil, zap.NewNop())
 
 	t.Run("successfully assigns task to self", func(t *testing.T) {
 		existingTask.AssigneeID = nil
@@ -1971,7 +1971,7 @@ func TestTaskService_AssignTaskToMe(t *testing.T) {
 				},
 			},
 		}
-		inactiveService := services.InitTaskService(inactiveUserRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+		inactiveService := services.InitTaskService(inactiveUserRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, nil, zap.NewNop())
 
 		_, err := inactiveService.AssignTaskToMe(taskID, userID, orgID, projectID)
 		if err == nil {
@@ -1987,7 +1987,7 @@ func TestTaskService_AssignTaskToMe(t *testing.T) {
 			project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 			isMember: false,
 		}
-		nonMemberService := services.InitTaskService(authRepo, nonMemberProjectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+		nonMemberService := services.InitTaskService(authRepo, nonMemberProjectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, nil, zap.NewNop())
 
 		_, err := nonMemberService.AssignTaskToMe(taskID, userID, orgID, projectID)
 		if err == nil {
