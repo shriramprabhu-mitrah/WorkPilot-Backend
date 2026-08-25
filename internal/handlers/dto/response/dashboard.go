@@ -45,3 +45,13 @@ type DashboardResponse struct {
 	// WeeklyProgress []WeeklyProgress  `json:"weekly_progress"`
 	TeamWorkload []TeamWorkload `json:"team_workload"`
 }
+
+type DashboardSprintBurndownResponse struct {
+	Sprints []SprintBurndownData `json:"sprints"`
+}
+
+type SprintBurndownData struct {
+	SprintID   uuid.UUID        `json:"sprint_id"`
+	SprintName string           `json:"sprint_name"`
+	Burndown   []SprintBurndown `json:"burndown"`
+}

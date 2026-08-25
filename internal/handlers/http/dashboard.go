@@ -7,10 +7,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.SprintBurndown{}
 
 func InitDashboardHandler(service services.DashboardService, logger *zap.Logger) *DashboardHandler {
 	return &DashboardHandler{
@@ -303,17 +306,17 @@ func (h *DashboardHandler) GetWeeklyProgress(c *gin.Context) {
 
 // GetSprintBurndown godoc
 // @Summary Get Sprint Burndown
-// @Description Retrieve the sprint burndown data for a specific sprint within a project
+// @Description Get sprint burndown chart data for dashboard. If sprint_id is provided, returns that sprint's burndown. If omitted, returns burndown for all active sprints of the project.
 // @Tags Dashboard
 // @Produce json
 // @Param project_id path string true "Project ID"
-// @Param sprint_id path string true "Sprint ID"
-// @Success 200 {object} response.SuccessResponse
+// @Param sprint_id query string false "Sprint ID"
+// @Success 200 {object} response.SuccessResponse{data=responsedto.DashboardSprintBurndownResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Router /{project_id}/sprint-burndown/{sprint_id} [get]
+// @Router /{project_id}/sprint-burndown [get]
 func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 	// Get project ID from URL parameter
 	projectIDStr := c.Param("project_id")
@@ -334,23 +337,28 @@ func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 		return
 	}
 
-	// Get sprint ID from URL parameter
-	sprintIDStr := c.Param("sprint_id")
+	// Get optional sprint ID from query parameter
+	sprintIDStr := c.Query("sprint_id")
+	var sprintID uuid.UUID
 
-	sprintID, err := uuid.FromString(sprintIDStr)
-	if err != nil {
-		h.logger.Warn(
-			"Invalid sprint ID",
-			zap.String("sprintID", sprintIDStr),
-			zap.Error(err),
-		)
+	if sprintIDStr != "" {
+		sprintID, err = uuid.FromString(sprintIDStr)
+		if err != nil {
+			h.logger.Warn(
+				"Invalid sprint ID",
+				zap.String("sprintID", sprintIDStr),
+				zap.Error(err),
+			)
 
-		c.JSON(http.StatusBadRequest, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Invalid sprint ID",
-		})
-		return
+			c.JSON(http.StatusBadRequest, response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid sprint ID",
+			})
+			return
+		}
+	} else {
+		sprintID = uuid.Nil
 	}
 
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
@@ -409,27 +417,6 @@ func (h *DashboardHandler) GetDashboardData(c *gin.Context) {
 		})
 		return
 	}
-	// 2. sprint querey param
-	sprintIDStr := c.Query("sprint_id")
-
-	if sprintIDStr == "" {
-		c.JSON(http.StatusBadRequest, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "sprint_id is required",
-		})
-		return
-	}
-
-	sprintID, err := uuid.FromString(sprintIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Invalid sprint_id",
-		})
-		return
-	}
 
 	// 3. Get authenticated user ID
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
@@ -438,13 +425,12 @@ func (h *DashboardHandler) GetDashboardData(c *gin.Context) {
 	}
 
 	// 4. Call service
-	result, serviceErr := h.service.GetDashboardData(projectID, sprintID, userUUID)
+	result, serviceErr := h.service.GetDashboardData(projectID, userUUID)
 
 	if serviceErr != nil {
 		h.logger.Error(
 			"Failed to get dashboard data",
 			zap.String("projectID", projectID.String()),
-			zap.String("sprintID", sprintID.String()),
 			zap.Error(fmt.Errorf("%v", serviceErr)),
 		)
 

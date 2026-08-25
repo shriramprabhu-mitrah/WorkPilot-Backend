@@ -22,10 +22,10 @@ import (
 type DashboardService interface {
 	GetOverview(projectID uuid.UUID, userID uuid.UUID) (responsedto.DashboardOverview, *response.Error)
 	GetTaskStatus(projectID uuid.UUID, userID uuid.UUID) (map[string]int64, *response.Error)
-	GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID, userID uuid.UUID) ([]responsedto.SprintBurndown, *response.Error)
+	GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardSprintBurndownResponse, *response.Error)
 	GetWeeklyProgress(projectID uuid.UUID, startDate time.Time, endDate time.Time, userID uuid.UUID) ([]responsedto.WeeklyProgress, *response.Error)
 	GetTeamWorkload(projectID uuid.UUID, userID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error)
-	GetDashboardData(projectID uuid.UUID, sprintID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardResponse, *response.Error)
+	GetDashboardData(projectID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardResponse, *response.Error)
 }
 
 func InitDashboardService(
@@ -250,7 +250,7 @@ func (s *dashboardService) GetWeeklyProgress(projectID uuid.UUID, startDate time
 }
 
 // GetSprintBurndown returns sprint burndown chart data
-func (s *dashboardService) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID, userID uuid.UUID) ([]responsedto.SprintBurndown, *response.Error) {
+func (s *dashboardService) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardSprintBurndownResponse, *response.Error) {
 	_, _, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		s.logger.Error("Authorization check failed", zap.Error(fmt.Errorf("%v", err)))
@@ -270,41 +270,91 @@ func (s *dashboardService) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.
 		}
 	}
 
-	// Verify sprint belongs to project
-	sprint, err := s.sprintRepo.GetSprintByID(sprintID, projectID)
-	if err != nil {
-		s.logger.Error("Failed to get sprint", zap.Error(fmt.Errorf("%v", err)))
-		return nil, &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to get sprint",
+	var responseSprints []responsedto.SprintBurndownData
+
+	if sprintID != uuid.Nil {
+		// Verify sprint belongs to project
+		sprint, err := s.sprintRepo.GetSprintByID(sprintID, projectID)
+		if err != nil {
+			s.logger.Error("Failed to get sprint", zap.Error(fmt.Errorf("%v", err)))
+			return nil, &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to get sprint",
+			}
+		}
+
+		if sprint.ProjectID != projectID {
+			s.logger.Warn("Sprint does not belong to project", zap.String("projectID", projectID.String()), zap.String("sprintID", sprintID.String()))
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Sprint not found in this project",
+			}
+		}
+
+		sprintBurndown, err := s.dashboardRepo.GetSprintBurndown(projectID, sprintID)
+		if err != nil {
+			s.logger.Error("Failed to get sprint burndown", zap.Error(fmt.Errorf("%v", err)))
+			return nil, &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to get sprint burndown",
+			}
+		}
+
+		responseSprints = append(responseSprints, responsedto.SprintBurndownData{
+			SprintID:   sprint.ID,
+			SprintName: sprint.Name,
+			Burndown:   sprintBurndown,
+		})
+	} else {
+		// Fetch all active sprints belonging to the project
+		activeSprints, err := s.sprintRepo.GetActiveSprintsByProjectID(projectID)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, sprint := range activeSprints {
+			// Skip sprints with missing or invalid dates to avoid failing the entire dashboard view
+			if sprint.StartDate == nil || sprint.EndDate == nil {
+				s.logger.Warn("Skipping active sprint in burndown calculation due to missing start or end date",
+					zap.String("sprintID", sprint.ID.String()),
+					zap.String("projectID", projectID.String()),
+				)
+				continue
+			}
+			if sprint.EndDate.Before(*sprint.StartDate) {
+				s.logger.Warn("Skipping active sprint in burndown calculation because end date is before start date",
+					zap.String("sprintID", sprint.ID.String()),
+					zap.String("projectID", projectID.String()),
+					zap.Time("startDate", *sprint.StartDate),
+					zap.Time("endDate", *sprint.EndDate),
+				)
+				continue
+			}
+
+			sprintBurndown, err := s.dashboardRepo.GetSprintBurndown(projectID, sprint.ID)
+			if err != nil {
+				s.logger.Error("Failed to get sprint burndown for active sprint", zap.String("sprintID", sprint.ID.String()), zap.Error(fmt.Errorf("%v", err)))
+				// Skip this active sprint rather than failing the whole request
+				continue
+			}
+
+			responseSprints = append(responseSprints, responsedto.SprintBurndownData{
+				SprintID:   sprint.ID,
+				SprintName: sprint.Name,
+				Burndown:   sprintBurndown,
+			})
 		}
 	}
 
-	if sprint.ProjectID != projectID {
-		s.logger.Warn("Sprint does not belong to project", zap.String("projectID", projectID.String()), zap.String("sprintID", sprintID.String()))
-		return nil, &response.Error{
-			Code:       response.ErrNotFound,
-			StatusCode: http.StatusNotFound,
-			Message:    "Sprint not found in this project",
-		}
-	}
-
-	sprintBurndown, err := s.dashboardRepo.GetSprintBurndown(projectID, sprintID)
-	if err != nil {
-		s.logger.Error("Failed to get sprint burndown", zap.Error(fmt.Errorf("%v", err)))
-		return nil, &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to get sprint burndown",
-		}
-	}
-
-	s.logger.Info("Sprint burndown fetched successfully", zap.String("projectID", projectID.String()), zap.String("sprintID", sprintID.String()))
-	return sprintBurndown, nil
+	return &responsedto.DashboardSprintBurndownResponse{
+		Sprints: responseSprints,
+	}, nil
 }
 
-func (s *dashboardService) GetDashboardData(projectID uuid.UUID, sprintID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardResponse, *response.Error) {
+func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardResponse, *response.Error) {
 
 	// 1. Check authorization
 	_, _, authorized, err := s.checkAuthorization(projectID, userID)
@@ -380,65 +430,24 @@ func (s *dashboardService) GetDashboardData(projectID uuid.UUID, sprintID uuid.U
 		}
 	}
 
-	// 5. Get sprint
-	sprint, err := s.sprintRepo.GetSprintByID(sprintID, projectID)
-	if err != nil {
-		s.logger.Error(
-			"Failed to get sprint",
-			zap.Error(fmt.Errorf("%v", err)),
-		)
+	var sprintBurndown []responsedto.SprintBurndown
+	var activeSprintID uuid.UUID
 
-		return nil, &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to get sprint",
-		}
-	}
+	// Fetch all active sprints belonging to the project and choose the first valid one
+	activeSprints, err := s.sprintRepo.GetActiveSprintsByProjectID(projectID)
+	if err == nil && len(activeSprints) > 0 {
+		for _, sprint := range activeSprints {
+			// Skip sprints with missing or invalid dates
+			if sprint.StartDate == nil || sprint.EndDate == nil || sprint.EndDate.Before(*sprint.StartDate) {
+				continue
+			}
 
-	// 6. Validate sprint
-	if sprint == nil {
-		s.logger.Warn(
-			"Sprint not found",
-			zap.String("projectID", projectID.String()),
-			zap.String("sprintID", sprintID.String()),
-		)
-
-		return nil, &response.Error{
-			Code:       response.ErrNotFound,
-			StatusCode: http.StatusNotFound,
-			Message:    "Sprint not found",
-		}
-	}
-
-	if sprint.ProjectID != projectID {
-		s.logger.Warn(
-			"Sprint does not belong to project",
-			zap.String("projectID", projectID.String()),
-			zap.String("sprintID", sprintID.String()),
-		)
-
-		return nil, &response.Error{
-			Code:       response.ErrNotFound,
-			StatusCode: http.StatusNotFound,
-			Message:    "Sprint not found in this project",
-		}
-	}
-
-	// 7. Get sprint burndown
-	sprintBurndown, err := s.dashboardRepo.GetSprintBurndown(
-		projectID,
-		sprintID,
-	)
-	if err != nil {
-		s.logger.Error(
-			"Failed to get sprint burndown",
-			zap.Error(fmt.Errorf("%v", err)),
-		)
-
-		return nil, &response.Error{
-			Code:       response.ErrInternalServerError,
-			StatusCode: http.StatusInternalServerError,
-			Message:    "Failed to get sprint burndown",
+			burndown, err := s.dashboardRepo.GetSprintBurndown(projectID, sprint.ID)
+			if err == nil {
+				sprintBurndown = burndown
+				activeSprintID = sprint.ID
+				break
+			}
 		}
 	}
 
@@ -453,7 +462,7 @@ func (s *dashboardService) GetDashboardData(projectID uuid.UUID, sprintID uuid.U
 	s.logger.Info(
 		"Dashboard data fetched successfully",
 		zap.String("projectID", projectID.String()),
-		zap.String("sprintID", sprintID.String()),
+		zap.String("activeSprintID", activeSprintID.String()),
 	)
 
 	return result, nil

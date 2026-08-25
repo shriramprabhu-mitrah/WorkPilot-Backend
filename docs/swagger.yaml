@@ -700,6 +700,13 @@ definitions:
       user:
         $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary'
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.DashboardSprintBurndownResponse:
+    properties:
+      sprints:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData'
+        type: array
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse:
     properties:
       avatar_url:
@@ -940,6 +947,28 @@ definitions:
         items:
           $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse'
         type: array
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown:
+    properties:
+      actual_hours:
+        type: number
+      date:
+        type: string
+      day:
+        type: integer
+      ideal_hours:
+        type: number
+    type: object
+  github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData:
+    properties:
+      burndown:
+        items:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown'
+        type: array
+      sprint_id:
+        type: string
+      sprint_name:
+        type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse:
     properties:
@@ -1244,10 +1273,11 @@ paths:
       summary: Get Task Overview
       tags:
       - Dashboard
-  /{project_id}/sprint-burndown/{sprint_id}:
+  /{project_id}/sprint-burndown:
     get:
-      description: Retrieve the sprint burndown data for a specific sprint within
-        a project
+      description: Get sprint burndown chart data for dashboard. If sprint_id is provided,
+        returns that sprint's burndown. If omitted, returns burndown for all active
+        sprints of the project.
       parameters:
       - description: Project ID
         in: path
@@ -1255,9 +1285,8 @@ paths:
         required: true
         type: string
       - description: Sprint ID
-        in: path
+        in: query
         name: sprint_id
-        required: true
         type: string
       produces:
       - application/json
@@ -1265,7 +1294,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.DashboardSprintBurndownResponse'
+              type: object
         "400":
           description: Bad Request
           schema:

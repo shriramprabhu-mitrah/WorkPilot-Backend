@@ -379,6 +379,20 @@ func (d *sprintDatabase) GetActiveSprints() ([]models.Sprint, *response.Error) {
 	return sprints, nil
 }
 
+func (d *sprintDatabase) GetActiveSprintsByProjectID(projectID uuid.UUID) ([]models.Sprint, *response.Error) {
+	var sprints []models.Sprint
+	err := d.db.Where("project_id = ? AND status = ?", projectID, "active").Find(&sprints).Error
+	if err != nil {
+		d.logger.Error("Failed to fetch active sprints by project ID", zap.String("project_id", projectID.String()), zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch active sprints.",
+		}
+	}
+	return sprints, nil
+}
+
 func (d *sprintDatabase) GetCompletedTasksStoryPoints(sprintID uuid.UUID) (int, *response.Error) {
 	var completed int64
 	err := d.db.Model(&models.Task{}).

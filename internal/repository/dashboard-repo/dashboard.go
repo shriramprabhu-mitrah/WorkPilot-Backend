@@ -123,6 +123,32 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 
 func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64, *response.Error) {
 
+	// 1. Fetch all custom statuses for the project to include zero values for unused statuses
+	var customStatuses []models.CustomStatus
+	if err := r.db.Where("project_id = ?", projectID).Find(&customStatuses).Error; err != nil {
+		r.logger.Error(
+			"Failed to get custom statuses for project",
+			zap.String("projectID", projectID.String()),
+			zap.Error(err),
+		)
+
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			Message:    "Failed to get custom statuses",
+			StatusCode: http.StatusInternalServerError,
+		}
+	}
+
+	taskStatus := make(map[string]int64)
+	for _, cs := range customStatuses {
+		statusName := cs.Name
+		if cs.IsFinal {
+			statusName = "completed"
+		}
+		taskStatus[statusName] = 0
+	}
+
+	// 2. Fetch the task counts grouped by status
 	var result []struct {
 		Status string
 		Count  int64
@@ -153,7 +179,7 @@ func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64
 
 	if err != nil {
 		r.logger.Error(
-			"Failed to get task status",
+			"Failed to get task status counts",
 			zap.String("projectID", projectID.String()),
 			zap.Error(err),
 		)
@@ -165,8 +191,7 @@ func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64
 		}
 	}
 
-	taskStatus := make(map[string]int64)
-
+	// 3. Update the taskStatus map with the counts obtained
 	for _, item := range result {
 		taskStatus[item.Status] = item.Count
 	}
