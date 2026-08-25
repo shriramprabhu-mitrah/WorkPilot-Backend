@@ -12,13 +12,14 @@ type Config struct {
 }
 
 type DatabaseConfig struct {
-	Host        string
-	Port        string
-	Username    string
-	Password    string
-	Name        string
-	SSLMode     string
-	AutoMigrate string
+	Host                 string
+	Port                 string
+	Username             string
+	Password             string
+	Name                 string
+	SSLMode              string
+	AutoMigrate          string
+	PreferSimpleProtocol string
 }
 
 type HTTPConfig struct {
@@ -47,8 +48,9 @@ func LoadEnv() *Config {
 			Username:    GetEnv("DB_USERNAME", ""),
 			Password:    GetEnv("DB_PASSWORD", ""),
 			Name:        GetEnv("DB_NAME", ""),
-			SSLMode:     GetEnv("DB_SSL_MODE", ""),
-			AutoMigrate: GetEnv("DB_AUTOMIGRATE", "false"),
+			SSLMode:              GetEnv("DB_SSL_MODE", ""),
+			AutoMigrate:          GetEnv("DB_AUTOMIGRATE", "false"),
+			PreferSimpleProtocol: GetEnv("DB_PREFER_SIMPLE_PROTOCOL", "false"),
 		},
 		HTTP: HTTPConfig{
 			Port: GetEnv("HTTP_PORT", "6369"),

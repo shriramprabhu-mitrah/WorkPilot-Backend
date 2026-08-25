@@ -19,6 +19,7 @@ import (
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"go.uber.org/zap"
 )
 
@@ -43,6 +44,7 @@ type taskService struct {
 	userStoryRepo    userstoryrepo.UserStoryRepository
 	auditRepo        auditrepo.AuditLogRepository
 	customStatusRepo customstatusrepo.CustomStatusRepository
+	favoriteRepo     favoriterepo.FavoriteRepository
 	logger           *zap.Logger
 }
 
@@ -53,6 +55,7 @@ func InitTaskService(
 	userStoryRepo userstoryrepo.UserStoryRepository,
 	auditRepo auditrepo.AuditLogRepository,
 	customStatusRepo customstatusrepo.CustomStatusRepository,
+	favoriteRepo favoriterepo.FavoriteRepository,
 	logger *zap.Logger,
 ) TaskService {
 	return &taskService{
@@ -62,8 +65,36 @@ func InitTaskService(
 		userStoryRepo:    userStoryRepo,
 		auditRepo:        auditRepo,
 		customStatusRepo: customStatusRepo,
+		favoriteRepo:     favoriteRepo,
 		logger:           logger,
 	}
+}
+
+func (s *taskService) getFavoriteTaskMap(userID uuid.UUID) map[uuid.UUID]bool {
+	favMap := make(map[uuid.UUID]bool)
+	if s.favoriteRepo == nil || userID == uuid.Nil {
+		return favMap
+	}
+	favs, err := s.favoriteRepo.GetFavoritesByUserID(userID, models.FavoriteItemTypeTask)
+	if err == nil {
+		for _, f := range favs {
+			if f.TaskID != nil {
+				favMap[*f.TaskID] = true
+			}
+		}
+	}
+	return favMap
+}
+
+func (s *taskService) isTaskFavorited(userID, taskID uuid.UUID) bool {
+	if s.favoriteRepo == nil || userID == uuid.Nil || taskID == uuid.Nil {
+		return false
+	}
+	isFav, err := s.favoriteRepo.IsFavorited(userID, models.FavoriteItemTypeTask, taskID)
+	if err != nil {
+		return false
+	}
+	return isFav
 }
 
 func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
@@ -96,6 +127,10 @@ func GenerateProjectPrefix(name string) string {
 }
 
 func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap map[string]bool) responsedto.TaskResponse {
+	var projectName string
+	if task.Project.Name != "" {
+		projectName = task.Project.Name
+	}
 	var sprintName string
 	if task.Sprint != nil {
 		sprintName = task.Sprint.Name
@@ -131,6 +166,7 @@ func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap 
 	response := responsedto.TaskResponse{
 		ID:                    task.ID,
 		ProjectID:             task.ProjectID,
+		ProjectName:           projectName,
 		SprintID:              task.SprintID,
 		SprintName:            sprintName,
 		UserStoryID:           task.UserStoryID,
@@ -525,6 +561,8 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 	colorMap := s.getStatusColorMap(projectID)
 	isFinalMap := s.getStatusIsFinalMap(projectID)
 	res := mapToTaskResponse(*task, colorMap, isFinalMap)
+	isFav := s.isTaskFavorited(userID, taskID)
+	res.IsFavourite = isFav
 
 	// audit log creation
 	auditLog := models.AuditLog{
@@ -1396,9 +1434,12 @@ func (s *taskService) GetTasks(projectID, userID, orgID uuid.UUID, filter dto.Ta
 
 	colorMap := s.getStatusColorMap(projectID)
 	isFinalMap := s.getStatusIsFinalMap(projectID)
+	favTaskMap := s.getFavoriteTaskMap(userID)
 	resList := []responsedto.TaskResponse{}
 	for _, t := range tasks {
-		resList = append(resList, mapToTaskResponse(t, colorMap, isFinalMap))
+		tR := mapToTaskResponse(t, colorMap, isFinalMap)
+		tR.IsFavourite = favTaskMap[t.ID]
+		resList = append(resList, tR)
 	}
 
 	// audit log creation

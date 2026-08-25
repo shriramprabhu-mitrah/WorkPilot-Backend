@@ -23,6 +23,7 @@ func SetupRoutes(deps models.Config) {
 		UserStoryStatusRoutes(deps, api)
 		WorkItemRoutes(deps, api)
 		DashboardRoutes(deps, api)
+		FavoriteRoutes(deps, api)
 	}
 
 }

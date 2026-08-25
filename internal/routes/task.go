@@ -17,6 +17,8 @@ import (
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryattachmentrepo "github.com/ms-kanban-server/internal/repository/user-story-attachment-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
+	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
@@ -33,15 +35,19 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 	customStatusRepo := customstatusrepo.InitCustomStatusRepository(deps)
 	userStoryRepo := userstoryrepo.InitUserStoryRepository(deps)
 	userStoryAttachmentRepo := userstoryattachmentrepo.InitUserStoryAttachmentRepository(deps)
+	userStoryStatusRepo := userstorystatusrepo.InitUserStoryStatusRepository(deps)
+	favoriteRepo := favoriterepo.InitFavoriteRepository(deps)
 
 	// initialize services
-	taskService := services.InitTaskService(authRepo, projectRepo, taskRepo, userStoryRepo, auditRepo, customStatusRepo, deps.Logger)
+	taskService := services.InitTaskService(authRepo, projectRepo, taskRepo, userStoryRepo, auditRepo, customStatusRepo, favoriteRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
 	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, userStoryAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
+	favoriteService := services.InitFavoriteService(favoriteRepo, userStoryRepo, taskRepo, projectRepo, customStatusRepo, userStoryStatusRepo, deps.Logger)
 
 	// initialize handlers
 	taskHandler := handlers.InitTaskHandler(taskService, deps.Logger)
 	attachmentHandler := handlers.InitAttachmentHandler(attachmentService, deps.Logger)
+	favoriteHandler := handlers.InitFavoriteHandler(favoriteService, deps.Logger)
 
 	middleware := middleware.InitMiddleware(deps.Logger)
 
@@ -57,6 +63,10 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 		tsk.POST("/:task_id/clone", middleware.ValidateJWT(), taskHandler.CloneTask)
 		tsk.PUT("/:task_id/labels/:label_id", middleware.ValidateJWT(), taskHandler.AttachLabelToTask)
 		tsk.DELETE("/:task_id/labels/:label_id", middleware.ValidateJWT(), taskHandler.RemoveLabelFromTask)
+
+		// Favorite routes
+		tsk.POST("/:task_id/favorite", middleware.ValidateJWT(), favoriteHandler.AddTaskFavorite)
+		tsk.DELETE("/:task_id/favorite", middleware.ValidateJWT(), favoriteHandler.RemoveTaskFavorite)
 
 		// Attachment routes
 		tsk.POST("/:task_id/attachments", middleware.ValidateJWT(), attachmentHandler.UploadAttachment)

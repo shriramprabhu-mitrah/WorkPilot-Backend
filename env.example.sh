@@ -6,6 +6,7 @@ export DB_PASSWORD= # Your Password
 export DB_NAME=kanban
 export DB_SSL_MODE=require
 export DB_AUTOMIGRATE=false
+export DB_PREFER_SIMPLE_PROTOCOL=false
 
 # HTTP configs
 export HTTP_PORT=6369

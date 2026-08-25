@@ -16,6 +16,7 @@ import (
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
 	workitemrepo "github.com/ms-kanban-server/internal/repository/work-item-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"go.uber.org/zap"
 )
 
@@ -31,6 +32,7 @@ type workItemService struct {
 	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository
 	taskRepo            taskrepo.TaskRepository
 	userStoryRepo       userstoryrepo.UserStoryRepository
+	favoriteRepo        favoriterepo.FavoriteRepository
 	logger              *zap.Logger
 }
 
@@ -42,6 +44,7 @@ func InitWorkItemService(
 	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository,
 	taskRepo taskrepo.TaskRepository,
 	userStoryRepo userstoryrepo.UserStoryRepository,
+	favoriteRepo favoriterepo.FavoriteRepository,
 	logger *zap.Logger,
 ) WorkItemService {
 	return &workItemService{
@@ -52,6 +55,7 @@ func InitWorkItemService(
 		userStoryStatusRepo: userStoryStatusRepo,
 		taskRepo:            taskRepo,
 		userStoryRepo:       userStoryRepo,
+		favoriteRepo:        favoriteRepo,
 		logger:              logger,
 	}
 }
@@ -133,6 +137,12 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 		}
 
 		taskResp := mapToTaskResponse(*task, colorMap, isFinalMap)
+		isFav := false
+		if s.favoriteRepo != nil && userID != uuid.Nil {
+			isFav, _ = s.favoriteRepo.IsFavorited(userID, models.FavoriteItemTypeTask, task.ID)
+		}
+		taskResp.IsFavourite = isFav
+
 		workItem := &responsedto.WorkItemResponse{
 			WorkItemType:          "task",
 			ID:                    task.ID,
@@ -145,6 +155,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 			StatusID:              task.StatusID,
 			Status:                task.Status,
 			StatusColor:           taskResp.StatusColor,
+			IsFavourite:           isFav,
 			StoryPoints:           task.StoryPoints,
 			SprintID:              task.SprintID,
 			SprintName:            taskResp.SprintName,
@@ -194,6 +205,12 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 		}
 
 		storyResp := mapToUserStoryResponse(*story, userStoryStatuses, totalTasks, completedTasks, progress)
+		isFav := false
+		if s.favoriteRepo != nil && userID != uuid.Nil {
+			isFav, _ = s.favoriteRepo.IsFavorited(userID, models.FavoriteItemTypeUserStory, story.ID)
+		}
+		storyResp.IsFavourite = isFav
+
 		workItem := &responsedto.WorkItemResponse{
 			WorkItemType:          "user_story",
 			ID:                    story.ID,
@@ -206,6 +223,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 			StatusID:              storyResp.StatusID,
 			Status:                story.Status,
 			StatusColor:           storyResp.StatusColor,
+			IsFavourite:           isFav,
 			StoryPoints:           story.StoryPoints,
 			SprintID:              story.SprintID,
 			SprintName:            storyResp.SprintName,

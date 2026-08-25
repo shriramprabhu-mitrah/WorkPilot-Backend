@@ -7,6 +7,19 @@ definitions:
     required:
     - token
     type: object
+  github_com_ms-kanban-server_internal_handlers_dto_request.AddFavoriteRequest:
+    properties:
+      item_id:
+        type: string
+      item_type:
+        enum:
+        - user_story
+        - task
+        type: string
+    required:
+    - item_id
+    - item_type
+    type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.AuthTokensResponse:
     properties:
       access_token:
@@ -939,6 +952,8 @@ definitions:
         type: string
       id:
         type: string
+      is_favourite:
+        type: boolean
       is_final:
         type: boolean
       key:
@@ -950,6 +965,8 @@ definitions:
       priority:
         type: string
       project_id:
+        type: string
+      project_name:
         type: string
       reporter:
         $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.UserSummary'
@@ -1933,6 +1950,136 @@ paths:
       summary: Get all countries
       tags:
       - Lookup
+  /favorites:
+    delete:
+      description: Remove a favorite item by favorite ID or query params (item_type
+        and item_id)
+      parameters:
+      - description: Favorite ID
+        in: path
+        name: favorite_id
+        type: string
+      - description: Item Type (user_story or task)
+        in: query
+        name: item_type
+        type: string
+      - description: Item ID
+        in: query
+        name: item_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Remove item from favorites
+      tags:
+      - Favorite
+    get:
+      description: Get all user stories and tasks added in favorites for the current
+        user
+      parameters:
+      - description: Filter by item type (user_story or task)
+        in: query
+        name: item_type
+        type: string
+      - description: Search keyword in title or description
+        in: query
+        name: search
+        type: string
+      - description: Sort by field (created_at, title, name)
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order (ASC or DESC)
+        in: query
+        name: sort_order
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get all favorites
+      tags:
+      - Favorite
+    post:
+      consumes:
+      - application/json
+      description: Add a user story or task to user favorites
+      parameters:
+      - description: Add Favorite Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_request.AddFavoriteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Add item to favorites
+      tags:
+      - Favorite
   /health:
     get:
       description: Returns system health status and dependency checks (database, redis)
@@ -4873,6 +5020,91 @@ paths:
       summary: Clone Task
       tags:
       - Task
+  /projects/{project_id}/tasks/{task_id}/favorite:
+    delete:
+      description: Remove a task from favorites under project path
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Unfavorite a task
+      tags:
+      - Task
+      - Favorite
+    post:
+      description: Add a task to favorites under project path
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Favorite a task
+      tags:
+      - Task
+      - Favorite
   /projects/{project_id}/tasks/{task_id}/labels/{label_id}:
     delete:
       description: Remove a project label from a specific task
@@ -5560,6 +5792,91 @@ paths:
       summary: Get User Story Comments
       tags:
       - Comments
+  /projects/{project_id}/user-stories/{user_story_id}/favorite:
+    delete:
+      description: Remove a user story from favorites under project path
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Unfavorite a user story
+      tags:
+      - UserStory
+      - Favorite
+    post:
+      description: Add a user story to favorites under project path
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Favorite a user story
+      tags:
+      - UserStory
+      - Favorite
   /projects/{project_id}/user-stories/{user_story_id}/status:
     patch:
       consumes:
