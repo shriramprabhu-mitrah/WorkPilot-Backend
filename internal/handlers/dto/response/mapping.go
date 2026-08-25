@@ -43,6 +43,7 @@ func UserProfileFromModel(user models.User) UserProfile {
 		Timezone:         user.Timezone,
 		IsActive:         user.IsActive,
 		IsVerified:       user.IsVerified,
+		Status:           user.Status,
 		CreatedAt:        user.CreatedAt,
 		JoinedAt:         user.JoinedAt,
 	}

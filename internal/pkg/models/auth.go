@@ -25,6 +25,7 @@ type User struct {
 	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
 	IsActive       bool           `json:"is_active"`
 	IsVerified     bool           `json:"is_verified"`
+	Status         string         `json:"status" gorm:"size:50;not null;default:'active'"`
 	CreatedAt      time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
 	UpdatedAt      time.Time      `json:"updated_at" gorm:"type:timestamptz"`
 	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index:idx_users_deleted_at"`

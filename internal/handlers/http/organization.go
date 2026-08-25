@@ -677,6 +677,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 	username := strings.TrimSpace(g.Query("username"))
 	role := strings.TrimSpace(g.Query("role"))
 	timezone := strings.TrimSpace(g.Query("timezone"))
+	status := strings.TrimSpace(g.Query("status"))
 
 	isActiveQuery := g.Query("is_active")
 	var isActive *bool
@@ -706,6 +707,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		Role:             role,
 		IsActive:         isActive,
 		IsVerified:       isVerified,
+		Status:           status,
 		Timezone:         timezone,
 		IncludeOrgAdmins: includeOrgAdmins,
 	}

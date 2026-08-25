@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -427,12 +428,22 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	var users []models.User
 	var totalItems int64
 
+	// Update expired invitations and user statuses to 'expired'
+	nowTime := time.Now()
+	_ = d.DB.Model(&models.OrganizationInvitation{}).
+		Where("organization_id = ? AND status = ? AND expires_at < ?", organizationID, models.InvitationStatusPending, nowTime).
+		Update("status", models.InvitationStatusExpired).Error
+
+	_ = d.DB.Model(&models.User{}).
+		Where("organization_id = ? AND status = ? AND email IN (SELECT email FROM organization_invitations WHERE organization_id = ? AND status = ?)", organizationID, "pending", organizationID, models.InvitationStatusExpired).
+		Update("status", "expired").Error
+
 	filter.PaginationQuery.Normalize(10)
 
 	offset := (filter.Page - 1) * filter.PageSize
 	baseQuery := d.DB.Model(&models.User{}).
 		Joins("LEFT JOIN roles ON roles.id = users.role_id AND roles.deleted_at IS NULL").
-		Where("users.organization_id = ? and users.is_active = ?", organizationID, true)
+		Where("users.organization_id = ?", organizationID)
 
 	if filter.FullName != "" {
 		baseQuery = baseQuery.Where("users.full_name ILIKE ?", "%"+strings.TrimSpace(filter.FullName)+"%")
@@ -451,6 +462,9 @@ func (d *organizationDatabase) GetUsersByOrganizationID(organizationID uuid.UUID
 	}
 	if filter.IsVerified != nil {
 		baseQuery = baseQuery.Where("users.is_verified = ?", *filter.IsVerified)
+	}
+	if filter.Status != "" {
+		baseQuery = baseQuery.Where("users.status = ?", strings.ToLower(strings.TrimSpace(filter.Status)))
 	}
 	if filter.Timezone != "" {
 		baseQuery = baseQuery.Where("users.timezone ILIKE ?", "%"+strings.TrimSpace(filter.Timezone)+"%")
