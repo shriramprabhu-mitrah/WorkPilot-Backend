@@ -9819,6 +9819,9 @@ const docTemplate = `{
                 "role": {
                     "type": "string"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "timezone": {
                     "type": "string"
                 },

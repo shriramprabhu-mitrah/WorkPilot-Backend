@@ -117,11 +117,18 @@ func (s *stubOrganizationRepository) GetUsersByOrganizationID(organizationID uui
 		if !filter.IncludeOrgAdmins && strings.ToLower(inv.Role.Name) == "org_admin" {
 			continue
 		}
+		status := "pending"
+		if inv.Status == models.InvitationStatusAccepted {
+			status = "active"
+		} else if inv.Status == models.InvitationStatusExpired || (!inv.ExpiresAt.IsZero() && inv.ExpiresAt.Before(time.Now())) {
+			status = "expired"
+		}
 		items = append(items, models.User{
 			Email:          inv.Email,
 			OrganizationID: &inv.OrganizationID,
 			RoleID:         inv.RoleID,
 			Role:           inv.Role,
+			Status:         status,
 		})
 	}
 	return items, response.Pagination{Page: filter.Page, PageSize: filter.PageSize, TotalItems: len(items), TotalPages: 1, HasNext: false, HasPrevious: false}, nil
@@ -201,6 +208,9 @@ func TestInviteOrganizationMemberRefreshesPendingInvitation(t *testing.T) {
 	if repo.invite.Email != "new-user@example.com" {
 		t.Fatalf("expected invitation for new-user@example.com, got %s", repo.invite.Email)
 	}
+	if authRepo.createdUser.Status != "pending" {
+		t.Fatalf("expected created user status to be pending, got %s", authRepo.createdUser.Status)
+	}
 }
 
 func TestInviteOrganizationMemberSupportsBulkMembers(t *testing.T) {
@@ -243,6 +253,9 @@ func TestAcceptInvitationMarksMembershipAndStatus(t *testing.T) {
 	}
 	if authRepo.user.Role.Name != string(dto.RoleMember) {
 		t.Fatalf("expected role to be updated to developer, got %s", authRepo.user.Role.Name)
+	}
+	if authRepo.user.Status != "active" {
+		t.Fatalf("expected user status to be active, got %s", authRepo.user.Status)
 	}
 }
 
@@ -381,4 +394,44 @@ func TestUpdateOrganizationStatus(t *testing.T) {
 		t.Fatal("expected organization IsActive to be true")
 	}
 }
+
+func TestGetUserInOrganizationWithInvitationStatuses(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	repo := &stubOrganizationRepository{
+		organization: models.Organization{ID: orgID},
+		invites: []models.OrganizationInvitation{
+			{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "pending@example.com", RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, Status: models.InvitationStatusPending, ExpiresAt: time.Now().Add(24 * time.Hour), Token: "token-1"},
+			{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "expired@example.com", RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, Status: models.InvitationStatusPending, ExpiresAt: time.Now().Add(-24 * time.Hour), Token: "token-2"},
+			{ID: uuid.Must(uuid.NewV4()), OrganizationID: orgID, Email: "accepted@example.com", RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}, Status: models.InvitationStatusAccepted, Token: "token-3"},
+		},
+	}
+	authRepo := &stubAuthRepository{user: models.User{ID: uuid.Must(uuid.NewV4()), Email: "admin@example.com", RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleOrgAdmin)}, OrganizationID: &orgID, IsActive: true}}
+	service := InitOrganizationService(repo, authRepo, &stubAuditLogRepo{}, zap.NewNop())
+
+	members, _, err := service.GetUserInOrganization(orgID, dto.OrganizationMemberListFilter{
+		PaginationQuery: response.PaginationQuery{Page: 1, PageSize: 10},
+	})
+	if err != nil {
+		t.Fatalf("expected listing to succeed, got %v", err)
+	}
+	if len(members) != 3 {
+		t.Fatalf("expected 3 members, got %d", len(members))
+	}
+
+	statusMap := make(map[string]string)
+	for _, m := range members {
+		statusMap[m.Email] = m.Status
+	}
+
+	if statusMap["pending@example.com"] != "pending" {
+		t.Errorf("expected pending@example.com to be pending, got %s", statusMap["pending@example.com"])
+	}
+	if statusMap["expired@example.com"] != "expired" {
+		t.Errorf("expected expired@example.com to be expired, got %s", statusMap["expired@example.com"])
+	}
+	if statusMap["accepted@example.com"] != "active" {
+		t.Errorf("expected accepted@example.com to be active, got %s", statusMap["accepted@example.com"])
+	}
+}
+
 

@@ -1025,6 +1025,8 @@ definitions:
         type: string
       role:
         type: string
+      status:
+        type: string
       timezone:
         type: string
       username:

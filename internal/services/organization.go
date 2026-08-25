@@ -334,6 +334,11 @@ func (s *organizationService) UpdateUserStatus(payload dto.UpdateUserStatus) *re
 
 	request := result
 	request.IsActive = payload.IsActive
+	if payload.IsActive {
+		request.Status = "active"
+	} else {
+		request.Status = "inactive"
+	}
 
 	err = s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
 	if err != nil {
@@ -467,6 +472,7 @@ func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, orga
 			existingUser.OrganizationID = &organizationID
 			existingUser.RoleID = developerRole.ID
 			existingUser.IsActive = false
+			existingUser.Status = "pending"
 			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
 				return err
 			}
@@ -684,6 +690,7 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 		IsVerified:     true,
 		OrganizationID: &organizationID,
 		RoleID:         roleID,
+		Status:         "pending",
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -776,6 +783,7 @@ func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *
 	user.RoleID = invitation.RoleID
 	user.Role = invitation.Role
 	user.IsActive = true
+	user.Status = "active"
 	user.JoinedAt = time.Now()
 	if err := s.AuthRepo.UpdateUser(userID, user); err != nil {
 		return err

@@ -34,6 +34,7 @@ type UserProfile struct {
 	Timezone         string     `json:"timezone,omitempty"`
 	IsActive         bool       `json:"is_active"`
 	IsVerified       bool       `json:"is_verified"`
+	Status           string     `json:"status"`
 	CreatedAt        time.Time  `json:"created_at"`
 	JoinedAt         time.Time  `json:"joined_at,omitempty"`
 }

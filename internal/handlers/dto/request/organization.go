@@ -99,6 +99,7 @@ type OrganizationMemberListFilter struct {
 	Role             string `json:"role,omitempty"`
 	IsActive         *bool  `json:"is_active,omitempty"`
 	IsVerified       *bool  `json:"is_verified,omitempty"`
+	Status           string `json:"status,omitempty"`
 	Timezone         string `json:"timezone,omitempty"`
 	IncludeOrgAdmins bool   `json:"include_org_admins,omitempty"`
 }
