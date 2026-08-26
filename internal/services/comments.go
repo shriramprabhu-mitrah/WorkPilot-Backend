@@ -224,15 +224,11 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		}
 	}
 
-	hasCommentPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, *projectID, "comments", "comment")
-	if permErr != nil {
-		return responsedto.CommentedUserResponse{}, permErr
-	}
 	hasAddPermission, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, *projectID, "comments", "add")
 	if permErr != nil {
 		return responsedto.CommentedUserResponse{}, permErr
 	}
-	if !hasCommentPermission && !hasAddPermission {
+	if !hasAddPermission {
 		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,

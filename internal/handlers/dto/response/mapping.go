@@ -30,6 +30,10 @@ func UserProfileFromModel(user models.User) UserProfile {
 	if user.AvatarURL != "" {
 		avatarURL = &user.AvatarURL
 	}
+	role := user.Role.Name
+	if role != "org_admin" && role != "super_admin" {
+		role = "member"
+	}
 	return UserProfile{
 		ID:                    user.ID,
 		OrganizationID:        user.OrganizationID,
@@ -37,7 +41,7 @@ func UserProfileFromModel(user models.User) UserProfile {
 		Name:                  user.FullName,
 		Username:              user.UserName,
 		Email:                 user.Email,
-		Role:                  user.Role.Name,
+		Role:                  role,
 		AvatarURL:             avatarURL,
 		Color:                 user.Color,
 		Timezone:              user.Timezone,
@@ -185,13 +189,17 @@ func AuditLogFromModel(audit models.AuditLog) AuditLogResponse {
 
 	if audit.User.ID != uuid.Nil {
 		avatarURL := &audit.User.AvatarURL
+		role := audit.User.Role.Name
+		if role != "org_admin" && role != "super_admin" {
+			role = "member"
+		}
 		resp.User = &UserSummary{
 			ID:        audit.User.ID,
 			FullName:  audit.User.FullName,
 			Email:     audit.User.Email,
 			AvatarURL: avatarURL,
 			Color:     audit.User.Color,
-			Role:      audit.User.Role.Name,
+			Role:      role,
 		}
 	}
 
