@@ -654,7 +654,7 @@ func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 	}
 	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	req := dto.CreateTaskRequest{
 		Title:       "Setup database connections",
@@ -709,7 +709,7 @@ func TestTaskService_UpdateTask_UpdatesFieldsSuccessfully(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	newTitle := "New Title"
 	newPriority := string(dto.TaskPriorityCritical)
@@ -779,7 +779,7 @@ func TestTaskService_UpdateTask_NullFields(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// Explicitly nullify all fields using IsNullFields map
 	req := dto.UpdateTaskRequest{
@@ -890,7 +890,7 @@ func TestTaskService_DeleteAndRestore_RetentionChecks(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// Delete task
 	_, err := service.BulkDeleteTasks(dto.BulkDeleteTasksRequest{
@@ -957,7 +957,7 @@ func TestTaskService_CloneTask_ResetsStatusAndKey(t *testing.T) {
 		seqNumber: 1,
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// Clone task with keep_assignee = false
 	cloned, err := service.CloneTask(dto.CloneTaskRequest{
@@ -1031,7 +1031,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// Test 1: Developer valid sequential transition (todo -> in_progress)
 	inProgressStatus := string(dto.TaskStatusInProgress)
@@ -1289,7 +1289,7 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 		validSprints: make(map[uuid.UUID]bool),
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// Test 1: Non-PM/Admin user (Developer) gets 403 Forbidden
 	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
@@ -1404,7 +1404,7 @@ func TestTaskService_CreateAndUpdateTask_WithLabels(t *testing.T) {
 	}
 	taskRepo := &stubTaskRepo{tasks: make(map[uuid.UUID]*models.Task)}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// Create Task with Labels
 	labelID := uuid.Must(uuid.NewV4())
@@ -1487,7 +1487,7 @@ func TestTaskService_GetTasks_LabelFiltering(t *testing.T) {
 		task3.ID: &task3,
 	}}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// 1. Filter by label1 ID
 	res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
@@ -1559,7 +1559,7 @@ func TestTaskService_AttachAndRemoveLabel(t *testing.T) {
 		taskID: &task,
 	}}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	// Attach Label (should succeed)
 	err := service.AttachLabelToTask(projectID, taskID, labelID, userID, orgID)
@@ -1605,7 +1605,7 @@ func TestTaskService_ValidationAndBusinessRules(t *testing.T) {
 		tasks:          make(map[uuid.UUID]*models.Task),
 		sprintStatuses: make(map[uuid.UUID]string),
 	}
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, logger)
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, logger)
 
 	// Case 1: Title too short
 	_, _, err := service.CreateTask(dto.CreateTaskRequest{
@@ -1733,7 +1733,7 @@ func TestTaskService_BulkDeleteTasks(t *testing.T) {
 		},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	req := dto.BulkDeleteTasksRequest{
 		TaskIDs:        []uuid.UUID{taskID1, taskID2, taskID3, taskID4},
@@ -1800,7 +1800,7 @@ func TestTaskService_CreateTask_WithCrossProjectUserStory(t *testing.T) {
 		},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	req := dto.CreateTaskRequest{
 		Title:          "Task with invalid story",
@@ -1846,7 +1846,7 @@ func TestTaskService_GetTasks_StatusValidation(t *testing.T) {
 
 	taskRepo := &stubTaskRepo{tasks: map[uuid.UUID]*models.Task{}}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, statusRepo, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, statusRepo, &stubFavoriteRepo{}, zap.NewNop())
 
 	t.Run("status=valid UUID resolves status ID correctly", func(t *testing.T) {
 		res, _, err := service.GetTasks(projectID, userID, orgID, dto.TaskFilter{
@@ -1944,7 +1944,7 @@ func TestTaskService_AssignTaskToMe(t *testing.T) {
 		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
 	}
 
-	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 	t.Run("successfully assigns task to self", func(t *testing.T) {
 		existingTask.AssigneeID = nil
@@ -1971,7 +1971,7 @@ func TestTaskService_AssignTaskToMe(t *testing.T) {
 				},
 			},
 		}
-		inactiveService := services.InitTaskService(inactiveUserRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+		inactiveService := services.InitTaskService(inactiveUserRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 		_, err := inactiveService.AssignTaskToMe(taskID, userID, orgID, projectID)
 		if err == nil {
@@ -1987,7 +1987,7 @@ func TestTaskService_AssignTaskToMe(t *testing.T) {
 			project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
 			isMember: false,
 		}
-		nonMemberService := services.InitTaskService(authRepo, nonMemberProjectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, zap.NewNop())
+		nonMemberService := services.InitTaskService(authRepo, nonMemberProjectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
 
 		_, err := nonMemberService.AssignTaskToMe(taskID, userID, orgID, projectID)
 		if err == nil {
