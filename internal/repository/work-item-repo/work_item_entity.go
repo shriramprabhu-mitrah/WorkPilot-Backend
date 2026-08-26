@@ -11,6 +11,7 @@ import (
 
 type WorkItemRepository interface {
 	GetTaskBySerialNumberWithProjectSlugOrId(prjectId uuid.UUID, serialNumber int64) (*models.Task, *response.Error)
+	GetTaskByKey(projectId uuid.UUID, key string) (*models.Task, *response.Error)
 	GetUserStoryBySerialNumber(serialNumber int64) (*models.UserStory, *response.Error)
 }
 

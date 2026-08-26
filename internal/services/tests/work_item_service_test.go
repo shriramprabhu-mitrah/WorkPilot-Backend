@@ -124,6 +124,15 @@ func (s *stubWorkItemRepo) GetTaskBySerialNumberWithProjectSlugOrId(projectId uu
 	return task, nil
 }
 
+func (s *stubWorkItemRepo) GetTaskByKey(projectId uuid.UUID, key string) (*models.Task, *response.Error) {
+	for _, task := range s.tasks {
+		if task.ProjectID == projectId && task.Key == key && task.DeletedAt.Time.IsZero() {
+			return task, nil
+		}
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "Task not found"}
+}
+
 func (s *stubWorkItemRepo) GetUserStoryBySerialNumber(serialNumber int64) (*models.UserStory, *response.Error) {
 	story, ok := s.stories[serialNumber]
 	if !ok || !story.DeletedAt.Time.IsZero() {
@@ -164,6 +173,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 		ID:           uuid.Must(uuid.NewV4()),
 		ProjectID:    projectID1,
 		SerialNumber: 101,
+		Key:          "PROJECT-1-101",
 		Title:        "Implement login UI",
 		Type:         "task",
 		Priority:     "high",
@@ -171,12 +181,14 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	}
 
 	story202 := &models.UserStory{
-		ID:           uuid.Must(uuid.NewV4()),
-		ProjectID:    projectID1,
-		SerialNumber: 202,
-		Title:        "As a user I want login",
-		Priority:     "medium",
-		Status:       "todo",
+		ID:             uuid.Must(uuid.NewV4()),
+		ProjectID:      projectID1,
+		SerialNumber:   202,
+		SequenceNumber: 1,
+		Key:            "US-1",
+		Title:          "As a user I want login",
+		Priority:       "medium",
+		Status:         "todo",
 	}
 
 	taskInOtherProject := &models.Task{
@@ -193,6 +205,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 		ID:           uuid.Must(uuid.NewV4()),
 		ProjectID:    projectID1,
 		SerialNumber: 404,
+		Key:          "PROJECT-1-404",
 		Title:        "Deleted Task",
 		DeletedAt:    gorm.DeletedAt{Time: time.Now(), Valid: true},
 	}
@@ -208,29 +221,26 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 		},
 	}
 
-	service := services.InitWorkItemService(authRepo, projectRepo, workItemRepo, nil, nil, nil, nil, nil, logger)
+	userStoryRepo := &stubUserStoryRepo{
+		stories: map[uuid.UUID]*models.UserStory{
+			story202.ID: story202,
+		},
+	}
 
-	t.Run("Successfully retrieve Task by serial ID", func(t *testing.T) {
-		res, err := service.GetWorkItemBySerialNumber(projectID1.String(), 101, userIDMember)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
+	service := services.InitWorkItemService(authRepo, projectRepo, workItemRepo, nil, nil, nil, userStoryRepo, nil, logger)
+
+	t.Run("Return 404 when Task is queried by serial ID", func(t *testing.T) {
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), "101", userIDMember)
+		if err == nil {
+			t.Fatalf("Expected error when querying task by serial ID, got nil")
 		}
-		if res.WorkItemType != "task" {
-			t.Errorf("Expected WorkItemType 'task', got %s", res.WorkItemType)
-		}
-		if res.SerialNumber != 101 {
-			t.Errorf("Expected SerialNumber 101, got %d", res.SerialNumber)
-		}
-		if res.Title != "Implement login UI" {
-			t.Errorf("Expected Title 'Implement login UI', got %s", res.Title)
-		}
-		if res.TaskDetails == nil {
-			t.Errorf("Expected TaskDetails to be non-nil")
+		if err.StatusCode != http.StatusNotFound {
+			t.Errorf("Expected status 404, got %d", err.StatusCode)
 		}
 	})
 
 	t.Run("Successfully retrieve User Story by serial ID", func(t *testing.T) {
-		res, err := service.GetWorkItemBySerialNumber(projectID1.String(), 202, userIDMember)
+		res, err := service.GetWorkItemBySerialNumber(projectID1.String(), "202", userIDMember)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -248,8 +258,34 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 		}
 	})
 
-	t.Run("Successfully retrieve Task by project slug", func(t *testing.T) {
-		res, err := service.GetWorkItemBySerialNumber("project-1", 101, userIDMember)
+	t.Run("Successfully retrieve User Story by project key", func(t *testing.T) {
+		res, err := service.GetWorkItemBySerialNumber(projectID1.String(), "US-1", userIDMember)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if res.WorkItemType != "user_story" {
+			t.Errorf("Expected WorkItemType 'user_story', got %s", res.WorkItemType)
+		}
+		if res.Title != "As a user I want login" {
+			t.Errorf("Expected Title 'As a user I want login', got %s", res.Title)
+		}
+	})
+
+	t.Run("Successfully retrieve Task by project key", func(t *testing.T) {
+		res, err := service.GetWorkItemBySerialNumber("project-1", "PROJECT-1-101", userIDMember)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if res.WorkItemType != "task" {
+			t.Errorf("Expected WorkItemType 'task', got %s", res.WorkItemType)
+		}
+		if res.Title != "Implement login UI" {
+			t.Errorf("Expected Title 'Implement login UI', got %s", res.Title)
+		}
+	})
+
+	t.Run("Successfully retrieve Task by key and project slug", func(t *testing.T) {
+		res, err := service.GetWorkItemBySerialNumber("project-1", "PROJECT-1-101", userIDMember)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -262,7 +298,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	})
 
 	t.Run("Return 404 when project slug does not exist", func(t *testing.T) {
-		_, err := service.GetWorkItemBySerialNumber("invalid-slug", 101, userIDMember)
+		_, err := service.GetWorkItemBySerialNumber("invalid-slug", "PROJECT-1-101", userIDMember)
 		if err == nil {
 			t.Fatalf("Expected error for non-existent project slug, got nil")
 		}
@@ -272,7 +308,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	})
 
 	t.Run("Return 404 when serial ID does not exist", func(t *testing.T) {
-		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 999, userIDMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), "999", userIDMember)
 		if err == nil {
 			t.Fatalf("Expected error for non-existent serial ID, got nil")
 		}
@@ -283,7 +319,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 
 	t.Run("Return 404 when serial ID exists in another project", func(t *testing.T) {
 		// Serial 303 belongs to projectID2, but requested on projectID1
-		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 303, userIDMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), "303", userIDMember)
 		if err == nil {
 			t.Fatalf("Expected error for serial ID belonging to another project, got nil")
 		}
@@ -293,7 +329,7 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	})
 
 	t.Run("Return 404 when item is soft-deleted", func(t *testing.T) {
-		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 404, userIDMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), "PROJECT-1-404", userIDMember)
 		if err == nil {
 			t.Fatalf("Expected error for soft-deleted item, got nil")
 		}
@@ -303,12 +339,32 @@ func TestGetWorkItemBySerialNumber(t *testing.T) {
 	})
 
 	t.Run("Return 403 when user is not authorized for the project", func(t *testing.T) {
-		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), 101, userIDNonMember)
+		_, err := service.GetWorkItemBySerialNumber(projectID1.String(), "PROJECT-1-101", userIDNonMember)
 		if err == nil {
 			t.Fatalf("Expected error for unauthorized user, got nil")
 		}
 		if err.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected status 403, got %d", err.StatusCode)
+		}
+	})
+
+	t.Run("Successfully retrieve Task using GetTaskByKey", func(t *testing.T) {
+		res, err := service.GetTaskByKey("project-1", "PROJECT-1-101", userIDMember)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if res.Title != "Implement login UI" {
+			t.Errorf("Expected Title 'Implement login UI', got %s", res.Title)
+		}
+	})
+
+	t.Run("Successfully retrieve User Story using GetUserStoryByKey", func(t *testing.T) {
+		res, err := service.GetUserStoryByKey(projectID1.String(), "US-1", userIDMember)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if res.Title != "As a user I want login" {
+			t.Errorf("Expected Title 'As a user I want login', got %s", res.Title)
 		}
 	})
 }

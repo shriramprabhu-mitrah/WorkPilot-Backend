@@ -23,6 +23,8 @@ type UserStoryRepository interface {
 	GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error)
 	RecalculateUserStoryIsClosed(userStoryID uuid.UUID) *response.Error
 	CountStoriesByStatusID(projectID, statusID uuid.UUID) (int64, *response.Error)
+	GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error)
+	GetUserStoryByKey(projectID uuid.UUID, key string) (*models.UserStory, *response.Error)
 }
 
 func InitUserStoryRepository(deps models.Config) UserStoryRepository {

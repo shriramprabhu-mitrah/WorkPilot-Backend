@@ -38,5 +38,7 @@ func WorkItemRoutes(deps models.Config, api *gin.RouterGroup) {
 	wi := api.Group("/projects/:project_id/work-items")
 	{
 		wi.GET("/:serial_id", middleware.ValidateJWT(), workItemHandler.GetWorkItemBySerialNumber)
+		wi.GET("/task/:key", middleware.ValidateJWT(), workItemHandler.GetTaskByKey)
+		wi.GET("/us/:key", middleware.ValidateJWT(), workItemHandler.GetUserStoryByKey)
 	}
 }

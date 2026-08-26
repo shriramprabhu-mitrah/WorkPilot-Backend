@@ -8,12 +8,14 @@ import (
 )
 
 type UserStory struct {
-	ID           uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
-	ProjectID    uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;index"`
-	Project      Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
-	SprintID     *uuid.UUID     `json:"sprint_id,omitempty" gorm:"type:uuid;index"`
-	Sprint       *Sprint        `json:"sprint,omitempty" gorm:"foreignKey:SprintID"`
-	SerialNumber int64          `json:"serial_number" gorm:"type:bigint;uniqueIndex"`
+	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
+	ProjectID      uuid.UUID      `json:"project_id" gorm:"type:uuid;not null;index"`
+	Project        Project        `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
+	SprintID       *uuid.UUID     `json:"sprint_id,omitempty" gorm:"type:uuid;index"`
+	Sprint         *Sprint        `json:"sprint,omitempty" gorm:"foreignKey:SprintID"`
+	Key            string         `json:"key" gorm:"type:varchar(50);default:''"`
+	SequenceNumber int            `json:"sequence_number" gorm:"type:integer;default:0;index"`
+	SerialNumber   int64          `json:"serial_number" gorm:"type:bigint;uniqueIndex"`
 	Title        string         `json:"title" gorm:"type:varchar(255);not null"`
 	Description  string         `json:"description,omitempty" gorm:"type:text"`
 	Priority     string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`

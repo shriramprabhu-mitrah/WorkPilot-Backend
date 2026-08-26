@@ -3,6 +3,8 @@ package services
 import (
 	"maps"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -21,7 +23,9 @@ import (
 )
 
 type WorkItemService interface {
-	GetWorkItemBySerialNumber(projectIDOrSlug string, serialID int64, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error)
+	GetWorkItemBySerialNumber(projectIDOrSlug string, serialIDOrKey string, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error)
+	GetTaskByKey(projectIDOrSlug string, key string, userID uuid.UUID) (*responsedto.TaskResponse, *response.Error)
+	GetUserStoryByKey(projectIDOrSlug string, key string, userID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error)
 }
 
 type workItemService struct {
@@ -85,7 +89,7 @@ func (s *workItemService) checkAuthorization(projectID, userID uuid.UUID) (model
 	return project, user, authorized, nil
 }
 
-func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, serialID int64, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error) {
+func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, serialIDOrKey string, userID uuid.UUID) (*responsedto.WorkItemResponse, *response.Error) {
 	var project models.Project
 	var err *response.Error
 
@@ -111,8 +115,23 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 		}
 	}
 
-	// 1. Try finding Task with serialID
-	task, taskErr := s.workItemRepo.GetTaskBySerialNumberWithProjectSlugOrId(project.ID,serialID)
+	var task *models.Task
+	var taskErr *response.Error = &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "Task not found"}
+	var story *models.UserStory
+	var storyErr *response.Error = &response.Error{Code: response.ErrNotFound, StatusCode: http.StatusNotFound, Message: "User story not found"}
+
+	serialID, intParseErr := strconv.ParseInt(serialIDOrKey, 10, 64)
+	if intParseErr == nil {
+		story, storyErr = s.workItemRepo.GetUserStoryBySerialNumber(serialID)
+	} else {
+		upperKey := strings.ToUpper(serialIDOrKey)
+		if strings.HasPrefix(upperKey, "US-") {
+			story, storyErr = s.userStoryRepo.GetUserStoryByKey(project.ID, upperKey)
+		} else {
+			task, taskErr = s.workItemRepo.GetTaskByKey(project.ID, upperKey)
+		}
+	}
+
 	if taskErr == nil && task != nil {
 		if task.ProjectID != project.ID {
 			return nil, &response.Error{
@@ -170,8 +189,7 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 		return workItem, nil
 	}
 
-	// 2. Try finding User Story with serialID
-	story, storyErr := s.workItemRepo.GetUserStoryBySerialNumber(serialID)
+	// 2. Try finding User Story
 	if storyErr == nil && story != nil {
 		if story.ProjectID != project.ID {
 			return nil, &response.Error{
@@ -243,4 +261,123 @@ func (s *workItemService) GetWorkItemBySerialNumber(projectIDOrSlug string, seri
 		StatusCode: http.StatusNotFound,
 		Message:    "Work item not found",
 	}
+}
+
+func (s *workItemService) GetTaskByKey(projectIDOrSlug string, key string, userID uuid.UUID) (*responsedto.TaskResponse, *response.Error) {
+	var project models.Project
+	var err *response.Error
+
+	projectUUID, parseErr := uuid.FromString(projectIDOrSlug)
+	if parseErr == nil {
+		project, err = s.projectRepo.GetProjectByID(projectUUID)
+	} else {
+		project, err = s.projectRepo.GetProjectBySlug(projectIDOrSlug)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, authorized, err := s.checkAuthorization(project.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have access to this project",
+		}
+	}
+
+	task, err := s.workItemRepo.GetTaskByKey(project.ID, strings.ToUpper(key))
+	if err != nil {
+		return nil, err
+	}
+
+	colorMap := make(map[string]string)
+	isFinalMap := make(map[string]bool)
+	maps.Copy(colorMap, models.DefaultStatusColors)
+	maps.Copy(isFinalMap, models.DefaultStatusIsFinal)
+	if s.customStatusRepo != nil {
+		statuses, getStatusErr := s.customStatusRepo.GetStatusesByProjectID(project.ID)
+		if getStatusErr == nil {
+			for _, cs := range statuses {
+				colorMap[models.NormalizeTaskStatus(cs.Name)] = cs.Color
+				isFinalMap[models.NormalizeTaskStatus(cs.Name)] = cs.IsFinal
+			}
+		}
+	}
+
+	taskResp := mapToTaskResponse(*task, colorMap, isFinalMap)
+	isFav := false
+	if s.favoriteRepo != nil && userID != uuid.Nil {
+		isFav, _ = s.favoriteRepo.IsFavorited(userID, models.FavoriteItemTypeTask, task.ID)
+	}
+	taskResp.IsFavourite = isFav
+
+	return &taskResp, nil
+}
+
+func (s *workItemService) GetUserStoryByKey(projectIDOrSlug string, key string, userID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error) {
+	var project models.Project
+	var err *response.Error
+
+	projectUUID, parseErr := uuid.FromString(projectIDOrSlug)
+	if parseErr == nil {
+		project, err = s.projectRepo.GetProjectByID(projectUUID)
+	} else {
+		project, err = s.projectRepo.GetProjectBySlug(projectIDOrSlug)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, authorized, err := s.checkAuthorization(project.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have access to this project",
+		}
+	}
+
+	story, err := s.userStoryRepo.GetUserStoryByKey(project.ID, strings.ToUpper(key))
+	if err != nil {
+		return nil, err
+	}
+
+	var userStoryStatuses []models.UserStoryStatus
+	if s.userStoryStatusRepo != nil {
+		statuses, statusErr := s.userStoryStatusRepo.GetStatusesByProjectID(project.ID)
+		if statusErr == nil {
+			userStoryStatuses = statuses
+		}
+	}
+
+	var totalTasks, completedTasks int64
+	var progress float64
+	if s.userStoryRepo != nil {
+		statsMap, statsErr := s.userStoryRepo.GetStoryTaskStats(project.ID)
+		if statsErr == nil {
+			if stats, ok := statsMap[story.ID]; ok {
+				totalTasks = stats.TotalTasks
+				completedTasks = stats.Completed
+				if totalTasks > 0 {
+					progress = float64(completedTasks) / float64(totalTasks) * 100
+				}
+			}
+		}
+	}
+
+	storyResp := mapToUserStoryResponse(*story, userStoryStatuses, totalTasks, completedTasks, progress)
+	isFav := false
+	if s.favoriteRepo != nil && userID != uuid.Nil {
+		isFav, _ = s.favoriteRepo.IsFavorited(userID, models.FavoriteItemTypeUserStory, story.ID)
+	}
+	storyResp.IsFavourite = isFav
+
+	return &storyResp, nil
 }

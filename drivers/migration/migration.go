@@ -43,6 +43,11 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		return err
 	}
 
+	err = MigrateUserStoryKeys(dbConn)
+	if err != nil {
+		return err
+	}
+
 	return MigrateGlobalSerialNumbers(dbConn)
 }
 
@@ -151,6 +156,52 @@ func MigrateProjectSlugs(dbConn *gorm.DB) error {
 	} else {
 		// Fallback for tests or other dialects
 		_ = dbConn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects (slug);")
+	}
+
+	return nil
+}
+
+func MigrateUserStoryKeys(dbConn *gorm.DB) error {
+	var stories []models.UserStory
+	// Fetch all user stories (including soft-deleted) that do not have a key set
+	err := dbConn.Unscoped().Where("key IS NULL OR key = ''").Order("created_at ASC, id ASC").Find(&stories).Error
+	if err != nil {
+		return fmt.Errorf("failed to fetch user stories without key: %w", err)
+	}
+
+	for _, s := range stories {
+		var maxSeq int64
+		// Get max sequence number for this project so far (including soft-deleted)
+		err := dbConn.Unscoped().Model(&models.UserStory{}).
+			Where("project_id = ? AND key IS NOT NULL AND key != ''", s.ProjectID).
+			Select("COALESCE(MAX(sequence_number), 0)").
+			Scan(&maxSeq).Error
+		if err != nil {
+			return fmt.Errorf("failed to calculate next user story sequence number: %w", err)
+		}
+
+		nextSeq := int(maxSeq) + 1
+		key := fmt.Sprintf("US-%d", nextSeq)
+
+		err = dbConn.Unscoped().Model(&models.UserStory{}).Where("id = ?", s.ID).Updates(map[string]interface{}{
+			"sequence_number": nextSeq,
+			"key":             key,
+		}).Error
+		if err != nil {
+			return fmt.Errorf("failed to update user story key for ID %s: %w", s.ID, err)
+		}
+	}
+
+	// Create composite unique index for active user stories manually
+	isPostgres := dbConn.Dialector.Name() == "postgres"
+	if isPostgres {
+		err = dbConn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_project_user_story_key ON user_stories (project_id, key) WHERE deleted_at IS NULL;").Error
+		if err != nil {
+			return fmt.Errorf("failed to create unique index on user story keys: %w", err)
+		}
+	} else {
+		// Fallback for tests/sqlite
+		_ = dbConn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_project_user_story_key ON user_stories (project_id, key);")
 	}
 
 	return nil

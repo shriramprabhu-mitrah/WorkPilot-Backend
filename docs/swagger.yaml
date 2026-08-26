@@ -5582,12 +5582,12 @@ paths:
     get:
       description: Retrieve details of a specific user story by ID
       parameters:
-      - description: Project ID
+      - description: Project ID or Slug
         in: path
         name: project_id
         required: true
         type: string
-      - description: User Story ID
+      - description: User Story ID or Key (e.g. US-1)
         in: path
         name: user_story_id
         required: true
@@ -6256,12 +6256,11 @@ paths:
         name: project_id
         required: true
         type: string
-      - description: Global Serial ID
-        format: int64
+      - description: Global Serial ID or Key (e.g. US-1, MP-1)
         in: path
         name: serial_id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -6290,6 +6289,94 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get project work item by global serial ID
+      tags:
+      - WorkItem
+  /projects/{project_id}/work-items/task/{key}:
+    get:
+      description: Retrieve a project task using its unique project-scoped key.
+      parameters:
+      - description: Project ID (UUID) or Project Slug
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Task Key (e.g. TF-101)
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get project task by key
+      tags:
+      - WorkItem
+  /projects/{project_id}/work-items/us/{key}:
+    get:
+      description: Retrieve a project user story using its unique project-scoped key.
+      parameters:
+      - description: Project ID (UUID) or Project Slug
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story Key (e.g. US-1)
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Get project user story by key
       tags:
       - WorkItem
   /task/{task_id}/comments:

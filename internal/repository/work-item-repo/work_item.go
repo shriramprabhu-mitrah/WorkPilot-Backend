@@ -55,3 +55,26 @@ func (d *workItemDatabase) GetUserStoryBySerialNumber(serialNumber int64) (*mode
 	}
 	return &userStory, nil
 }
+
+func (d *workItemDatabase) GetTaskByKey(projectId uuid.UUID, key string) (*models.Task, *response.Error) {
+	var task models.Task
+	err := d.db.Preload("Sprint").Preload("Assignee").Preload("Reporter").Preload("Labels").
+		Where("project_id = ? AND key = ?", projectId, key).
+		First(&task).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Task not found",
+			}
+		}
+		d.logger.Error("Failed to fetch task by key", zap.Error(err), zap.String("key", key))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch task",
+		}
+	}
+	return &task, nil
+}
