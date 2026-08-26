@@ -25,7 +25,7 @@ func MapToRoleResponse(role models.Role) RoleResponse {
 		"sprints":      {"view", "add", "modify", "delete"},
 		"user_stories": {"view", "add", "modify", "delete"},
 		"tasks":        {"view", "add", "modify", "delete"},
-		"comments":     {"view", "add", "modify", "delete", "comment"},
+		"comments":     {"view", "add", "modify", "delete"},
 	}
 
 	for res, actions := range resourceActions {

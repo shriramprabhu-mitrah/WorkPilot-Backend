@@ -303,3 +303,78 @@ func TestRoleService_DeleteRole(t *testing.T) {
 		t.Fatalf("expected delete to succeed, got: %v", err)
 	}
 }
+
+func TestRoleService_SystemAdminConstraints(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	superAdminRoleID := uuid.Must(uuid.NewV4())
+	orgAdminRoleID := uuid.Must(uuid.NewV4())
+	normalRoleID := uuid.Must(uuid.NewV4())
+
+	roleRepo := &stubRoleRepo{
+		roles: map[uuid.UUID]*models.Role{
+			superAdminRoleID: {ID: superAdminRoleID, Name: "super_admin", IsSystem: true},
+			orgAdminRoleID:   {ID: orgAdminRoleID, Name: "org_admin", IsSystem: true},
+			normalRoleID:     {ID: normalRoleID, Name: "developer", IsSystem: true},
+		},
+	}
+	service := services.InitRoleService(roleRepo, zap.NewNop())
+
+	// 1. GetRolesByOrganizationID should filter out super_admin and org_admin
+	roles, err := service.GetRolesByOrganizationID(orgID)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	for _, r := range roles {
+		if r.Name == "super_admin" || r.Name == "org_admin" {
+			t.Errorf("expected %s to be filtered out, but found in list", r.Name)
+		}
+	}
+
+	// 2. GetRoleByID should return Forbidden for super_admin and org_admin
+	for _, rID := range []uuid.UUID{superAdminRoleID, orgAdminRoleID} {
+		_, err = service.GetRoleByID(orgID, rID)
+		if err == nil || err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 Forbidden when fetching role, got: %v", err)
+		}
+	}
+
+	// 3. CreateRole should return Forbidden if name is "super_admin" or "org_admin"
+	for _, name := range []string{"super_admin", "org_admin", "SuPeR_AdMiN", "oRg_AdMiN"} {
+		reqCreate := requestdto.CreateRoleRequest{
+			Name: name,
+		}
+		_, err = service.CreateRole(orgID, reqCreate)
+		if err == nil || err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 Forbidden when creating role with name %s, got: %v", name, err)
+		}
+	}
+
+	// 4. UpdateRole should return Forbidden if updating super_admin or org_admin
+	for _, rID := range []uuid.UUID{superAdminRoleID, orgAdminRoleID} {
+		reqUpdate := requestdto.UpdateRoleRequest{}
+		_, err = service.UpdateRole(orgID, rID, reqUpdate)
+		if err == nil || err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 Forbidden when updating admin role, got: %v", err)
+		}
+	}
+
+	// 5. UpdateRole should return Forbidden if renaming a role to "super_admin" or "org_admin"
+	for _, name := range []string{"super_admin", "org_admin"} {
+		reqRename := requestdto.UpdateRoleRequest{
+			Name: &name,
+		}
+		_, err = service.UpdateRole(orgID, normalRoleID, reqRename)
+		if err == nil || err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 Forbidden when renaming role to %s, got: %v", name, err)
+		}
+	}
+
+	// 6. DeleteRole should return Forbidden for super_admin and org_admin
+	for _, rID := range []uuid.UUID{superAdminRoleID, orgAdminRoleID} {
+		err = service.DeleteRole(orgID, rID)
+		if err == nil || err.StatusCode != http.StatusForbidden {
+			t.Errorf("expected 403 Forbidden when deleting admin role, got: %v", err)
+		}
+	}
+}
+

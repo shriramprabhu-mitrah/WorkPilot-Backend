@@ -717,7 +717,7 @@ func (d *organizationDatabase) CreateDefaultRolesForOrg(orgID uuid.UUID) *respon
 					(res == "sprints" && act == "view") ||
 					(res == "user_stories" && (act == "view" || act == "add" || act == "modify")) ||
 					(res == "tasks" && (act == "view" || act == "add" || act == "modify" || act == "delete")) ||
-					(res == "comments" && (act == "view" || act == "add" || act == "modify" || act == "delete" || act == "comment"))
+					(res == "comments" && (act == "view" || act == "add" || act == "modify" || act == "delete"))
 			},
 		},
 		{
@@ -729,7 +729,7 @@ func (d *organizationDatabase) CreateDefaultRolesForOrg(orgID uuid.UUID) *respon
 					(res == "sprints" && act == "view") ||
 					(res == "user_stories" && (act == "view" || act == "modify")) ||
 					(res == "tasks" && (act == "view" || act == "add" || act == "modify")) ||
-					(res == "comments" && (act == "view" || act == "add" || act == "comment"))
+					(res == "comments" && (act == "view" || act == "add"))
 			},
 		},
 		{
@@ -741,7 +741,7 @@ func (d *organizationDatabase) CreateDefaultRolesForOrg(orgID uuid.UUID) *respon
 					(res == "sprints" && act == "view") ||
 					(res == "user_stories" && act == "view") ||
 					(res == "tasks" && act == "view") ||
-					(res == "comments" && (act == "view" || act == "comment"))
+					(res == "comments" && (act == "view" || act == "add"))
 			},
 		},
 	}

@@ -76,7 +76,7 @@ func (d *roleDatabase) CreateRole(role *models.Role, permissions []models.Permis
 func (d *roleDatabase) GetRolesByOrganizationID(orgID uuid.UUID) ([]models.Role, *response.Error) {
 	var roles []models.Role
 	err := d.db.Preload("Permissions").
-		Where("organization_id = ? OR (organization_id IS NULL AND is_system = true)", orgID).
+		Where("organization_id = ? OR (organization_id IS NULL AND is_system = true AND name NOT IN ('super_admin', 'org_admin'))", orgID).
 		Find(&roles).Error
 
 	if err != nil {

@@ -45,6 +45,14 @@ func (s *roleService) CreateRole(orgID uuid.UUID, req requestdto.CreateRoleReque
 		}
 	}
 
+	if strings.EqualFold(name, "super_admin") || strings.EqualFold(name, "org_admin") {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    fmt.Sprintf("Cannot create a role with name '%s'", name),
+		}
+	}
+
 	var permissionsToAssociate []models.Permission
 	for resource, actionMap := range req.Permissions {
 		for action, enabled := range actionMap {
@@ -95,6 +103,9 @@ func (s *roleService) GetRolesByOrganizationID(orgID uuid.UUID) ([]responsedto.R
 
 	var resp []responsedto.RoleResponse
 	for _, role := range roles {
+		if role.Name == "super_admin" || role.Name == "org_admin" {
+			continue
+		}
 		resp = append(resp, responsedto.MapToRoleResponse(role))
 	}
 	return resp, nil
@@ -115,6 +126,14 @@ func (s *roleService) GetRoleByID(orgID, roleID uuid.UUID) (*responsedto.RoleRes
 		}
 	}
 
+	if role.Name == "super_admin" || role.Name == "org_admin" {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have access to this role",
+		}
+	}
+
 	resp := responsedto.MapToRoleResponse(*role)
 	return &resp, nil
 }
@@ -123,6 +142,14 @@ func (s *roleService) UpdateRole(orgID, roleID uuid.UUID, req requestdto.UpdateR
 	role, err := s.roleRepo.GetRoleByID(roleID)
 	if err != nil {
 		return nil, err
+	}
+
+	if role.Name == "super_admin" || role.Name == "org_admin" {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to modify this role",
+		}
 	}
 
 	if role.OrganizationID == nil || *role.OrganizationID != orgID {
@@ -140,6 +167,13 @@ func (s *roleService) UpdateRole(orgID, roleID uuid.UUID, req requestdto.UpdateR
 				Code:       response.ErrValidation,
 				StatusCode: http.StatusBadRequest,
 				Message:    "Role name cannot be empty",
+			}
+		}
+		if strings.EqualFold(name, "super_admin") || strings.EqualFold(name, "org_admin") {
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    fmt.Sprintf("Cannot rename a role to '%s'", name),
 			}
 		}
 		role.Name = name
@@ -191,6 +225,14 @@ func (s *roleService) DeleteRole(orgID, roleID uuid.UUID) *response.Error {
 	role, err := s.roleRepo.GetRoleByID(roleID)
 	if err != nil {
 		return err
+	}
+
+	if role.Name == "super_admin" || role.Name == "org_admin" {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "System roles cannot be deleted",
+		}
 	}
 
 	if role.IsSystem {
