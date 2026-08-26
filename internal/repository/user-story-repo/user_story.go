@@ -395,3 +395,46 @@ func (d *userStoryDatabase) CountStoriesByStatusID(projectID, statusID uuid.UUID
 	}
 	return count, nil
 }
+
+func (d *userStoryDatabase) GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error) {
+	var maxSeq int64
+	err := d.db.Model(&models.UserStory{}).Unscoped().
+		Where("project_id = ?", projectID).
+		Select("COALESCE(MAX(sequence_number), 0)").
+		Scan(&maxSeq).Error
+	if err != nil {
+		d.logger.Error("Failed to fetch next user story sequence number", zap.Error(err))
+		return 0, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to generate user story key",
+		}
+	}
+	return int(maxSeq) + 1, nil
+}
+
+func (d *userStoryDatabase) GetUserStoryByKey(projectID uuid.UUID, key string) (*models.UserStory, *response.Error) {
+	var story models.UserStory
+	err := d.db.Model(&models.UserStory{}).
+		Preload("Sprint").Preload("Assignee").Preload("Reporter").
+		Select("user_stories.*, user_story_statuses.name AS status").
+		Joins("LEFT JOIN user_story_statuses ON user_story_statuses.id = user_stories.status_id").
+		Where("user_stories.project_id = ? AND user_stories.key = ?", projectID, key).
+		First(&story).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "User story not found",
+			}
+		}
+		d.logger.Error("Failed to fetch user story by key", zap.Error(err), zap.String("key", key))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch user story",
+		}
+	}
+	return &story, nil
+}

@@ -104,8 +104,8 @@ func (h *userStoryHandler) CreateUserStory(g *gin.Context) {
 // @Description Retrieve details of a specific user story by ID
 // @Tags UserStory
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param user_story_id path string true "User Story ID"
+// @Param project_id path string true "Project ID or Slug"
+// @Param user_story_id path string true "User Story ID or Key (e.g. US-1)"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -120,25 +120,14 @@ func (h *userStoryHandler) GetUserStoryByID(g *gin.Context) {
 	}
 
 	projectIDParam := g.Param("project_id")
-	projectID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
-
 	storyIDParam := g.Param("user_story_id")
-	storyID, errorResponse := utils.StringToUUID(storyIDParam)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
 		return
 	}
 
-	storyRes, err := h.service.GetUserStoryByID(storyID, projectID, userUUID, organizationUUID)
+	storyRes, err := h.service.GetUserStoryByID(storyIDParam, projectIDParam, userUUID, organizationUUID)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,

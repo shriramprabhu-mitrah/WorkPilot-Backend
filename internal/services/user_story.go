@@ -26,7 +26,7 @@ import (
 
 type UserStoryService interface {
 	CreateUserStory(req dto.CreateUserStoryRequest) (*responsedto.UserStoryResponse, *response.Error)
-	GetUserStoryByID(userStoryID, projectID, userID, orgID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error)
+	GetUserStoryByID(userStoryIDOrKey string, projectIDOrSlug string, userID, orgID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error)
 	UpdateUserStory(req dto.UpdateUserStoryRequest) (*responsedto.UserStoryResponse, *response.Error)
 	DeleteUserStory(userStoryID, projectID, userID, orgID uuid.UUID) *response.Error
 	GetUserStories(projectID, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error)
@@ -365,9 +365,25 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 	story.AssigneeID = req.AssigneeID
 	story.ReporterID = req.ReporterID
 
-	createErr := s.userStoryRepo.CreateUserStory(&story)
-	if createErr != nil {
-		return nil, createErr
+	var lastErr *response.Error
+	for attempt := 0; attempt < 3; attempt++ {
+		seq, err := s.userStoryRepo.GetNextSequenceNumber(req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		story.SequenceNumber = seq
+		story.Key = fmt.Sprintf("US-%d", seq)
+
+		lastErr = s.userStoryRepo.CreateUserStory(&story)
+		if lastErr == nil {
+			break
+		}
+		if lastErr.Code != response.ErrConflict {
+			return nil, lastErr
+		}
+	}
+	if lastErr != nil {
+		return nil, lastErr
 	}
 
 	recalcErr := s.userStoryRepo.RecalculateUserStoryIsClosed(story.ID)
@@ -408,8 +424,20 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 	return &res, nil
 }
 
-func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error) {
-	_, user, authorized, err := s.checkAuthorization(projectID, userID)
+func (s *userStoryService) GetUserStoryByID(userStoryIDOrKey string, projectIDOrSlug string, userID, orgID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error) {
+	var project models.Project
+	projectUUID, parseErr := uuid.FromString(projectIDOrSlug)
+	var getProjErr *response.Error
+	if parseErr == nil {
+		project, getProjErr = s.projectRepo.GetProjectByID(projectUUID)
+	} else {
+		project, getProjErr = s.projectRepo.GetProjectBySlug(projectIDOrSlug)
+	}
+	if getProjErr != nil {
+		return nil, getProjErr
+	}
+
+	_, user, authorized, err := s.checkAuthorization(project.ID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -421,18 +449,24 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		}
 	}
 
-	story, err := s.userStoryRepo.GetUserStoryByID(userStoryID, projectID)
+	var story *models.UserStory
+	storyID, parseErr := uuid.FromString(userStoryIDOrKey)
+	if parseErr == nil {
+		story, err = s.userStoryRepo.GetUserStoryByID(storyID, project.ID)
+	} else {
+		story, err = s.userStoryRepo.GetUserStoryByKey(project.ID, userStoryIDOrKey)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(projectID)
+	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(project.ID)
 	if statErr != nil {
 		return nil, statErr
 	}
 	var total, completed int64
 	progress := 0.0
-	if stat, ok := statsMap[userStoryID]; ok {
+	if stat, ok := statsMap[story.ID]; ok {
 		total = stat.TotalTasks
 		completed = stat.Completed
 		if total > 0 {
@@ -440,13 +474,13 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 		}
 	}
 
-	tasks, taskErr := s.taskRepo.GetTasksByUserStoryID(userStoryID)
+	tasks, taskErr := s.taskRepo.GetTasksByUserStoryID(story.ID)
 	if taskErr != nil {
 		return nil, taskErr
 	}
 
-	colorMap := s.getStatusColorMap(projectID)
-	isFinalMap := s.getStatusIsFinalMap(projectID)
+	colorMap := s.getStatusColorMap(project.ID)
+	isFinalMap := s.getStatusIsFinalMap(project.ID)
 	favTaskMap := s.getFavoriteTaskMap(userID)
 	taskResponses := make([]responsedto.TaskResponse, 0, len(tasks))
 	for _, t := range tasks {
@@ -457,7 +491,7 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 
 	var userStoryStatuses []models.UserStoryStatus
 	if s.userStoryStatusRepo != nil {
-		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
+		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(project.ID)
 	}
 	res := mapToUserStoryResponse(*story, userStoryStatuses, total, completed, progress)
 	isFav := s.isUserStoryFavorited(userID, story.ID)
@@ -467,7 +501,7 @@ func (s *userStoryService) GetUserStoryByID(userStoryID, projectID, userID, orgI
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
-		ProjectID:      &projectID,
+		ProjectID:      &project.ID,
 		UserStoryID:    &story.ID,
 		Action:         "viewed",
 		ResourceType:   "user_story",
@@ -922,6 +956,8 @@ func mapToUserStoryResponse(story models.UserStory, customStatuses []models.User
 		SprintName:            sprintName,
 		SerialNumber:          story.SerialNumber,
 		FormattedSerialNumber: story.FormattedSerialNumber(),
+		Key:                   story.Key,
+		SequenceNumber:        story.SequenceNumber,
 		Title:                 story.Title,
 		Description:           story.Description,
 		Priority:              story.Priority,

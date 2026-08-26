@@ -14,6 +14,8 @@ type UserStoryResponse struct {
 	SprintName            string         `json:"sprint_name,omitempty"`
 	SerialNumber          int64          `json:"serial_number"`
 	FormattedSerialNumber string         `json:"formatted_serial_number,omitempty"`
+	Key                   string         `json:"key"`
+	SequenceNumber        int            `json:"sequence_number"`
 	Title                 string         `json:"title"`
 	Description           string         `json:"description,omitempty"`
 	Priority              string         `json:"priority"`

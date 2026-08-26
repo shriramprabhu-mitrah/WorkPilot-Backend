@@ -273,6 +273,29 @@ func (s *stubUserStoryRepo) CountStoriesByStatusID(projectID, statusID uuid.UUID
 	return count, nil
 }
 
+func (s *stubUserStoryRepo) GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error) {
+	count := 0
+	for _, story := range s.stories {
+		if story.ProjectID == projectID {
+			count++
+		}
+	}
+	return count + 1, nil
+}
+
+func (s *stubUserStoryRepo) GetUserStoryByKey(projectID uuid.UUID, key string) (*models.UserStory, *response.Error) {
+	for _, story := range s.stories {
+		if story.ProjectID == projectID && story.Key == key {
+			return story, nil
+		}
+	}
+	return nil, &response.Error{
+		Code:       response.ErrNotFound,
+		StatusCode: 404,
+		Message:    "User story not found",
+	}
+}
+
 func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())
@@ -458,7 +481,7 @@ func TestUserStoryService_GetUserStoryByID_Success(t *testing.T) {
 
 	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, nil, zap.NewNop())
 
-	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
+	res, err := service.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -762,7 +785,7 @@ func TestUserStoryService_ProgressCalculation(t *testing.T) {
 
 	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, nil, zap.NewNop())
 
-	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
+	res, err := service.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -813,7 +836,7 @@ func TestUserStoryService_GetUserStoryByID_IncludesTasks(t *testing.T) {
 
 	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, nil, zap.NewNop())
 
-	res, err := service.GetUserStoryByID(storyID, projectID, userID, orgID)
+	res, err := service.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -1117,7 +1140,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 	}
 
 	// Verify story is still open (1 task, 0 completed)
-	fetchedStory, _ := usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ := usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if fetchedStory.IsClosed {
 		t.Errorf("expected is_closed false when story has open task, got true")
 	}
@@ -1148,7 +1171,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		t.Fatalf("failed updating task 1: %v", updateErr)
 	}
 
-	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ = usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if fetchedStory.IsClosed {
 		t.Errorf("expected is_closed false when only 1 of 2 tasks completed, got true")
 	}
@@ -1164,7 +1187,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		t.Fatalf("failed updating task 2: %v", updateErr)
 	}
 
-	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ = usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if !fetchedStory.IsClosed {
 		t.Errorf("expected is_closed true when all tasks completed, got false")
 	}
@@ -1181,7 +1204,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		t.Fatalf("failed reopening task 1: %v", updateErr)
 	}
 
-	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ = usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if fetchedStory.IsClosed {
 		t.Errorf("expected is_closed false after reopening task 1, got true")
 	}
@@ -1194,7 +1217,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		Status:    &completedStatus,
 	})
 
-	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ = usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if !fetchedStory.IsClosed {
 		t.Fatalf("expected is_closed true after completing task 1 again")
 	}
@@ -1213,7 +1236,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		t.Fatalf("failed creating task 3: %v", tErr)
 	}
 
-	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ = usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if fetchedStory.IsClosed {
 		t.Errorf("expected is_closed false after adding open task to closed story, got true")
 	}
@@ -1228,7 +1251,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		t.Fatalf("failed deleting task 3: %v", bDelErr)
 	}
 
-	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ = usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if !fetchedStory.IsClosed {
 		t.Errorf("expected is_closed true after deleting uncompleted task 3, got false")
 	}
@@ -1240,7 +1263,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 		UserID:    userID,
 	})
 
-	fetchedStory, _ = usService.GetUserStoryByID(storyID, projectID, userID, orgID)
+	fetchedStory, _ = usService.GetUserStoryByID(storyID.String(), projectID.String(), userID, orgID)
 	if fetchedStory.IsClosed {
 		t.Errorf("expected is_closed false when all tasks are deleted (0 tasks), got true")
 	}

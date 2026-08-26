@@ -73,6 +73,7 @@ func ProjectSummaryFromModel(project models.Project, taskCount int, memberCount 
 		TotalTasks:       taskCount,
 		TotalMembers:     memberCount,
 		Sprints:          sprints,
+		Slug:             project.Slug,
 	}
 }
 
