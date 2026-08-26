@@ -317,7 +317,8 @@ func (d *authDatabase) ChangePassword(password string, userID uuid.UUID) *respon
 		Model(&models.User{}).
 		Where("id = ?", userID).
 		Updates(map[string]any{
-			"password_hash": password,
+			"password_hash":           password,
+			"require_password_change": false,
 		})
 
 	if result.Error != nil {
@@ -377,7 +378,10 @@ func (d *authDatabase) RequestPasswordReset(email string) (models.User, *respons
 
 func (d *authDatabase) UpdateUserPassword(userID uuid.UUID, passwordHash string) *response.Error {
 
-	result := d.db.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash)
+	result := d.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"password_hash":           passwordHash,
+		"require_password_change": false,
+	})
 
 	if result.Error != nil {
 

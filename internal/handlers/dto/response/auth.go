@@ -22,21 +22,22 @@ type OrganizationSummary struct {
 }
 
 type UserProfile struct {
-	ID               uuid.UUID  `json:"id"`
-	OrganizationID   *uuid.UUID `json:"organization_id,omitempty"`
-	OrganizationName string     `json:"organization_name,omitempty"`
-	Name             string     `json:"name"`
-	Username         string     `json:"username"`
-	Email            string     `json:"email"`
-	Role             string     `json:"role,omitempty"`
-	AvatarURL        *string    `json:"avatar_url"`
-	Color            string     `json:"color"`
-	Timezone         string     `json:"timezone,omitempty"`
-	IsActive         bool       `json:"is_active"`
-	IsVerified       bool       `json:"is_verified"`
-	Status           string     `json:"status"`
-	CreatedAt        time.Time  `json:"created_at"`
-	JoinedAt         time.Time  `json:"joined_at,omitempty"`
+	ID                    uuid.UUID  `json:"id"`
+	OrganizationID        *uuid.UUID `json:"organization_id,omitempty"`
+	OrganizationName      string     `json:"organization_name,omitempty"`
+	Name                  string     `json:"name"`
+	Username              string     `json:"username"`
+	Email                 string     `json:"email"`
+	Role                  string     `json:"role,omitempty"`
+	AvatarURL             *string    `json:"avatar_url"`
+	Color                 string     `json:"color"`
+	Timezone              string     `json:"timezone,omitempty"`
+	IsActive              bool       `json:"is_active"`
+	IsVerified            bool       `json:"is_verified"`
+	Status                string     `json:"status"`
+	CreatedAt             time.Time  `json:"created_at"`
+	JoinedAt              time.Time  `json:"joined_at,omitempty"`
+	RequirePasswordChange bool       `json:"require_password_change"`
 }
 
 type ProjectSummary struct {

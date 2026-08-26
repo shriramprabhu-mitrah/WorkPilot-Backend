@@ -31,21 +31,22 @@ func UserProfileFromModel(user models.User) UserProfile {
 		avatarURL = &user.AvatarURL
 	}
 	return UserProfile{
-		ID:               user.ID,
-		OrganizationID:   user.OrganizationID,
-		OrganizationName: user.Organization.Name,
-		Name:             user.FullName,
-		Username:         user.UserName,
-		Email:            user.Email,
-		Role:             user.Role.Name,
-		AvatarURL:        avatarURL,
-		Color:            user.Color,
-		Timezone:         user.Timezone,
-		IsActive:         user.IsActive,
-		IsVerified:       user.IsVerified,
-		Status:           user.Status,
-		CreatedAt:        user.CreatedAt,
-		JoinedAt:         user.JoinedAt,
+		ID:                    user.ID,
+		OrganizationID:        user.OrganizationID,
+		OrganizationName:      user.Organization.Name,
+		Name:                  user.FullName,
+		Username:              user.UserName,
+		Email:                 user.Email,
+		Role:                  user.Role.Name,
+		AvatarURL:             avatarURL,
+		Color:                 user.Color,
+		Timezone:              user.Timezone,
+		IsActive:              user.IsActive,
+		IsVerified:            user.IsVerified,
+		Status:                user.Status,
+		CreatedAt:             user.CreatedAt,
+		JoinedAt:              user.JoinedAt,
+		RequirePasswordChange: user.RequirePasswordChange,
 	}
 }
 

@@ -680,19 +680,20 @@ func (s *organizationService) inviteUserWithTemporaryCredentials(email string, o
 	}
 
 	user := models.User{
-		ID:             uuid.Must(uuid.NewV7()),
-		Email:          strings.ToLower(strings.TrimSpace(email)),
-		FullName:       s.generateFullNameFromEmail(email),
-		UserName:       username,
-		PasswordHash:   passwordHash,
-		Timezone:       "UTC",
-		IsActive:       false,
-		IsVerified:     true,
-		OrganizationID: &organizationID,
-		RoleID:         roleID,
-		Status:         "pending",
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:                    uuid.Must(uuid.NewV7()),
+		Email:                 strings.ToLower(strings.TrimSpace(email)),
+		FullName:              s.generateFullNameFromEmail(email),
+		UserName:              username,
+		PasswordHash:          passwordHash,
+		Timezone:              "UTC",
+		IsActive:              false,
+		IsVerified:            true,
+		OrganizationID:        &organizationID,
+		RoleID:                roleID,
+		Status:                "pending",
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+		RequirePasswordChange: true,
 	}
 
 	if err := s.AuthRepo.CreateUser(user); err != nil {
