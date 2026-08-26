@@ -63,7 +63,9 @@ type authService struct {
 
 func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResponse, *response.Error) {
 
-	result, err := s.authRepo.GetByEmail(credentials.Email)
+	cleanEmail := strings.ToLower(strings.TrimSpace(credentials.Email))
+
+	result, err := s.authRepo.GetByEmail(cleanEmail)
 	if err != nil {
 		if err.StatusCode == http.StatusNotFound {
 			return nil, &response.Error{
