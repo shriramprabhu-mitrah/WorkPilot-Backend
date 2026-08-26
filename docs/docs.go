@@ -8439,6 +8439,9 @@ const docTemplate = `{
                 "refresh_token": {
                     "type": "string"
                 },
+                "require_password_change": {
+                    "type": "boolean"
+                },
                 "token_type": {
                     "type": "string"
                 }
@@ -9964,6 +9967,9 @@ const docTemplate = `{
                 },
                 "organization_name": {
                     "type": "string"
+                },
+                "require_password_change": {
+                    "type": "boolean"
                 },
                 "role": {
                     "type": "string"

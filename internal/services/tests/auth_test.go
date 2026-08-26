@@ -744,3 +744,74 @@ func TestAuthService_GetUserInsights(t *testing.T) {
 	})
 }
 
+func TestSignInReturnsRequirePasswordChange(t *testing.T) {
+	hash, err := utils.HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	repo := &stubAuthRepository{
+		user: models.User{
+			ID:                    uuid.Must(uuid.NewV4()),
+			Email:                 "temp-user@example.com",
+			PasswordHash:          hash,
+			RoleID:                uuid.Must(uuid.NewV7()),
+			Role:                  models.Role{Name: "developer"},
+			IsActive:              true,
+			IsVerified:            true,
+			RequirePasswordChange: true,
+		},
+	}
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
+
+	result, authErr := service.SignIn(dto.SignInRequest{Email: "temp-user@example.com", Password: "correct-password"})
+	if authErr != nil {
+		t.Fatalf("expected no error, got %v", authErr)
+	}
+	if result == nil {
+		t.Fatal("expected result, got nil")
+	}
+	if !result.RequirePasswordChange {
+		t.Errorf("expected RequirePasswordChange to be true, got false")
+	}
+}
+
+func TestRefreshTokenReturnsRequirePasswordChange(t *testing.T) {
+	correctHash, _ := utils.HashPassword("refresh-secret")
+	userUUID := uuid.Must(uuid.NewV4())
+	tokenUUID := uuid.Must(uuid.NewV4())
+
+	repo := &stubAuthRepository{
+		user: models.User{
+			ID:                    userUUID,
+			Email:                 "temp-user@example.com",
+			RoleID:                uuid.Must(uuid.NewV7()),
+			Role:                  models.Role{Name: "developer"},
+			IsActive:              true,
+			IsVerified:            true,
+			RequirePasswordChange: true,
+		},
+		refreshToken: models.RefreshToken{
+			ID:        tokenUUID,
+			UserID:    userUUID,
+			TokenHash: correctHash,
+			ExpiresAt: time.Now().Add(1 * time.Hour),
+		},
+	}
+	service := InitAuthService(repo, &stubAuditLogRepo{}, zap.NewNop())
+
+	resp, err := service.RefreshToken(dto.RefreshTokenRequest{
+		RefreshToken: tokenUUID.String() + ".refresh-secret",
+		UserID:       userUUID.String(),
+	})
+
+	if err != nil {
+		t.Fatalf("expected successful token refresh, got error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected response, got nil")
+	}
+	if !resp.RequirePasswordChange {
+		t.Errorf("expected RequirePasswordChange to be true, got false")
+	}
+}

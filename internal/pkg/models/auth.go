@@ -11,25 +11,26 @@ import (
 )
 
 type User struct {
-	ID             uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
-	OrganizationID *uuid.UUID     `json:"organization_id,omitempty" gorm:"type:uuid;index:idx_users_organization_id"`
-	Organization   Organization   `json:"organization,omitzero"`
-	FullName       string         `json:"name" gorm:"size:100;not null"`
-	UserName       string         `json:"username" gorm:"column:username;size:30;not null;unique;index:idx_users_username"`
-	Email          string         `json:"email" validate:"required,email" gorm:"size:100;not null;unique;index:idx_users_email"`
-	PasswordHash   string         `json:"password_hash" validate:"required"`
-	RoleID         uuid.UUID      `json:"role_id" gorm:"type:uuid;index:idx_users_role_id"`
-	Role           Role           `json:"role,omitzero" gorm:"foreignKey:RoleID"`
-	AvatarURL      string         `json:"avatar_url" gorm:"size:500"`
-	Color          string         `json:"color" gorm:"size:7;not null;default:'#3498DB'"`
-	Timezone       string         `json:"timezone" gorm:"size:50;default:'UTC'"`
-	IsActive       bool           `json:"is_active"`
-	IsVerified     bool           `json:"is_verified"`
-	Status         string         `json:"status" gorm:"size:50;not null;default:'active'"`
-	CreatedAt      time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
-	UpdatedAt      time.Time      `json:"updated_at" gorm:"type:timestamptz"`
-	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index:idx_users_deleted_at"`
-	JoinedAt       time.Time      `json:"joined_at" gorm:"type:timestamptz"`
+	ID                    uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid"`
+	OrganizationID        *uuid.UUID     `json:"organization_id,omitempty" gorm:"type:uuid;index:idx_users_organization_id"`
+	Organization          Organization   `json:"organization,omitzero"`
+	FullName              string         `json:"name" gorm:"size:100;not null"`
+	UserName              string         `json:"username" gorm:"column:username;size:30;not null;unique;index:idx_users_username"`
+	Email                 string         `json:"email" validate:"required,email" gorm:"size:100;not null;unique;index:idx_users_email"`
+	PasswordHash          string         `json:"password_hash" validate:"required"`
+	RoleID                uuid.UUID      `json:"role_id" gorm:"type:uuid;index:idx_users_role_id"`
+	Role                  Role           `json:"role,omitzero" gorm:"foreignKey:RoleID"`
+	AvatarURL             string         `json:"avatar_url" gorm:"size:500"`
+	Color                 string         `json:"color" gorm:"size:7;not null;default:'#3498DB'"`
+	Timezone              string         `json:"timezone" gorm:"size:50;default:'UTC'"`
+	IsActive              bool           `json:"is_active"`
+	IsVerified            bool           `json:"is_verified"`
+	Status                string         `json:"status" gorm:"size:50;not null;default:'active'"`
+	CreatedAt             time.Time      `json:"created_at" gorm:"not null;type:timestamptz"`
+	UpdatedAt             time.Time      `json:"updated_at" gorm:"type:timestamptz"`
+	DeletedAt             gorm.DeletedAt `json:"-" gorm:"index:idx_users_deleted_at"`
+	JoinedAt              time.Time      `json:"joined_at" gorm:"type:timestamptz"`
+	RequirePasswordChange bool           `json:"require_password_change" gorm:"not null;default:false"`
 }
 
 type RefreshToken struct {

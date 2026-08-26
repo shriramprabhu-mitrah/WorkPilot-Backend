@@ -46,11 +46,12 @@ func (p Platform) Validate() error {
 }
 
 type AuthTokensResponse struct {
-	AccessToken      string `json:"access_token"`
-	RefreshToken     string `json:"refresh_token"`
-	TokenType        string `json:"token_type"`
-	ExpiresIn        int    `json:"expires_in"`
-	RefreshExpiresIn int    `json:"refresh_expires_in"`
+	AccessToken           string `json:"access_token"`
+	RefreshToken          string `json:"refresh_token"`
+	TokenType             string `json:"token_type"`
+	ExpiresIn             int    `json:"expires_in"`
+	RefreshExpiresIn      int    `json:"refresh_expires_in"`
+	RequirePasswordChange bool   `json:"require_password_change"`
 }
 
 type SignInRequest struct {

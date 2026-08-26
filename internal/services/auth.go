@@ -216,11 +216,12 @@ func (s *authService) SignIn(credentials dto.SignInRequest) (*dto.AuthTokensResp
 	refreshTokenValue = fmt.Sprintf("%s.%s", storedToken.ID.String(), refreshTokenValue)
 
 	return &dto.AuthTokensResponse{
-		AccessToken:      accessToken,
-		RefreshToken:     refreshTokenValue,
-		TokenType:        "Bearer",
-		ExpiresIn:        expiresIn,
-		RefreshExpiresIn: refreshExpiresIn,
+		AccessToken:           accessToken,
+		RefreshToken:          refreshTokenValue,
+		TokenType:             "Bearer",
+		ExpiresIn:             expiresIn,
+		RefreshExpiresIn:      refreshExpiresIn,
+		RequirePasswordChange: result.RequirePasswordChange,
 	}, nil
 }
 
@@ -369,11 +370,12 @@ func (s *authService) RefreshToken(credentials dto.RefreshTokenRequest) (*dto.Au
 	}
 
 	return &dto.AuthTokensResponse{
-		AccessToken:      accessToken,
-		RefreshToken:     newRefreshTokenValue,
-		TokenType:        "Bearer",
-		ExpiresIn:        expiresIn,
-		RefreshExpiresIn: refreshExpiresIn,
+		AccessToken:           accessToken,
+		RefreshToken:          newRefreshTokenValue,
+		TokenType:             "Bearer",
+		ExpiresIn:             expiresIn,
+		RefreshExpiresIn:      refreshExpiresIn,
+		RequirePasswordChange: user.RequirePasswordChange,
 	}, nil
 }
 
@@ -665,11 +667,12 @@ func (s *authService) VerifyEmail(credentials dto.VerifyEmailRequest) (*dto.Auth
 
 	s.logger.Info("Email verification completed", zap.String("email", credentials.Email))
 	return &dto.AuthTokensResponse{
-		AccessToken:      accessToken,
-		RefreshToken:     refreshTokenValue,
-		TokenType:        "Bearer",
-		ExpiresIn:        expiresIn,
-		RefreshExpiresIn: refreshExpiresIn,
+		AccessToken:           accessToken,
+		RefreshToken:          refreshTokenValue,
+		TokenType:             "Bearer",
+		ExpiresIn:             expiresIn,
+		RefreshExpiresIn:      refreshExpiresIn,
+		RequirePasswordChange: user.RequirePasswordChange,
 	}, nil
 }
 
