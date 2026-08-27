@@ -87,7 +87,6 @@ func CheckPermission(authRepo authrepo.AuthRepository, projectRepo projectrepo.P
 	if err != nil {
 		return false, err
 	}
-
 	// 1. Super admins are platform-level only, they cannot perform org/project activities
 	if user.Role.Name == "super_admin" {
 		return false, nil
@@ -95,48 +94,67 @@ func CheckPermission(authRepo authrepo.AuthRepository, projectRepo projectrepo.P
 
 	// 2. If projectID is not Nil, check project-level role first
 	if projectID != uuid.Nil && projectRepo != nil {
-		member, err := projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
-		if err == nil && member != nil {
+		// If action is view, project members can always view.
+		member, memberErr := projectRepo.GetProjectMemberByUserAndProjectID(userID, projectID)
+		if memberErr == nil && member != nil {
+			if action == "view" {
+				return true, nil
+			}
+			dbChecked := false
 			for _, p := range member.Role.Permissions {
+				dbChecked = true
 				if p.Resource == resource && p.Action == action {
 					return true, nil
 				}
 			}
-			if hasDefaultPermission(member.Role.Name, resource, action) {
-				return true, nil
+			if !dbChecked {
+				if hasDefaultPermission(member.Role.Name, resource, action) {
+					return true, nil
+				}
 			}
 		}
-	}
 
-	// 3. Otherwise, check organization-level role if organization matches
-	if projectID != uuid.Nil && projectRepo != nil {
-		project, err := projectRepo.GetProjectByID(projectID)
-		if err == nil {
-			if user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
-				// Only Org Admins fallback to organization role permissions for project context
-				if user.Role.Name == "org_admin" {
+		// Non-members fallback to org_admin check if organization matches
+		if user.Role.Name == "org_admin" {
+			project, projErr := projectRepo.GetProjectByID(projectID)
+			if projErr == nil {
+				if user.OrganizationID != nil && *user.OrganizationID == project.OrganizationID {
+					if action == "view" {
+						return true, nil
+					}
+					dbChecked := false
 					for _, p := range user.Role.Permissions {
+						dbChecked = true
 						if p.Resource == resource && p.Action == action {
 							return true, nil
 						}
 					}
-					if hasDefaultPermission(user.Role.Name, resource, action) {
-						return true, nil
+					if !dbChecked {
+						if hasDefaultPermission(user.Role.Name, resource, action) {
+							return true, nil
+						}
 					}
 				}
 			}
-		} else {
-			return false, err
 		}
 	} else {
-		// If no project ID (e.g. creating/listing projects), we check the user's organization-level role directly.
+		// If projectID is Nil (organization level) and action is view, all organization users are allowed.
+		if action == "view" {
+			return true, nil
+		}
+
+		// Check organization-level role permissions directly.
+		dbChecked := false
 		for _, p := range user.Role.Permissions {
+			dbChecked = true
 			if p.Resource == resource && p.Action == action {
 				return true, nil
 			}
 		}
-		if hasDefaultPermission(user.Role.Name, resource, action) {
-			return true, nil
+		if !dbChecked {
+			if hasDefaultPermission(user.Role.Name, resource, action) {
+				return true, nil
+			}
 		}
 	}
 

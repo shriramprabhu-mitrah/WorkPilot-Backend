@@ -71,6 +71,31 @@ func (s *roleService) CreateRole(orgID uuid.UUID, req requestdto.CreateRoleReque
 		}
 	}
 
+	// Auto-associate standard view permissions for custom roles
+	for _, vp := range []struct{ Resource, Action string }{
+		{"projects", "view"},
+		{"sprints", "view"},
+		{"user_stories", "view"},
+		{"tasks", "view"},
+		{"comments", "view"},
+		{"attachments", "view"},
+		{"custom_statuses", "view"},
+	} {
+		exists := false
+		for _, p := range permissionsToAssociate {
+			if p.Resource == vp.Resource && p.Action == vp.Action {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			perm, err := s.roleRepo.GetPermissionByResourceAction(vp.Resource, vp.Action)
+			if err == nil && perm != nil {
+				permissionsToAssociate = append(permissionsToAssociate, *perm)
+			}
+		}
+	}
+
 	role := &models.Role{
 		ID:             uuid.Must(uuid.NewV7()),
 		OrganizationID: &orgID,
@@ -199,6 +224,31 @@ func (s *roleService) UpdateRole(orgID, roleID uuid.UUID, req requestdto.UpdateR
 					}
 				}
 				permissionsToAssociate = append(permissionsToAssociate, *perm)
+			}
+		}
+
+		// Auto-associate standard view permissions for updated custom roles
+		for _, vp := range []struct{ Resource, Action string }{
+			{"projects", "view"},
+			{"sprints", "view"},
+			{"user_stories", "view"},
+			{"tasks", "view"},
+			{"comments", "view"},
+			{"attachments", "view"},
+			{"custom_statuses", "view"},
+		} {
+			exists := false
+			for _, p := range permissionsToAssociate {
+				if p.Resource == vp.Resource && p.Action == vp.Action {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				perm, err := s.roleRepo.GetPermissionByResourceAction(vp.Resource, vp.Action)
+				if err == nil && perm != nil {
+					permissionsToAssociate = append(permissionsToAssociate, *perm)
+				}
 			}
 		}
 	} else {

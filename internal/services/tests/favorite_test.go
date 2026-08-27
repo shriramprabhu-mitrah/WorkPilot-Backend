@@ -10,6 +10,8 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
@@ -160,7 +162,7 @@ func TestFavoriteService_AddAndGetFavorites(t *testing.T) {
 		Title:     "Fav Task",
 	}
 
-	service := services.InitFavoriteService(favRepo, usRepo, taskRepo, nil, nil, nil, zap.NewNop())
+	service := services.InitFavoriteService(favRepo, usRepo, taskRepo, &stubFavoriteProjectRepo{}, &stubFavoriteAuthRepo{}, nil, nil, zap.NewNop())
 
 	// 1. Add User Story Favorite
 	usFavResp, err := service.AddUserStoryFavorite(userID, projectID, userStoryID)
@@ -241,7 +243,7 @@ func TestFavoriteService_GetFavoritesWithFilters(t *testing.T) {
 		Title:     "Backend API Task",
 	}
 
-	service := services.InitFavoriteService(favRepo, usRepo, taskRepo, nil, nil, nil, zap.NewNop())
+	service := services.InitFavoriteService(favRepo, usRepo, taskRepo, &stubFavoriteProjectRepo{}, &stubFavoriteAuthRepo{}, nil, nil, zap.NewNop())
 	_, _ = service.AddUserStoryFavorite(userID, projectID1, userStoryID)
 	_, _ = service.AddTaskFavorite(userID, projectID2, taskID)
 
@@ -296,7 +298,7 @@ func TestFavoriteService_GetFavoritesWithPagination(t *testing.T) {
 	usRepo.stories[storyID2] = &models.UserStory{ID: storyID2, ProjectID: projectID, Title: "Beta Story"}
 	taskRepo.tasks[taskID1] = &models.Task{ID: taskID1, ProjectID: projectID, Title: "Gamma Task"}
 
-	service := services.InitFavoriteService(favRepo, usRepo, taskRepo, nil, nil, nil, zap.NewNop())
+	service := services.InitFavoriteService(favRepo, usRepo, taskRepo, &stubFavoriteProjectRepo{}, &stubFavoriteAuthRepo{}, nil, nil, zap.NewNop())
 	_, _ = service.AddUserStoryFavorite(userID, projectID, storyID1)
 	_, _ = service.AddUserStoryFavorite(userID, projectID, storyID2)
 	_, _ = service.AddTaskFavorite(userID, projectID, taskID1)
@@ -344,4 +346,35 @@ func TestFavoriteService_GetFavoritesWithPagination(t *testing.T) {
 	if meta2.Page != 2 || meta2.PageSize != 2 || meta2.TotalItems != 3 || meta2.TotalPages != 2 || meta2.HasNext || !meta2.HasPrevious {
 		t.Errorf("Unexpected meta2: %+v", meta2)
 	}
+}
+
+type stubFavoriteAuthRepo struct {
+	authrepo.AuthRepository
+}
+
+func (s *stubFavoriteAuthRepo) GetUserByID(id uuid.UUID) (models.User, *response.Error) {
+	return models.User{
+		ID:       id,
+		Role:     models.Role{Name: "member"},
+		IsActive: true,
+	}, nil
+}
+
+type stubFavoriteProjectRepo struct {
+	projectrepo.ProjectRepository
+}
+
+func (s *stubFavoriteProjectRepo) GetProjectMemberByUserAndProjectID(userID, projectID uuid.UUID) (*models.ProjectMember, *response.Error) {
+	return &models.ProjectMember{
+		UserID:    userID,
+		ProjectID: projectID,
+		Role:      models.Role{Name: "project_manager"},
+	}, nil
+}
+
+func (s *stubFavoriteProjectRepo) GetProjectByID(projectID uuid.UUID) (models.Project, *response.Error) {
+	return models.Project{
+		ID:   projectID,
+		Name: "Stub Project",
+	}, nil
 }

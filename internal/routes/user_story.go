@@ -43,7 +43,7 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 	storageClient := storage.NewS3Client(deps.Logger)
 	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, userStoryAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
 	commentsService := services.InitCommentsService(commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, deps.Logger)
-	favoriteService := services.InitFavoriteService(favoriteRepo, userStoryRepo, taskRepo, projectRepo, customStatusRepo, userStoryStatusRepo, deps.Logger)
+	favoriteService := services.InitFavoriteService(favoriteRepo, userStoryRepo, taskRepo, projectRepo, authRepo, customStatusRepo, userStoryStatusRepo, deps.Logger)
 
 	// initialize handlers
 	userStoryHandler := handlers.InitUserStoryHandler(userStoryService, deps.Logger)

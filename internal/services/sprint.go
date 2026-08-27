@@ -235,45 +235,22 @@ func (s *sprintService) StartSprint(req requestdto.StartSprintRequest) (*respons
 		return nil, errResp
 	}
 
-	// 4. Check project member
-	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, sprint.ProjectID)
+	// 4. Check sprint modify permission
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, sprint.ProjectID, "sprints", "modify")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !authorized {
+		s.logger.Warn(
+			"User is not authorized to start sprint",
+			zap.String("userID", req.UserID.String()),
+			zap.String("projectID", sprint.ProjectID.String()),
+		)
 
-	isOrgAdmin := result.Role.Name == string(dto.RoleOrgAdmin)
-
-	// If user is not a project member and is not organization admin
-	if err != nil {
-		if !isOrgAdmin {
-			s.logger.Warn(
-				"User is not a project member",
-				zap.String("userID", req.UserID.String()),
-				zap.String("projectID", sprint.ProjectID.String()),
-			)
-
-			return nil, &response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "You do not have permission to start this sprint",
-			}
-		}
-	} else {
-
-		// 5. Check project role
-		if member.Role.Name != string(requestdto.ProjectRoleOrgAdmin) &&
-			member.Role.Name != string(requestdto.ProjectRoleProjectManager) &&
-			!isOrgAdmin {
-
-			s.logger.Warn(
-				"User is not authorized to start sprint",
-				zap.String("userID", req.UserID.String()),
-				zap.String("projectID", sprint.ProjectID.String()),
-				zap.String("projectRole", member.Role.Name),
-			)
-
-			return nil, &response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "You do not have permission to start this sprint",
-			}
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to start this sprint",
 		}
 	}
 
@@ -415,46 +392,22 @@ func (s *sprintService) CompleteSprint(req requestdto.CompleteSprintRequest) (*r
 	}
 
 	// 4. Check project membership
-	member, err := s.projectRepo.GetProjectMemberByUserAndProjectID(req.UserID, sprint.ProjectID)
+	// Check sprint modify permission
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, sprint.ProjectID, "sprints", "modify")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !authorized {
+		s.logger.Warn(
+			"User is not authorized to complete sprint",
+			zap.String("userID", req.UserID.String()),
+			zap.String("projectID", sprint.ProjectID.String()),
+		)
 
-	isOrgAdmin := user.Role.Name == string(dto.RoleOrgAdmin)
-
-	// User is not a project member
-	if err != nil {
-
-		if !isOrgAdmin {
-			s.logger.Warn(
-				"User is not a project member",
-				zap.String("userID", req.UserID.String()),
-				zap.String("projectID", sprint.ProjectID.String()),
-			)
-
-			return nil, &response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "You do not have permission to complete this sprint",
-			}
-		}
-
-	} else {
-
-		// 5. Check project role
-		if member.Role.Name != string(requestdto.ProjectRoleOrgAdmin) &&
-			member.Role.Name != string(requestdto.ProjectRoleProjectManager) &&
-			!isOrgAdmin {
-
-			s.logger.Warn(
-				"User is not authorized to complete sprint",
-				zap.String("userID", req.UserID.String()),
-				zap.String("projectID", sprint.ProjectID.String()),
-				zap.String("projectRole", member.Role.Name),
-			)
-
-			return nil, &response.Error{
-				Code:       response.ErrForbidden,
-				StatusCode: http.StatusForbidden,
-				Message:    "You do not have permission to complete this sprint",
-			}
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to complete this sprint",
 		}
 	}
 
@@ -958,6 +911,18 @@ func (s *sprintService) GetSprints(req dto.GetSprint, filter dto.SprintFilter) (
 		}
 	}
 
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "sprints", "view")
+	if permErr != nil {
+		return nil, response.Pagination{}, permErr
+	}
+	if !authorized {
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view sprints in this project",
+		}
+	}
+
 	// Validate date range
 	if !filter.StartDate.IsZero() && !filter.EndDate.IsZero() {
 		if filter.StartDate.After(filter.EndDate) {
@@ -1036,6 +1001,18 @@ func (s *sprintService) GetSprintByID(req dto.GetSprint) (*models.Sprint, *respo
 		}
 	}
 
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "sprints", "view")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view sprints in this project",
+		}
+	}
+
 	sprint, errorResponse := s.sprintRepo.GetSprintByID(req.SprintID, req.ProjectID)
 	if errorResponse != nil {
 		return nil, errorResponse
@@ -1086,6 +1063,18 @@ func (s *sprintService) GetSprintBurndown(sprintID, projectID, userID, orgID uui
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "sprints", "view")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view sprints in this project",
 		}
 	}
 
