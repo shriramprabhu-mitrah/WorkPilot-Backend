@@ -100,6 +100,7 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 	}
 
 	for _, t := range tasks {
+		projID := t.ProjectID
 		res.Tasks = append(res.Tasks, responsedto.SearchResult{
 			ID:          t.ID,
 			Type:        "task",
@@ -108,12 +109,13 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 			Description: t.Description,
 			Status:      t.Status,
 			Priority:    t.Priority,
-			ProjectID:   t.ProjectID,
+			ProjectID:   &projID,
 			ProjectName: t.Project.Name,
 		})
 	}
 
 	for _, us := range stories {
+		projID := us.ProjectID
 		res.UserStories = append(res.UserStories, responsedto.SearchResult{
 			ID:          us.ID,
 			Type:        "user_story",
@@ -122,7 +124,7 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 			Description: us.Description,
 			Status:      us.Status,
 			Priority:    us.Priority,
-			ProjectID:   us.ProjectID,
+			ProjectID:   &projID,
 			ProjectName: us.Project.Name,
 		})
 	}
@@ -150,13 +152,14 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 	}
 
 	for _, sp := range sprints {
+		projID := sp.ProjectID
 		res.Sprints = append(res.Sprints, responsedto.SearchResult{
 			ID:          sp.ID,
 			Type:        "sprint",
 			Title:       sp.Name,
 			Description: sp.Goal,
 			Status:      sp.Status,
-			ProjectID:   sp.ProjectID,
+			ProjectID:   &projID,
 		})
 	}
 
