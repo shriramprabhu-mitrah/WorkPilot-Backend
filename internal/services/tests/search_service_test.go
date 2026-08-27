@@ -47,25 +47,26 @@ func TestGlobalSearchSuccess(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV7())
 	userID := uuid.Must(uuid.NewV7())
 
+	projectID := uuid.Must(uuid.NewV7())
 	mockRepo := &mockSearchRepo{
 		tasks: []models.Task{
-			{Title: "Task 1", Key: "T-1"},
+			{Title: "Task 1", Key: "T-1", ProjectID: projectID},
 		},
 		stories: []models.UserStory{
-			{Title: "Story 1", Key: "US-1"},
+			{Title: "Story 1", Key: "US-1", ProjectID: projectID},
 		},
 		projects: []models.Project{
-			{Name: "Project 1", Slug: "proj-1"},
+			{ID: projectID, Name: "Project 1", Slug: "proj-1"},
 		},
 		users: []models.User{
 			{FullName: "User 1", UserName: "user1"},
 		},
 		sprints: []models.Sprint{
-			{Name: "Sprint 1", Goal: "Goal 1"},
+			{Name: "Sprint 1", Goal: "Goal 1", ProjectID: projectID},
 		},
 	}
 
-	service := services.InitSearchService(mockRepo, zap.NewNop())
+	service := services.InitSearchService(mockRepo, &stubFavoriteAuthRepo{}, &stubFavoriteProjectRepo{}, zap.NewNop())
 
 	resp, err := service.GlobalSearch(userID, orgID, "web development")
 	if err != nil {
@@ -106,7 +107,7 @@ func TestGlobalSearchEmptyQuery(t *testing.T) {
 	userID := uuid.Must(uuid.NewV7())
 	mockRepo := &mockSearchRepo{}
 
-	service := services.InitSearchService(mockRepo, zap.NewNop())
+	service := services.InitSearchService(mockRepo, &stubFavoriteAuthRepo{}, &stubFavoriteProjectRepo{}, zap.NewNop())
 
 	resp, err := service.GlobalSearch(userID, orgID, "   ")
 	if err != nil {
@@ -125,7 +126,7 @@ func TestGlobalSearchError(t *testing.T) {
 		err: errors.New("database failure"),
 	}
 
-	service := services.InitSearchService(mockRepo, zap.NewNop())
+	service := services.InitSearchService(mockRepo, &stubFavoriteAuthRepo{}, &stubFavoriteProjectRepo{}, zap.NewNop())
 
 	_, err := service.GlobalSearch(userID, orgID, "web")
 	if err == nil {

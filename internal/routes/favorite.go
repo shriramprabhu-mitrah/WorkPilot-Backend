@@ -5,6 +5,7 @@ import (
 	handlers "github.com/ms-kanban-server/internal/handlers/http"
 	"github.com/ms-kanban-server/internal/middleware"
 	"github.com/ms-kanban-server/internal/pkg/models"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
@@ -20,6 +21,7 @@ func FavoriteRoutes(deps models.Config, api *gin.RouterGroup) {
 	userStoryRepo := userstoryrepo.InitUserStoryRepository(deps)
 	taskRepo := taskrepo.InitTaskRepository(deps)
 	projectRepo := projectrepo.InitProjectRepository(deps)
+	authRepo := authrepo.InitAuthRepository(deps)
 	customStatusRepo := customstatusrepo.InitCustomStatusRepository(deps)
 	userStoryStatusRepo := userstorystatusrepo.InitUserStoryStatusRepository(deps)
 
@@ -29,6 +31,7 @@ func FavoriteRoutes(deps models.Config, api *gin.RouterGroup) {
 		userStoryRepo,
 		taskRepo,
 		projectRepo,
+		authRepo,
 		customStatusRepo,
 		userStoryStatusRepo,
 		deps.Logger,

@@ -60,10 +60,10 @@ func OrganizationRoutes(deps models.Config, api *gin.RouterGroup) {
 		org.DELETE("/remove-user/:user_id", middleware.ValidateJWT(), middleware.Authorize("org_admin"), OrganizationHandler.RemoveUser)
 
 		// Role management endpoints
-		org.POST("/roles", middleware.ValidateJWT(), roleHandler.CreateRole)
+		org.POST("/roles", middleware.ValidateJWT(), middleware.Authorize("org_admin"), roleHandler.CreateRole)
 		org.GET("/roles", middleware.ValidateJWT(), roleHandler.GetRoles)
 		org.GET("/roles/:role_id", middleware.ValidateJWT(), roleHandler.GetRole)
-		org.PATCH("/roles/:role_id", middleware.ValidateJWT(), roleHandler.UpdateRole)
-		org.DELETE("/roles/:role_id", middleware.ValidateJWT(), roleHandler.DeleteRole)
+		org.PATCH("/roles/:role_id", middleware.ValidateJWT(), middleware.Authorize("org_admin"), roleHandler.UpdateRole)
+		org.DELETE("/roles/:role_id", middleware.ValidateJWT(), middleware.Authorize("org_admin"), roleHandler.DeleteRole)
 	}
 }

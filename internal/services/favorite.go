@@ -11,6 +11,7 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
 	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
@@ -36,6 +37,7 @@ type favoriteService struct {
 	userStoryRepo       userstoryrepo.UserStoryRepository
 	taskRepo            taskrepo.TaskRepository
 	projectRepo         projectrepo.ProjectRepository
+	authRepo            authrepo.AuthRepository
 	customStatusRepo    customstatusrepo.CustomStatusRepository
 	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository
 	logger              *zap.Logger
@@ -46,6 +48,7 @@ func InitFavoriteService(
 	userStoryRepo userstoryrepo.UserStoryRepository,
 	taskRepo taskrepo.TaskRepository,
 	projectRepo projectrepo.ProjectRepository,
+	authRepo authrepo.AuthRepository,
 	customStatusRepo customstatusrepo.CustomStatusRepository,
 	userStoryStatusRepo userstorystatusrepo.UserStoryStatusRepository,
 	logger *zap.Logger,
@@ -55,6 +58,7 @@ func InitFavoriteService(
 		userStoryRepo:       userStoryRepo,
 		taskRepo:            taskRepo,
 		projectRepo:         projectRepo,
+		authRepo:            authRepo,
 		customStatusRepo:    customStatusRepo,
 		userStoryStatusRepo: userStoryStatusRepo,
 		logger:              logger,
@@ -84,6 +88,17 @@ func (s *favoriteService) AddFavorite(req requestdto.AddFavoriteRequest) (*respo
 		ctx, err := s.userStoryRepo.GetUserStoryAccessContext(req.ItemID)
 		if err != nil {
 			return nil, err
+		}
+		authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, ctx.ProjectID, "projects", "view")
+		if permErr != nil {
+			return nil, permErr
+		}
+		if !authorized {
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to access this item",
+			}
 		}
 		story, err := s.userStoryRepo.GetUserStoryByID(req.ItemID, ctx.ProjectID)
 		if err != nil {
@@ -115,6 +130,17 @@ func (s *favoriteService) AddFavorite(req requestdto.AddFavoriteRequest) (*respo
 		ctx, err := s.taskRepo.GetTaskAccessContext(req.ItemID)
 		if err != nil {
 			return nil, err
+		}
+		authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, ctx.ProjectID, "projects", "view")
+		if permErr != nil {
+			return nil, permErr
+		}
+		if !authorized {
+			return nil, &response.Error{
+				Code:       response.ErrForbidden,
+				StatusCode: http.StatusForbidden,
+				Message:    "You do not have permission to access this item",
+			}
 		}
 		task, err := s.taskRepo.GetTaskByID(req.ItemID, ctx.ProjectID)
 		if err != nil {
@@ -285,6 +311,10 @@ func (s *favoriteService) GetFavorites(userID uuid.UUID, filter requestdto.GetFa
 			}
 
 			projectID := fav.UserStory.ProjectID
+			authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "view")
+			if permErr != nil || !authorized {
+				continue
+			}
 			statuses, ok := usStatusCache[projectID]
 			if !ok && s.userStoryStatusRepo != nil {
 				statuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
@@ -341,6 +371,10 @@ func (s *favoriteService) GetFavorites(userID uuid.UUID, filter requestdto.GetFa
 			}
 
 			projectID := fav.Task.ProjectID
+			authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "projects", "view")
+			if permErr != nil || !authorized {
+				continue
+			}
 			colorMap, ok := taskColorCache[projectID]
 			if !ok {
 				cm, fm := s.getStatusMaps(projectID)

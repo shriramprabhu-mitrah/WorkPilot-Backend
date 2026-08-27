@@ -10,6 +10,8 @@ import (
 	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	searchrepo "github.com/ms-kanban-server/internal/repository/search-repo"
 	"go.uber.org/zap"
 )
@@ -19,14 +21,18 @@ type SearchService interface {
 }
 
 type searchService struct {
-	searchRepo searchrepo.SearchRepository
-	logger     *zap.Logger
+	searchRepo  searchrepo.SearchRepository
+	authRepo    authrepo.AuthRepository
+	projectRepo projectrepo.ProjectRepository
+	logger      *zap.Logger
 }
 
-func InitSearchService(searchRepo searchrepo.SearchRepository, logger *zap.Logger) SearchService {
+func InitSearchService(searchRepo searchrepo.SearchRepository, authRepo authrepo.AuthRepository, projectRepo projectrepo.ProjectRepository, logger *zap.Logger) SearchService {
 	return &searchService{
-		searchRepo: searchRepo,
-		logger:     logger,
+		searchRepo:  searchRepo,
+		authRepo:    authRepo,
+		projectRepo: projectRepo,
+		logger:      logger,
 	}
 }
 
@@ -99,8 +105,28 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 		Sprints:     make([]responsedto.SearchResult, 0),
 	}
 
+	projectAccessCache := make(map[uuid.UUID]bool)
+	hasAccess := func(pID uuid.UUID) bool {
+		if pID == uuid.Nil {
+			return false
+		}
+		if val, ok := projectAccessCache[pID]; ok {
+			return val
+		}
+		authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, pID, "projects", "view")
+		if permErr != nil || !authorized {
+			projectAccessCache[pID] = false
+			return false
+		}
+		projectAccessCache[pID] = true
+		return true
+	}
+
 	for _, t := range tasks {
 		projID := t.ProjectID
+		if !hasAccess(projID) {
+			continue
+		}
 		res.Tasks = append(res.Tasks, responsedto.SearchResult{
 			ID:          t.ID,
 			Type:        "task",
@@ -116,6 +142,9 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 
 	for _, us := range stories {
 		projID := us.ProjectID
+		if !hasAccess(projID) {
+			continue
+		}
 		res.UserStories = append(res.UserStories, responsedto.SearchResult{
 			ID:          us.ID,
 			Type:        "user_story",
@@ -130,6 +159,9 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 	}
 
 	for _, p := range projects {
+		if !hasAccess(p.ID) {
+			continue
+		}
 		res.Projects = append(res.Projects, responsedto.SearchResult{
 			ID:          p.ID,
 			Type:        "project",
@@ -153,6 +185,9 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 
 	for _, sp := range sprints {
 		projID := sp.ProjectID
+		if !hasAccess(projID) {
+			continue
+		}
 		res.Sprints = append(res.Sprints, responsedto.SearchResult{
 			ID:          sp.ID,
 			Type:        "sprint",
