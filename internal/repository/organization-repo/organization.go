@@ -524,8 +524,8 @@ func (d *organizationDatabase) GetAllMembers(filter dto.GlobalMemberListFilter) 
 	baseQuery := d.DB.Model(&models.User{}).
 		Joins("LEFT JOIN roles ON roles.id = users.role_id AND roles.deleted_at IS NULL")
 
-	if filter.OrganizationID != nil && *filter.OrganizationID != uuid.Nil {
-		baseQuery = baseQuery.Where("users.organization_id = ?", *filter.OrganizationID)
+	if filter.OrganizationID != "" && filter.OrganizationID != uuid.Nil.String() {
+		baseQuery = baseQuery.Where("users.organization_id = ?", filter.OrganizationID)
 	}
 
 	if filter.Search != "" {
