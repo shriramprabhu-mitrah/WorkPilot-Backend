@@ -228,6 +228,13 @@ func (s *stubCustomStatusRepo) GetStatusByName(projectID uuid.UUID, name string)
 
 func (s *stubCustomStatusRepo) UpdateStatus(status *models.CustomStatus) *response.Error {
 	s.ensureDefaultStatuses(status.ProjectID)
+	if projStatuses, ok := s.statuses[status.ProjectID]; ok {
+		for key, st := range projStatuses {
+			if st.ID == status.ID {
+				delete(projStatuses, key)
+			}
+		}
+	}
 	s.statuses[status.ProjectID][models.NormalizeTaskStatus(status.Name)] = status
 	return nil
 }
