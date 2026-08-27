@@ -48,7 +48,12 @@ func AutoMigrate(dbConn *gorm.DB) error {
 		return err
 	}
 
-	return MigrateGlobalSerialNumbers(dbConn)
+	err = MigrateGlobalSerialNumbers(dbConn)
+	if err != nil {
+		return err
+	}
+
+	return MigrateFullTextSearchIndexes(dbConn)
 }
 
 func MigrateGlobalSerialNumbers(dbConn *gorm.DB) error {
@@ -206,3 +211,45 @@ func MigrateUserStoryKeys(dbConn *gorm.DB) error {
 
 	return nil
 }
+
+func MigrateFullTextSearchIndexes(dbConn *gorm.DB) error {
+	isPostgres := dbConn.Dialector.Name() == "postgres"
+	if !isPostgres {
+		return nil
+	}
+
+	ftsIndexes := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "idx_tasks_fts",
+			sql:  "CREATE INDEX IF NOT EXISTS idx_tasks_fts ON tasks USING gin(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '') || ' ' || coalesce(key, '')));",
+		},
+		{
+			name: "idx_user_stories_fts",
+			sql:  "CREATE INDEX IF NOT EXISTS idx_user_stories_fts ON user_stories USING gin(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '') || ' ' || coalesce(key, '')));",
+		},
+		{
+			name: "idx_projects_fts",
+			sql:  "CREATE INDEX IF NOT EXISTS idx_projects_fts ON projects USING gin(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(slug, '')));",
+		},
+		{
+			name: "idx_users_fts",
+			sql:  "CREATE INDEX IF NOT EXISTS idx_users_fts ON users USING gin(to_tsvector('english', coalesce(full_name, '') || ' ' || coalesce(email, '') || ' ' || coalesce(username, '')));",
+		},
+		{
+			name: "idx_sprints_fts",
+			sql:  "CREATE INDEX IF NOT EXISTS idx_sprints_fts ON sprints USING gin(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(goal, '')));",
+		},
+	}
+
+	for _, idx := range ftsIndexes {
+		if err := dbConn.Exec(idx.sql).Error; err != nil {
+			return fmt.Errorf("failed to create FTS index %s: %w", idx.name, err)
+		}
+	}
+
+	return nil
+}
+
