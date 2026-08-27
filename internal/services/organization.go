@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/rand"
 	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"strings"
@@ -36,7 +37,7 @@ type OrganizationService interface {
 	InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error
 	AcceptInvitation(userID uuid.UUID, token string) *response.Error
 	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
-	GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
+	GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]responsedto.UserProfile, response.Pagination, *response.Error)
 	GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error)
 	RemoveUser(payload dto.RemoveUser) *response.Error
 }
@@ -834,7 +835,7 @@ func (s *organizationService) GetInvitationByToken(token string) (models.Organiz
 	return invitation, nil
 }
 
-func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]responsedto.UserProfile, response.Pagination, *response.Error) {
 	filter.PaginationQuery.Normalize(10)
 	if filter.Role != "" {
 		filter.Role = strings.ToLower(strings.TrimSpace(filter.Role))
@@ -852,9 +853,58 @@ func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.Org
 		filter.Timezone = strings.TrimSpace(filter.Timezone)
 	}
 
-	user, pagination, err := s.OrganizationRepo.GetUsersByOrganizationID(id, filter)
+	users, pagination, err := s.OrganizationRepo.GetUsersByOrganizationID(id, filter)
 	if err != nil {
 		return nil, response.Pagination{}, err
+	}
+
+	// Extract User IDs
+	userIDs := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		userIDs[i] = u.ID
+	}
+
+	// Fetch User Insights if there are users
+	var statsMap map[uuid.UUID]responsedto.UserTaskStats
+	if len(userIDs) > 0 {
+		var statsErr *response.Error
+		statsMap, statsErr = s.AuthRepo.GetUsersInsights(userIDs, id)
+		if statsErr != nil {
+			s.logger.Warn("Failed to fetch user insights for organization users", zap.Any("error", statsErr))
+		}
+	}
+
+	// Map to UserProfile DTOs including stats
+	usersResponse := make([]responsedto.UserProfile, 0, len(users))
+	for _, user := range users {
+		profile := responsedto.UserProfileFromModel(user)
+		if statsMap != nil {
+			if stats, exists := statsMap[user.ID]; exists {
+				var completionPercentage float64 = 0.0
+				if stats.TotalTasks > 0 {
+					completionPercentage = math.Round((float64(stats.Completed)/float64(stats.TotalTasks))*100*100) / 100
+				}
+				profile.TotalAssigned = &stats.TotalTasks
+				profile.InProgress = &stats.InProgress
+				profile.Completed = &stats.Completed
+				profile.CompletionPercentage = &completionPercentage
+			} else {
+				var zero int64 = 0
+				var zeroPct float64 = 0.0
+				profile.TotalAssigned = &zero
+				profile.InProgress = &zero
+				profile.Completed = &zero
+				profile.CompletionPercentage = &zeroPct
+			}
+		} else {
+			var zero int64 = 0
+			var zeroPct float64 = 0.0
+			profile.TotalAssigned = &zero
+			profile.InProgress = &zero
+			profile.Completed = &zero
+			profile.CompletionPercentage = &zeroPct
+		}
+		usersResponse = append(usersResponse, profile)
 	}
 
 	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
@@ -867,10 +917,10 @@ func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.Org
 		CreatedAt:      time.Now(),
 	})
 	if auditErr != nil {
-		return user, pagination, auditErr
+		return usersResponse, pagination, auditErr
 	}
 
-	return user, pagination, nil
+	return usersResponse, pagination, nil
 }
 
 func (s *organizationService) GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error) {

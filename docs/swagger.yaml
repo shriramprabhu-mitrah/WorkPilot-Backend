@@ -1051,12 +1051,18 @@ definitions:
         type: string
       color:
         type: string
+      completed:
+        type: integer
+      completion_percentage:
+        type: number
       created_at:
         type: string
       email:
         type: string
       id:
         type: string
+      in_progress:
+        type: integer
       is_active:
         type: boolean
       is_verified:
@@ -1077,6 +1083,9 @@ definitions:
         type: string
       timezone:
         type: string
+      total_assigned:
+        description: Task insights (optional, populated for organization user listings)
+        type: integer
       username:
         type: string
     type: object

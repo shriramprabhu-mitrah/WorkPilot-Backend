@@ -12,6 +12,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	redisclient "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -645,4 +646,51 @@ func (d *authDatabase) GetUserInsights(userID, organizationID uuid.UUID) (total 
 	}
 
 	return status.TotalAssigned, status.InProgress, status.Completed, nil
+}
+
+func (d *authDatabase) GetUsersInsights(userIDs []uuid.UUID, organizationID uuid.UUID) (map[uuid.UUID]responsedto.UserTaskStats, *response.Error) {
+	type rawInsights struct {
+		UserID        uuid.UUID `gorm:"column:user_id"`
+		TotalAssigned int64     `gorm:"column:total_assigned"`
+		InProgress    int64     `gorm:"column:in_progress"`
+		Completed     int64     `gorm:"column:completed"`
+	}
+
+	var results []rawInsights
+
+	dbErr := d.db.Table("tasks").
+		Select(`
+			tasks.assignee_id AS user_id,
+			COUNT(tasks.id) AS total_assigned,
+			COUNT(CASE WHEN custom_statuses.is_final != true THEN 1 END) AS in_progress,
+			COUNT(CASE WHEN custom_statuses.is_final = true THEN 1 END) AS completed
+		`).
+		Joins("JOIN projects ON projects.id = tasks.project_id").
+		Joins("JOIN custom_statuses ON custom_statuses.id = tasks.status_id").
+		Where("projects.organization_id = ? AND tasks.assignee_id IN ?", organizationID, userIDs).
+		Where("tasks.deleted_at IS NULL").
+		Where("projects.deleted_at IS NULL").
+		Where("custom_statuses.deleted_at IS NULL").
+		Group("tasks.assignee_id").
+		Scan(&results).Error
+
+	if dbErr != nil {
+		d.logger.Error("Failed to fetch batch user task insights", zap.Error(dbErr))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch task insights",
+		}
+	}
+
+	statsMap := make(map[uuid.UUID]responsedto.UserTaskStats)
+	for _, res := range results {
+		statsMap[res.UserID] = responsedto.UserTaskStats{
+			TotalTasks: res.TotalAssigned,
+			InProgress: res.InProgress,
+			Completed:  res.Completed,
+		}
+	}
+
+	return statsMap, nil
 }

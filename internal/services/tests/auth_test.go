@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
@@ -650,6 +651,21 @@ func (s *stubAuthRepository) GetUserInsights(userID, organizationID uuid.UUID) (
 		return 0, 0, 0, s.insightsErr
 	}
 	return s.insightsTotal, s.insightsInProgress, s.insightsCompleted, nil
+}
+
+func (s *stubAuthRepository) GetUsersInsights(userIDs []uuid.UUID, organizationID uuid.UUID) (map[uuid.UUID]responsedto.UserTaskStats, *response.Error) {
+	if s.insightsErr != nil {
+		return nil, s.insightsErr
+	}
+	res := make(map[uuid.UUID]responsedto.UserTaskStats)
+	for _, uid := range userIDs {
+		res[uid] = responsedto.UserTaskStats{
+			TotalTasks: s.insightsTotal,
+			InProgress: s.insightsInProgress,
+			Completed:  s.insightsCompleted,
+		}
+	}
+	return res, nil
 }
 
 func TestAuthService_GetUserInsights(t *testing.T) {

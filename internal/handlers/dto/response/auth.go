@@ -38,6 +38,12 @@ type UserProfile struct {
 	CreatedAt             time.Time  `json:"created_at"`
 	JoinedAt              time.Time  `json:"joined_at,omitempty"`
 	RequirePasswordChange bool       `json:"require_password_change"`
+
+	// Task insights (optional, populated for organization user listings)
+	TotalAssigned        *int64   `json:"total_assigned,omitempty"`
+	InProgress           *int64   `json:"in_progress,omitempty"`
+	Completed            *int64   `json:"completed,omitempty"`
+	CompletionPercentage *float64 `json:"completion_percentage,omitempty"`
 }
 
 type ProjectSummary struct {
@@ -107,4 +113,10 @@ type UserTaskInsightsResponse struct {
 	InProgress           int64   `json:"in_progress"`
 	Completed            int64   `json:"completed"`
 	CompletionPercentage float64 `json:"completion_percentage"`
+}
+
+type UserTaskStats struct {
+	TotalTasks int64 `json:"total_tasks"`
+	InProgress int64 `json:"in_progress"`
+	Completed  int64 `json:"completed"`
 }

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	redisclient "github.com/redis/go-redis/v9"
@@ -42,6 +43,7 @@ type AuthRepository interface {
 	GetRoleByNameAndOrg(name string, orgID uuid.UUID) (*models.Role, *response.Error)
 	GetRoleByID(roleID uuid.UUID) (*models.Role, *response.Error)
 	GetUserInsights(userID, organizationID uuid.UUID) (total int64, inProgress int64, completed int64, err *response.Error)
+	GetUsersInsights(userIDs []uuid.UUID, organizationID uuid.UUID) (map[uuid.UUID]responsedto.UserTaskStats, *response.Error)
 }
 
 func InitAuthRepository(deps models.Config) AuthRepository {
