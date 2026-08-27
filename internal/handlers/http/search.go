@@ -34,6 +34,7 @@ func InitSearchHandler(service services.SearchService, logger *zap.Logger) Searc
 // @Success 200 {object} response.SuccessResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
+// @Security BearerAuth
 // @Router /search [get]
 func (h *searchHandler) GlobalSearch(c *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
