@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
@@ -100,8 +101,8 @@ func (h *userStoryHandler) CreateUserStory(g *gin.Context) {
 }
 
 // GetUserStoryByID godoc
-// @Summary Get User Story By ID
-// @Description Retrieve details of a specific user story by ID
+// @Summary Get User Story By ID or Key
+// @Description Retrieve details of a specific user story by ID or Key
 // @Tags UserStory
 // @Produce json
 // @Param project_id path string true "Project ID or Slug"
@@ -120,7 +121,18 @@ func (h *userStoryHandler) GetUserStoryByID(g *gin.Context) {
 	}
 
 	projectIDParam := g.Param("project_id")
-	storyIDParam := g.Param("user_story_id")
+	storyIDParam := strings.TrimSpace(g.Param("user_story_id"))
+	if storyIDParam == "" {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "User story ID or Key is required",
+			},
+		})
+		return
+	}
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
@@ -335,18 +347,13 @@ func (h *userStoryHandler) GetUserStories(g *gin.Context) {
 	}
 
 	projectIDParam := g.Param("project_id")
-	projectID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
 	if !ok {
 		return
 	}
 
-	stories, pagination, err := h.service.GetUserStories(projectID, userUUID, organizationUUID, filter)
+	stories, pagination, err := h.service.GetUserStories(projectIDParam, userUUID, organizationUUID, filter)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,

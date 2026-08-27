@@ -4765,14 +4765,14 @@ paths:
       - Task
   /projects/{project_id}/tasks/{task_id}:
     get:
-      description: Retrieve details of a specific task by ID
+      description: Retrieve details of a specific task by ID or Task Key
       parameters:
-      - description: Project ID
+      - description: Project ID or Slug
         in: path
         name: project_id
         required: true
         type: string
-      - description: Task ID
+      - description: Task ID or Task Key
         in: path
         name: task_id
         required: true
@@ -4804,7 +4804,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Get Task By ID
+      summary: Get Task By ID or Key
       tags:
       - Task
     patch:
@@ -5578,7 +5578,7 @@ paths:
       tags:
       - UserStory
     get:
-      description: Retrieve details of a specific user story by ID
+      description: Retrieve details of a specific user story by ID or Key
       parameters:
       - description: Project ID or Slug
         in: path
@@ -5617,7 +5617,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Get User Story By ID
+      summary: Get User Story By ID or Key
       tags:
       - UserStory
     patch:

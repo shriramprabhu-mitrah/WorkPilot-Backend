@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -311,6 +312,15 @@ func (s *stubAttachmentTaskRepo) GetTaskByID(id uuid.UUID, projectID uuid.UUID) 
 		return nil, s.err
 	}
 	if s.task != nil && s.task.ID == id && s.task.ProjectID == projectID {
+		return s.task, nil
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
+}
+func (s *stubAttachmentTaskRepo) GetTaskByKey(key string, projectID uuid.UUID) (*models.Task, *response.Error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.task != nil && strings.EqualFold(s.task.Key, key) && s.task.ProjectID == projectID {
 		return s.task, nil
 	}
 	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}

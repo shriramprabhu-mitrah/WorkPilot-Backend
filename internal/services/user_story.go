@@ -29,7 +29,7 @@ type UserStoryService interface {
 	GetUserStoryByID(userStoryIDOrKey string, projectIDOrSlug string, userID, orgID uuid.UUID) (*responsedto.UserStoryResponse, *response.Error)
 	UpdateUserStory(req dto.UpdateUserStoryRequest) (*responsedto.UserStoryResponse, *response.Error)
 	DeleteUserStory(userStoryID, projectID, userID, orgID uuid.UUID) *response.Error
-	GetUserStories(projectID, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error)
+	GetUserStories(projectIDOrSlug string, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error)
 	ReorderUserStories(projectID, userID, orgID uuid.UUID, storyIDs []uuid.UUID) *response.Error
 	UpdateUserStoryStatus(req dto.UpdateUserStoryStatusAssignmentRequest) (*responsedto.UserStoryResponse, *response.Error)
 }
@@ -839,8 +839,20 @@ func (s *userStoryService) DeleteUserStory(userStoryID, projectID, userID, orgID
 	return nil
 }
 
-func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error) {
-	_, _, authorized, err := s.checkAuthorization(projectID, userID)
+func (s *userStoryService) GetUserStories(projectIDOrSlug string, userID, orgID uuid.UUID, filter dto.UserStoryFilter) ([]responsedto.UserStoryResponse, response.Pagination, *response.Error) {
+	var project models.Project
+	var getProjErr *response.Error
+	projectUUID, parseErr := uuid.FromString(projectIDOrSlug)
+	if parseErr == nil {
+		project, getProjErr = s.projectRepo.GetProjectByID(projectUUID)
+	} else {
+		project, getProjErr = s.projectRepo.GetProjectBySlug(projectIDOrSlug)
+	}
+	if getProjErr != nil {
+		return nil, response.Pagination{}, getProjErr
+	}
+
+	_, _, authorized, err := s.checkAuthorization(project.ID, userID)
 	if err != nil {
 		return nil, response.Pagination{}, err
 	}
@@ -852,21 +864,21 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 		}
 	}
 
-	stories, pagination, getErr := s.userStoryRepo.GetUserStories(projectID, filter)
+	stories, pagination, getErr := s.userStoryRepo.GetUserStories(project.ID, filter)
 	if getErr != nil {
 		return nil, response.Pagination{}, getErr
 	}
 
-	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(projectID)
+	statsMap, statErr := s.userStoryRepo.GetStoryTaskStats(project.ID)
 	if statErr != nil {
 		return nil, response.Pagination{}, statErr
 	}
 
-	colorMap := s.getStatusColorMap(projectID)
-	isFinalMap := s.getStatusIsFinalMap(projectID)
+	colorMap := s.getStatusColorMap(project.ID)
+	isFinalMap := s.getStatusIsFinalMap(project.ID)
 	var userStoryStatuses []models.UserStoryStatus
 	if s.userStoryStatusRepo != nil {
-		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(projectID)
+		userStoryStatuses, _ = s.userStoryStatusRepo.GetStatusesByProjectID(project.ID)
 	}
 	favStoryMap := s.getFavoriteUserStoryMap(userID)
 	favTaskMap := s.getFavoriteTaskMap(userID)
@@ -902,7 +914,7 @@ func (s *userStoryService) GetUserStories(projectID, userID, orgID uuid.UUID, fi
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
-		ProjectID:      &projectID,
+		ProjectID:      &project.ID,
 		Action:         "viewed",
 		ResourceType:   "user_story",
 		Type:           models.AuditLogTypeAudit,

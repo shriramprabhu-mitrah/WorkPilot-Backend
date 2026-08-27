@@ -5144,25 +5144,25 @@ const docTemplate = `{
         },
         "/projects/{project_id}/tasks/{task_id}": {
             "get": {
-                "description": "Retrieve details of a specific task by ID",
+                "description": "Retrieve details of a specific task by ID or Task Key",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Task"
                 ],
-                "summary": "Get Task By ID",
+                "summary": "Get Task By ID or Key",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID or Slug",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID or Task Key",
                         "name": "task_id",
                         "in": "path",
                         "required": true
@@ -6278,14 +6278,14 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/{user_story_id}": {
             "get": {
-                "description": "Retrieve details of a specific user story by ID",
+                "description": "Retrieve details of a specific user story by ID or Key",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "UserStory"
                 ],
-                "summary": "Get User Story By ID",
+                "summary": "Get User Story By ID or Key",
                 "parameters": [
                     {
                         "type": "string",

@@ -78,6 +78,17 @@ func (s *stubTaskRepo) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.T
 	}
 	return task, nil
 }
+func (s *stubTaskRepo) GetTaskByKey(key string, projectID uuid.UUID) (*models.Task, *response.Error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	for _, task := range s.tasks {
+		if task != nil && strings.EqualFold(task.Key, key) && task.ProjectID == projectID && !task.DeletedAt.Valid {
+			return task, nil
+		}
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
+}
 func (s *stubTaskRepo) GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error) {
 	if s.getErr != nil {
 		return nil, s.getErr
@@ -2101,4 +2112,85 @@ func TestTaskService_UpdateTask_AssigneeAuditLogUsesUsername(t *testing.T) {
 		t.Errorf("expected audit details to contain %q, got %q", expectedSubstring, details)
 	}
 }
+
+func TestTaskService_GetTaskByID_WithIDAndKey(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+
+	user := models.User{
+		ID:             userID,
+		OrganizationID: &orgID,
+		UserName:       "tester",
+		IsActive:       true,
+		Role:           models.Role{Name: "member"},
+	}
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: user,
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Test Project", Slug: "test-project"},
+		isMember: true,
+	}
+
+	task := &models.Task{
+		ID:        taskID,
+		ProjectID: projectID,
+		Key:       "PROJ-101",
+		Title:     "Sample Task Key Test",
+		Status:    "todo",
+	}
+
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{taskID: task},
+	}
+
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, &stubAuditLogRepo{}, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
+
+	// Test 1: Fetch by Task UUID string and Project UUID string
+	respByID, err := service.GetTaskByID(taskID.String(), projectID.String(), userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error fetching by task ID UUID, got %v", err)
+	}
+	if respByID.ID != taskID {
+		t.Errorf("expected task ID %s, got %s", taskID, respByID.ID)
+	}
+	if respByID.Key != "PROJ-101" {
+		t.Errorf("expected task key PROJ-101, got %s", respByID.Key)
+	}
+
+	// Test 2: Fetch by Task Key string ("PROJ-101")
+	respByKey, err := service.GetTaskByID("PROJ-101", projectID.String(), userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error fetching by task key, got %v", err)
+	}
+	if respByKey.ID != taskID {
+		t.Errorf("expected task ID %s, got %s", taskID, respByKey.ID)
+	}
+	if respByKey.Title != "Sample Task Key Test" {
+		t.Errorf("expected task title 'Sample Task Key Test', got %s", respByKey.Title)
+	}
+
+	// Test 3: Fetch by lowercase Task Key string ("proj-101")
+	respByLowerKey, err := service.GetTaskByID("proj-101", projectID.String(), userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error fetching by lowercase task key, got %v", err)
+	}
+	if respByLowerKey.ID != taskID {
+		t.Errorf("expected task ID %s, got %s", taskID, respByLowerKey.ID)
+	}
+
+	// Test 4: Fetch by Project Slug ("test-project")
+	respBySlug, err := service.GetTaskByID("PROJ-101", "test-project", userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error fetching by project slug, got %v", err)
+	}
+	if respBySlug.ID != taskID {
+		t.Errorf("expected task ID %s, got %s", taskID, respBySlug.ID)
+	}
+}
+
 
