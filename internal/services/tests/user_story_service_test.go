@@ -1107,7 +1107,7 @@ func TestUserStoryIsClosed_LifecycleAndRecalculation(t *testing.T) {
 	}
 
 	usService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, userStoryStatusRepo, &stubAuditLogRepo{}, nil, zap.NewNop())
-	tService := services.InitTaskService(authRepo, projectRepo, taskRepo, userStoryRepo, &stubAuditLogRepo{}, customStatusRepo, &stubFavoriteRepo{}, zap.NewNop())
+	tService := services.InitTaskService(authRepo, projectRepo, taskRepo, userStoryRepo, &stubAuditLogRepo{}, customStatusRepo, zap.NewNop())
 
 	// 1. Create a new User Story -> defaults to is_closed: false
 	storyResp, err := usService.CreateUserStory(dto.CreateUserStoryRequest{
