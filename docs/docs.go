@@ -8232,8 +8232,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Sprint ID",
                         "name": "sprint_id",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8287,6 +8286,12 @@ const docTemplate = `{
                         "name": "project_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sprint ID",
+                        "name": "sprint_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8411,6 +8416,12 @@ const docTemplate = `{
                         "name": "project_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sprint ID",
+                        "name": "sprint_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8464,6 +8475,12 @@ const docTemplate = `{
                         "name": "project_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sprint ID",
+                        "name": "sprint_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9593,12 +9610,7 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_response.DashboardSprintBurndownResponse": {
             "type": "object",
             "properties": {
-                "sprints": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData"
-                    }
-                }
+                "sprint_burndown": {}
             }
         },
         "github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse": {
@@ -9968,40 +9980,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse"
                     }
-                }
-            }
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown": {
-            "type": "object",
-            "properties": {
-                "actual_hours": {
-                    "type": "number"
-                },
-                "date": {
-                    "type": "string"
-                },
-                "day": {
-                    "type": "integer"
-                },
-                "ideal_hours": {
-                    "type": "number"
-                }
-            }
-        },
-        "github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData": {
-            "type": "object",
-            "properties": {
-                "burndown": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown"
-                    }
-                },
-                "sprint_id": {
-                    "type": "string"
-                },
-                "sprint_name": {
-                    "type": "string"
                 }
             }
         },

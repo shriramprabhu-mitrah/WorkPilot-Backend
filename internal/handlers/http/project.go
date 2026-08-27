@@ -789,8 +789,17 @@ func (h *ProjectHandler) GetProjectByUser(g *gin.Context) {
 		return
 	}
 
+	callerUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+	roleVal, _ := g.Get("role")
+	callerRole, _ := roleVal.(string)
+
 	payload.UserID = userUUID
 	payload.OrganizationID = organizationUUID
+	payload.CallerID = callerUUID
+	payload.CallerRole = callerRole
 
 	project, err := h.service.GetProjectsByUserID(payload)
 	if err != nil {

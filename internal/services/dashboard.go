@@ -20,12 +20,12 @@ import (
 )
 
 type DashboardService interface {
-	GetOverview(projectID uuid.UUID, userID uuid.UUID) (responsedto.DashboardOverview, *response.Error)
-	GetTaskStatus(projectID uuid.UUID, userID uuid.UUID) (map[string]int64, *response.Error)
+	GetOverview(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) (responsedto.DashboardOverview, *response.Error)
+	GetTaskStatus(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) (map[string]any, *response.Error)
 	GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardSprintBurndownResponse, *response.Error)
 	GetWeeklyProgress(projectID uuid.UUID, startDate time.Time, endDate time.Time, userID uuid.UUID) ([]responsedto.WeeklyProgress, *response.Error)
-	GetTeamWorkload(projectID uuid.UUID, userID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error)
-	GetDashboardData(projectID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardResponse, *response.Error)
+	GetTeamWorkload(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error)
+	GetDashboardData(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) (*responsedto.DashboardResponse, *response.Error)
 }
 
 func InitDashboardService(
@@ -88,7 +88,7 @@ func (s *dashboardService) checkAuthorization(projectID uuid.UUID, userID uuid.U
 }
 
 // GetOverview returns dashboard overview with task counts
-func (s *dashboardService) GetOverview(projectID uuid.UUID, userID uuid.UUID) (responsedto.DashboardOverview, *response.Error) {
+func (s *dashboardService) GetOverview(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) (responsedto.DashboardOverview, *response.Error) {
 	_, _, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		s.logger.Error("Authorization check failed", zap.Error(fmt.Errorf("%v", err)))
@@ -108,7 +108,7 @@ func (s *dashboardService) GetOverview(projectID uuid.UUID, userID uuid.UUID) (r
 		}
 	}
 
-	overview, err := s.dashboardRepo.GetOverview(projectID)
+	overview, err := s.dashboardRepo.GetOverview(projectID, sprintID)
 	if err != nil {
 		s.logger.Error("Failed to get overview", zap.Error(fmt.Errorf("%v", err)))
 		return responsedto.DashboardOverview{}, &response.Error{
@@ -123,7 +123,7 @@ func (s *dashboardService) GetOverview(projectID uuid.UUID, userID uuid.UUID) (r
 }
 
 // GetTaskStatus returns task counts grouped by status
-func (s *dashboardService) GetTaskStatus(projectID uuid.UUID, userID uuid.UUID) (map[string]int64, *response.Error) {
+func (s *dashboardService) GetTaskStatus(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) (map[string]any, *response.Error) {
 
 	// Check authorization
 	_, _, authorized, err := s.checkAuthorization(projectID, userID)
@@ -133,7 +133,11 @@ func (s *dashboardService) GetTaskStatus(projectID uuid.UUID, userID uuid.UUID) 
 			zap.Error(fmt.Errorf("%v", err)),
 		)
 
-		return nil, err
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to check authorization",
+		}
 	}
 
 	// Check project access
@@ -152,7 +156,7 @@ func (s *dashboardService) GetTaskStatus(projectID uuid.UUID, userID uuid.UUID) 
 	}
 
 	// Get task status from repository
-	taskStatus, err := s.dashboardRepo.GetTaskStatus(projectID)
+	taskStatus, err := s.dashboardRepo.GetTaskStatus(projectID, sprintID)
 	if err != nil {
 		s.logger.Error(
 			"Failed to get task status",
@@ -171,7 +175,7 @@ func (s *dashboardService) GetTaskStatus(projectID uuid.UUID, userID uuid.UUID) 
 }
 
 // GetTeamWorkload returns workload metrics for team members
-func (s *dashboardService) GetTeamWorkload(projectID uuid.UUID, userID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error) {
+func (s *dashboardService) GetTeamWorkload(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error) {
 	_, _, authorized, err := s.checkAuthorization(projectID, userID)
 	if err != nil {
 		s.logger.Error("Authorization check failed", zap.Error(fmt.Errorf("%v", err)))
@@ -191,7 +195,7 @@ func (s *dashboardService) GetTeamWorkload(projectID uuid.UUID, userID uuid.UUID
 		}
 	}
 
-	teamWorkload, err := s.dashboardRepo.GetTeamWorkload(projectID)
+	teamWorkload, err := s.dashboardRepo.GetTeamWorkload(projectID, sprintID)
 	if err != nil {
 		s.logger.Error("Failed to get team workload", zap.Error(fmt.Errorf("%v", err)))
 		return nil, &response.Error{
@@ -293,7 +297,7 @@ func (s *dashboardService) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.
 			}
 		}
 
-		sprintBurndown, err := s.dashboardRepo.GetSprintBurndown(projectID, sprintID)
+		sprintBurndown, _, _, err := s.dashboardRepo.GetSprintBurndown(projectID, sprintID)
 		if err != nil {
 			s.logger.Error("Failed to get sprint burndown", zap.Error(fmt.Errorf("%v", err)))
 			return nil, &response.Error{
@@ -306,7 +310,7 @@ func (s *dashboardService) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.
 		responseSprints = append(responseSprints, responsedto.SprintBurndownData{
 			SprintID:   sprint.ID,
 			SprintName: sprint.Name,
-			Burndown:   sprintBurndown,
+			Data:       sprintBurndown,
 		})
 	} else {
 		// Fetch all active sprints belonging to the project
@@ -334,7 +338,7 @@ func (s *dashboardService) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.
 				continue
 			}
 
-			sprintBurndown, err := s.dashboardRepo.GetSprintBurndown(projectID, sprint.ID)
+			sprintBurndown, _, _, err := s.dashboardRepo.GetSprintBurndown(projectID, sprint.ID)
 			if err != nil {
 				s.logger.Error("Failed to get sprint burndown for active sprint", zap.String("sprintID", sprint.ID.String()), zap.Error(fmt.Errorf("%v", err)))
 				// Skip this active sprint rather than failing the whole request
@@ -344,17 +348,26 @@ func (s *dashboardService) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.
 			responseSprints = append(responseSprints, responsedto.SprintBurndownData{
 				SprintID:   sprint.ID,
 				SprintName: sprint.Name,
-				Burndown:   sprintBurndown,
+				Data:       sprintBurndown,
 			})
 		}
 	}
 
+	var resBurndown any
+	if sprintID != uuid.Nil {
+		if len(responseSprints) > 0 {
+			resBurndown = responseSprints[0]
+		}
+	} else {
+		resBurndown = responseSprints
+	}
+
 	return &responsedto.DashboardSprintBurndownResponse{
-		Sprints: responseSprints,
+		SprintBurndown: resBurndown,
 	}, nil
 }
 
-func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUID) (*responsedto.DashboardResponse, *response.Error) {
+func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUID, sprintID uuid.UUID) (*responsedto.DashboardResponse, *response.Error) {
 
 	// 1. Check authorization
 	_, _, authorized, err := s.checkAuthorization(projectID, userID)
@@ -386,7 +399,7 @@ func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUI
 	}
 
 	// 2. Get overview
-	overview, err := s.dashboardRepo.GetOverview(projectID)
+	overview, err := s.dashboardRepo.GetOverview(projectID, sprintID)
 	if err != nil {
 		s.logger.Error(
 			"Failed to get dashboard overview",
@@ -401,7 +414,7 @@ func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUI
 	}
 
 	// 3. Get task status
-	taskStatus, err := s.dashboardRepo.GetTaskStatus(projectID)
+	taskStatus, err := s.dashboardRepo.GetTaskStatus(projectID, sprintID)
 	if err != nil {
 		s.logger.Error(
 			"Failed to get task status",
@@ -416,7 +429,7 @@ func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUI
 	}
 
 	// 4. Get team workload
-	teamWorkload, err := s.dashboardRepo.GetTeamWorkload(projectID)
+	teamWorkload, err := s.dashboardRepo.GetTeamWorkload(projectID, sprintID)
 	if err != nil {
 		s.logger.Error(
 			"Failed to get team workload",
@@ -430,24 +443,41 @@ func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUI
 		}
 	}
 
-	var sprintBurndown []responsedto.SprintBurndown
-	var activeSprintID uuid.UUID
+	var sprintBurndown any = nil
 
-	// Fetch all active sprints belonging to the project and choose the first valid one
-	activeSprints, err := s.sprintRepo.GetActiveSprintsByProjectID(projectID)
-	if err == nil && len(activeSprints) > 0 {
-		for _, sprint := range activeSprints {
-			// Skip sprints with missing or invalid dates
-			if sprint.StartDate == nil || sprint.EndDate == nil || sprint.EndDate.Before(*sprint.StartDate) {
-				continue
-			}
-
-			burndown, err := s.dashboardRepo.GetSprintBurndown(projectID, sprint.ID)
+	if sprintID != uuid.Nil {
+		sprint, errSprint := s.sprintRepo.GetSprintByID(sprintID, projectID)
+		if errSprint == nil {
+			burndown, _, _, err := s.dashboardRepo.GetSprintBurndown(projectID, sprintID)
 			if err == nil {
-				sprintBurndown = burndown
-				activeSprintID = sprint.ID
-				break
+				sprintBurndown = responsedto.SprintBurndownData{
+					SprintID:   sprintID,
+					SprintName: sprint.Name,
+					Data:       burndown,
+				}
 			}
+		}
+	} else {
+		// Fetch all active sprints belonging to the project and get burndown for each
+		activeSprints, err := s.sprintRepo.GetActiveSprintsByProjectID(projectID)
+		if err == nil && len(activeSprints) > 0 {
+			var list []responsedto.SprintBurndownData
+			for _, sprint := range activeSprints {
+				// Skip sprints with missing or invalid dates
+				if sprint.StartDate == nil || sprint.EndDate == nil || sprint.EndDate.Before(*sprint.StartDate) {
+					continue
+				}
+
+				burndown, _, _, err := s.dashboardRepo.GetSprintBurndown(projectID, sprint.ID)
+				if err == nil {
+					list = append(list, responsedto.SprintBurndownData{
+						SprintID:   sprint.ID,
+						SprintName: sprint.Name,
+						Data:       burndown,
+					})
+				}
+			}
+			sprintBurndown = list
 		}
 	}
 
@@ -462,7 +492,7 @@ func (s *dashboardService) GetDashboardData(projectID uuid.UUID, userID uuid.UUI
 	s.logger.Info(
 		"Dashboard data fetched successfully",
 		zap.String("projectID", projectID.String()),
-		zap.String("activeSprintID", activeSprintID.String()),
+		zap.String("sprintID", sprintID.String()),
 	)
 
 	return result, nil

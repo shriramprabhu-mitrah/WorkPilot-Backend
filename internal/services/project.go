@@ -90,6 +90,18 @@ func (s *projectService) CreateProject(req requestdto.CreateProjectRequest) (uui
 		return uuid.Nil, err
 	}
 
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, uuid.Nil, "projects", "add")
+	if permErr != nil {
+		return uuid.Nil, permErr
+	}
+	if !authorized {
+		return uuid.Nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to create projects",
+		}
+	}
+
 	if result.OrganizationID == nil || req.OrganizationID == uuid.Nil {
 		s.logger.Error("Unauthorized Access",
 			zap.String("Organization ID", req.OrganizationID.String()),
@@ -552,6 +564,18 @@ func (s *projectService) CreateProjectMemeber(req requestdto.CreateProjectMember
 
 func (s *projectService) GetProjectsMembersByProjectID(projectID uuid.UUID, filter requestdto.ProjectMemberFilter) ([]models.ProjectMember, response.Pagination, *response.Error) {
 
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, filter.UserID, projectID, "projects", "view")
+	if permErr != nil {
+		return nil, response.Pagination{}, permErr
+	}
+	if !authorized {
+		return nil, response.Pagination{}, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view members of this project",
+		}
+	}
+
 	members, pagination, err := s.projectRepo.GetProjectsMembersByProjectID(projectID, filter)
 
 	auditLog := models.AuditLog{
@@ -845,6 +869,18 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 		}
 	}
 
+	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, project.ID, "projects", "view")
+	if permErr != nil {
+		return nil, permErr
+	}
+	if !authorized {
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view this project",
+		}
+	}
+
 	req.ProjectID = project.ID
 
 	memberFilter := requestdto.ProjectMemberFilter{
@@ -988,15 +1024,19 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 
 func (s *projectService) DeleteProject(req requestdto.DeleteProject) *response.Error {
 
-	existingProject, user, authorized, err := s.checkAuthorization(req.ProjectID, req.UserID)
+	existingProject, user, _, err := s.checkAuthorization(req.ProjectID, req.UserID)
 	if err != nil {
 		return err
 	}
-	if !authorized {
+	hasDelete, permErr := CheckPermission(s.authRepo, s.projectRepo, req.UserID, req.ProjectID, "projects", "delete")
+	if permErr != nil {
+		return permErr
+	}
+	if !hasDelete {
 		return &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to delete project",
+			Message:    "You do not have permission to delete this project",
 		}
 	}
 
@@ -1088,6 +1128,18 @@ func (s *projectService) GetProjectsByUserID(req requestdto.GetProjectByUserID) 
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	// Caller authorization check: either the user queries their own project list, or the caller is an org_admin.
+	if req.CallerID != uuid.Nil && req.UserID != req.CallerID && req.CallerRole != "org_admin" {
+		s.logger.Error("Access Denied: caller cannot view other user's projects",
+			zap.String("caller_id", req.CallerID.String()),
+			zap.String("target_user_id", req.UserID.String()))
+		return nil, &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to view this user's projects",
 		}
 	}
 

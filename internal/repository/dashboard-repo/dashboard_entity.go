@@ -12,11 +12,11 @@ import (
 )
 
 type DashboardRepository interface {
-	GetOverview(projectID uuid.UUID) (responsedto.DashboardOverview, *response.Error)
-	GetTaskStatus(projectID uuid.UUID) (map[string]int64, *response.Error)
-	GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.SprintBurndown, *response.Error)
+	GetOverview(projectID uuid.UUID, sprintID uuid.UUID) (responsedto.DashboardOverview, *response.Error)
+	GetTaskStatus(projectID uuid.UUID, sprintID uuid.UUID) (map[string]any, *response.Error)
+	GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.SprintBurndown, float64, float64, *response.Error)
 	GetWeeklyProgress(projectID uuid.UUID, startDate time.Time, endDate time.Time) ([]responsedto.WeeklyProgress, *response.Error)
-	GetTeamWorkload(projectID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error)
+	GetTeamWorkload(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error)
 }
 
 func InitDashboardRepository(deps models.Config) DashboardRepository {

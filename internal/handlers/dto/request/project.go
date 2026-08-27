@@ -151,6 +151,8 @@ type GetProjectByUserID struct {
 	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+	CallerID       uuid.UUID `json:"-" swaggerignore:"true"`
+	CallerRole     string    `json:"-" swaggerignore:"true"`
 }
 
 type GetUserProjectRoleRequest struct {
