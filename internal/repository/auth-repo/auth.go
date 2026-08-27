@@ -113,7 +113,14 @@ func (d *authDatabase) GetByEmail(email string) (models.User, *response.Error) {
 
 	if row.RoleID == uuid.Nil || row.Role.Name == "" {
 		var role models.Role
-		if err := d.db.Where("name = ? AND organization_id IS NULL", "developer").First(&role).Error; err == nil {
+		var query *gorm.DB
+		if row.OrganizationID != nil && *row.OrganizationID != uuid.Nil {
+			query = d.db.Where("name = ? AND organization_id = ? AND deleted_at IS NULL", "developer", *row.OrganizationID)
+		} else {
+			query = d.db.Where("name = ? AND organization_id IS NULL AND deleted_at IS NULL", "developer")
+		}
+
+		if err := query.First(&role).Error; err == nil {
 			row.RoleID = role.ID
 			row.Role = role
 			_ = d.db.Model(&models.User{}).Where("id = ?", row.ID).Update("role_id", role.ID).Error
@@ -154,7 +161,14 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 
 	if row.RoleID == uuid.Nil || row.Role.Name == "" {
 		var role models.Role
-		if err := d.db.Where("name = ? AND organization_id IS NULL", "developer").First(&role).Error; err == nil {
+		var query *gorm.DB
+		if row.OrganizationID != nil && *row.OrganizationID != uuid.Nil {
+			query = d.db.Where("name = ? AND organization_id = ? AND deleted_at IS NULL", "developer", *row.OrganizationID)
+		} else {
+			query = d.db.Where("name = ? AND organization_id IS NULL AND deleted_at IS NULL", "developer")
+		}
+
+		if err := query.First(&role).Error; err == nil {
 			row.RoleID = role.ID
 			row.Role = role
 			_ = d.db.Model(&models.User{}).Where("id = ?", row.ID).Update("role_id", role.ID).Error
@@ -167,16 +181,29 @@ func (d *authDatabase) GetUserByID(id uuid.UUID) (models.User, *response.Error) 
 func (d *authDatabase) CreateUser(row models.User) *response.Error {
 	if row.RoleID == uuid.Nil || row.Role.Name == "" {
 		var role models.Role
-		if err := d.db.Where("name = ? AND organization_id IS NULL", "developer").First(&role).Error; err == nil {
+		var query *gorm.DB
+		if row.OrganizationID != nil && *row.OrganizationID != uuid.Nil {
+			query = d.db.Where("name = ? AND organization_id = ? AND deleted_at IS NULL", "developer", *row.OrganizationID)
+		} else {
+			query = d.db.Where("name = ? AND organization_id IS NULL AND deleted_at IS NULL", "developer")
+		}
+
+		if err := query.First(&role).Error; err == nil {
 			row.RoleID = role.ID
 			row.Role = role
 		}
 	}
+
 	if row.Timezone == "" {
 		row.Timezone = "UTC"
 	}
 
-	if err := d.db.Select("*").Create(&row).Error; err != nil {
+	dbQuery := d.db.Select("*")
+	if row.RoleID == uuid.Nil {
+		dbQuery = dbQuery.Omit("role_id")
+	}
+
+	if err := dbQuery.Create(&row).Error; err != nil {
 		if utils.IsDuplicateKeyError(err) {
 			d.logger.Error("Duplicated Key conflict", zap.Error(err))
 			return utils.ParseUserDuplicateError(err)
@@ -552,7 +579,7 @@ func (d *authDatabase) UpdateUserFields(userID uuid.UUID, updates map[string]int
 
 func (d *authDatabase) GetRoleByName(name string) (*models.Role, *response.Error) {
 	var row models.Role
-	err := d.db.Where("name = ? AND organization_id IS NULL", name).First(&row).Error
+	err := d.db.Where("name = ? AND organization_id IS NULL AND deleted_at IS NULL", name).First(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, &response.Error{
