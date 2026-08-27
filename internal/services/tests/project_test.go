@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/models"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/services"
@@ -194,6 +195,17 @@ func (d *dummyAuthRepo) GetRoleByID(roleID uuid.UUID) (*models.Role, *response.E
 }
 func (d *dummyAuthRepo) GetUserInsights(userID, organizationID uuid.UUID) (total int64, inProgress int64, completed int64, err *response.Error) {
 	return 0, 0, 0, nil
+}
+func (d *dummyAuthRepo) GetUsersInsights(userIDs []uuid.UUID, organizationID uuid.UUID) (map[uuid.UUID]responsedto.UserTaskStats, *response.Error) {
+	res := make(map[uuid.UUID]responsedto.UserTaskStats)
+	for _, uid := range userIDs {
+		res[uid] = responsedto.UserTaskStats{
+			TotalTasks: 0,
+			InProgress: 0,
+			Completed:  0,
+		}
+	}
+	return res, nil
 }
 
 type stubProjectRepo struct {

@@ -10075,6 +10075,12 @@ const docTemplate = `{
                 "color": {
                     "type": "string"
                 },
+                "completed": {
+                    "type": "integer"
+                },
+                "completion_percentage": {
+                    "type": "number"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -10083,6 +10089,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "in_progress": {
+                    "type": "integer"
                 },
                 "is_active": {
                     "type": "boolean"
@@ -10113,6 +10122,10 @@ const docTemplate = `{
                 },
                 "timezone": {
                     "type": "string"
+                },
+                "total_assigned": {
+                    "description": "Task insights (optional, populated for organization user listings)",
+                    "type": "integer"
                 },
                 "username": {
                     "type": "string"

@@ -712,18 +712,13 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		IncludeOrgAdmins: includeOrgAdmins,
 	}
 
-	users, pagination, respErr := h.service.GetUserInOrganization(organizationUUID, filter)
+	usersResponse, pagination, respErr := h.service.GetUserInOrganization(organizationUUID, filter)
 	if respErr != nil {
 		g.JSON(respErr.StatusCode, &response.ErrorResponse{
 			Success: false,
 			Error:   *respErr,
 		})
 		return
-	}
-
-	usersResponse := make([]responsedto.UserProfile, 0, len(users))
-	for _, user := range users {
-		usersResponse = append(usersResponse, responsedto.UserProfileFromModel(user))
 	}
 
 	successResponse := &response.SuccessResponse{
@@ -734,7 +729,6 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 		Meta:       &pagination,
 	}
 	g.JSON(successResponse.StatusCode, successResponse)
-
 }
 
 // GetAllMembers godoc
