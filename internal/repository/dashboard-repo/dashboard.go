@@ -21,7 +21,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID, sprintID uuid.UUID)
 	fortyEightHoursLater := now.Add(48 * time.Hour)
 
 	// Total tasks
-	qTotal := r.db.Debug().
+	qTotal := r.db.
 		Model(&models.Task{}).
 		Where("tasks.project_id = ?", projectID)
 
@@ -57,7 +57,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID, sprintID uuid.UUID)
 	}
 
 	// Completed tasks
-	qCompleted := r.db.Debug().
+	qCompleted := r.db.
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
@@ -80,7 +80,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID, sprintID uuid.UUID)
 	}
 
 	// Pending tasks
-	qPending := r.db.Debug().
+	qPending := r.db.
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
@@ -103,7 +103,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID, sprintID uuid.UUID)
 	}
 
 	// Overdue tasks
-	qOverdue := r.db.Debug().
+	qOverdue := r.db.
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
@@ -127,7 +127,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID, sprintID uuid.UUID)
 	}
 
 	// Due soon - next 48 hours
-	qDueSoon := r.db.Debug().
+	qDueSoon := r.db.
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
@@ -424,10 +424,10 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 		}
 	}
 
-		// 3. Fetch sprint tasks
+	// 3. Fetch sprint tasks
 	var tasks []models.Task
 
-	err = r.db.Debug().
+	err = r.db.
 		Model(&models.Task{}).
 		Where("project_id = ?", projectID).
 		Where("sprint_id = ?", sprintID).
