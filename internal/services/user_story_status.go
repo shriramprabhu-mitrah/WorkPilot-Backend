@@ -125,6 +125,24 @@ func (s *userStoryStatusService) CreateStatus(req requestdto.CreateUserStoryStat
 		}
 	}
 
+	// Fetch existing user story statuses for the project to calculate display order and reorder
+	existingStatuses, err := s.statusRepo.GetStatusesByProjectID(req.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(existingStatuses, func(i, j int) bool {
+		return existingStatuses[i].DisplayOrder < existingStatuses[j].DisplayOrder
+	})
+
+	targetIdx := req.DisplayOrder
+	if targetIdx < 0 {
+		targetIdx = 0
+	}
+	if targetIdx > len(existingStatuses) {
+		targetIdx = len(existingStatuses)
+	}
+
 	isClosed := false
 	isFinal := false
 	if req.IsFinal != nil {
@@ -140,7 +158,7 @@ func (s *userStoryStatusService) CreateStatus(req requestdto.CreateUserStoryStat
 		ProjectID:    req.ProjectID,
 		Name:         req.Name,
 		Color:        req.Color,
-		DisplayOrder: req.DisplayOrder,
+		DisplayOrder: targetIdx,
 		IsClosed:     isClosed,
 		IsFinal:      isFinal,
 		CreatedAt:    time.Now(),
@@ -150,6 +168,22 @@ func (s *userStoryStatusService) CreateStatus(req requestdto.CreateUserStoryStat
 	err = s.statusRepo.CreateStatus(&status)
 	if err != nil {
 		return nil, err
+	}
+
+	// Shift display orders of other statuses that were at or after targetIdx
+	for idx, cs := range existingStatuses {
+		actualIdx := idx
+		if idx >= targetIdx {
+			actualIdx = idx + 1
+		}
+		if cs.DisplayOrder != actualIdx {
+			cs.DisplayOrder = actualIdx
+			cs.UpdatedAt = time.Now()
+			err = s.statusRepo.UpdateStatus(&cs)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// 5. Audit Logging
@@ -301,9 +335,57 @@ func (s *userStoryStatusService) UpdateStatus(req requestdto.UpdateUserStoryStat
 				Message:    "Display order must be greater than or equal to 0",
 			}
 		}
-		if *req.DisplayOrder != status.DisplayOrder {
-			status.DisplayOrder = *req.DisplayOrder
-			updated = true
+
+		// Fetch existing user story statuses for the project to calculate display order and reorder
+		existingStatuses, err := s.statusRepo.GetStatusesByProjectID(req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+
+		sort.SliceStable(existingStatuses, func(i, j int) bool {
+			return existingStatuses[i].DisplayOrder < existingStatuses[j].DisplayOrder
+		})
+
+		oldIdx := -1
+		for idx, cs := range existingStatuses {
+			if cs.ID == status.ID {
+				oldIdx = idx
+				break
+			}
+		}
+
+		targetIdx := *req.DisplayOrder
+		if targetIdx > len(existingStatuses)-1 {
+			targetIdx = len(existingStatuses) - 1
+		}
+
+		if oldIdx != -1 && oldIdx != targetIdx {
+			// Remove from current position
+			existingStatuses = append(existingStatuses[:oldIdx], existingStatuses[oldIdx+1:]...)
+
+			// Insert at target index
+			var reordered []models.UserStoryStatus
+			reordered = append(reordered, existingStatuses[:targetIdx]...)
+			reordered = append(reordered, *status)
+			reordered = append(reordered, existingStatuses[targetIdx:]...)
+
+			for idx, cs := range reordered {
+				if cs.ID == status.ID {
+					if status.DisplayOrder != idx {
+						status.DisplayOrder = idx
+						updated = true
+					}
+				} else {
+					if cs.DisplayOrder != idx {
+						cs.DisplayOrder = idx
+						cs.UpdatedAt = time.Now()
+						err = s.statusRepo.UpdateStatus(&cs)
+						if err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -410,6 +492,21 @@ func (s *userStoryStatusService) DeleteStatus(statusID, projectID, userID, orgID
 	err = s.statusRepo.DeleteStatus(statusID, projectID)
 	if err != nil {
 		return err
+	}
+
+	// Reorder remaining statuses to be sequential
+	remainingStatuses, err := s.statusRepo.GetStatusesByProjectID(projectID)
+	if err == nil {
+		sort.SliceStable(remainingStatuses, func(i, j int) bool {
+			return remainingStatuses[i].DisplayOrder < remainingStatuses[j].DisplayOrder
+		})
+		for idx, cs := range remainingStatuses {
+			if cs.DisplayOrder != idx {
+				cs.DisplayOrder = idx
+				cs.UpdatedAt = time.Now()
+				_ = s.statusRepo.UpdateStatus(&cs)
+			}
+		}
 	}
 
 	// 6. Audit Logging

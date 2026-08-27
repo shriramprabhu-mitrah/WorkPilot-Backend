@@ -540,7 +540,7 @@ func TestCustomStatusService_OverrideDefaultStatus(t *testing.T) {
 
 	// Test 2: Can update color and order
 	newColor := "#112233"
-	newOrder := 7
+	newOrder := 5
 	res2, err := service.UpdateStatus(dto.UpdateCustomStatusRequest{
 		Color:        &newColor,
 		DisplayOrder: &newOrder,
@@ -559,5 +559,118 @@ func TestCustomStatusService_OverrideDefaultStatus(t *testing.T) {
 	err = service.DeleteStatus(statusID, projectID, userID, orgID)
 	if err != nil {
 		t.Errorf("Expected deleting default status to succeed, got %v", err)
+	}
+}
+
+func TestCustomStatusService_Reordering(t *testing.T) {
+	projectID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+
+	authRepo := &mockAuthRepoForStatus{
+		user: &models.User{ID: userID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: "member"}, IsActive: true, OrganizationID: &orgID},
+	}
+	projectRepo := &mockProjectRepoForStatus{
+		projectRole: string(dto.ProjectRoleProjectManager),
+		project:     &models.Project{ID: projectID, OrganizationID: orgID},
+	}
+	// Start with empty map so ensureDefaultStatuses populates defaults:
+	// Todo (0), In Progress (1), In Review (2), Testing (3), Completed (4), Blocked (5)
+	statusRepo := &stubCustomStatusRepo{
+		statuses: make(map[uuid.UUID]map[string]*models.CustomStatus),
+	}
+	taskRepo := &stubTaskRepo{}
+
+	service := services.InitCustomStatusService(statusRepo, projectRepo, authRepo, &stubAuditLogRepo{}, taskRepo, zap.NewNop())
+
+	// 1. Create a status E at DisplayOrder = 2
+	reqCreate := dto.CreateCustomStatusRequest{
+		Name:         "Custom Status E",
+		Color:        "#FFA500",
+		DisplayOrder: 2,
+		ProjectID:    projectID,
+		UserID:       userID,
+	}
+	resCreate, err := service.CreateStatus(reqCreate)
+	if err != nil {
+		t.Fatalf("Expected CreateStatus to succeed, got %v", err)
+	}
+	if resCreate.DisplayOrder != 2 {
+		t.Errorf("Expected created status to have display order 2, got %d", resCreate.DisplayOrder)
+	}
+
+	// Fetch all and verify shifts:
+	// Expected: Todo (0), In Progress (1), Custom Status E (2), In Review (3), Testing (4), Completed (5), Blocked (6)
+	statuses, err := service.GetStatuses(projectID, userID, orgID)
+	if err != nil {
+		t.Fatalf("Expected GetStatuses to succeed, got %v", err)
+	}
+	expectedOrderAfterCreate := []string{"Todo", "In Progress", "Custom Status E", "In Review", "Testing", "Completed", "Blocked"}
+	if len(statuses) != len(expectedOrderAfterCreate) {
+		t.Fatalf("Expected %d statuses, got %d", len(expectedOrderAfterCreate), len(statuses))
+	}
+	for i, expectedName := range expectedOrderAfterCreate {
+		if statuses[i].Name != expectedName {
+			t.Errorf("At index %d: expected name %q, got %q", i, expectedName, statuses[i].Name)
+		}
+		if statuses[i].DisplayOrder != i {
+			t.Errorf("At index %d: expected display order %d, got %d", i, i, statuses[i].DisplayOrder)
+		}
+	}
+
+	// 2. Move Custom Status E to DisplayOrder = 4
+	targetOrder := 4
+	resUpdate, err := service.UpdateStatus(dto.UpdateCustomStatusRequest{
+		DisplayOrder: &targetOrder,
+		StatusID:     *resCreate.ID,
+		ProjectID:    projectID,
+		UserID:       userID,
+	})
+	if err != nil {
+		t.Fatalf("Expected UpdateStatus to succeed, got %v", err)
+	}
+	if resUpdate.DisplayOrder != 4 {
+		t.Errorf("Expected updated status to have display order 4, got %d", resUpdate.DisplayOrder)
+	}
+
+	// Fetch all and verify shifts:
+	// Expected: Todo (0), In Progress (1), In Review (2), Testing (3), Custom Status E (4), Completed (5), Blocked (6)
+	statuses, err = service.GetStatuses(projectID, userID, orgID)
+	if err != nil {
+		t.Fatalf("Expected GetStatuses to succeed, got %v", err)
+	}
+	expectedOrderAfterUpdate := []string{"Todo", "In Progress", "In Review", "Testing", "Custom Status E", "Completed", "Blocked"}
+	for i, expectedName := range expectedOrderAfterUpdate {
+		if statuses[i].Name != expectedName {
+			t.Errorf("After update: at index %d: expected name %q, got %q", i, expectedName, statuses[i].Name)
+		}
+		if statuses[i].DisplayOrder != i {
+			t.Errorf("After update: at index %d: expected display order %d, got %d", i, i, statuses[i].DisplayOrder)
+		}
+	}
+
+	// 3. Delete Custom Status E
+	err = service.DeleteStatus(*resCreate.ID, projectID, userID, orgID)
+	if err != nil {
+		t.Fatalf("Expected DeleteStatus to succeed, got %v", err)
+	}
+
+	// Fetch all and verify shifts:
+	// Expected: Todo (0), In Progress (1), In Review (2), Testing (3), Completed (4), Blocked (5)
+	statuses, err = service.GetStatuses(projectID, userID, orgID)
+	if err != nil {
+		t.Fatalf("Expected GetStatuses to succeed, got %v", err)
+	}
+	expectedOrderAfterDelete := []string{"Todo", "In Progress", "In Review", "Testing", "Completed", "Blocked"}
+	if len(statuses) != len(expectedOrderAfterDelete) {
+		t.Fatalf("Expected %d statuses after delete, got %d", len(expectedOrderAfterDelete), len(statuses))
+	}
+	for i, expectedName := range expectedOrderAfterDelete {
+		if statuses[i].Name != expectedName {
+			t.Errorf("After delete: at index %d: expected name %q, got %q", i, expectedName, statuses[i].Name)
+		}
+		if statuses[i].DisplayOrder != i {
+			t.Errorf("After delete: at index %d: expected display order %d, got %d", i, i, statuses[i].DisplayOrder)
+		}
 	}
 }
