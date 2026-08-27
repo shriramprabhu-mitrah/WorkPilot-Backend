@@ -97,6 +97,19 @@ func (s *taskService) isTaskFavorited(userID, taskID uuid.UUID) bool {
 	return isFav
 }
 
+func (s *taskService) getAssigneeUsername(assigneeID *uuid.UUID, preloadedUser *models.User) string {
+	if assigneeID == nil || *assigneeID == uuid.Nil {
+		return "nil"
+	}
+	if preloadedUser != nil && preloadedUser.ID == *assigneeID && preloadedUser.UserName != "" {
+		return preloadedUser.UserName
+	}
+	if u, err := s.authRepo.GetUserByID(*assigneeID); err == nil && u.UserName != "" {
+		return u.UserName
+	}
+	return assigneeID.String()
+}
+
 func (s *taskService) checkAuthorization(projectID, userID uuid.UUID) (models.Project, models.User, bool, *response.Error) {
 	project, err := s.projectRepo.GetProjectByID(projectID)
 	if err != nil {
@@ -898,17 +911,19 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		}
 	}
 	if req.IsAssigneeIDNull() || req.AssigneeID != nil {
-		oldAssignee := "nil"
+		oldAssigneeIDStr := "nil"
 		if task.AssigneeID != nil {
-			oldAssignee = task.AssigneeID.String()
+			oldAssigneeIDStr = task.AssigneeID.String()
 		}
-		newAssignee := "nil"
+		newAssigneeIDStr := "nil"
 		var targetAssignee *uuid.UUID = nil
 		if !req.IsAssigneeIDNull() && *req.AssigneeID != uuid.Nil {
-			newAssignee = req.AssigneeID.String()
+			newAssigneeIDStr = req.AssigneeID.String()
 			targetAssignee = req.AssigneeID
 		}
-		if oldAssignee != newAssignee {
+		if oldAssigneeIDStr != newAssigneeIDStr {
+			oldAssignee := s.getAssigneeUsername(task.AssigneeID, task.Assignee)
+			newAssignee := s.getAssigneeUsername(targetAssignee, nil)
 			changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
 			task.AssigneeID = targetAssignee
 		}
@@ -1634,23 +1649,22 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 			}
 		}
 		if item.AssigneeID != nil {
-			oldAssignee := "nil"
+			oldAssigneeIDStr := "nil"
 			if task.AssigneeID != nil {
-				oldAssignee = task.AssigneeID.String()
+				oldAssigneeIDStr = task.AssigneeID.String()
 			}
-			newAssignee := "nil"
+			newAssigneeIDStr := "nil"
+			var targetAssignee *uuid.UUID = nil
 			if *item.AssigneeID != uuid.Nil {
-				newAssignee = item.AssigneeID.String()
+				newAssigneeIDStr = item.AssigneeID.String()
+				targetAssignee = item.AssigneeID
 			}
-			if oldAssignee != newAssignee {
+			if oldAssigneeIDStr != newAssigneeIDStr {
+				oldAssignee := s.getAssigneeUsername(task.AssigneeID, task.Assignee)
+				newAssignee := s.getAssigneeUsername(targetAssignee, nil)
 				changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
-				if *item.AssigneeID == uuid.Nil {
-					task.AssigneeID = nil
-					updates["assignee_id"] = nil
-				} else {
-					task.AssigneeID = item.AssigneeID
-					updates["assignee_id"] = item.AssigneeID
-				}
+				task.AssigneeID = targetAssignee
+				updates["assignee_id"] = targetAssignee
 			}
 		}
 		if item.SprintID != nil {
@@ -2062,13 +2076,15 @@ func (s *taskService) AssignTaskToMe(taskID, userID, organizationID, projectID u
 	}
 
 	var changes []string
-	oldAssignee := "nil"
+	oldAssigneeIDStr := "nil"
 	if task.AssigneeID != nil {
-		oldAssignee = task.AssigneeID.String()
+		oldAssigneeIDStr = task.AssigneeID.String()
 	}
-	newAssignee := userID.String()
+	newAssigneeIDStr := userID.String()
 
-	if oldAssignee != newAssignee {
+	if oldAssigneeIDStr != newAssigneeIDStr {
+		oldAssignee := s.getAssigneeUsername(task.AssigneeID, task.Assignee)
+		newAssignee := s.getAssigneeUsername(&userID, &user)
 		changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
 
 		updates := map[string]interface{}{

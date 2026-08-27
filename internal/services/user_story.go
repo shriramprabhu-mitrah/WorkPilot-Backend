@@ -70,6 +70,19 @@ func InitUserStoryService(
 	}
 }
 
+func (s *userStoryService) getAssigneeUsername(assigneeID *uuid.UUID, preloadedUser *models.User) string {
+	if assigneeID == nil || *assigneeID == uuid.Nil {
+		return "nil"
+	}
+	if preloadedUser != nil && preloadedUser.ID == *assigneeID && preloadedUser.UserName != "" {
+		return preloadedUser.UserName
+	}
+	if u, err := s.authRepo.GetUserByID(*assigneeID); err == nil && u.UserName != "" {
+		return u.UserName
+	}
+	return assigneeID.String()
+}
+
 func (s *userStoryService) getFavoriteUserStoryMap(userID uuid.UUID) map[uuid.UUID]bool {
 	favMap := make(map[uuid.UUID]bool)
 	if s.favoriteRepo == nil || userID == uuid.Nil {
@@ -610,11 +623,12 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 
 	// Assignee check
 	if req.IsAssigneeIDNull() || (req.AssigneeID != nil && *req.AssigneeID == uuid.Nil) {
-		oldAssignee := "nil"
+		oldAssigneeIDStr := "nil"
 		if existingStory.AssigneeID != nil {
-			oldAssignee = existingStory.AssigneeID.String()
+			oldAssigneeIDStr = existingStory.AssigneeID.String()
 		}
-		if oldAssignee != "nil" {
+		if oldAssigneeIDStr != "nil" {
+			oldAssignee := s.getAssigneeUsername(existingStory.AssigneeID, existingStory.Assignee)
 			changes = append(changes, fmt.Sprintf("assignee changed from %s to nil", oldAssignee))
 		}
 		updates["assignee_id"] = nil
@@ -650,12 +664,14 @@ func (s *userStoryService) UpdateUserStory(req dto.UpdateUserStoryRequest) (*res
 				Message:    "Assignee must be a member of the project",
 			}
 		}
-		oldAssignee := "nil"
+		oldAssigneeIDStr := "nil"
 		if existingStory.AssigneeID != nil {
-			oldAssignee = existingStory.AssigneeID.String()
+			oldAssigneeIDStr = existingStory.AssigneeID.String()
 		}
-		newAssignee := req.AssigneeID.String()
-		if oldAssignee != newAssignee {
+		newAssigneeIDStr := req.AssigneeID.String()
+		if oldAssigneeIDStr != newAssigneeIDStr {
+			oldAssignee := s.getAssigneeUsername(existingStory.AssigneeID, existingStory.Assignee)
+			newAssignee := s.getAssigneeUsername(req.AssigneeID, &assigneeUser)
 			changes = append(changes, fmt.Sprintf("assignee changed from %s to %s", oldAssignee, newAssignee))
 		}
 		updates["assignee_id"] = *req.AssigneeID

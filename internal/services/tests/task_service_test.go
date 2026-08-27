@@ -2020,3 +2020,85 @@ func TestTaskService_AssignTaskToMe(t *testing.T) {
 		}
 	})
 }
+
+func TestTaskService_UpdateTask_AssigneeAuditLogUsesUsername(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	taskID := uuid.Must(uuid.NewV4())
+	oldAssigneeID := uuid.Must(uuid.NewV4())
+	newAssigneeID := uuid.Must(uuid.NewV4())
+
+	oldUser := models.User{
+		ID:             oldAssigneeID,
+		OrganizationID: &orgID,
+		UserName:       "john_doe",
+		IsActive:       true,
+		Role:           models.Role{Name: string(dto.RoleMember)},
+	}
+	newUser := models.User{
+		ID:             newAssigneeID,
+		OrganizationID: &orgID,
+		UserName:       "jane_doe",
+		IsActive:       true,
+		Role:           models.Role{Name: string(dto.RoleMember)},
+	}
+	callingUser := models.User{
+		ID:             userID,
+		OrganizationID: &orgID,
+		UserName:       "caller",
+		IsActive:       true,
+		Role:           models.Role{Name: string(dto.RoleMember)},
+	}
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID:        callingUser,
+			oldAssigneeID: oldUser,
+			newAssigneeID: newUser,
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID, Name: "Work Pilot"},
+		isMember: true,
+	}
+
+	existingTask := &models.Task{
+		ID:         taskID,
+		ProjectID:  projectID,
+		Key:        "WP-1",
+		Title:      "Task 1",
+		Status:     string(dto.TaskStatusTodo),
+		AssigneeID: &oldAssigneeID,
+		Assignee:   &oldUser,
+	}
+	taskRepo := &stubTaskRepo{
+		tasks: map[uuid.UUID]*models.Task{taskID: existingTask},
+	}
+
+	auditRepo := &stubAuditLogRepo{}
+	service := services.InitTaskService(authRepo, projectRepo, taskRepo, &stubUserStoryRepo{}, auditRepo, &stubCustomStatusRepo{}, &stubFavoriteRepo{}, zap.NewNop())
+
+	req := dto.UpdateTaskRequest{
+		TaskID:     taskID,
+		ProjectID:  projectID,
+		UserID:     userID,
+		AssigneeID: &newAssigneeID,
+	}
+
+	_, err := service.UpdateTask(req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(auditRepo.createdLogs) == 0 {
+		t.Fatalf("expected audit log created")
+	}
+
+	details := auditRepo.createdLogs[0].Details
+	expectedSubstring := "assignee changed from john_doe to jane_doe"
+	if !strings.Contains(details, expectedSubstring) {
+		t.Errorf("expected audit details to contain %q, got %q", expectedSubstring, details)
+	}
+}
+
