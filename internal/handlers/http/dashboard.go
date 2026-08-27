@@ -33,6 +33,7 @@ type DashboardHandler struct {
 // @Tags Dashboard
 // @Produce json
 // @Param project_id path string true "Project ID"
+// @Param sprint_id query string false "Sprint ID"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -59,13 +60,40 @@ func (h *DashboardHandler) GetOverview(c *gin.Context) {
 		return
 	}
 
+	// Get optional sprint ID from query parameter
+	sprintIDStr := c.Query("sprint_id")
+	if sprintIDStr == "" {
+		sprintIDStr = c.Query("sprintid")
+	}
+	var sprintID uuid.UUID
+
+	if sprintIDStr != "" {
+		sprintID, err = uuid.FromString(sprintIDStr)
+		if err != nil {
+			h.logger.Warn(
+				"Invalid sprint ID",
+				zap.String("sprintID", sprintIDStr),
+				zap.Error(err),
+			)
+
+			c.JSON(http.StatusBadRequest, response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid sprint ID",
+			})
+			return
+		}
+	} else {
+		sprintID = uuid.Nil
+	}
+
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
 	if !ok {
 		return
 	}
 
 	// Call service layer
-	overview, serviceErr := h.service.GetOverview(projectID, userUUID)
+	overview, serviceErr := h.service.GetOverview(projectID, userUUID, sprintID)
 	if serviceErr != nil {
 		c.JSON(serviceErr.StatusCode, serviceErr)
 		return
@@ -88,6 +116,7 @@ func (h *DashboardHandler) GetOverview(c *gin.Context) {
 // @Tags Dashboard
 // @Produce json
 // @Param project_id path string true "Project ID"
+// @Param sprint_id query string false "Sprint ID"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -115,6 +144,33 @@ func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 		return
 	}
 
+	// Get optional sprint ID from query parameter
+	sprintIDStr := c.Query("sprint_id")
+	if sprintIDStr == "" {
+		sprintIDStr = c.Query("sprintid")
+	}
+	var sprintID uuid.UUID
+
+	if sprintIDStr != "" {
+		sprintID, err = uuid.FromString(sprintIDStr)
+		if err != nil {
+			h.logger.Warn(
+				"Invalid sprint ID",
+				zap.String("sprintID", sprintIDStr),
+				zap.Error(err),
+			)
+
+			c.JSON(http.StatusBadRequest, response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid sprint ID",
+			})
+			return
+		}
+	} else {
+		sprintID = uuid.Nil
+	}
+
 	// Get user ID from context
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
 	if !ok {
@@ -122,7 +178,7 @@ func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 	}
 
 	// Call service layer
-	taskStatus, serviceErr := h.service.GetTaskStatus(projectID, userUUID)
+	taskStatus, serviceErr := h.service.GetTaskStatus(projectID, userUUID, sprintID)
 	if serviceErr != nil {
 		c.JSON(
 			serviceErr.StatusCode,
@@ -151,6 +207,7 @@ func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 // @Tags Dashboard
 // @Produce json
 // @Param project_id path string true "Project ID"
+// @Param sprint_id query string false "Sprint ID"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -177,13 +234,40 @@ func (h *DashboardHandler) GetTeamWorkload(c *gin.Context) {
 		return
 	}
 
+	// Get optional sprint ID from query parameter
+	sprintIDStr := c.Query("sprint_id")
+	if sprintIDStr == "" {
+		sprintIDStr = c.Query("sprintid")
+	}
+	var sprintID uuid.UUID
+
+	if sprintIDStr != "" {
+		sprintID, err = uuid.FromString(sprintIDStr)
+		if err != nil {
+			h.logger.Warn(
+				"Invalid sprint ID",
+				zap.String("sprintID", sprintIDStr),
+				zap.Error(err),
+			)
+
+			c.JSON(http.StatusBadRequest, response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid sprint ID",
+			})
+			return
+		}
+	} else {
+		sprintID = uuid.Nil
+	}
+
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
 	if !ok {
 		return
 	}
 
 	// Call service layer
-	teamWorkload, serviceErr := h.service.GetTeamWorkload(projectID, userUUID)
+	teamWorkload, serviceErr := h.service.GetTeamWorkload(projectID, userUUID, sprintID)
 	if serviceErr != nil {
 		c.JSON(serviceErr.StatusCode, serviceErr)
 		return
@@ -339,6 +423,9 @@ func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 
 	// Get optional sprint ID from query parameter
 	sprintIDStr := c.Query("sprint_id")
+	if sprintIDStr == "" {
+		sprintIDStr = c.Query("sprintid")
+	}
 	var sprintID uuid.UUID
 
 	if sprintIDStr != "" {
@@ -390,7 +477,7 @@ func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 // @Tags Dashboard
 // @Produce json
 // @Param project_id path string true "Project ID"
-// @Param sprint_id query string true "Sprint ID"
+// @Param sprint_id query string false "Sprint ID"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -418,6 +505,33 @@ func (h *DashboardHandler) GetDashboardData(c *gin.Context) {
 		return
 	}
 
+	// 2. Get optional sprint ID from query parameter
+	sprintIDStr := c.Query("sprint_id")
+	if sprintIDStr == "" {
+		sprintIDStr = c.Query("sprintid")
+	}
+	var sprintID uuid.UUID
+
+	if sprintIDStr != "" {
+		sprintID, err = uuid.FromString(sprintIDStr)
+		if err != nil {
+			h.logger.Warn(
+				"Invalid sprint ID",
+				zap.String("sprintID", sprintIDStr),
+				zap.Error(err),
+			)
+
+			c.JSON(http.StatusBadRequest, response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Invalid sprint ID",
+			})
+			return
+		}
+	} else {
+		sprintID = uuid.Nil
+	}
+
 	// 3. Get authenticated user ID
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")
 	if !ok {
@@ -425,7 +539,7 @@ func (h *DashboardHandler) GetDashboardData(c *gin.Context) {
 	}
 
 	// 4. Call service
-	result, serviceErr := h.service.GetDashboardData(projectID, userUUID)
+	result, serviceErr := h.service.GetDashboardData(projectID, userUUID, sprintID)
 
 	if serviceErr != nil {
 		h.logger.Error(

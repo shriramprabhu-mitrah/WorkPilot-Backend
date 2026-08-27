@@ -40,18 +40,18 @@ type TeamWorkload struct {
 
 type DashboardResponse struct {
 	Overview       DashboardOverview `json:"overview"`
-	TaskStatus     map[string]int64  `json:"task_status"`
-	SprintBurndown []SprintBurndown  `json:"sprint_burndown"`
+	TaskStatus     map[string]any    `json:"task_status"`
+	SprintBurndown any               `json:"sprint_burndown"`
 	// WeeklyProgress []WeeklyProgress  `json:"weekly_progress"`
 	TeamWorkload []TeamWorkload `json:"team_workload"`
 }
 
 type DashboardSprintBurndownResponse struct {
-	Sprints []SprintBurndownData `json:"sprints"`
+	SprintBurndown any `json:"sprint_burndown"`
 }
 
 type SprintBurndownData struct {
 	SprintID   uuid.UUID        `json:"sprint_id"`
 	SprintName string           `json:"sprint_name"`
-	Burndown   []SprintBurndown `json:"burndown"`
+	Data       []SprintBurndown `json:"data"`
 }

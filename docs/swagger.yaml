@@ -704,10 +704,7 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.DashboardSprintBurndownResponse:
     properties:
-      sprints:
-        items:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData'
-        type: array
+      sprint_burndown: {}
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.GetProjectByUserIDResponse:
     properties:
@@ -951,28 +948,6 @@ definitions:
         items:
           $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse'
         type: array
-    type: object
-  github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown:
-    properties:
-      actual_hours:
-        type: number
-      date:
-        type: string
-      day:
-        type: integer
-      ideal_hours:
-        type: number
-    type: object
-  github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndownData:
-    properties:
-      burndown:
-        items:
-          $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.SprintBurndown'
-        type: array
-      sprint_id:
-        type: string
-      sprint_name:
-        type: string
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.TaskResponse:
     properties:
@@ -1225,7 +1200,6 @@ paths:
       - description: Sprint ID
         in: query
         name: sprint_id
-        required: true
         type: string
       produces:
       - application/json
@@ -1261,6 +1235,10 @@ paths:
         in: path
         name: project_id
         required: true
+        type: string
+      - description: Sprint ID
+        in: query
+        name: sprint_id
         type: string
       produces:
       - application/json
@@ -1343,6 +1321,10 @@ paths:
         name: project_id
         required: true
         type: string
+      - description: Sprint ID
+        in: query
+        name: sprint_id
+        type: string
       produces:
       - application/json
       responses:
@@ -1377,6 +1359,10 @@ paths:
         in: path
         name: project_id
         required: true
+        type: string
+      - description: Sprint ID
+        in: query
+        name: sprint_id
         type: string
       produces:
       - application/json
