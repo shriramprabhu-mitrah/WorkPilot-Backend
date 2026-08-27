@@ -13,8 +13,8 @@ type SearchResult struct {
 	Status      string    `json:"status,omitempty"`
 	Priority    string    `json:"priority,omitempty"`
 	AvatarURL   string    `json:"avatar_url,omitempty"`
-	ProjectID   uuid.UUID `json:"project_id,omitempty"`
-	ProjectName string    `json:"project_name,omitempty"`
+	ProjectID   *uuid.UUID `json:"project_id,omitempty"`
+	ProjectName string     `json:"project_name,omitempty"`
 }
 
 type GlobalSearchResponse struct {
