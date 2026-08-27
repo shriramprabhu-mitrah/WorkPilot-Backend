@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.DashboardOverview, *response.Error) {
+func (r *dashboardDatabase) GetOverview(projectID uuid.UUID, sprintID uuid.UUID) (responsedto.DashboardOverview, *response.Error) {
 
 	var result responsedto.DashboardOverview
 
@@ -21,10 +21,31 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 	fortyEightHoursLater := now.Add(48 * time.Hour)
 
 	// Total tasks
-	err := r.db.
+	qTotal := r.db.Debug().
 		Model(&models.Task{}).
-		Where("tasks.project_id = ?", projectID).
-		Count(&result.TotalTasks).Error
+		Where("tasks.project_id = ?", projectID)
+
+	// Debug logging of all tasks for this project
+	var allTasks []models.Task
+	if errDb := r.db.Where("project_id = ?", projectID).Find(&allTasks).Error; errDb == nil {
+		for _, t := range allTasks {
+			sprintStr := "nil"
+			if t.SprintID != nil {
+				sprintStr = t.SprintID.String()
+			}
+			r.logger.Info("DEBUG_TASK_INFO",
+				zap.String("task_id", t.ID.String()),
+				zap.String("key", t.Key),
+				zap.String("title", t.Title),
+				zap.String("sprint_id", sprintStr),
+			)
+		}
+	}
+
+	if sprintID != uuid.Nil {
+		qTotal = qTotal.Where("tasks.sprint_id = ?", sprintID)
+	}
+	err := qTotal.Count(&result.TotalTasks).Error
 
 	if err != nil {
 		r.logger.Error("Failed to get total tasks", zap.Error(err))
@@ -36,15 +57,18 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 	}
 
 	// Completed tasks
-	err = r.db.
+	qCompleted := r.db.Debug().
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
 			ON custom_statuses.id = tasks.status_id
 		`).
 		Where("tasks.project_id = ?", projectID).
-		Where("custom_statuses.is_final = ?", true).
-		Count(&result.Completed).Error
+		Where("custom_statuses.is_final = ?", true)
+	if sprintID != uuid.Nil {
+		qCompleted = qCompleted.Where("tasks.sprint_id = ?", sprintID)
+	}
+	err = qCompleted.Count(&result.Completed).Error
 
 	if err != nil {
 		r.logger.Error("Failed to get completed tasks", zap.Error(err))
@@ -56,15 +80,18 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 	}
 
 	// Pending tasks
-	err = r.db.
+	qPending := r.db.Debug().
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
 			ON custom_statuses.id = tasks.status_id
 		`).
 		Where("tasks.project_id = ?", projectID).
-		Where("custom_statuses.is_final = ?", false).
-		Count(&result.Pending).Error
+		Where("custom_statuses.is_final = ?", false)
+	if sprintID != uuid.Nil {
+		qPending = qPending.Where("tasks.sprint_id = ?", sprintID)
+	}
+	err = qPending.Count(&result.Pending).Error
 
 	if err != nil {
 		r.logger.Error("Failed to get pending tasks", zap.Error(err))
@@ -76,7 +103,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 	}
 
 	// Overdue tasks
-	err = r.db.
+	qOverdue := r.db.Debug().
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
@@ -84,8 +111,11 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 		`).
 		Where("tasks.project_id = ?", projectID).
 		Where("tasks.due_date < ?", now).
-		Where("custom_statuses.is_final = ?", false).
-		Count(&result.Overdue).Error
+		Where("custom_statuses.is_final = ?", false)
+	if sprintID != uuid.Nil {
+		qOverdue = qOverdue.Where("tasks.sprint_id = ?", sprintID)
+	}
+	err = qOverdue.Count(&result.Overdue).Error
 
 	if err != nil {
 		r.logger.Error("Failed to get overdue tasks", zap.Error(err))
@@ -97,7 +127,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 	}
 
 	// Due soon - next 48 hours
-	err = r.db.
+	qDueSoon := r.db.Debug().
 		Model(&models.Task{}).
 		Joins(`
 			JOIN custom_statuses
@@ -106,8 +136,11 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 		Where("tasks.project_id = ?", projectID).
 		Where("tasks.due_date >= ?", now).
 		Where("tasks.due_date <= ?", fortyEightHoursLater).
-		Where("custom_statuses.is_final = ?", false).
-		Count(&result.Duesoon).Error
+		Where("custom_statuses.is_final = ?", false)
+	if sprintID != uuid.Nil {
+		qDueSoon = qDueSoon.Where("tasks.sprint_id = ?", sprintID)
+	}
+	err = qDueSoon.Count(&result.Duesoon).Error
 
 	if err != nil {
 		r.logger.Error("Failed to get due soon tasks", zap.Error(err))
@@ -121,7 +154,7 @@ func (r *dashboardDatabase) GetOverview(projectID uuid.UUID) (responsedto.Dashbo
 	return result, nil
 }
 
-func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64, *response.Error) {
+func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID, sprintID uuid.UUID) (map[string]any, *response.Error) {
 
 	// 1. Fetch all custom statuses for the project to include zero values for unused statuses
 	var customStatuses []models.CustomStatus
@@ -139,13 +172,16 @@ func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64
 		}
 	}
 
-	taskStatus := make(map[string]int64)
+	taskStatus := make(map[string]any)
 	for _, cs := range customStatuses {
 		statusName := cs.Name
 		if cs.IsFinal {
 			statusName = "completed"
 		}
-		taskStatus[statusName] = 0
+		taskStatus[statusName] = map[string]any{
+			"count": 0,
+			"color": cs.Color,
+		}
 	}
 
 	// 2. Fetch the task counts grouped by status
@@ -154,7 +190,7 @@ func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64
 		Count  int64
 	}
 
-	err := r.db.
+	query := r.db.
 		Model(&models.Task{}).
 		Select(`
 			CASE
@@ -167,7 +203,13 @@ func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64
 			JOIN custom_statuses
 			ON custom_statuses.id = tasks.status_id
 		`).
-		Where("tasks.project_id = ?", projectID).
+		Where("tasks.project_id = ?", projectID)
+
+	if sprintID != uuid.Nil {
+		query = query.Where("tasks.sprint_id = ?", sprintID)
+	}
+
+	err := query.
 		Group(`
 			CASE
 				WHEN custom_statuses.is_final = true THEN 'completed'
@@ -193,17 +235,24 @@ func (r *dashboardDatabase) GetTaskStatus(projectID uuid.UUID) (map[string]int64
 
 	// 3. Update the taskStatus map with the counts obtained
 	for _, item := range result {
-		taskStatus[item.Status] = item.Count
+		if statusMap, ok := taskStatus[item.Status].(map[string]any); ok {
+			statusMap["count"] = item.Count
+		} else {
+			taskStatus[item.Status] = map[string]any{
+				"count": item.Count,
+				"color": "",
+			}
+		}
 	}
 
 	return taskStatus, nil
 }
 
-func (r *dashboardDatabase) GetTeamWorkload(projectID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error) {
+func (r *dashboardDatabase) GetTeamWorkload(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error) {
 
 	var result []responsedto.TeamWorkload
 
-	err := r.db.
+	query := r.db.
 		Table("tasks").
 		Select(`
 			users.id AS user_id,
@@ -218,7 +267,13 @@ func (r *dashboardDatabase) GetTeamWorkload(projectID uuid.UUID) ([]responsedto.
 			INNER JOIN users
 			ON users.id = tasks.assignee_id
 		`).
-		Where("tasks.project_id = ?", projectID).
+		Where("tasks.project_id = ?", projectID)
+
+	if sprintID != uuid.Nil {
+		query = query.Where("tasks.sprint_id = ?", sprintID)
+	}
+
+	err := query.
 		Group(`
 			users.id,
 			users.username,
@@ -301,7 +356,7 @@ func (r *dashboardDatabase) GetWeeklyProgress(projectID uuid.UUID, startDate tim
 	return result, nil
 }
 
-func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.SprintBurndown, *response.Error) {
+func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.SprintBurndown, float64, float64, *response.Error) {
 
 	// 1. Fetch sprint
 	var sprint models.Sprint
@@ -309,7 +364,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 	err := r.db.
 		Where("id = ?", sprintID).
 		Where("project_id = ?", projectID).
-		First(&sprint).Error
+		Find(&sprint).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -319,7 +374,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 				zap.String("sprintID", sprintID.String()),
 			)
 
-			return nil, &response.Error{
+			return nil, 0, 0, &response.Error{
 				Code:       response.ErrNotFound,
 				Message:    "Sprint not found",
 				StatusCode: http.StatusNotFound,
@@ -333,7 +388,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 			zap.Error(err),
 		)
 
-		return nil, &response.Error{
+		return nil, 0, 0, &response.Error{
 			Code:       response.ErrInternalServerError,
 			Message:    "Failed to get sprint",
 			StatusCode: http.StatusInternalServerError,
@@ -347,7 +402,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 			zap.String("sprintID", sprintID.String()),
 		)
 
-		return nil, &response.Error{
+		return nil, 0, 0, &response.Error{
 			Code:       response.ErrBadRequest,
 			Message:    "Sprint start date and end date must be set",
 			StatusCode: http.StatusBadRequest,
@@ -362,17 +417,18 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 			zap.Time("endDate", *sprint.EndDate),
 		)
 
-		return nil, &response.Error{
+		return nil, 0, 0, &response.Error{
 			Code:       response.ErrBadRequest,
 			Message:    "Sprint end date cannot be before start date",
 			StatusCode: http.StatusBadRequest,
 		}
 	}
 
-	// 3. Fetch sprint tasks
+		// 3. Fetch sprint tasks
 	var tasks []models.Task
 
-	err = r.db.
+	err = r.db.Debug().
+		Model(&models.Task{}).
 		Where("project_id = ?", projectID).
 		Where("sprint_id = ?", sprintID).
 		Find(&tasks).Error
@@ -385,7 +441,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 			zap.Error(err),
 		)
 
-		return nil, &response.Error{
+		return nil, 0, 0, &response.Error{
 			Code:       response.ErrInternalServerError,
 			Message:    "Failed to get sprint tasks",
 			StatusCode: http.StatusInternalServerError,
@@ -420,7 +476,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 			zap.Int("totalDays", totalDays),
 		)
 
-		return nil, &response.Error{
+		return nil, 0, 0, &response.Error{
 			Code:       response.ErrBadRequest,
 			Message:    "Invalid sprint duration",
 			StatusCode: http.StatusBadRequest,
@@ -467,5 +523,5 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 		)
 	}
 
-	return result, nil
+	return result, totalEstimatedHours, totalActualHours, nil
 }

@@ -18,26 +18,26 @@ type dummyDashboardRepo struct {
 	err      *response.Error
 }
 
-func (d *dummyDashboardRepo) GetOverview(projectID uuid.UUID) (responsedto.DashboardOverview, *response.Error) {
+func (d *dummyDashboardRepo) GetOverview(projectID uuid.UUID, sprintID uuid.UUID) (responsedto.DashboardOverview, *response.Error) {
 	return responsedto.DashboardOverview{}, nil
 }
 
-func (d *dummyDashboardRepo) GetTaskStatus(projectID uuid.UUID) (map[string]int64, *response.Error) {
+func (d *dummyDashboardRepo) GetTaskStatus(projectID uuid.UUID, sprintID uuid.UUID) (map[string]any, *response.Error) {
 	return nil, nil
 }
 
-func (d *dummyDashboardRepo) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.SprintBurndown, *response.Error) {
+func (d *dummyDashboardRepo) GetSprintBurndown(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.SprintBurndown, float64, float64, *response.Error) {
 	if d.err != nil {
-		return nil, d.err
+		return nil, 0, 0, d.err
 	}
-	return d.burndown[sprintID], nil
+	return d.burndown[sprintID], 120.0, 80.0, nil
 }
 
 func (d *dummyDashboardRepo) GetWeeklyProgress(projectID uuid.UUID, startDate, endDate time.Time) ([]responsedto.WeeklyProgress, *response.Error) {
 	return nil, nil
 }
 
-func (d *dummyDashboardRepo) GetTeamWorkload(projectID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error) {
+func (d *dummyDashboardRepo) GetTeamWorkload(projectID uuid.UUID, sprintID uuid.UUID) ([]responsedto.TeamWorkload, *response.Error) {
 	return nil, nil
 }
 
@@ -144,14 +144,15 @@ func TestDashboardService_GetSprintBurndown(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if len(res.Sprints) != 1 {
-			t.Fatalf("expected 1 sprint in response, got %d", len(res.Sprints))
+		sprintData, ok := res.SprintBurndown.(responsedto.SprintBurndownData)
+		if !ok {
+			t.Fatalf("expected SprintBurndown to be SprintBurndownData, got %T", res.SprintBurndown)
 		}
-		if res.Sprints[0].SprintID != sprint1ID {
-			t.Errorf("expected sprint ID %s, got %s", sprint1ID, res.Sprints[0].SprintID)
+		if sprintData.SprintID != sprint1ID {
+			t.Errorf("expected sprint ID %s, got %s", sprint1ID, sprintData.SprintID)
 		}
-		if len(res.Sprints[0].Burndown) != 2 {
-			t.Errorf("expected 2 burndown points, got %d", len(res.Sprints[0].Burndown))
+		if len(sprintData.Data) != 2 {
+			t.Errorf("expected 2 burndown points, got %d", len(sprintData.Data))
 		}
 	})
 
@@ -160,10 +161,14 @@ func TestDashboardService_GetSprintBurndown(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if len(res.Sprints) != 2 {
-			t.Fatalf("expected 2 sprints in response, got %d", len(res.Sprints))
+		sprintList, ok := res.SprintBurndown.([]responsedto.SprintBurndownData)
+		if !ok {
+			t.Fatalf("expected SprintBurndown to be []SprintBurndownData, got %T", res.SprintBurndown)
 		}
-		if res.Sprints[0].SprintID != sprint1ID || res.Sprints[1].SprintID != sprint2ID {
+		if len(sprintList) != 2 {
+			t.Fatalf("expected 2 sprints in response, got %d", len(sprintList))
+		}
+		if sprintList[0].SprintID != sprint1ID || sprintList[1].SprintID != sprint2ID {
 			t.Errorf("unexpected sprints in response")
 		}
 	})
@@ -219,8 +224,9 @@ func TestDashboardService_GetSprintBurndown(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if len(res.Sprints) != 0 {
-			t.Errorf("expected 0 sprints to be returned, got %d", len(res.Sprints))
+		sprintList, ok := res.SprintBurndown.([]responsedto.SprintBurndownData)
+		if ok && len(sprintList) != 0 {
+			t.Errorf("expected 0 sprints to be returned, got %d", len(sprintList))
 		}
 	})
 
@@ -296,12 +302,16 @@ func TestDashboardService_GetDashboardData(t *testing.T) {
 	service := services.InitDashboardService(dashboardRepo, projectRepo, authRepo, sprintRepo, &stubTaskRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
 	t.Run("successfully retrieves dashboard data (finds active sprint)", func(t *testing.T) {
-		res, err := service.GetDashboardData(projectID, userUUID)
+		res, err := service.GetDashboardData(projectID, userUUID, uuid.Nil)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if len(res.SprintBurndown) != 1 {
-			t.Errorf("expected 1 burndown data point, got %d", len(res.SprintBurndown))
+		sprintList, ok := res.SprintBurndown.([]responsedto.SprintBurndownData)
+		if !ok {
+			t.Fatalf("expected SprintBurndown to be []SprintBurndownData, got %T", res.SprintBurndown)
+		}
+		if len(sprintList) != 1 {
+			t.Errorf("expected 1 sprint burndown, got %d", len(sprintList))
 		}
 	})
 
@@ -311,12 +321,56 @@ func TestDashboardService_GetDashboardData(t *testing.T) {
 		}
 		emptyService := services.InitDashboardService(dashboardRepo, projectRepo, authRepo, emptySprintRepo, &stubTaskRepo{}, &stubAuditLogRepo{}, zap.NewNop())
 
-		res, err := emptyService.GetDashboardData(projectID, userUUID)
+		res, err := emptyService.GetDashboardData(projectID, userUUID, uuid.Nil)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if len(res.SprintBurndown) != 0 {
-			t.Errorf("expected 0 burndown data points, got %d", len(res.SprintBurndown))
+		sprintList, ok := res.SprintBurndown.([]responsedto.SprintBurndownData)
+		if ok && len(sprintList) != 0 {
+			t.Errorf("expected 0 burndown data points, got %d", len(sprintList))
+		}
+	})
+}
+
+func TestDashboardService_GetOverview(t *testing.T) {
+	projectID := uuid.Must(uuid.NewV4())
+	userUUID := uuid.Must(uuid.NewV4())
+	orgID := uuid.Must(uuid.NewV4())
+	sprintID := uuid.Must(uuid.NewV4())
+
+	project := models.Project{
+		ID:             projectID,
+		OrganizationID: orgID,
+	}
+
+	authRepo := &stubAuthRepository{
+		user: models.User{
+			ID:             userUUID,
+			OrganizationID: &orgID,
+			IsActive:       true,
+		},
+	}
+
+	projectRepo := &stubProjectRepo{
+		project:  project,
+		isMember: true,
+	}
+
+	dashboardRepo := &dummyDashboardRepo{}
+
+	service := services.InitDashboardService(dashboardRepo, projectRepo, authRepo, &sprintRepoStubForDashboard{}, &stubTaskRepo{}, &stubAuditLogRepo{}, zap.NewNop())
+
+	t.Run("successfully retrieves overview without sprint_id", func(t *testing.T) {
+		_, err := service.GetOverview(projectID, userUUID, uuid.Nil)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("successfully retrieves overview with sprint_id", func(t *testing.T) {
+		_, err := service.GetOverview(projectID, userUUID, sprintID)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 }
