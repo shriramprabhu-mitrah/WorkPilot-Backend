@@ -57,6 +57,29 @@ func (d *taskDatabase) GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.T
 	return &task, nil
 }
 
+func (d *taskDatabase) GetTaskByKey(key string, projectID uuid.UUID) (*models.Task, *response.Error) {
+	var task models.Task
+	err := d.db.Preload("Sprint").Preload("UserStory").Preload("Assignee").Preload("Reporter").Preload("Labels").
+		Where("LOWER(key) = LOWER(?) AND project_id = ?", strings.TrimSpace(key), projectID).
+		First(&task).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, &response.Error{
+				Code:       response.ErrNotFound,
+				StatusCode: http.StatusNotFound,
+				Message:    "Task not found",
+			}
+		}
+		d.logger.Error("Failed to fetch task by key", zap.Error(err))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch task",
+		}
+	}
+	return &task, nil
+}
+
 func (d *taskDatabase) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	var task models.Task
 	err := d.db.Unscoped().Preload("Sprint").Preload("UserStory").Preload("Assignee").Preload("Reporter").Preload("Labels").

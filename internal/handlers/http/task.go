@@ -105,12 +105,12 @@ func (h *taskHandler) CreateTask(g *gin.Context) {
 }
 
 // GetTaskByID godoc
-// @Summary Get Task By ID
-// @Description Retrieve details of a specific task by ID
+// @Summary Get Task By ID or Key
+// @Description Retrieve details of a specific task by ID or Task Key
 // @Tags Task
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param task_id path string true "Task ID"
+// @Param project_id path string true "Project ID or Slug"
+// @Param task_id path string true "Task ID or Task Key"
 // @Success 200 {object} response.SuccessResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -125,16 +125,17 @@ func (h *taskHandler) GetTaskByID(g *gin.Context) {
 	}
 
 	projectIDParam := g.Param("project_id")
-	projectID, errorResponse := utils.StringToUUID(projectIDParam)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
-		return
-	}
 
-	taskIDParam := g.Param("task_id")
-	taskID, errorResponse := utils.StringToUUID(taskIDParam)
-	if errorResponse != nil {
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	taskIDParam := strings.TrimSpace(g.Param("task_id"))
+	if taskIDParam == "" {
+		g.JSON(http.StatusBadRequest, response.ErrorResponse{
+			Success: false,
+			Error: response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Task ID or Task Key is required",
+			},
+		})
 		return
 	}
 
@@ -143,7 +144,7 @@ func (h *taskHandler) GetTaskByID(g *gin.Context) {
 		return
 	}
 
-	taskRes, err := h.service.GetTaskByID(taskID, projectID, userUUID, organizationUUID)
+	taskRes, err := h.service.GetTaskByID(taskIDParam, projectIDParam, userUUID, organizationUUID)
 	if err != nil {
 		errorResponse := &response.ErrorResponse{
 			Success: false,

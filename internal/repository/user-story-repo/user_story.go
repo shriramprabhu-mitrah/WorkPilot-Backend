@@ -419,7 +419,7 @@ func (d *userStoryDatabase) GetUserStoryByKey(projectID uuid.UUID, key string) (
 		Preload("Sprint").Preload("Assignee").Preload("Reporter").
 		Select("user_stories.*, user_story_statuses.name AS status").
 		Joins("LEFT JOIN user_story_statuses ON user_story_statuses.id = user_stories.status_id").
-		Where("user_stories.project_id = ? AND user_stories.key = ?", projectID, key).
+		Where("user_stories.project_id = ? AND LOWER(user_stories.key) = LOWER(?)", projectID, strings.TrimSpace(key)).
 		First(&story).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {

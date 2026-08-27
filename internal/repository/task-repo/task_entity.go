@@ -13,6 +13,7 @@ import (
 type TaskRepository interface {
 	CreateTask(task *models.Task) *response.Error
 	GetTaskByID(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error)
+	GetTaskByKey(key string, projectID uuid.UUID) (*models.Task, *response.Error)
 	GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error)
 	UpdateTask(taskID uuid.UUID, updates map[string]interface{}) *response.Error
 	DeleteTask(id uuid.UUID, projectID uuid.UUID) *response.Error

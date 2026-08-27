@@ -25,7 +25,7 @@ import (
 
 type TaskService interface {
 	CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *responsedto.TaskResponse, *response.Error)
-	GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error)
+	GetTaskByID(taskIDOrKey string, projectIDOrSlug string, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error)
 	UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskResponse, *response.Error)
 	RestoreTask(taskID, projectID, userID, orgID uuid.UUID) *response.Error
 	CloneTask(req dto.CloneTaskRequest) (*responsedto.TaskResponse, *response.Error)
@@ -553,8 +553,20 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	return task.ID, &res, nil
 }
 
-func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error) {
-	_, result, authorized, err := s.checkAuthorization(projectID, userID)
+func (s *taskService) GetTaskByID(taskIDOrKey string, projectIDOrSlug string, userID, orgID uuid.UUID) (*responsedto.TaskResponse, *response.Error) {
+	var project models.Project
+	var getProjErr *response.Error
+	projectUUID, parseErr := uuid.FromString(projectIDOrSlug)
+	if parseErr == nil {
+		project, getProjErr = s.projectRepo.GetProjectByID(projectUUID)
+	} else {
+		project, getProjErr = s.projectRepo.GetProjectBySlug(projectIDOrSlug)
+	}
+	if getProjErr != nil {
+		return nil, getProjErr
+	}
+
+	_, result, authorized, err := s.checkAuthorization(project.ID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -566,26 +578,32 @@ func (s *taskService) GetTaskByID(taskID, projectID, userID, orgID uuid.UUID) (*
 		}
 	}
 
-	task, err := s.taskRepo.GetTaskByID(taskID, projectID)
+	var task *models.Task
+	taskUUID, parseErr := uuid.FromString(taskIDOrKey)
+	if parseErr == nil {
+		task, err = s.taskRepo.GetTaskByID(taskUUID, project.ID)
+	} else {
+		task, err = s.taskRepo.GetTaskByKey(taskIDOrKey, project.ID)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	colorMap := s.getStatusColorMap(projectID)
-	isFinalMap := s.getStatusIsFinalMap(projectID)
+	colorMap := s.getStatusColorMap(project.ID)
+	isFinalMap := s.getStatusIsFinalMap(project.ID)
 	res := mapToTaskResponse(*task, colorMap, isFinalMap)
-	isFav := s.isTaskFavorited(userID, taskID)
+	isFav := s.isTaskFavorited(userID, task.ID)
 	res.IsFavourite = isFav
 
 	// audit log creation
 	auditLog := models.AuditLog{
 		UserID:         &userID,
 		OrganizationID: &orgID,
-		ProjectID:      &projectID,
-		TaskID:         &taskID,
+		ProjectID:      &project.ID,
+		TaskID:         &task.ID,
 		Action:         "viewed",
 		ResourceType:   "task",
-		ResourceID:     taskID.String(),
+		ResourceID:     task.ID.String(),
 		Title:          task.Title,
 		Details:        fmt.Sprintf("The task '%s' was viewed by %s", task.Title, result.UserName),
 		Type:           models.AuditLogTypeView,

@@ -285,7 +285,7 @@ func (s *stubUserStoryRepo) GetNextSequenceNumber(projectID uuid.UUID) (int, *re
 
 func (s *stubUserStoryRepo) GetUserStoryByKey(projectID uuid.UUID, key string) (*models.UserStory, *response.Error) {
 	for _, story := range s.stories {
-		if story.ProjectID == projectID && story.Key == key {
+		if story.ProjectID == projectID && strings.EqualFold(story.Key, strings.TrimSpace(key)) {
 			return story, nil
 		}
 	}
@@ -488,6 +488,57 @@ func TestUserStoryService_GetUserStoryByID_Success(t *testing.T) {
 
 	if res.ID != storyID || res.Title != "Get Me By ID" {
 		t.Errorf("mismatched retrieved user story: %+v", res)
+	}
+}
+
+func TestUserStoryService_GetUserStoryByID_WithKey(t *testing.T) {
+	orgID := uuid.Must(uuid.NewV4())
+	userID := uuid.Must(uuid.NewV4())
+	projectID := uuid.Must(uuid.NewV4())
+	storyID := uuid.Must(uuid.NewV4())
+
+	authRepo := &userStoryAuthRepoStub{
+		users: map[uuid.UUID]models.User{
+			userID: {ID: userID, OrganizationID: &orgID, RoleID: uuid.Must(uuid.NewV7()), Role: models.Role{Name: string(dto.RoleMember)}},
+		},
+	}
+	projectRepo := &stubProjectRepo{
+		project:  models.Project{ID: projectID, OrganizationID: orgID},
+		isMember: true,
+	}
+
+	existingStory := &models.UserStory{
+		ID:        storyID,
+		ProjectID: projectID,
+		Key:       "US-42",
+		Title:     "Get Me By Key",
+		Priority:  "high",
+		Status:    "in_progress",
+	}
+	userStoryRepo := &stubUserStoryRepo{
+		stories: map[uuid.UUID]*models.UserStory{storyID: existingStory},
+	}
+
+	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, nil, zap.NewNop())
+
+	// Fetch by Key "US-42"
+	res, err := service.GetUserStoryByID("US-42", projectID.String(), userID, orgID)
+	if err != nil {
+		t.Fatalf("expected no error fetching by key, got %v", err)
+	}
+
+	if res.ID != storyID || res.Title != "Get Me By Key" {
+		t.Errorf("mismatched retrieved user story: %+v", res)
+	}
+
+	// Fetch by lowercase Key "us-42"
+	resLower, errLower := service.GetUserStoryByID("us-42", projectID.String(), userID, orgID)
+	if errLower != nil {
+		t.Fatalf("expected no error fetching by lowercase key, got %v", errLower)
+	}
+
+	if resLower.ID != storyID {
+		t.Errorf("mismatched retrieved user story ID: %s vs %s", resLower.ID, storyID)
 	}
 }
 
@@ -883,7 +934,7 @@ func TestUserStoryService_GetUserStories_IncludesTasks(t *testing.T) {
 
 	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, nil, zap.NewNop())
 
-	stories, _, err := service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{})
+	stories, _, err := service.GetUserStories(projectID.String(), userID, orgID, dto.UserStoryFilter{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -1323,7 +1374,7 @@ func TestUserStoryService_GetUserStories_UnassignedFilter(t *testing.T) {
 	service := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, &stubTaskRepo{}, &stubCustomStatusRepo{}, &stubUserStoryStatusRepo{}, &stubAuditLogRepo{}, nil, zap.NewNop())
 
 	// Test 1: Fetch all (default)
-	res, _, err := service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{})
+	res, _, err := service.GetUserStories(projectID.String(), userID, orgID, dto.UserStoryFilter{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1332,7 +1383,7 @@ func TestUserStoryService_GetUserStories_UnassignedFilter(t *testing.T) {
 	}
 
 	// Test 2: Filter by IsUnassignedStory = true
-	res, _, err = service.GetUserStories(projectID, userID, orgID, dto.UserStoryFilter{
+	res, _, err = service.GetUserStories(projectID.String(), userID, orgID, dto.UserStoryFilter{
 		IsUnassignedStory: true,
 	})
 	if err != nil {
@@ -1342,5 +1393,15 @@ func TestUserStoryService_GetUserStories_UnassignedFilter(t *testing.T) {
 		t.Errorf("expected 1 unassigned story, got %d", len(res))
 	} else if res[0].ID != story2.ID {
 		t.Errorf("expected story 2, got %v", res[0].Title)
+	}
+
+	// Test 3: Fetch by Project Slug
+	projectRepo.project.Slug = "my-project-slug"
+	resBySlug, _, err := service.GetUserStories("my-project-slug", userID, orgID, dto.UserStoryFilter{})
+	if err != nil {
+		t.Fatalf("unexpected error fetching by project slug: %v", err)
+	}
+	if len(resBySlug) != 2 {
+		t.Errorf("expected 2 stories when fetching by project slug, got %d", len(resBySlug))
 	}
 }
