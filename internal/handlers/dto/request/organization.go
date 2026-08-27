@@ -119,15 +119,15 @@ type OrganizationFilterRequest struct {
 type GlobalMemberListFilter struct {
 	response.PaginationQuery
 	response.SortQuery
-	Search         string     `form:"search"`
-	FullName       string     `form:"full_name"`
-	Email          string     `form:"email"`
-	Username       string     `form:"username"`
-	Role           string     `form:"role"`
-	OrganizationID *uuid.UUID `form:"organization_id"`
-	IsActive       *bool      `form:"is_active"`
-	IsVerified     *bool      `form:"is_verified"`
-	Timezone       string     `form:"timezone"`
+	Search         string `form:"search"`
+	FullName       string `form:"full_name"`
+	Email          string `form:"email"`
+	Username       string `form:"username"`
+	Role           string `form:"role"`
+	OrganizationID string `form:"organization_id"`
+	IsActive       *bool  `form:"is_active"`
+	IsVerified     *bool  `form:"is_verified"`
+	Timezone       string `form:"timezone"`
 }
 
 type UpdateOrganizationStatusRequest struct {
