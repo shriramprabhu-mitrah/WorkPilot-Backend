@@ -20,6 +20,7 @@ type ProjectDetail struct {
 	CreatedAt        time.Time       `json:"created_at"`
 	Members          []ProjectMember `json:"members"`
 	Sprints          []Sprint        `json:"sprints"`
+	ActiveSprint     *Sprint         `json:"active_sprint,omitempty"`
 	Metrics          ProjectMetrics  `json:"metrics"`
 	Slug             string          `json:"slug,omitempty"`
 }

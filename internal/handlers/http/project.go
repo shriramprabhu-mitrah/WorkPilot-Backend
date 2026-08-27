@@ -634,7 +634,7 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 // GetProjectDetails godoc
 //
 //	@Summary		Get project details
-//	@Description	Retrieve a project's details along with its members and sprints.
+//	@Description	Retrieve a project's details along with its members, sprints, and current active sprint.
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json

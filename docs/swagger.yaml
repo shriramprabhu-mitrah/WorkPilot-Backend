@@ -814,6 +814,8 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_response.ProjectDetail:
     properties:
+      active_sprint:
+        $ref: '#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.Sprint'
       created_at:
         type: string
       created_by:
@@ -3177,7 +3179,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a project's details along with its members and sprints.
+      description: Retrieve a project's details along with its members, sprints, and
+        current active sprint.
       parameters:
       - description: Project ID (UUID) or Project Slug
         in: path

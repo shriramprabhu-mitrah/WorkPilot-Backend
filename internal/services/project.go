@@ -896,14 +896,19 @@ func (s *projectService) GetProjectDetails(req requestdto.GetProjectDetails) (*r
 	// Map sprints
 	payload.Sprints = make([]responsedto.Sprint, 0, len(sprints))
 	for _, sprint := range sprints {
-		payload.Sprints = append(payload.Sprints, responsedto.Sprint{
+		sprintDTO := responsedto.Sprint{
 			ID:        sprint.ID,
 			Name:      sprint.Name,
 			Goal:      sprint.Goal,
 			Status:    string(sprint.Status),
 			StartDate: sprint.StartDate,
 			EndDate:   sprint.EndDate,
-		})
+		}
+		payload.Sprints = append(payload.Sprints, sprintDTO)
+		if sprint.Status == string(requestdto.SprintStatusActive) && payload.ActiveSprint == nil {
+			activeSprintDTO := payload.Sprints[len(payload.Sprints)-1]
+			payload.ActiveSprint = &activeSprintDTO
+		}
 	}
 
 	taskFilter := requestdto.TaskFilter{

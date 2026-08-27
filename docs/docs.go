@@ -3342,7 +3342,7 @@ const docTemplate = `{
         },
         "/project/{project_id}/detail": {
             "get": {
-                "description": "Retrieve a project's details along with its members and sprints.",
+                "description": "Retrieve a project's details along with its members, sprints, and current active sprint.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9715,6 +9715,9 @@ const docTemplate = `{
         "github_com_ms-kanban-server_internal_handlers_dto_response.ProjectDetail": {
             "type": "object",
             "properties": {
+                "active_sprint": {
+                    "$ref": "#/definitions/github_com_ms-kanban-server_internal_handlers_dto_response.Sprint"
+                },
                 "created_at": {
                     "type": "string"
                 },
