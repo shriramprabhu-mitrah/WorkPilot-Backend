@@ -2,6 +2,7 @@ package dashboardrepo
 
 import (
 	"errors"
+	"math"
 	"net/http"
 	"time"
 
@@ -463,6 +464,10 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 		}
 	}
 
+	// Round total hours to 2 decimal places.
+	totalEstimatedHours = math.Round(totalEstimatedHours*100) / 100
+	totalActualHours = math.Round(totalActualHours*100) / 100
+
 	// 5. Calculate total sprint days
 	startDate := sprint.StartDate.Truncate(24 * time.Hour)
 	endDate := sprint.EndDate.Truncate(24 * time.Hour)
@@ -484,11 +489,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 	}
 
 	// 6. Prepare result
-	result := make(
-		[]responsedto.SprintBurndown,
-		0,
-		totalDays,
-	)
+	result := make([]responsedto.SprintBurndown, 0, totalDays)
 
 	// 7. Calculate burndown for each day
 	for day := 0; day < totalDays; day++ {
@@ -497,7 +498,6 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 
 		// Calculate ideal hours.
 		// Day 1 = total estimated hours
-		// Last day = 0 hours
 		var idealHours float64
 
 		if totalDays == 1 {
@@ -511,6 +511,12 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 			idealHours = 0
 		}
 
+		// Round ideal hours to 2 decimal places.
+		idealHours = math.Round(idealHours*100) / 100
+
+		// Round actual hours to 2 decimal places.
+		actualHours := math.Round(totalActualHours*100) / 100
+
 		// Append daily burndown data.
 		result = append(
 			result,
@@ -518,7 +524,7 @@ func (r *dashboardDatabase) GetSprintBurndown(projectID uuid.UUID, sprintID uuid
 				Day:         day + 1,
 				Date:        currentDate.Format("2006-01-02"),
 				IdealHours:  idealHours,
-				ActualHours: totalActualHours,
+				ActualHours: actualHours,
 			},
 		)
 	}
