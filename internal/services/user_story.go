@@ -16,11 +16,11 @@ import (
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
-	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"go.uber.org/zap"
 )
 
@@ -397,6 +397,13 @@ func (s *userStoryService) CreateUserStory(req dto.CreateUserStoryRequest) (*res
 	}
 	if lastErr != nil {
 		return nil, lastErr
+	}
+
+	if len(req.AttachmentIDs) > 0 {
+		if linkErr := s.userStoryRepo.UpdateAttachmentsUserStoryID(req.AttachmentIDs, story.ID); linkErr != nil {
+			s.logger.Error("Failed to link attachments to user story", zap.Any("error", linkErr), zap.String("user_story_id", story.ID.String()))
+			return nil, linkErr
+		}
 	}
 
 	recalcErr := s.userStoryRepo.RecalculateUserStoryIsClosed(story.ID)

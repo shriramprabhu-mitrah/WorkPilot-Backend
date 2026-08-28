@@ -145,7 +145,7 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UploadAttachments(g.Request.Context(), taskUUID, projectUUID, userUUID, allHeaders)
+	res, err := h.service.UploadAttachments(g.Request.Context(), &taskUUID, projectUUID, userUUID, allHeaders)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -332,7 +332,7 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UploadCommentAttachments(g.Request.Context(), commentUUID, taskUUID, userUUID, allHeaders)
+	res, err := h.service.UploadCommentAttachments(g.Request.Context(), &commentUUID, &taskUUID, nil, userUUID, allHeaders)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -519,7 +519,7 @@ func (h *attachmentHandler) UploadUserStoryAttachment(g *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UploadUserStoryAttachments(g.Request.Context(), storyUUID, projectUUID, userUUID, allHeaders)
+	res, err := h.service.UploadUserStoryAttachments(g.Request.Context(), &storyUUID, projectUUID, userUUID, allHeaders)
 	if err != nil {
 		writeErrorResponse(g, h.logger, *err, err.Message)
 		return
@@ -662,5 +662,277 @@ func (h *attachmentHandler) DeleteUserStoryAttachment(g *gin.Context) {
 		Success:    true,
 		StatusCode: http.StatusOK,
 		Message:    "Attachment deleted successfully",
+	})
+}
+
+// UploadCommentAttachmentWithoutComment godoc
+// @Summary Upload Comment Attachment without Comment ID
+// @Description Upload a comment attachment before the comment itself is created
+// @Tags Comment Attachment
+// @Accept multipart/form-data
+// @Produce json
+// @Param task_id path string true "Task ID"
+// @Param file formData file true "File to upload"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 413 {object} response.ErrorResponse "Payload Too Large"
+// @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
+// @Failure 500 {object} response.ErrorResponse
+// @Router /task/{task_id}/comments/attachments [post]
+func (h *attachmentHandler) UploadCommentAttachmentWithoutComment(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert task ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	allHeaders, apiErr, logMsg := h.parseFiles(g)
+	if apiErr != nil {
+		writeErrorResponse(g, h.logger, *apiErr, logMsg)
+		return
+	}
+
+	res, err := h.service.UploadCommentAttachments(g.Request.Context(), nil, &taskUUID, nil, userUUID, allHeaders)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusCreated, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusCreated,
+		Message:    "Attachments uploaded successfully",
+		Data:       res,
+	})
+}
+
+// UploadUserStoryCommentAttachmentWithoutComment godoc
+// @Summary Upload User Story Comment Attachment without Comment ID
+// @Description Upload a comment attachment before the comment itself is created on a User Story
+// @Tags Comment Attachment
+// @Accept multipart/form-data
+// @Produce json
+// @Param user_story_id path string true "User Story ID"
+// @Param file formData file true "File to upload"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 413 {object} response.ErrorResponse "Payload Too Large"
+// @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/comments/attachments [post]
+func (h *attachmentHandler) UploadUserStoryCommentAttachmentWithoutComment(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	userStoryUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert user story ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	allHeaders, apiErr, logMsg := h.parseFiles(g)
+	if apiErr != nil {
+		writeErrorResponse(g, h.logger, *apiErr, logMsg)
+		return
+	}
+
+	res, err := h.service.UploadCommentAttachments(g.Request.Context(), nil, nil, &userStoryUUID, userUUID, allHeaders)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusCreated, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusCreated,
+		Message:    "Attachments uploaded successfully",
+		Data:       res,
+	})
+}
+
+// DownloadUserStoryCommentAttachment godoc
+// @Summary Download User Story Comment Attachment
+// @Description Validate membership and download a comment attachment for a user story
+// @Tags Comment Attachment
+// @Param user_story_id path string true "User Story ID"
+// @Param attachment_id path string true "Attachment ID"
+// @Success 200 {file} file "Attachment File Stream"
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id}/download [get]
+func (h *attachmentHandler) DownloadUserStoryCommentAttachment(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	userStoryUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert user story ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	stream, filename, mimeType, size, err := h.service.DownloadCommentAttachment(g.Request.Context(), attachmentUUID, userStoryUUID, userUUID)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	writeAttachmentDownload(g, stream, filename, mimeType, size)
+}
+
+// DeleteUserStoryCommentAttachment godoc
+// @Summary Delete User Story Comment Attachment
+// @Description Delete user story comment attachment if authorized
+// @Tags Comment Attachment
+// @Param user_story_id path string true "User Story ID"
+// @Param attachment_id path string true "Attachment ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id} [delete]
+func (h *attachmentHandler) DeleteUserStoryCommentAttachment(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	userStoryUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert user story ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	attachmentUUID, errorResponse := utils.StringToUUID(g.Param("attachment_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert attachment ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	err := h.service.DeleteCommentAttachment(g.Request.Context(), attachmentUUID, userStoryUUID, userUUID)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusOK, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusOK,
+		Message:    "Attachment deleted successfully",
+	})
+}
+
+// UploadAttachmentWithoutTask godoc
+// @Summary Upload Task Attachment without Task ID
+// @Description Upload a task attachment before the task itself is created
+// @Tags Attachment
+// @Accept multipart/form-data
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param file formData file true "File to upload"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 413 {object} response.ErrorResponse "Payload Too Large"
+// @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/tasks/attachments [post]
+func (h *attachmentHandler) UploadAttachmentWithoutTask(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert project ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	allHeaders, apiErr, logMsg := h.parseFiles(g)
+	if apiErr != nil {
+		writeErrorResponse(g, h.logger, *apiErr, logMsg)
+		return
+	}
+
+	res, err := h.service.UploadAttachments(g.Request.Context(), nil, projectUUID, userUUID, allHeaders)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusCreated, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusCreated,
+		Message:    "Attachments uploaded successfully",
+		Data:       res,
+	})
+}
+
+// UploadUserStoryAttachmentWithoutUserStory godoc
+// @Summary Upload User Story Attachment without User Story ID
+// @Description Upload a user story attachment before the user story itself is created
+// @Tags Attachment
+// @Accept multipart/form-data
+// @Produce json
+// @Param project_id path string true "Project ID"
+// @Param file formData file true "File to upload"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 413 {object} response.ErrorResponse "Payload Too Large"
+// @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
+// @Failure 500 {object} response.ErrorResponse
+// @Router /projects/{project_id}/user-stories/attachments [post]
+func (h *attachmentHandler) UploadUserStoryAttachmentWithoutUserStory(g *gin.Context) {
+	userUUID, ok := getRequiredContextUUID(g, h.logger, "user_id", "user")
+	if !ok {
+		return
+	}
+
+	projectUUID, errorResponse := utils.StringToUUID(g.Param("project_id"))
+	if errorResponse != nil {
+		h.logger.Error("Failed to convert project ID string into UUID")
+		g.JSON(errorResponse.StatusCode, errorResponse)
+		return
+	}
+
+	allHeaders, apiErr, logMsg := h.parseFiles(g)
+	if apiErr != nil {
+		writeErrorResponse(g, h.logger, *apiErr, logMsg)
+		return
+	}
+
+	res, err := h.service.UploadUserStoryAttachments(g.Request.Context(), nil, projectUUID, userUUID, allHeaders)
+	if err != nil {
+		writeErrorResponse(g, h.logger, *err, err.Message)
+		return
+	}
+
+	g.JSON(http.StatusCreated, response.SuccessResponse{
+		Success:    true,
+		StatusCode: http.StatusCreated,
+		Message:    "Attachments uploaded successfully",
+		Data:       res,
 	})
 }

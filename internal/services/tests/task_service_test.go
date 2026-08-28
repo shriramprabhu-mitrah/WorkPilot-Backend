@@ -158,6 +158,10 @@ func (s *stubTaskRepo) GetTaskCountsByProjectIDs(projectIDs []uuid.UUID) (map[uu
 	return counts, nil
 }
 
+func (s *stubTaskRepo) UpdateAttachmentsTaskID(attachmentIDs []uuid.UUID, taskID uuid.UUID) *response.Error {
+	return nil
+}
+
 type stubCustomStatusRepo struct {
 	statuses map[uuid.UUID]map[string]*models.CustomStatus
 }

@@ -296,6 +296,10 @@ func (s *stubUserStoryRepo) GetUserStoryByKey(projectID uuid.UUID, key string) (
 	}
 }
 
+func (s *stubUserStoryRepo) UpdateAttachmentsUserStoryID(attachmentIDs []uuid.UUID, userStoryID uuid.UUID) *response.Error {
+	return nil
+}
+
 func TestUserStoryService_CreateUserStory_Success(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())

@@ -708,3 +708,18 @@ func (d *taskDatabase) GetTaskCountsByProjectIDs(projectIDs []uuid.UUID) (map[uu
 
 	return counts, nil
 }
+
+func (d *taskDatabase) UpdateAttachmentsTaskID(attachmentIDs []uuid.UUID, taskID uuid.UUID) *response.Error {
+	if len(attachmentIDs) == 0 {
+		return nil
+	}
+	if err := d.db.Model(&models.TaskAttachment{}).Where("id IN ?", attachmentIDs).Update("task_id", taskID).Error; err != nil {
+		d.logger.Error("Failed to update task ID for attachments", zap.Error(err), zap.Any("attachment_ids", attachmentIDs), zap.String("task_id", taskID.String()))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to link attachments to task",
+		}
+	}
+	return nil
+}

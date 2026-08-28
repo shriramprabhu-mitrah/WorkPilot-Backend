@@ -25,6 +25,7 @@ type UserStoryRepository interface {
 	CountStoriesByStatusID(projectID, statusID uuid.UUID) (int64, *response.Error)
 	GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error)
 	GetUserStoryByKey(projectID uuid.UUID, key string) (*models.UserStory, *response.Error)
+	UpdateAttachmentsUserStoryID(attachmentIDs []uuid.UUID, userStoryID uuid.UUID) *response.Error
 }
 
 func InitUserStoryRepository(deps models.Config) UserStoryRepository {

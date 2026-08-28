@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, userStoryID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.UserStoryAttachmentResponse, *response.Error) {
+func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, userStoryID *uuid.UUID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.UserStoryAttachmentResponse, *response.Error) {
 	if len(files) > s.cfg.MaxFiles {
 		return nil, &response.Error{
 			Code:       response.ErrorCode("BAD_REQUEST"),
@@ -29,29 +29,49 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 		return nil, err
 	}
 
-	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(userStoryID)
-	if err != nil {
-		return nil, err
-	}
+	var authorized bool
+	var orgID uuid.UUID
+	var storyTitle string
 
-	// Enforce URL project hierarchy validation
-	if storyCtx.ProjectID != projectID {
-		return nil, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "User story does not belong to the specified project",
+	if userStoryID != nil && *userStoryID != uuid.Nil {
+		storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(*userStoryID)
+		if err != nil {
+			return nil, err
 		}
+
+		if storyCtx.ProjectID != projectID {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "User story does not belong to the specified project",
+			}
+		}
+
+		authorized, err = s.CanAccessUserStory(&user, storyCtx)
+		if err != nil {
+			return nil, err
+		}
+		orgID = storyCtx.OrganizationID
+		storyTitle = storyCtx.Title
+	} else {
+		authorized, err = CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "user_stories", "add")
+		if err != nil {
+			return nil, err
+		}
+
+		project, projErr := s.projectRepo.GetProjectByID(projectID)
+		if projErr != nil {
+			return nil, projErr
+		}
+		orgID = project.OrganizationID
+		storyTitle = "pending user story creation"
 	}
 
-	authorized, err := s.CanAccessUserStory(&user, storyCtx)
-	if err != nil {
-		return nil, err
-	}
 	if !authorized {
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to access this project",
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 
@@ -60,7 +80,12 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 	var createdAttachments []models.UserStoryAttachment
 	var auditLogs []models.AuditLog
 
-	storyTitle := storyCtx.Title
+	var folderID uuid.UUID
+	if userStoryID != nil && *userStoryID != uuid.Nil {
+		folderID = *userStoryID
+	} else {
+		folderID = projectID
+	}
 
 	for _, header := range files {
 		file, openErr := header.Open()
@@ -74,7 +99,7 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 			}
 		}
 
-		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadUserStoryAttachment(ctx, file, header, userStoryID, s.cfg)
+		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadUserStoryAttachment(ctx, file, header, folderID, s.cfg)
 		file.Close()
 		if uploadErr != nil {
 			s.rollbackUserStoryUploads(uploadedKeys, createdIDs)
@@ -82,8 +107,14 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 		}
 		uploadedKeys = append(uploadedKeys, key)
 
+		var dbUserStoryID *uuid.UUID
+		if userStoryID != nil && *userStoryID != uuid.Nil {
+			dbUserStoryID = userStoryID
+		}
+
 		attachment := models.UserStoryAttachment{
-			UserStoryID:      userStoryID,
+			UserStoryID:      dbUserStoryID,
+			ProjectID:        projectID,
 			OriginalFilename: header.Filename,
 			StoredFilename:   sanitizedName,
 			MIMEType:         detectedMIME,
@@ -104,12 +135,12 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 
 		auditLog := models.AuditLog{
 			UserID:         &userID,
-			OrganizationID: &storyCtx.OrganizationID,
-			ProjectID:      &storyCtx.ProjectID,
-			UserStoryID:    &userStoryID,
+			OrganizationID: &orgID,
+			ProjectID:      &projectID,
+			UserStoryID:    dbUserStoryID,
 			Action:         "uploaded",
 			ResourceType:   "user_story_attachment",
-			ResourceID:     userStoryID.String(),
+			ResourceID:     attachment.ID.String(),
 			Details:        fmt.Sprintf("User %s uploaded attachment %s to user story %s", user.Email, attachment.OriginalFilename, storyTitle),
 			Type:           models.AuditLogTypeActivity,
 			CreatedAt:      time.Now(),
@@ -117,7 +148,6 @@ func (s *attachmentService) UploadUserStoryAttachments(ctx context.Context, user
 		auditLogs = append(auditLogs, auditLog)
 	}
 
-	// Write audit logs only when the entire transaction has succeeded
 	for _, log := range auditLogs {
 		if auditErr := s.auditRepo.CreateAuditLog(log); auditErr != nil {
 			s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
@@ -219,23 +249,52 @@ func (s *attachmentService) DownloadUserStoryAttachment(ctx context.Context, att
 		return nil, "", "", 0, dbErr
 	}
 
-	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(attachment.UserStoryID)
-	if err != nil {
-		return nil, "", "", 0, err
-	}
+	var authorized bool
+	var orgID uuid.UUID
+	var resourceKey string
 
-	if storyCtx.ProjectID != projectID {
-		return nil, "", "", 0, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Attachment does not belong to the specified project",
+	if attachment.UserStoryID != nil && *attachment.UserStoryID != uuid.Nil {
+		storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(*attachment.UserStoryID)
+		if err != nil {
+			return nil, "", "", 0, err
 		}
+
+		if storyCtx.ProjectID != projectID {
+			return nil, "", "", 0, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		authorized, err = s.CanAccessUserStory(&user, storyCtx)
+		if err != nil {
+			return nil, "", "", 0, err
+		}
+		orgID = storyCtx.OrganizationID
+		resourceKey = storyCtx.Title
+	} else {
+		if attachment.ProjectID != projectID {
+			return nil, "", "", 0, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		authorized, err = CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "user_stories", "view")
+		if err != nil {
+			return nil, "", "", 0, err
+		}
+		resourceKey = "pending attachment"
+
+		project, projErr := s.projectRepo.GetProjectByID(projectID)
+		if projErr != nil {
+			return nil, "", "", 0, projErr
+		}
+		orgID = project.OrganizationID
 	}
 
-	authorized, err := s.CanAccessUserStory(&user, storyCtx)
-	if err != nil {
-		return nil, "", "", 0, err
-	}
 	if !authorized {
 		return nil, "", "", 0, &response.Error{
 			Code:       response.ErrForbidden,
@@ -251,12 +310,12 @@ func (s *attachmentService) DownloadUserStoryAttachment(ctx context.Context, att
 
 	auditLog := models.AuditLog{
 		UserID:         &userID,
-		OrganizationID: &storyCtx.OrganizationID,
-		ProjectID:      &storyCtx.ProjectID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
 		Action:         "downloaded",
 		ResourceType:   "user_story_attachment",
-		ResourceID:     attachment.UserStoryID.String(),
-		Details:        fmt.Sprintf("User %s downloaded attachment %s from user story %s", user.Email, attachment.OriginalFilename, storyCtx.Title),
+		ResourceID:     attachmentID.String(),
+		Details:        fmt.Sprintf("User %s downloaded attachment %s from user story %s", user.Email, attachment.OriginalFilename, resourceKey),
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
@@ -278,23 +337,54 @@ func (s *attachmentService) DeleteUserStoryAttachment(ctx context.Context, attac
 		return dbErr
 	}
 
-	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(attachment.UserStoryID)
-	if err != nil {
-		return err
-	}
+	var allowed bool
+	var orgID uuid.UUID
+	var resourceKey string
 
-	if storyCtx.ProjectID != projectID {
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Attachment does not belong to the specified project",
+	if attachment.UserStoryID != nil && *attachment.UserStoryID != uuid.Nil {
+		storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(*attachment.UserStoryID)
+		if err != nil {
+			return err
 		}
+
+		if storyCtx.ProjectID != projectID {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		allowed, err = s.CanDeleteUserStoryAttachment(&user, attachment, storyCtx)
+		if err != nil {
+			return err
+		}
+		orgID = storyCtx.OrganizationID
+		resourceKey = storyCtx.Title
+	} else {
+		if attachment.ProjectID != projectID {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		isUploader := attachment.UploadedBy == userID
+		isManager, err := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "user_stories", "delete")
+		if err != nil {
+			return err
+		}
+		allowed = isUploader || isManager
+		resourceKey = "pending attachment"
+
+		project, projErr := s.projectRepo.GetProjectByID(projectID)
+		if projErr != nil {
+			return projErr
+		}
+		orgID = project.OrganizationID
 	}
 
-	allowed, authErr := s.CanDeleteUserStoryAttachment(&user, attachment, storyCtx)
-	if authErr != nil {
-		return authErr
-	}
 	if !allowed {
 		return &response.Error{
 			Code:       response.ErrForbidden,
@@ -308,17 +398,14 @@ func (s *attachmentService) DeleteUserStoryAttachment(ctx context.Context, attac
 		return dbErr
 	}
 
-	storyTitle := storyCtx.Title
-
 	auditLog := models.AuditLog{
 		UserID:         &userID,
-		OrganizationID: &storyCtx.OrganizationID,
-		ProjectID:      &storyCtx.ProjectID,
-		UserStoryID:    &attachment.UserStoryID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
 		Action:         "deleted",
 		ResourceType:   "user_story_attachment",
 		ResourceID:     attachmentID.String(),
-		Details:        fmt.Sprintf("User %s deleted attachment %s from user story %s", user.Email, attachment.OriginalFilename, storyTitle),
+		Details:        fmt.Sprintf("User %s deleted attachment %s from user story %s", user.Email, attachment.OriginalFilename, resourceKey),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}

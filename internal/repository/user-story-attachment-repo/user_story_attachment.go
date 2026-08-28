@@ -100,3 +100,18 @@ func (d *userStoryAttachmentDatabase) DeleteAttachmentAndRecordOrphan(attachment
 	}
 	return nil
 }
+
+func (d *userStoryAttachmentDatabase) UpdateAttachmentsUserStoryID(attachmentIDs []uuid.UUID, userStoryID uuid.UUID) *response.Error {
+	if len(attachmentIDs) == 0 {
+		return nil
+	}
+	if err := d.db.Model(&models.UserStoryAttachment{}).Where("id IN ?", attachmentIDs).Update("user_story_id", userStoryID).Error; err != nil {
+		d.logger.Error("Failed to update user story ID for attachments", zap.Error(err), zap.Any("attachment_ids", attachmentIDs), zap.String("user_story_id", userStoryID.String()))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to link attachments to user story",
+		}
+	}
+	return nil
+}

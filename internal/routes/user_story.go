@@ -12,13 +12,13 @@ import (
 	commentattachmentrepo "github.com/ms-kanban-server/internal/repository/comment-attachment-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	filecleanuprepo "github.com/ms-kanban-server/internal/repository/file-cleanup-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryattachmentrepo "github.com/ms-kanban-server/internal/repository/user-story-attachment-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
 	userstorystatusrepo "github.com/ms-kanban-server/internal/repository/user-story-status-repo"
-	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"github.com/ms-kanban-server/internal/services"
 )
 
@@ -42,7 +42,7 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 	userStoryService := services.InitUserStoryService(authRepo, projectRepo, userStoryRepo, taskRepo, customStatusRepo, userStoryStatusRepo, auditRepo, favoriteRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
 	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, userStoryAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
-	commentsService := services.InitCommentsService(commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, deps.Logger)
+	commentsService := services.InitCommentsService(commentsRepo, commentAttachmentRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, deps.Logger)
 	favoriteService := services.InitFavoriteService(favoriteRepo, userStoryRepo, taskRepo, projectRepo, authRepo, customStatusRepo, userStoryStatusRepo, deps.Logger)
 
 	// initialize handlers
@@ -68,6 +68,7 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 		us.DELETE("/:user_story_id/favorite", middleware.ValidateJWT(), favoriteHandler.RemoveUserStoryFavorite)
 
 		// Attachment routes
+		us.POST("/attachments", middleware.ValidateJWT(), attachmentHandler.UploadUserStoryAttachmentWithoutUserStory)
 		us.POST("/:user_story_id/attachments", middleware.ValidateJWT(), attachmentHandler.UploadUserStoryAttachment)
 		us.GET("/:user_story_id/attachments", middleware.ValidateJWT(), attachmentHandler.GetUserStoryAttachments)
 		us.GET("/:user_story_id/attachments/:attachment_id/download", middleware.ValidateJWT(), attachmentHandler.DownloadUserStoryAttachment)
@@ -80,5 +81,10 @@ func UserStoryRoutes(deps models.Config, api *gin.RouterGroup) {
 		us.GET("/:user_story_id/comments/replies/:parent_comment_id", middleware.ValidateJWT(), commentsHandler.GetCommentsByParentID)
 		us.PATCH("/:user_story_id/comments/:comment_id", middleware.ValidateJWT(), commentsHandler.UpdateComments)
 		us.DELETE("/:user_story_id/comments/:comment_id", middleware.ValidateJWT(), commentsHandler.DeleteComments)
+
+		// User Story Comment Attachment routes
+		us.POST("/:user_story_id/comments/attachments", middleware.ValidateJWT(), attachmentHandler.UploadUserStoryCommentAttachmentWithoutComment)
+		us.GET("/:user_story_id/comments/attachments/:attachment_id/download", middleware.ValidateJWT(), attachmentHandler.DownloadUserStoryCommentAttachment)
+		us.DELETE("/:user_story_id/comments/attachments/:attachment_id", middleware.ValidateJWT(), attachmentHandler.DeleteUserStoryCommentAttachment)
 	}
 }

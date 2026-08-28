@@ -16,10 +16,10 @@ import (
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
 	customstatusrepo "github.com/ms-kanban-server/internal/repository/custom-status-repo"
+	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
 	userstoryrepo "github.com/ms-kanban-server/internal/repository/user-story-repo"
-	favoriterepo "github.com/ms-kanban-server/internal/repository/favorite-repo"
 	"go.uber.org/zap"
 )
 
@@ -524,6 +524,13 @@ func (s *taskService) CreateTask(req dto.CreateTaskRequest) (uuid.UUID, *respons
 	}
 	if lastErr != nil {
 		return uuid.Nil, nil, lastErr
+	}
+
+	if len(req.AttachmentIDs) > 0 {
+		if linkErr := s.taskRepo.UpdateAttachmentsTaskID(req.AttachmentIDs, task.ID); linkErr != nil {
+			s.logger.Error("Failed to link attachments to task", zap.Any("error", linkErr), zap.String("task_id", task.ID.String()))
+			return uuid.Nil, nil, linkErr
+		}
 	}
 
 	if s.userStoryRepo != nil && task.UserStoryID != nil && *task.UserStoryID != uuid.Nil {

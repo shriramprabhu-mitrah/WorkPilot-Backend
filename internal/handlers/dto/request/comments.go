@@ -6,12 +6,13 @@ import (
 )
 
 type CreateCommentsRequest struct {
-	TaskID          *uuid.UUID `json:"-" swaggerignore:"true"`
-	UserStoryID     *uuid.UUID `json:"-" swaggerignore:"true"`
-	UserID          uuid.UUID  `json:"-" swaggerignore:"true"`
-	OrganizationID  uuid.UUID  `json:"-" swaggerignore:"true"`
-	Content         string     `json:"content" binding:"required,min=1,max=5000"`
-	ParentCommentID *uuid.UUID `json:"parent_comment_id,omitempty"`
+	TaskID          *uuid.UUID  `json:"-" swaggerignore:"true"`
+	UserStoryID     *uuid.UUID  `json:"-" swaggerignore:"true"`
+	UserID          uuid.UUID   `json:"-" swaggerignore:"true"`
+	OrganizationID  uuid.UUID   `json:"-" swaggerignore:"true"`
+	Content         string      `json:"content" binding:"required,min=1,max=5000"`
+	ParentCommentID *uuid.UUID  `json:"parent_comment_id,omitempty"`
+	AttachmentIDs   []uuid.UUID `json:"attachment_ids,omitempty"`
 }
 
 type UpdateCommentsRequest struct {

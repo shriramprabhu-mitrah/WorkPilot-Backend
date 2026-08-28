@@ -44,19 +44,19 @@ func (p productionJitterSource) Int63n(n int64) int64 {
 
 type AttachmentService interface {
 	// Task attachments
-	UploadAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error)
+	UploadAttachments(ctx context.Context, taskID *uuid.UUID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error)
 	GetAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID) ([]responsedto.AttachmentResponse, *response.Error)
 	DownloadAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
 	DeleteAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error
 
 	// Comment attachments
-	UploadCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
+	UploadCommentAttachments(ctx context.Context, commentID, taskID, userStoryID *uuid.UUID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
 	GetCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error)
 	DownloadCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
 	DeleteCommentAttachment(ctx context.Context, attachmentID, taskID, userID uuid.UUID) *response.Error
 
 	// User story attachments
-	UploadUserStoryAttachments(ctx context.Context, userStoryID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.UserStoryAttachmentResponse, *response.Error)
+	UploadUserStoryAttachments(ctx context.Context, userStoryID *uuid.UUID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.UserStoryAttachmentResponse, *response.Error)
 	GetUserStoryAttachments(ctx context.Context, userStoryID, projectID, userID uuid.UUID) ([]responsedto.UserStoryAttachmentResponse, *response.Error)
 	DownloadUserStoryAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
 	DeleteUserStoryAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error

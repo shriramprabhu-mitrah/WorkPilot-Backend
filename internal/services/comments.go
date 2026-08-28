@@ -14,6 +14,7 @@ import (
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
 	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	commentattachmentrepo "github.com/ms-kanban-server/internal/repository/comment-attachment-repo"
 	commentsrepo "github.com/ms-kanban-server/internal/repository/comments-repo"
 	projectrepo "github.com/ms-kanban-server/internal/repository/project-repo"
 	taskrepo "github.com/ms-kanban-server/internal/repository/task-repo"
@@ -31,26 +32,28 @@ type CommentsService interface {
 	GetCommentsByParentID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error)
 }
 
-func InitCommentsService(commentsRepo commentsrepo.CommentsRepository, taskRepo taskrepo.TaskRepository, userStoryRepo userstoryrepo.UserStoryRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) CommentsService {
+func InitCommentsService(commentsRepo commentsrepo.CommentsRepository, commentAttachmentRepo commentattachmentrepo.CommentAttachmentRepository, taskRepo taskrepo.TaskRepository, userStoryRepo userstoryrepo.UserStoryRepository, projectRepo projectrepo.ProjectRepository, authRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) CommentsService {
 	return &commentsService{
-		commentsRepo:  commentsRepo,
-		taskRepo:      taskRepo,
-		userStoryRepo: userStoryRepo,
-		projectRepo:   projectRepo,
-		authRepo:      authRepo,
-		auditRepo:     auditRepo,
-		logger:        logger,
+		commentsRepo:          commentsRepo,
+		commentAttachmentRepo: commentAttachmentRepo,
+		taskRepo:              taskRepo,
+		userStoryRepo:         userStoryRepo,
+		projectRepo:           projectRepo,
+		authRepo:              authRepo,
+		auditRepo:             auditRepo,
+		logger:                logger,
 	}
 }
 
 type commentsService struct {
-	commentsRepo  commentsrepo.CommentsRepository
-	taskRepo      taskrepo.TaskRepository
-	userStoryRepo userstoryrepo.UserStoryRepository
-	projectRepo   projectrepo.ProjectRepository
-	authRepo      authrepo.AuthRepository
-	auditRepo     auditrepo.AuditLogRepository
-	logger        *zap.Logger
+	commentsRepo          commentsrepo.CommentsRepository
+	commentAttachmentRepo commentattachmentrepo.CommentAttachmentRepository
+	taskRepo              taskrepo.TaskRepository
+	userStoryRepo         userstoryrepo.UserStoryRepository
+	projectRepo           projectrepo.ProjectRepository
+	authRepo              authrepo.AuthRepository
+	auditRepo             auditrepo.AuditLogRepository
+	logger                *zap.Logger
 }
 
 func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
@@ -266,6 +269,13 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 
 	if err := s.commentsRepo.CreateComment(comment); err != nil {
 		return responsedto.CommentedUserResponse{}, err
+	}
+
+	if len(req.AttachmentIDs) > 0 {
+		if linkErr := s.commentAttachmentRepo.UpdateAttachmentsCommentID(req.AttachmentIDs, comment.ID); linkErr != nil {
+			s.logger.Error("Failed to link attachments to comment", zap.Any("error", linkErr), zap.String("comment_id", comment.ID.String()))
+			return responsedto.CommentedUserResponse{}, linkErr
+		}
 	}
 
 	user, err := s.authRepo.GetUserByID(req.UserID)
