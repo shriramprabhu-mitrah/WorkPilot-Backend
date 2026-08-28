@@ -149,7 +149,7 @@ func (s *stubAttachmentRepo) GetAttachmentsByTaskID(taskID uuid.UUID) ([]models.
 	}
 	var list []models.TaskAttachment
 	for _, a := range s.attachments {
-		if a.TaskID == taskID {
+		if a.TaskID != nil && *a.TaskID == taskID {
 			list = append(list, *a)
 		}
 	}
@@ -170,6 +170,15 @@ func (s *stubAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachmentID uuid.U
 	}
 	delete(s.attachments, attachmentID)
 	s.orphanedLogs = append(s.orphanedLogs, storagePath)
+	return nil
+}
+
+func (s *stubAttachmentRepo) UpdateAttachmentsTaskID(attachmentIDs []uuid.UUID, taskID uuid.UUID) *response.Error {
+	for _, id := range attachmentIDs {
+		if a, ok := s.attachments[id]; ok {
+			a.TaskID = &taskID
+		}
+	}
 	return nil
 }
 
@@ -212,7 +221,7 @@ func (s *stubCommentAttachmentRepo) GetAttachmentsByCommentID(commentID uuid.UUI
 	}
 	var list []models.CommentAttachment
 	for _, a := range s.attachments {
-		if a.CommentID == commentID {
+		if a.CommentID != nil && *a.CommentID == commentID {
 			list = append(list, *a)
 		}
 	}
@@ -233,6 +242,15 @@ func (s *stubCommentAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachmentID
 	}
 	delete(s.attachments, attachmentID)
 	s.orphanedLogs = append(s.orphanedLogs, storagePath)
+	return nil
+}
+
+func (s *stubCommentAttachmentRepo) UpdateAttachmentsCommentID(attachmentIDs []uuid.UUID, commentID uuid.UUID) *response.Error {
+	for _, id := range attachmentIDs {
+		if a, ok := s.attachments[id]; ok {
+			a.CommentID = &commentID
+		}
+	}
 	return nil
 }
 
@@ -345,6 +363,10 @@ func (s *stubAttachmentTaskRepo) GetTasksByUserStoryID(userStoryID uuid.UUID) ([
 		return nil, s.err
 	}
 	return nil, nil
+}
+
+func (s *stubAttachmentTaskRepo) UpdateAttachmentsTaskID(attachmentIDs []uuid.UUID, taskID uuid.UUID) *response.Error {
+	return nil
 }
 
 type stubAttachmentProjectRepo struct {
@@ -524,7 +546,7 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 			t.Fatalf("failed to create mock file header: %v", err)
 		}
 
-		res, apiErr := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		res, apiErr := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if apiErr != nil {
 			t.Fatalf("expected nil error, got %v", apiErr)
 		}
@@ -545,7 +567,7 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 		f.storageClient.uploadErr = &response.Error{StatusCode: 500, Message: "S3 Error"}
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("content"))
-		_, apiErr := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		_, apiErr := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if apiErr == nil || apiErr.StatusCode != 500 {
 			t.Fatalf("expected S3 500 failure, got %v", apiErr)
 		}
@@ -559,7 +581,7 @@ func TestAttachmentService_UploadAttachment(t *testing.T) {
 		f.attachmentRepo.createErr = &response.Error{StatusCode: 500, Message: "DB error"}
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
-		_, apiErr := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		_, apiErr := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if apiErr == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -583,7 +605,7 @@ func TestAttachmentService_DownloadAttachment(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{
 			ID:               attachmentID,
-			TaskID:           taskID,
+			TaskID:           &taskID,
 			OriginalFilename: "doc.pdf",
 			MIMEType:         "application/pdf",
 			StoragePath:      "tasks/task/doc.pdf",
@@ -604,7 +626,7 @@ func TestAttachmentService_DownloadAttachment(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{
 			ID:               attachmentID,
-			TaskID:           taskID,
+			TaskID:           &taskID,
 			OriginalFilename: "doc.pdf",
 			StoragePath:      "path",
 		}
@@ -628,7 +650,7 @@ func TestAttachmentService_DeleteAttachment(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{
 			ID:          attachmentID,
-			TaskID:      taskID,
+			TaskID:      &taskID,
 			StoragePath: "path",
 			UploadedBy:  userID,
 		}
@@ -649,7 +671,7 @@ func TestAttachmentService_DeleteAttachment(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{
 			ID:          attachmentID,
-			TaskID:      taskID,
+			TaskID:      &taskID,
 			StoragePath: "path",
 			UploadedBy:  userID,
 		}
@@ -687,7 +709,7 @@ func TestCommentAttachmentService_UploadAttachments(t *testing.T) {
 			t.Fatalf("failed to create test file header: %v", err)
 		}
 
-		res, uploadErr := f.service.UploadCommentAttachments(f.ctx, commentID, taskID, userID, []*multipart.FileHeader{fileHeader})
+		res, uploadErr := f.service.UploadCommentAttachments(f.ctx, &commentID, &taskID, nil, userID, []*multipart.FileHeader{fileHeader})
 		if uploadErr != nil {
 			t.Fatalf("expected no error, got %v", uploadErr)
 		}
@@ -710,10 +732,10 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 
 	t.Run("Non-member Access Denied", func(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
-		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{ID: attachmentID, TaskID: taskID}
+		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{ID: attachmentID, TaskID: &taskID}
 		f.projectRepo.isMember = false
 
-		_, err := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden for upload, got %v", err)
 		}
@@ -733,7 +755,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, userID)
 		f.authRepo.user.Role.Name = string(dto.RoleSuperAdmin)
 
-		_, err := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden for super admin, got %v", err)
 		}
@@ -745,7 +767,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		f.authRepo.user.Role.Name = string(dto.RoleOrgAdmin)
 		f.authRepo.user.OrganizationID = &anotherOrgID
 
-		_, err := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil || err.StatusCode != 403 {
 			t.Errorf("expected 403 Forbidden, got %v", err)
 		}
@@ -756,7 +778,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		f := newTestFixture(orgID, projectID, taskID, commentAuthorID)
 		f.commentAttachmentRepo.attachments[attachmentID] = &models.CommentAttachment{
 			ID:          attachmentID,
-			CommentID:   commentID,
+			CommentID:   &commentID,
 			StoragePath: "path",
 			UploadedBy:  userID,
 		}
@@ -775,11 +797,11 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 	t.Run("Mismatched Task Project ID", func(t *testing.T) {
 		wrongProjectID := uuid.Must(uuid.NewV4())
 		f := newTestFixture(orgID, projectID, taskID, userID)
-		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{ID: attachmentID, TaskID: taskID, StoragePath: "path"}
+		f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{ID: attachmentID, TaskID: &taskID, StoragePath: "path"}
 
 		// 1. Upload
 		header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
-		_, err := f.service.UploadAttachments(f.ctx, taskID, wrongProjectID, userID, []*multipart.FileHeader{header})
+		_, err := f.service.UploadAttachments(f.ctx, &taskID, wrongProjectID, userID, []*multipart.FileHeader{header})
 		if err == nil || err.Code != response.ErrBadRequest {
 			t.Errorf("expected ErrBadRequest, got %v", err)
 		}
@@ -806,12 +828,12 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 	t.Run("Mismatched Comment Task ID", func(t *testing.T) {
 		wrongTaskID := uuid.Must(uuid.NewV4())
 		f := newTestFixture(orgID, projectID, taskID, userID)
-		f.commentAttachmentRepo.attachments[attachmentID] = &models.CommentAttachment{ID: attachmentID, CommentID: commentID, StoragePath: "path"}
+		f.commentAttachmentRepo.attachments[attachmentID] = &models.CommentAttachment{ID: attachmentID, CommentID: &commentID, StoragePath: "path"}
 		f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: &taskID}
 
 		// 1. Upload
 		header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
-		_, err := f.service.UploadCommentAttachments(f.ctx, commentID, wrongTaskID, userID, []*multipart.FileHeader{header})
+		_, err := f.service.UploadCommentAttachments(f.ctx, &commentID, &wrongTaskID, nil, userID, []*multipart.FileHeader{header})
 		if err == nil || err.Code != response.ErrBadRequest {
 			t.Errorf("expected ErrBadRequest for comment upload, got %v", err)
 		}
@@ -840,7 +862,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		f.attachmentRepo.createErr = &response.Error{Code: response.ErrInternalServerError, StatusCode: 500, Message: "DB error"}
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
-		_, err := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil {
 			t.Fatal("expected upload error, got nil")
 		}
@@ -855,7 +877,7 @@ func TestAttachmentService_AuthorizationMatrix(t *testing.T) {
 		f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: &taskID}
 
 		fileHeader, _ := createTestMultipartFileHeader("test.png", []byte("png content"))
-		_, err := f.service.UploadCommentAttachments(f.ctx, commentID, taskID, userID, []*multipart.FileHeader{fileHeader})
+		_, err := f.service.UploadCommentAttachments(f.ctx, &commentID, &taskID, nil, userID, []*multipart.FileHeader{fileHeader})
 		if err == nil {
 			t.Fatal("expected comment upload error, got nil")
 		}
@@ -881,12 +903,12 @@ func TestAttachmentService_TaskProjectMismatch(t *testing.T) {
 	attachmentID := uuid.Must(uuid.NewV4())
 
 	f := newTestFixture(orgID, projectB, taskID, userID)
-	f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{ID: attachmentID, TaskID: taskID, StoragePath: "path"}
+	f.attachmentRepo.attachments[attachmentID] = &models.TaskAttachment{ID: attachmentID, TaskID: &taskID, StoragePath: "path"}
 
 	header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
 
 	// Upload — project mismatch must yield ErrBadRequest
-	_, err := f.service.UploadAttachments(f.ctx, taskID, projectA, userID, []*multipart.FileHeader{header})
+	_, err := f.service.UploadAttachments(f.ctx, &taskID, projectA, userID, []*multipart.FileHeader{header})
 	if err == nil || err.Code != response.ErrBadRequest {
 		t.Errorf("Upload: expected ErrBadRequest on project mismatch, got %v", err)
 	}
@@ -920,13 +942,13 @@ func TestAttachmentService_CommentTaskMismatch(t *testing.T) {
 	attachmentID := uuid.Must(uuid.NewV4())
 
 	f := newTestFixture(orgID, projectID, taskA, userID)
-	f.commentAttachmentRepo.attachments[attachmentID] = &models.CommentAttachment{ID: attachmentID, CommentID: commentID, StoragePath: "path"}
+	f.commentAttachmentRepo.attachments[attachmentID] = &models.CommentAttachment{ID: attachmentID, CommentID: &commentID, StoragePath: "path"}
 	f.commentsRepo.comments[commentID] = &models.Comments{ID: commentID, TaskID: &taskB}
 
 	header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
 
 	// Upload — task mismatch must yield ErrBadRequest
-	_, err := f.service.UploadCommentAttachments(f.ctx, commentID, taskA, userID, []*multipart.FileHeader{header})
+	_, err := f.service.UploadCommentAttachments(f.ctx, &commentID, &taskA, nil, userID, []*multipart.FileHeader{header})
 	if err == nil || err.Code != response.ErrBadRequest {
 		t.Errorf("Upload: expected ErrBadRequest on comment/task mismatch, got %v", err)
 	}
@@ -962,7 +984,7 @@ func TestAttachmentService_NonMemberRejected(t *testing.T) {
 
 	header, _ := createTestMultipartFileHeader("test.png", []byte("content"))
 
-	_, err := f.service.UploadAttachments(f.ctx, taskID, projectID, userID, []*multipart.FileHeader{header})
+	_, err := f.service.UploadAttachments(f.ctx, &taskID, projectID, userID, []*multipart.FileHeader{header})
 	if err == nil {
 		t.Fatal("expected error for non-member upload, got nil")
 	}

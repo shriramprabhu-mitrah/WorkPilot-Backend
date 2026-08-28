@@ -16,6 +16,7 @@ type AttachmentRepository interface {
 
 	// Transactional outbox pattern
 	DeleteAttachmentAndRecordOrphan(attachmentID uuid.UUID, storagePath string) *response.Error
+	UpdateAttachmentsTaskID(attachmentIDs []uuid.UUID, taskID uuid.UUID) *response.Error
 }
 
 type attachmentDatabase struct {

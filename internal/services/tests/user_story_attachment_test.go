@@ -52,7 +52,7 @@ func (s *stubUserStoryAttachmentRepo) GetAttachmentsByUserStoryID(userStoryID uu
 	}
 	var list []models.UserStoryAttachment
 	for _, a := range s.attachments {
-		if a.UserStoryID == userStoryID {
+		if a.UserStoryID != nil && *a.UserStoryID == userStoryID {
 			list = append(list, *a)
 		}
 	}
@@ -73,6 +73,15 @@ func (s *stubUserStoryAttachmentRepo) DeleteAttachmentAndRecordOrphan(attachment
 	}
 	delete(s.attachments, attachmentID)
 	s.orphanedLogs = append(s.orphanedLogs, storagePath)
+	return nil
+}
+
+func (s *stubUserStoryAttachmentRepo) UpdateAttachmentsUserStoryID(attachmentIDs []uuid.UUID, userStoryID uuid.UUID) *response.Error {
+	for _, id := range attachmentIDs {
+		if a, ok := s.attachments[id]; ok {
+			a.UserStoryID = &userStoryID
+		}
+	}
 	return nil
 }
 
@@ -127,7 +136,8 @@ func newUserStoryAttachmentTestFixture(orgID, projectID, storyID, userID uuid.UU
 
 	commentsService := services.InitCommentsService(
 		commentsRepo,
-		nil,
+		nil, // commentAttachmentRepo
+		nil, // taskRepo
 		userStoryRepo,
 		projectRepo,
 		authRepo,
@@ -163,7 +173,7 @@ func TestUserStoryAttachment_UploadSuccess(t *testing.T) {
 		t.Fatalf("failed to create test file header: %v", err)
 	}
 
-	res, uploadErr := f.service.UploadUserStoryAttachments(f.ctx, storyID, projectID, userID, []*multipart.FileHeader{fileHeader})
+	res, uploadErr := f.service.UploadUserStoryAttachments(f.ctx, &storyID, projectID, userID, []*multipart.FileHeader{fileHeader})
 	if uploadErr != nil {
 		t.Fatalf("expected upload to succeed, got %v", uploadErr)
 	}
@@ -192,7 +202,7 @@ func TestUserStoryAttachment_GetSuccess(t *testing.T) {
 
 	f.userStoryAttachmentRepo.attachments[attachmentID] = &models.UserStoryAttachment{
 		ID:               attachmentID,
-		UserStoryID:      storyID,
+		UserStoryID:      &storyID,
 		OriginalFilename: "story_notes.docx",
 		StoragePath:      "user_stories/storyID/story_notes.docx",
 		URL:              "http://localhost/user_stories/storyID/story_notes.docx",
@@ -226,7 +236,7 @@ func TestUserStoryAttachment_DownloadSuccess(t *testing.T) {
 
 	f.userStoryAttachmentRepo.attachments[attachmentID] = &models.UserStoryAttachment{
 		ID:               attachmentID,
-		UserStoryID:      storyID,
+		UserStoryID:      &storyID,
 		OriginalFilename: "download.png",
 		MIMEType:         "image/png",
 		StoragePath:      "user_stories/storyID/download.png",
@@ -261,7 +271,7 @@ func TestUserStoryAttachment_DeleteSuccess(t *testing.T) {
 
 	f.userStoryAttachmentRepo.attachments[attachmentID] = &models.UserStoryAttachment{
 		ID:               attachmentID,
-		UserStoryID:      storyID,
+		UserStoryID:      &storyID,
 		OriginalFilename: "delete.png",
 		StoragePath:      "user_stories/storyID/delete.png",
 		UploadedBy:       userID,

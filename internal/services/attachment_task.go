@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
+func (s *attachmentService) UploadAttachments(ctx context.Context, taskID *uuid.UUID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
 	if len(files) > s.cfg.MaxFiles {
 		return nil, &response.Error{
 			Code:       response.ErrorCode("BAD_REQUEST"),
@@ -29,29 +29,49 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 		return nil, err
 	}
 
-	taskCtx, err := s.taskRepo.GetTaskAccessContext(taskID)
-	if err != nil {
-		return nil, err
-	}
+	var authorized bool
+	var orgID uuid.UUID
+	var taskKey string
 
-	// Enforce URL project hierarchy validation
-	if taskCtx.ProjectID != projectID {
-		return nil, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Task does not belong to the specified project",
+	if taskID != nil && *taskID != uuid.Nil {
+		taskCtx, err := s.taskRepo.GetTaskAccessContext(*taskID)
+		if err != nil {
+			return nil, err
 		}
+
+		if taskCtx.ProjectID != projectID {
+			return nil, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Task does not belong to the specified project",
+			}
+		}
+
+		authorized, err = s.CanAccessTask(&user, taskCtx)
+		if err != nil {
+			return nil, err
+		}
+		orgID = taskCtx.OrganizationID
+		taskKey = taskCtx.TaskKey
+	} else {
+		authorized, err = CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "tasks", "add")
+		if err != nil {
+			return nil, err
+		}
+
+		project, projErr := s.projectRepo.GetProjectByID(projectID)
+		if projErr != nil {
+			return nil, projErr
+		}
+		orgID = project.OrganizationID
+		taskKey = "pending task creation"
 	}
 
-	authorized, err := s.CanAccessTask(&user, taskCtx)
-	if err != nil {
-		return nil, err
-	}
 	if !authorized {
 		return nil, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
-			Message:    "You do not have permission to access this project",
+			Message:    "You do not have permission to perform this action",
 		}
 	}
 
@@ -60,7 +80,12 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 	var createdAttachments []models.TaskAttachment
 	var auditLogs []models.AuditLog
 
-	taskKey := taskCtx.TaskKey
+	var folderID uuid.UUID
+	if taskID != nil && *taskID != uuid.Nil {
+		folderID = *taskID
+	} else {
+		folderID = projectID
+	}
 
 	for _, header := range files {
 		file, openErr := header.Open()
@@ -74,7 +99,7 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 			}
 		}
 
-		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadAttachment(ctx, file, header, taskID, s.cfg)
+		url, key, sanitizedName, detectedMIME, uploadErr := s.storageClient.UploadAttachment(ctx, file, header, folderID, s.cfg)
 		file.Close()
 		if uploadErr != nil {
 			s.rollbackUploads(uploadedKeys, createdIDs)
@@ -82,8 +107,14 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 		}
 		uploadedKeys = append(uploadedKeys, key)
 
+		var dbTaskID *uuid.UUID
+		if taskID != nil && *taskID != uuid.Nil {
+			dbTaskID = taskID
+		}
+
 		attachment := models.TaskAttachment{
-			TaskID:           taskID,
+			TaskID:           dbTaskID,
+			ProjectID:        projectID,
 			OriginalFilename: header.Filename,
 			StoredFilename:   sanitizedName,
 			MIMEType:         detectedMIME,
@@ -104,21 +135,19 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 
 		auditLog := models.AuditLog{
 			UserID:         &userID,
-			OrganizationID: &taskCtx.OrganizationID,
-			ProjectID:      &taskCtx.ProjectID,
-			TaskID:         &taskID,
+			OrganizationID: &orgID,
+			ProjectID:      &projectID,
+			TaskID:         dbTaskID,
 			Action:         "attachment_uploaded",
 			ResourceType:   "task_attachment",
 			Type:           models.AuditLogTypeActivity,
-			ResourceID:     taskID.String(),
+			ResourceID:     attachment.ID.String(),
 			Details:        fmt.Sprintf("User %s uploaded attachment %s to task %s", user.Email, attachment.OriginalFilename, taskKey),
 			CreatedAt:      time.Now(),
 		}
 		auditLogs = append(auditLogs, auditLog)
 	}
 
-	// Write audit logs only when the entire transaction has succeeded
-	// Note: Audit logging is best-effort by design.
 	for _, log := range auditLogs {
 		if auditErr := s.auditRepo.CreateAuditLog(log); auditErr != nil {
 			s.logger.Warn("Failed to create audit log (best-effort)", zap.Any("error", auditErr))
@@ -133,8 +162,6 @@ func (s *attachmentService) UploadAttachments(ctx context.Context, taskID, proje
 	return res, nil
 }
 
-// rollbackUploads performs durable cleanup of uploaded S3 objects and database metadata
-// in case of batch upload failure by leveraging the transactional outbox pattern.
 func (s *attachmentService) rollbackUploads(keys []string, ids []uuid.UUID) {
 	for i, key := range keys {
 		if i < len(ids) {
@@ -222,23 +249,52 @@ func (s *attachmentService) DownloadAttachment(ctx context.Context, attachmentID
 		return nil, "", "", 0, dbErr
 	}
 
-	taskCtx, err := s.taskRepo.GetTaskAccessContext(attachment.TaskID)
-	if err != nil {
-		return nil, "", "", 0, err
-	}
+	var authorized bool
+	var orgID uuid.UUID
+	var resourceKey string
 
-	if taskCtx.ProjectID != projectID {
-		return nil, "", "", 0, &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Attachment does not belong to the specified project",
+	if attachment.TaskID != nil && *attachment.TaskID != uuid.Nil {
+		taskCtx, err := s.taskRepo.GetTaskAccessContext(*attachment.TaskID)
+		if err != nil {
+			return nil, "", "", 0, err
 		}
+
+		if taskCtx.ProjectID != projectID {
+			return nil, "", "", 0, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		authorized, err = s.CanAccessTask(&user, taskCtx)
+		if err != nil {
+			return nil, "", "", 0, err
+		}
+		orgID = taskCtx.OrganizationID
+		resourceKey = taskCtx.TaskKey
+	} else {
+		if attachment.ProjectID != projectID {
+			return nil, "", "", 0, &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		authorized, err = CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "tasks", "view")
+		if err != nil {
+			return nil, "", "", 0, err
+		}
+		resourceKey = "pending attachment"
+
+		project, projErr := s.projectRepo.GetProjectByID(projectID)
+		if projErr != nil {
+			return nil, "", "", 0, projErr
+		}
+		orgID = project.OrganizationID
 	}
 
-	authorized, err := s.CanAccessTask(&user, taskCtx)
-	if err != nil {
-		return nil, "", "", 0, err
-	}
 	if !authorized {
 		return nil, "", "", 0, &response.Error{
 			Code:       response.ErrForbidden,
@@ -254,12 +310,12 @@ func (s *attachmentService) DownloadAttachment(ctx context.Context, attachmentID
 
 	auditLog := models.AuditLog{
 		UserID:         &userID,
-		OrganizationID: &taskCtx.OrganizationID,
-		ProjectID:      &taskCtx.ProjectID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
 		Action:         "downloaded",
 		ResourceType:   "task_attachment",
 		ResourceID:     attachmentID.String(),
-		Details:        fmt.Sprintf("User %s downloaded attachment %s from task %s", user.Email, attachment.OriginalFilename, taskCtx.TaskKey),
+		Details:        fmt.Sprintf("User %s downloaded attachment %s from task %s", user.Email, attachment.OriginalFilename, resourceKey),
 		Type:           models.AuditLogTypeAudit,
 		CreatedAt:      time.Now(),
 	}
@@ -281,23 +337,54 @@ func (s *attachmentService) DeleteAttachment(ctx context.Context, attachmentID, 
 		return dbErr
 	}
 
-	taskCtx, err := s.taskRepo.GetTaskAccessContext(attachment.TaskID)
-	if err != nil {
-		return err
-	}
+	var allowed bool
+	var orgID uuid.UUID
+	var resourceKey string
 
-	if taskCtx.ProjectID != projectID {
-		return &response.Error{
-			Code:       response.ErrBadRequest,
-			StatusCode: http.StatusBadRequest,
-			Message:    "Attachment does not belong to the specified project",
+	if attachment.TaskID != nil && *attachment.TaskID != uuid.Nil {
+		taskCtx, err := s.taskRepo.GetTaskAccessContext(*attachment.TaskID)
+		if err != nil {
+			return err
 		}
+
+		if taskCtx.ProjectID != projectID {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		allowed, err = s.CanDeleteAttachment(&user, attachment, taskCtx)
+		if err != nil {
+			return err
+		}
+		orgID = taskCtx.OrganizationID
+		resourceKey = taskCtx.TaskKey
+	} else {
+		if attachment.ProjectID != projectID {
+			return &response.Error{
+				Code:       response.ErrBadRequest,
+				StatusCode: http.StatusBadRequest,
+				Message:    "Attachment does not belong to the specified project",
+			}
+		}
+
+		isUploader := attachment.UploadedBy == userID
+		isManager, err := CheckPermission(s.authRepo, s.projectRepo, userID, projectID, "tasks", "delete")
+		if err != nil {
+			return err
+		}
+		allowed = isUploader || isManager
+		resourceKey = "pending attachment"
+
+		project, projErr := s.projectRepo.GetProjectByID(projectID)
+		if projErr != nil {
+			return projErr
+		}
+		orgID = project.OrganizationID
 	}
 
-	allowed, authErr := s.CanDeleteAttachment(&user, attachment, taskCtx)
-	if authErr != nil {
-		return authErr
-	}
 	if !allowed {
 		return &response.Error{
 			Code:       response.ErrForbidden,
@@ -306,25 +393,19 @@ func (s *attachmentService) DeleteAttachment(ctx context.Context, attachmentID, 
 		}
 	}
 
-	// 1. Transactional DB outbox pattern: delete metadata and record orphan path
 	dbErr = s.attachmentRepo.DeleteAttachmentAndRecordOrphan(attachmentID, attachment.StoragePath)
 	if dbErr != nil {
 		return dbErr
 	}
 
-	taskKey := taskCtx.TaskKey
-
-	// Log audit activity
-	// Note: Audit logging is best-effort by design.
 	auditLog := models.AuditLog{
 		UserID:         &userID,
-		OrganizationID: &taskCtx.OrganizationID,
-		ProjectID:      &taskCtx.ProjectID,
-		TaskID:         &attachment.TaskID,
+		OrganizationID: &orgID,
+		ProjectID:      &projectID,
 		Action:         "attachment_deleted",
 		ResourceType:   "task_attachment",
 		ResourceID:     attachmentID.String(),
-		Details:        fmt.Sprintf("Attachment %s deleted from task %s", attachment.OriginalFilename, taskKey),
+		Details:        fmt.Sprintf("Attachment %s deleted from task %s", attachment.OriginalFilename, resourceKey),
 		Type:           models.AuditLogTypeActivity,
 		CreatedAt:      time.Now(),
 	}

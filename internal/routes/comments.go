@@ -34,7 +34,7 @@ func CommentsRoutes(deps models.Config, api *gin.RouterGroup) {
 	userStoryAttachmentRepo := userstoryattachmentrepo.InitUserStoryAttachmentRepository(deps)
 
 	// initialize services
-	commentsService := services.InitCommentsService(commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, deps.Logger)
+	commentsService := services.InitCommentsService(commentsRepo, commentAttachmentRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, deps.Logger)
 	storageClient := storage.NewS3Client(deps.Logger)
 	attachmentService := services.InitAttachmentService(attachmentRepo, commentAttachmentRepo, userStoryAttachmentRepo, cleanupRepo, commentsRepo, taskRepo, userStoryRepo, projectRepo, authRepo, auditRepo, storageClient, deps.Logger, deps.Context)
 
@@ -54,6 +54,9 @@ func CommentsRoutes(deps models.Config, api *gin.RouterGroup) {
 		cmt.DELETE("/:comment_id", middleware.ValidateJWT(), commentsHandler.DeleteComments)
 
 		// Attachment routes
+		cmt.POST("/attachments", middleware.ValidateJWT(), attachmentHandler.UploadCommentAttachmentWithoutComment)
+		cmt.GET("/attachments/:attachment_id/download", middleware.ValidateJWT(), attachmentHandler.DownloadCommentAttachment)
+		cmt.DELETE("/attachments/:attachment_id", middleware.ValidateJWT(), attachmentHandler.DeleteCommentAttachment)
 		cmt.POST("/:comment_id/attachments", middleware.ValidateJWT(), attachmentHandler.UploadCommentAttachment)
 		cmt.GET("/:comment_id/attachments", middleware.ValidateJWT(), attachmentHandler.GetCommentAttachments)
 		cmt.GET("/:comment_id/attachments/:attachment_id/download", middleware.ValidateJWT(), attachmentHandler.DownloadCommentAttachment)

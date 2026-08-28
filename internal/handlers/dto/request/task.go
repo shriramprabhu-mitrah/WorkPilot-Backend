@@ -94,6 +94,7 @@ type CreateTaskRequest struct {
 	EstimatedHours *float64    `json:"estimated_hours" binding:"omitempty,min=0"`
 	ActualHours    *float64    `json:"actual_hours" binding:"omitempty,min=0"`
 	LabelIDs       []uuid.UUID `json:"label_ids"`
+	AttachmentIDs  []uuid.UUID `json:"attachment_ids,omitempty"`
 	ProjectID      uuid.UUID   `json:"-"`
 	UserID         uuid.UUID   `json:"-"`
 	OrganizationID uuid.UUID   `json:"-"`

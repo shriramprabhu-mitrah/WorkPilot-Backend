@@ -8,17 +8,18 @@ import (
 )
 
 type CreateUserStoryRequest struct {
-	Title          string     `json:"title" binding:"required,min=3,max=255"`
-	Description    string     `json:"description"`
-	Priority       string     `json:"priority" binding:"required,oneof=low medium high critical"`
-	StatusID       *uuid.UUID `json:"status_id" binding:"omitempty"`
-	Status         string     `json:"status" binding:"omitempty"`
-	StoryPoints    int        `json:"story_points" binding:"min=0"`
-	AssigneeID     *uuid.UUID `json:"assignee_id"`
-	SprintID       *uuid.UUID `json:"sprint_id"`
-	ProjectID      uuid.UUID  `json:"-"`
-	ReporterID     uuid.UUID  `json:"-"`
-	OrganizationID uuid.UUID  `json:"-"`
+	Title          string      `json:"title" binding:"required,min=3,max=255"`
+	Description    string      `json:"description"`
+	Priority       string      `json:"priority" binding:"required,oneof=low medium high critical"`
+	StatusID       *uuid.UUID  `json:"status_id" binding:"omitempty"`
+	Status         string      `json:"status" binding:"omitempty"`
+	StoryPoints    int         `json:"story_points" binding:"min=0"`
+	AssigneeID     *uuid.UUID  `json:"assignee_id"`
+	SprintID       *uuid.UUID  `json:"sprint_id"`
+	AttachmentIDs  []uuid.UUID `json:"attachment_ids,omitempty"`
+	ProjectID      uuid.UUID   `json:"-"`
+	ReporterID     uuid.UUID   `json:"-"`
+	OrganizationID uuid.UUID   `json:"-"`
 }
 
 type UpdateUserStoryRequest struct {

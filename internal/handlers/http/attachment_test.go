@@ -28,7 +28,7 @@ type mockAttachmentService struct {
 	downloadAttachmentFn func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
 	deleteAttachmentFn   func(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error
 
-	uploadCommentFn   func(ctx context.Context, commentID, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
+	uploadCommentFn   func(ctx context.Context, commentID, taskID, userStoryID *uuid.UUID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error)
 	getCommentFn      func(ctx context.Context, commentID, taskID, userID uuid.UUID) ([]responsedto.CommentAttachmentResponse, *response.Error)
 	downloadCommentFn func(ctx context.Context, attachmentID, taskID, userID uuid.UUID) (io.ReadCloser, string, string, int64, *response.Error)
 	deleteCommentFn   func(ctx context.Context, attachmentID, taskID, userID uuid.UUID) *response.Error
@@ -38,9 +38,13 @@ func (m *mockAttachmentService) GetConfig() models.AttachmentConfig {
 	return models.AttachmentConfig{MaxFileSizeMB: 10, MaxFiles: 5}
 }
 
-func (m *mockAttachmentService) UploadAttachments(ctx context.Context, taskID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
+func (m *mockAttachmentService) UploadAttachments(ctx context.Context, taskID *uuid.UUID, projectID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.AttachmentResponse, *response.Error) {
 	if m.uploadAttachmentsFn != nil {
-		return m.uploadAttachmentsFn(ctx, taskID, projectID, userID, files)
+		var resolvedTaskID uuid.UUID
+		if taskID != nil {
+			resolvedTaskID = *taskID
+		}
+		return m.uploadAttachmentsFn(ctx, resolvedTaskID, projectID, userID, files)
 	}
 	if m.errResponse != nil {
 		return nil, m.errResponse
@@ -75,9 +79,9 @@ func (m *mockAttachmentService) DeleteAttachment(ctx context.Context, attachment
 	return m.errResponse
 }
 
-func (m *mockAttachmentService) UploadCommentAttachments(ctx context.Context, commentID, taskID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error) {
+func (m *mockAttachmentService) UploadCommentAttachments(ctx context.Context, commentID, taskID, userStoryID *uuid.UUID, userID uuid.UUID, files []*multipart.FileHeader) ([]responsedto.CommentAttachmentResponse, *response.Error) {
 	if m.uploadCommentFn != nil {
-		return m.uploadCommentFn(ctx, commentID, taskID, userID, files)
+		return m.uploadCommentFn(ctx, commentID, taskID, userStoryID, userID, files)
 	}
 	if m.errResponse != nil {
 		return nil, m.errResponse

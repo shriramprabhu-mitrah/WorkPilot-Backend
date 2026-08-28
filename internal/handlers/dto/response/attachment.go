@@ -8,14 +8,14 @@ import (
 )
 
 type AttachmentResponse struct {
-	ID               uuid.UUID `json:"id"`
-	TaskID           uuid.UUID `json:"task_id"`
-	OriginalFilename string    `json:"original_filename"`
-	MIMEType         string    `json:"mime_type"`
-	FileSize         int64     `json:"file_size"`
-	URL              string    `json:"url,omitempty"`
-	UploadedBy       uuid.UUID `json:"uploaded_by"`
-	UploadedAt       time.Time `json:"uploaded_at"`
+	ID               uuid.UUID  `json:"id"`
+	TaskID           *uuid.UUID `json:"task_id,omitempty"`
+	OriginalFilename string     `json:"original_filename"`
+	MIMEType         string     `json:"mime_type"`
+	FileSize         int64      `json:"file_size"`
+	URL              string     `json:"url,omitempty"`
+	UploadedBy       uuid.UUID  `json:"uploaded_by"`
+	UploadedAt       time.Time  `json:"uploaded_at"`
 }
 
 func AttachmentFromModel(a models.TaskAttachment) AttachmentResponse {
@@ -32,14 +32,14 @@ func AttachmentFromModel(a models.TaskAttachment) AttachmentResponse {
 }
 
 type CommentAttachmentResponse struct {
-	ID               uuid.UUID `json:"id"`
-	CommentID        uuid.UUID `json:"comment_id"`
-	OriginalFilename string    `json:"original_filename"`
-	MIMEType         string    `json:"mime_type"`
-	FileSize         int64     `json:"file_size"`
-	URL              string    `json:"url,omitempty"`
-	UploadedBy       uuid.UUID `json:"uploaded_by"`
-	UploadedAt       time.Time `json:"uploaded_at"`
+	ID               uuid.UUID  `json:"id"`
+	CommentID        *uuid.UUID `json:"comment_id,omitempty"`
+	OriginalFilename string     `json:"original_filename"`
+	MIMEType         string     `json:"mime_type"`
+	FileSize         int64      `json:"file_size"`
+	URL              string     `json:"url,omitempty"`
+	UploadedBy       uuid.UUID  `json:"uploaded_by"`
+	UploadedAt       time.Time  `json:"uploaded_at"`
 }
 
 func CommentAttachmentFromModel(a models.CommentAttachment) CommentAttachmentResponse {
@@ -56,14 +56,14 @@ func CommentAttachmentFromModel(a models.CommentAttachment) CommentAttachmentRes
 }
 
 type UserStoryAttachmentResponse struct {
-	ID               uuid.UUID `json:"id"`
-	UserStoryID      uuid.UUID `json:"user_story_id"`
-	OriginalFilename string    `json:"original_filename"`
-	MIMEType         string    `json:"mime_type"`
-	FileSize         int64     `json:"file_size"`
-	URL              string    `json:"url,omitempty"`
-	UploadedBy       uuid.UUID `json:"uploaded_by"`
-	UploadedAt       time.Time `json:"uploaded_at"`
+	ID               uuid.UUID  `json:"id"`
+	UserStoryID      *uuid.UUID `json:"user_story_id,omitempty"`
+	OriginalFilename string     `json:"original_filename"`
+	MIMEType         string     `json:"mime_type"`
+	FileSize         int64      `json:"file_size"`
+	URL              string     `json:"url,omitempty"`
+	UploadedBy       uuid.UUID  `json:"uploaded_by"`
+	UploadedAt       time.Time  `json:"uploaded_at"`
 }
 
 func UserStoryAttachmentFromModel(a models.UserStoryAttachment) UserStoryAttachmentResponse {

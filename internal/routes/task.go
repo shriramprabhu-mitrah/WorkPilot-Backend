@@ -69,6 +69,7 @@ func TaskRoutes(deps models.Config, api *gin.RouterGroup) {
 		tsk.DELETE("/:task_id/favorite", middleware.ValidateJWT(), favoriteHandler.RemoveTaskFavorite)
 
 		// Attachment routes
+		tsk.POST("/attachments", middleware.ValidateJWT(), attachmentHandler.UploadAttachmentWithoutTask)
 		tsk.POST("/:task_id/attachments", middleware.ValidateJWT(), attachmentHandler.UploadAttachment)
 		tsk.GET("/:task_id/attachments", middleware.ValidateJWT(), attachmentHandler.GetAttachments)
 		tsk.GET("/:task_id/attachments/:attachment_id/download", middleware.ValidateJWT(), attachmentHandler.DownloadAttachment)

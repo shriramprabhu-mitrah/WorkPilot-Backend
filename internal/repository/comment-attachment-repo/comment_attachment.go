@@ -101,3 +101,17 @@ func (d *commentAttachmentDatabase) DeleteAttachmentAndRecordOrphan(attachmentID
 	return nil
 }
 
+func (d *commentAttachmentDatabase) UpdateAttachmentsCommentID(attachmentIDs []uuid.UUID, commentID uuid.UUID) *response.Error {
+	if len(attachmentIDs) == 0 {
+		return nil
+	}
+	if err := d.db.Model(&models.CommentAttachment{}).Where("id IN ?", attachmentIDs).Update("comment_id", commentID).Error; err != nil {
+		d.logger.Error("Failed to update comment ID for attachments", zap.Error(err), zap.Any("attachment_ids", attachmentIDs), zap.String("comment_id", commentID.String()))
+		return &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to link attachments to comment",
+		}
+	}
+	return nil
+}

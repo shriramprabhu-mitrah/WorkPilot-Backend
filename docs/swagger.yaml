@@ -89,6 +89,10 @@ definitions:
     type: object
   github_com_ms-kanban-server_internal_handlers_dto_request.CreateCommentsRequest:
     properties:
+      attachment_ids:
+        items:
+          type: string
+        type: array
       content:
         maxLength: 5000
         minLength: 1
@@ -200,6 +204,10 @@ definitions:
         type: number
       assignee_id:
         type: string
+      attachment_ids:
+        items:
+          type: string
+        type: array
       description:
         type: string
       due_date:
@@ -252,6 +260,10 @@ definitions:
     properties:
       assignee_id:
         type: string
+      attachment_ids:
+        items:
+          type: string
+        type: array
       description:
         type: string
       priority:
@@ -5337,6 +5349,48 @@ paths:
       summary: Restore Task
       tags:
       - Task
+  /projects/{project_id}/tasks/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a task attachment before the task itself is created
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "413":
+          description: Payload Too Large
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "415":
+          description: Unsupported Media Type
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Upload Task Attachment without Task ID
+      tags:
+      - Attachment
   /projects/{project_id}/tasks/bulk:
     patch:
       consumes:
@@ -5891,6 +5945,118 @@ paths:
       summary: Get User Story Comments
       tags:
       - Comments
+  /projects/{project_id}/user-stories/{user_story_id}/comments/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a comment attachment before the comment itself is created
+        on a User Story
+      parameters:
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "413":
+          description: Payload Too Large
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "415":
+          description: Unsupported Media Type
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Upload User Story Comment Attachment without Comment ID
+      tags:
+      - Comment Attachment
+  /projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id}:
+    delete:
+      description: Delete user story comment attachment if authorized
+      parameters:
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      - description: Attachment ID
+        in: path
+        name: attachment_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Delete User Story Comment Attachment
+      tags:
+      - Comment Attachment
+  /projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id}/download:
+    get:
+      description: Validate membership and download a comment attachment for a user
+        story
+      parameters:
+      - description: User Story ID
+        in: path
+        name: user_story_id
+        required: true
+        type: string
+      - description: Attachment ID
+        in: path
+        name: attachment_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Attachment File Stream
+          schema:
+            type: file
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Download User Story Comment Attachment
+      tags:
+      - Comment Attachment
   /projects/{project_id}/user-stories/{user_story_id}/favorite:
     delete:
       description: Remove a user story from favorites under project path
@@ -6033,6 +6199,49 @@ paths:
       summary: Update User Story Status
       tags:
       - UserStory
+  /projects/{project_id}/user-stories/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a user story attachment before the user story itself is
+        created
+      parameters:
+      - description: Project ID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "413":
+          description: Payload Too Large
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "415":
+          description: Unsupported Media Type
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Upload User Story Attachment without User Story ID
+      tags:
+      - Attachment
   /projects/{project_id}/user-stories/reorder:
     patch:
       consumes:
@@ -6812,6 +7021,48 @@ paths:
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Download Comment Attachment
+      tags:
+      - Comment Attachment
+  /task/{task_id}/comments/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a comment attachment before the comment itself is created
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "413":
+          description: Payload Too Large
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "415":
+          description: Unsupported Media Type
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Upload Comment Attachment without Comment ID
       tags:
       - Comment Attachment
   /task/{task_id}/comments/replies/{parent_comment_id}:
