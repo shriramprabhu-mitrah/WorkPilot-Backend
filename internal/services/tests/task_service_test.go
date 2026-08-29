@@ -99,6 +99,20 @@ func (s *stubTaskRepo) GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response
 	}
 	return task, nil
 }
+func (s *stubTaskRepo) GetTaskDetailsByIDOrKey(idOrKey string) (*models.Task, *response.Error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	if parsedID, err := uuid.FromString(idOrKey); err == nil {
+		return s.GetTaskDetailsByID(parsedID)
+	}
+	for _, task := range s.tasks {
+		if strings.EqualFold(task.Key, idOrKey) && !task.DeletedAt.Valid {
+			return task, nil
+		}
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
+}
 func (s *stubTaskRepo) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error) {
 	if s.getErr != nil {
 		return nil, s.getErr
@@ -110,9 +124,28 @@ func (s *stubTaskRepo) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessCon
 	return &models.TaskAccessContext{
 		TaskID:         task.ID,
 		ProjectID:      task.ProjectID,
-		OrganizationID: task.Project.OrganizationID,
+		OrganizationID: uuid.Must(uuid.NewV4()),
 		TaskKey:        task.Key,
 	}, nil
+}
+func (s *stubTaskRepo) GetTaskAccessContextByIDOrKey(idOrKey string) (*models.TaskAccessContext, *response.Error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	if parsedID, err := uuid.FromString(idOrKey); err == nil {
+		return s.GetTaskAccessContext(parsedID)
+	}
+	for _, task := range s.tasks {
+		if strings.EqualFold(task.Key, idOrKey) && !task.DeletedAt.Valid {
+			return &models.TaskAccessContext{
+				TaskID:         task.ID,
+				ProjectID:      task.ProjectID,
+				OrganizationID: uuid.Must(uuid.NewV4()),
+				TaskKey:        task.Key,
+			}, nil
+		}
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
 }
 func (s *stubTaskRepo) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	if s.getErr != nil {

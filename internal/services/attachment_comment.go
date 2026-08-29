@@ -530,3 +530,11 @@ func (s *attachmentService) DeleteCommentAttachment(ctx context.Context, attachm
 
 	return nil
 }
+
+func (s *attachmentService) ResolveTaskID(taskIDOrKey string) (uuid.UUID, *response.Error) {
+	taskCtx, err := s.taskRepo.GetTaskAccessContextByIDOrKey(taskIDOrKey)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return taskCtx.TaskID, nil
+}

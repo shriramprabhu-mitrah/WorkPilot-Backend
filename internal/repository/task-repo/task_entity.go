@@ -30,7 +30,9 @@ type TaskRepository interface {
 	MoveIncompleteTasksToBacklog(sprintID uuid.UUID) *response.Error
 	GetSprintStatus(sprintID uuid.UUID) (string, *response.Error)
 	GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error)
+	GetTaskDetailsByIDOrKey(idOrKey string) (*models.Task, *response.Error)
 	GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error)
+	GetTaskAccessContextByIDOrKey(idOrKey string) (*models.TaskAccessContext, *response.Error)
 	GetTasksByUserStoryID(userStoryID uuid.UUID) ([]models.Task, *response.Error)
 	CountTasksByStatus(projectID uuid.UUID, status string) (int64, *response.Error)
 	UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newStatus string) *response.Error

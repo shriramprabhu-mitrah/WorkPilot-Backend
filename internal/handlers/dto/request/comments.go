@@ -7,6 +7,7 @@ import (
 
 type CreateCommentsRequest struct {
 	TaskID          *uuid.UUID  `json:"-" swaggerignore:"true"`
+	TaskIDOrKey     string      `json:"-" swaggerignore:"true"`
 	UserStoryID     *uuid.UUID  `json:"-" swaggerignore:"true"`
 	UserID          uuid.UUID   `json:"-" swaggerignore:"true"`
 	OrganizationID  uuid.UUID   `json:"-" swaggerignore:"true"`
@@ -18,6 +19,7 @@ type CreateCommentsRequest struct {
 type UpdateCommentsRequest struct {
 	CommentID      uuid.UUID  `json:"-" swaggerignore:"true"`
 	TaskID         *uuid.UUID `json:"-" swaggerignore:"true"`
+	TaskIDOrKey    string     `json:"-" swaggerignore:"true"`
 	UserStoryID    *uuid.UUID `json:"-" swaggerignore:"true"`
 	UserID         uuid.UUID  `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID  `json:"-" swaggerignore:"true"`
@@ -27,6 +29,7 @@ type UpdateCommentsRequest struct {
 type DeleteComments struct {
 	CommentID      uuid.UUID  `json:"-" swaggerignore:"true"`
 	TaskID         *uuid.UUID `json:"-" swaggerignore:"true"`
+	TaskIDOrKey    string     `json:"-" swaggerignore:"true"`
 	UserStoryID    *uuid.UUID `json:"-" swaggerignore:"true"`
 	UserID         uuid.UUID  `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID  `json:"-" swaggerignore:"true"`
@@ -36,6 +39,7 @@ type GetComments struct {
 	response.PaginationQuery
 	CommentID      uuid.UUID  `json:"-" swaggerignore:"true"`
 	TaskID         *uuid.UUID `json:"-" swaggerignore:"true"`
+	TaskIDOrKey    string     `json:"-" swaggerignore:"true"`
 	UserStoryID    *uuid.UUID `json:"-" swaggerignore:"true"`
 	UserID         uuid.UUID  `json:"-" swaggerignore:"true"`
 	OrganizationID uuid.UUID  `json:"-" swaggerignore:"true"`

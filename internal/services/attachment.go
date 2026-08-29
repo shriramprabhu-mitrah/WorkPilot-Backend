@@ -62,6 +62,7 @@ type AttachmentService interface {
 	DeleteUserStoryAttachment(ctx context.Context, attachmentID, projectID, userID uuid.UUID) *response.Error
 
 	GetConfig() models.AttachmentConfig
+	ResolveTaskID(taskIDOrKey string) (uuid.UUID, *response.Error)
 }
 
 type attachmentService struct {

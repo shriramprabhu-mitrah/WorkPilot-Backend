@@ -322,6 +322,12 @@ func (s *stubAttachmentTaskRepo) GetTaskDetailsByID(id uuid.UUID) (*models.Task,
 	}
 	return s.task, nil
 }
+func (s *stubAttachmentTaskRepo) GetTaskDetailsByIDOrKey(idOrKey string) (*models.Task, *response.Error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.task, nil
+}
 func (s *stubAttachmentTaskRepo) GetTaskByIDUnscoped(id uuid.UUID, projectID uuid.UUID) (*models.Task, *response.Error) {
 	return s.task, s.err
 }
@@ -344,6 +350,20 @@ func (s *stubAttachmentTaskRepo) GetTaskByKey(key string, projectID uuid.UUID) (
 	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
 }
 func (s *stubAttachmentTaskRepo) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.task != nil {
+		return &models.TaskAccessContext{
+			TaskID:         s.task.ID,
+			ProjectID:      s.task.ProjectID,
+			OrganizationID: s.task.Project.OrganizationID,
+			TaskKey:        s.task.Key,
+		}, nil
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "Task not found"}
+}
+func (s *stubAttachmentTaskRepo) GetTaskAccessContextByIDOrKey(idOrKey string) (*models.TaskAccessContext, *response.Error) {
 	if s.err != nil {
 		return nil, s.err
 	}

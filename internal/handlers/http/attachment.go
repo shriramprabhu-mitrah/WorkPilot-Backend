@@ -312,10 +312,12 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	taskUUID, errResp := h.service.ResolveTaskID(g.Param("task_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -364,10 +366,12 @@ func (h *attachmentHandler) GetCommentAttachments(g *gin.Context) {
 		return
 	}
 
-	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	taskUUID, errResp := h.service.ResolveTaskID(g.Param("task_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -410,10 +414,12 @@ func (h *attachmentHandler) DownloadCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	taskUUID, errResp := h.service.ResolveTaskID(g.Param("task_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -451,10 +457,12 @@ func (h *attachmentHandler) DeleteCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	taskUUID, errResp := h.service.ResolveTaskID(g.Param("task_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -685,10 +693,12 @@ func (h *attachmentHandler) UploadCommentAttachmentWithoutComment(g *gin.Context
 		return
 	}
 
-	taskUUID, errorResponse := utils.StringToUUID(g.Param("task_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert task ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	taskUUID, errResp := h.service.ResolveTaskID(g.Param("task_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
