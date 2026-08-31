@@ -570,13 +570,23 @@ func (d *taskDatabase) GetSprintStatus(sprintID uuid.UUID) (string, *response.Er
 }
 
 func (d *taskDatabase) GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response.Error) {
+	return d.GetTaskDetailsByIDOrKey(id.String())
+}
+
+func (d *taskDatabase) GetTaskDetailsByIDOrKey(idOrKey string) (*models.Task, *response.Error) {
 	var task models.Task
-	err := d.db.
+	query := d.db.
 		Preload("Sprint").
 		Preload("Project").
-		Preload("Assignee").
-		Where("id = ?", id).
-		First(&task).Error
+		Preload("Assignee")
+
+	if parsedID, err := uuid.FromString(strings.TrimSpace(idOrKey)); err == nil {
+		query = query.Where("id = ?", parsedID)
+	} else {
+		query = query.Where("LOWER(key) = LOWER(?)", strings.TrimSpace(idOrKey))
+	}
+
+	err := query.First(&task).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, &response.Error{
@@ -596,14 +606,25 @@ func (d *taskDatabase) GetTaskDetailsByID(id uuid.UUID) (*models.Task, *response
 }
 
 func (d *taskDatabase) GetTaskAccessContext(id uuid.UUID) (*models.TaskAccessContext, *response.Error) {
+	return d.GetTaskAccessContextByIDOrKey(id.String())
+}
+
+func (d *taskDatabase) GetTaskAccessContextByIDOrKey(idOrKey string) (*models.TaskAccessContext, *response.Error) {
 	var ctx models.TaskAccessContext
-	err := d.db.Table("tasks").
+	query := d.db.Table("tasks").
 		Select("tasks.id as task_id, tasks.project_id as project_id, projects.organization_id as organization_id, tasks.key as task_key").
 		Joins("join projects on projects.id = tasks.project_id").
-		Where("tasks.id = ? AND tasks.deleted_at IS NULL", id).
-		Scan(&ctx).Error
+		Where("tasks.deleted_at IS NULL")
+
+	if parsedID, err := uuid.FromString(strings.TrimSpace(idOrKey)); err == nil {
+		query = query.Where("tasks.id = ?", parsedID)
+	} else {
+		query = query.Where("LOWER(tasks.key) = LOWER(?)", strings.TrimSpace(idOrKey))
+	}
+
+	err := query.Scan(&ctx).Error
 	if err != nil {
-		d.logger.Error("Failed to fetch task access context", zap.Error(err), zap.String("task_id", id.String()))
+		d.logger.Error("Failed to fetch task access context", zap.Error(err), zap.String("task_id_or_key", idOrKey))
 		return nil, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,

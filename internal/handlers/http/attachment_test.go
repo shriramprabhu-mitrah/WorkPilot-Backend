@@ -116,6 +116,17 @@ func (m *mockAttachmentService) DeleteCommentAttachment(ctx context.Context, att
 	return m.errResponse
 }
 
+func (m *mockAttachmentService) ResolveTaskID(taskIDOrKey string) (uuid.UUID, *response.Error) {
+	if m.errResponse != nil {
+		return uuid.Nil, m.errResponse
+	}
+	id, err := uuid.FromString(taskIDOrKey)
+	if err == nil {
+		return id, nil
+	}
+	return uuid.Must(uuid.NewV4()), nil
+}
+
 func setupTestContext(mockSvc *mockAttachmentService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

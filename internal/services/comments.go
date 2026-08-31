@@ -56,16 +56,16 @@ type commentsService struct {
 	logger                *zap.Logger
 }
 
-func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
+func (s *commentsService) checkAuthorizationByIDOrKey(userID uuid.UUID, taskIDOrKey string) (*models.Task, *uuid.UUID, bool, *response.Error) {
 
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
-	task, err := s.taskRepo.GetTaskDetailsByID(taskID)
+	task, err := s.taskRepo.GetTaskDetailsByIDOrKey(taskIDOrKey)
 	if err != nil {
-		return nil, false, &response.Error{
+		return nil, nil, false, &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
 			Message:    "Task does not belong to the specified project",
@@ -73,7 +73,7 @@ func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UU
 	}
 
 	if user.Role.Name == string(requestdto.RoleSuperAdmin) {
-		return &task.ProjectID, false, &response.Error{
+		return task, &task.ProjectID, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "Super admins are not allowed to perform organization-level activities",
@@ -82,10 +82,15 @@ func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UU
 
 	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, task.ProjectID, "comments", "view")
 	if permErr != nil {
-		return nil, false, permErr
+		return nil, nil, false, permErr
 	}
 
-	return &task.ProjectID, authorized, nil
+	return task, &task.ProjectID, authorized, nil
+}
+
+func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
+	_, projectID, authorized, err := s.checkAuthorizationByIDOrKey(userID, taskID.String())
+	return projectID, authorized, err
 }
 
 func (s *commentsService) checkUserStoryAuthorization(userID, userStoryID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
@@ -200,9 +205,18 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
 		userStoryID = req.UserStoryID
+	} else if req.TaskIDOrKey != "" {
+		var task *models.Task
+		task, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
+		if task != nil {
+			taskID = &task.ID
+		}
 	} else if req.TaskID != nil {
-		projectID, authorized, err = s.checkAuthorization(req.UserID, *req.TaskID)
-		taskID = req.TaskID
+		var task *models.Task
+		task, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskID.String())
+		if task != nil {
+			taskID = &task.ID
+		}
 	} else {
 		return responsedto.CommentedUserResponse{}, &response.Error{
 			Code:       response.ErrBadRequest,
@@ -360,6 +374,8 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 
 	if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
+	} else if req.TaskIDOrKey != "" {
+		_, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
 	} else if req.TaskID != nil {
 		projectID, authorized, err = s.checkAuthorization(req.UserID, *req.TaskID)
 	} else {
@@ -451,6 +467,8 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 
 	if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
+	} else if req.TaskIDOrKey != "" {
+		_, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
 	} else if req.TaskID != nil {
 		projectID, authorized, err = s.checkAuthorization(req.UserID, *req.TaskID)
 	} else {
@@ -608,6 +626,8 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 
 	if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
+	} else if req.TaskIDOrKey != "" {
+		_, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
 	} else if req.TaskID != nil {
 		projectID, authorized, err = s.checkAuthorization(req.UserID, *req.TaskID)
 	} else {
@@ -754,11 +774,14 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 }
 
 func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error) {
-	taskID := uuid.Nil
-	if req.TaskID != nil {
-		taskID = *req.TaskID
+	var taskIDOrKey string
+	if req.TaskIDOrKey != "" {
+		taskIDOrKey = req.TaskIDOrKey
+	} else if req.TaskID != nil {
+		taskIDOrKey = req.TaskID.String()
 	}
-	projectID, authorized, err := s.checkAuthorization(req.UserID, taskID)
+
+	task, projectID, authorized, err := s.checkAuthorizationByIDOrKey(req.UserID, taskIDOrKey)
 	if err != nil {
 		s.logger.Error("You do not have permission to list comments to this project",
 			zap.String("user_id", req.UserID.String()))
@@ -774,6 +797,8 @@ func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]res
 			Message:    "You do not have permission to view this comment",
 		}
 	}
+
+	req.TaskID = &task.ID
 	comments, pagination, err := s.commentsRepo.GetCommentsByTaskID(req)
 	if err != nil {
 		return nil, response.Pagination{}, err
@@ -787,22 +812,19 @@ func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]res
 	user, _ := s.authRepo.GetUserByID(req.UserID)
 	userName := resolveUserName(user, req.UserID)
 
-	taskTitle := taskID.String()
-	if projectID != nil {
-		task, taskErr := s.taskRepo.GetTaskByID(taskID, *projectID)
-		if taskErr == nil && task != nil && task.Title != "" {
-			taskTitle = task.Title
-		}
+	taskTitle := task.Title
+	if taskTitle == "" {
+		taskTitle = task.ID.String()
 	}
 
 	auditLog := models.AuditLog{
 		UserID:         &req.UserID,
 		OrganizationID: &req.OrganizationID,
 		ProjectID:      projectID,
-		TaskID:         &taskID,
+		TaskID:         &task.ID,
 		Action:         "viewed",
 		ResourceType:   "comment",
-		ResourceID:     taskID.String(),
+		ResourceID:     task.ID.String(),
 		Title:          taskTitle,
 		Details:        fmt.Sprintf("Comments on task '%s' viewed by %s", taskTitle, userName),
 		Type:           models.AuditLogTypeAudit,
@@ -824,9 +846,19 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 	if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
 		userStoryID = req.UserStoryID
+	} else if req.TaskIDOrKey != "" {
+		var task *models.Task
+		task, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
+		if task != nil {
+			taskID = &task.ID
+			req.TaskID = &task.ID
+		}
 	} else if req.TaskID != nil {
-		projectID, authorized, err = s.checkAuthorization(req.UserID, *req.TaskID)
-		taskID = req.TaskID
+		var task *models.Task
+		task, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskID.String())
+		if task != nil {
+			taskID = &task.ID
+		}
 	}
 
 	if err != nil {

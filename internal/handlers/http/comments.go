@@ -86,16 +86,12 @@ func (h *commentsHandler) CreateComments(g *gin.Context) {
 		payload.UserStoryID = &storyUUID
 	} else {
 		taskParam := g.Param("task_id")
-		taskUUID, errorResponse := utils.StringToUUID(taskParam)
-		if errorResponse != nil {
-			h.logger.Error("Failed to convert task_id into UUID")
-			g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-				Success: false,
-				Error:   *errorResponse,
-			})
-			return
+		if taskParam != "" {
+			if taskUUID, errResp := utils.StringToUUID(taskParam); errResp == nil {
+				payload.TaskID = &taskUUID
+			}
+			payload.TaskIDOrKey = taskParam
 		}
-		payload.TaskID = &taskUUID
 	}
 
 	payload.UserID = userUUID
@@ -181,16 +177,10 @@ func (h *commentsHandler) GetCommentByID(g *gin.Context) {
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
-			taskUUID, errorResponse := utils.StringToUUID(taskParam)
-			if errorResponse != nil {
-				h.logger.Error("Failed to convert task_id into UUID")
-				g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-					Success: false,
-					Error:   *errorResponse,
-				})
-				return
+			if taskUUID, errResp := utils.StringToUUID(taskParam); errResp == nil {
+				req.TaskID = &taskUUID
 			}
-			req.TaskID = &taskUUID
+			req.TaskIDOrKey = taskParam
 		}
 	}
 
@@ -287,16 +277,10 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
-			taskUUID, errorResponse := utils.StringToUUID(taskParam)
-			if errorResponse != nil {
-				h.logger.Error("Failed to convert task_id into UUID")
-				g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-					Success: false,
-					Error:   *errorResponse,
-				})
-				return
+			if taskUUID, errResp := utils.StringToUUID(taskParam); errResp == nil {
+				req.TaskID = &taskUUID
 			}
-			req.TaskID = &taskUUID
+			req.TaskIDOrKey = taskParam
 		}
 	}
 
@@ -375,16 +359,10 @@ func (h *commentsHandler) DeleteComments(g *gin.Context) {
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
-			taskUUID, errorResponse := utils.StringToUUID(taskParam)
-			if errorResponse != nil {
-				h.logger.Error("Failed to convert task_id into UUID")
-				g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-					Success: false,
-					Error:   *errorResponse,
-				})
-				return
+			if taskUUID, errResp := utils.StringToUUID(taskParam); errResp == nil {
+				req.TaskID = &taskUUID
 			}
-			req.TaskID = &taskUUID
+			req.TaskIDOrKey = taskParam
 		}
 	}
 
@@ -434,14 +412,9 @@ func (h *commentsHandler) GetCommentsByTaskID(g *gin.Context) {
 	}
 
 	taskParam := g.Param("task_id")
-	taskUUID, errorResponse := utils.StringToUUID(taskParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert task_id into UUID")
-		g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-			Success: false,
-			Error:   *errorResponse,
-		})
-		return
+	var taskUUIDPtr *uuid.UUID
+	if taskUUID, errResp := utils.StringToUUID(taskParam); errResp == nil {
+		taskUUIDPtr = &taskUUID
 	}
 
 	page, pageErr := strconv.Atoi(g.DefaultQuery("page", "1"))
@@ -468,7 +441,8 @@ func (h *commentsHandler) GetCommentsByTaskID(g *gin.Context) {
 
 	result, meta, err := h.commentService.GetCommentsByTaskID(requestdto.GetComments{
 		PaginationQuery: paginationQuery,
-		TaskID:          &taskUUID,
+		TaskID:          taskUUIDPtr,
+		TaskIDOrKey:     taskParam,
 		OrganizationID:  organizationUUID,
 		UserID:          userUUID,
 	})
@@ -524,6 +498,7 @@ func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 	}
 
 	var taskUUID *uuid.UUID
+	var taskIDOrKey string
 	var storyUUID *uuid.UUID
 
 	storyParam := g.Param("user_story_id")
@@ -540,16 +515,12 @@ func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 		storyUUID = &storyU
 	} else {
 		taskParam := g.Param("task_id")
-		taskU, errorResponse := utils.StringToUUID(taskParam)
-		if errorResponse != nil {
-			h.logger.Error("Failed to convert task_id into UUID")
-			g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-				Success: false,
-				Error:   *errorResponse,
-			})
-			return
+		if taskParam != "" {
+			if taskU, errResp := utils.StringToUUID(taskParam); errResp == nil {
+				taskUUID = &taskU
+			}
+			taskIDOrKey = taskParam
 		}
-		taskUUID = &taskU
 	}
 
 	commentParam := g.Param("parent_comment_id")
@@ -588,6 +559,7 @@ func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 	result, meta, err := h.commentService.GetCommentsByParentID(requestdto.GetComments{
 		PaginationQuery: paginationQuery,
 		TaskID:          taskUUID,
+		TaskIDOrKey:     taskIDOrKey,
 		UserStoryID:     storyUUID,
 		OrganizationID:  organizationUUID,
 		UserID:          userUUID,
