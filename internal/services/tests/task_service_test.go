@@ -328,9 +328,6 @@ func applyUpdatesToTask(task *models.Task, updates map[string]interface{}) {
 	if val, ok := updates["status_id"].(uuid.UUID); ok {
 		task.StatusID = val
 	}
-	if val, ok := updates["blocked_reason"].(string); ok {
-		task.BlockedReason = val
-	}
 	if val, ok := updates["assignee_id"]; ok {
 		if val == nil {
 			task.AssigneeID = nil
@@ -1144,7 +1141,7 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	existingTask.Status = string(dto.TaskStatusTodo)
 	projectRepo.projectRole = string(dto.ProjectRoleDeveloper)
 
-	// Test 4: Transition to blocked requires a reason
+	// Test 4: Transition to blocked
 	blockedStatus := string(dto.TaskStatusBlocked)
 	authRepo.user = globalMemberUser
 	_, err = service.UpdateTask(dto.UpdateTaskRequest{
@@ -1153,29 +1150,14 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 		UserID:    userID,
 		Status:    &blockedStatus,
 	})
-	if err == nil {
-		t.Fatal("expected transition to blocked without reason to fail")
-	}
-
-	blockedReason := "API dependency not ready"
-	_, err = service.UpdateTask(dto.UpdateTaskRequest{
-		TaskID:        taskID,
-		ProjectID:     projectID,
-		UserID:        userID,
-		Status:        &blockedStatus,
-		BlockedReason: &blockedReason,
-	})
 	if err != nil {
-		t.Fatalf("expected transition to blocked with reason to succeed, got %v", err)
+		t.Fatalf("expected transition to blocked to succeed, got %v", err)
 	}
 	if existingTask.Status != "Blocked" {
 		t.Fatalf("expected status to be blocked, got %s", existingTask.Status)
 	}
-	if existingTask.BlockedReason != blockedReason {
-		t.Fatalf("expected blocked reason to be set, got %s", existingTask.BlockedReason)
-	}
 
-	// Test 5: Transition out of blocked clears blocked reason
+	// Test 5: Transition out of blocked
 	todoStatus := string(dto.TaskStatusTodo)
 	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
@@ -1186,8 +1168,8 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected transition out of blocked to succeed, got %v", err)
 	}
-	if existingTask.BlockedReason != "" {
-		t.Fatalf("expected blocked reason to be cleared, got %s", existingTask.BlockedReason)
+	if existingTask.Status != "Todo" {
+		t.Fatalf("expected status to be Todo, got %s", existingTask.Status)
 	}
 
 	// Test 6: Non-assignee Developer cannot increment actual hours
@@ -1269,11 +1251,12 @@ func TestTaskService_UpdateTask_WorkflowAndPermissions(t *testing.T) {
 	}
 	authRepo.user = viewerUser
 	projectRepo.projectRole = string(dto.ProjectRoleViewer)
+	newTitle := "New Title"
 	_, err = service.UpdateTask(dto.UpdateTaskRequest{
 		TaskID:    taskID,
 		ProjectID: projectID,
 		UserID:    viewerUser.ID,
-		Title:     &blockedReason,
+		Title:     &newTitle,
 	})
 	if err == nil {
 		t.Fatal("expected viewer task update to be rejected")
@@ -1411,12 +1394,12 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 		t.Fatalf("expected no general error, got %v", err)
 	}
 
-	if res.UpdatedCount != 1 {
-		t.Fatalf("expected 1 task to be updated, got %d", res.UpdatedCount)
+	if res.UpdatedCount != 2 {
+		t.Fatalf("expected 2 tasks to be updated, got %d", res.UpdatedCount)
 	}
 
-	if len(res.FailedTaskIDs) != 3 {
-		t.Fatalf("expected 3 task failures, got %d", len(res.FailedTaskIDs))
+	if len(res.FailedTaskIDs) != 2 {
+		t.Fatalf("expected 2 task failures, got %d", len(res.FailedTaskIDs))
 	}
 
 	// Verify failure reasons
@@ -1429,8 +1412,8 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 	if !exists {
 		t.Fatalf("expected failure reason for task2")
 	}
-	if reasonBlocked != "Sprint must belong to the project" && reasonBlocked != "Moving to Blocked requires a blocked reason" {
-		t.Fatalf("expected failure reason related to sprint/blocked, got '%s'", reasonBlocked)
+	if reasonBlocked != "Sprint must belong to the project" {
+		t.Fatalf("expected failure reason related to sprint, got '%s'", reasonBlocked)
 	}
 
 	// Verify task1 actually updated
@@ -1440,6 +1423,12 @@ func TestTaskService_BulkUpdateTasks(t *testing.T) {
 	}
 	if updatedTask1.SprintID == nil || *updatedTask1.SprintID != sprintID {
 		t.Fatalf("expected task1 sprint ID to be updated")
+	}
+
+	// Verify task2 actually updated to Blocked status
+	updatedTask2 := taskRepo.tasks[taskID2]
+	if updatedTask2.Status != "Blocked" {
+		t.Fatalf("expected task2 status to be Blocked, got %s", updatedTask2.Status)
 	}
 }
 
@@ -2236,5 +2225,3 @@ func TestTaskService_GetTaskByID_WithIDAndKey(t *testing.T) {
 		t.Errorf("expected task ID %s, got %s", taskID, respBySlug.ID)
 	}
 }
-
-

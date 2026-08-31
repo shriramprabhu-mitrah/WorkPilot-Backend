@@ -49,8 +49,6 @@ definitions:
     properties:
       assignee_id:
         type: string
-      blocked_reason:
-        type: string
       sprint_id:
         type: string
       status:
@@ -542,8 +540,6 @@ definitions:
         type: number
       assignee_id:
         type: string
-      blocked_reason:
-        type: string
       description:
         type: string
       due_date:
@@ -970,8 +966,6 @@ definitions:
       assignee_id:
         type: string
       assignee_name:
-        type: string
-      blocked_reason:
         type: string
       created_at:
         type: string

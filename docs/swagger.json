@@ -9012,9 +9012,6 @@
                 "assignee_id": {
                     "type": "string"
                 },
-                "blocked_reason": {
-                    "type": "string"
-                },
                 "sprint_id": {
                     "type": "string"
                 },
@@ -9720,9 +9717,6 @@
                 "assignee_id": {
                     "type": "string"
                 },
-                "blocked_reason": {
-                    "type": "string"
-                },
                 "description": {
                     "type": "string"
                 },
@@ -10361,9 +10355,6 @@
                     "type": "string"
                 },
                 "assignee_name": {
-                    "type": "string"
-                },
-                "blocked_reason": {
                     "type": "string"
                 },
                 "created_at": {

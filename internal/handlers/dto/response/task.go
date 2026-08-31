@@ -34,7 +34,6 @@ type TaskResponse struct {
 	DueDate               *time.Time      `json:"due_date,omitempty"`
 	EstimatedHours        *float64        `json:"estimated_hours,omitempty"`
 	ActualHours           *float64        `json:"actual_hours,omitempty"`
-	BlockedReason         string          `json:"blocked_reason,omitempty"`
 	CreatedAt             time.Time       `json:"created_at"`
 	UpdatedAt             time.Time       `json:"updated_at"`
 	Labels                []LabelResponse `json:"labels,omitempty"`

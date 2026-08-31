@@ -25,7 +25,6 @@ type Task struct {
 	Priority       string         `json:"priority" gorm:"type:varchar(50);not null;default:'medium'"`
 	StatusID       uuid.UUID      `json:"status_id" gorm:"type:uuid;not null;index"`
 	Status         string         `json:"status" gorm:"type:varchar(50);not null;default:'todo'"`
-	BlockedReason  string         `json:"blocked_reason,omitempty" gorm:"type:text"`
 	AssigneeID     *uuid.UUID     `json:"assignee_id,omitempty" gorm:"type:uuid;index"`
 	ReporterID     *uuid.UUID     `json:"reporter_id,omitempty" gorm:"type:uuid;index"`
 	Assignee       *User          `json:"assignee,omitempty" gorm:"foreignKey:AssigneeID"`
