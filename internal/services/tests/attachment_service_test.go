@@ -309,6 +309,7 @@ func (s *stubAttachmentTaskRepo) MoveIncompleteTasksToBacklog(sprintID uuid.UUID
 func (s *stubAttachmentTaskRepo) GetSprintStatus(sprintID uuid.UUID) (string, *response.Error) { return "", nil }
 func (s *stubAttachmentTaskRepo) CountTasksByStatus(projectID uuid.UUID, status string) (int64, *response.Error) { return 0, nil }
 func (s *stubAttachmentTaskRepo) UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newStatus string) *response.Error { return nil }
+func (s *stubAttachmentTaskRepo) GetSprintNameByID(sprintID uuid.UUID) (string, *response.Error) { return "Mock Sprint", nil }
 func (s *stubAttachmentTaskRepo) GetTaskCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error) {
 	counts := make(map[uuid.UUID]int64)
 	if s.task != nil {

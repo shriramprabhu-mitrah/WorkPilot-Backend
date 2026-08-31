@@ -744,3 +744,20 @@ func (d *taskDatabase) UpdateAttachmentsTaskID(attachmentIDs []uuid.UUID, taskID
 	}
 	return nil
 }
+
+func (d *taskDatabase) GetSprintNameByID(sprintID uuid.UUID) (string, *response.Error) {
+	var sprint models.Sprint
+	err := d.db.Select("name").Where("id = ?", sprintID).First(&sprint).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "sprint", nil
+		}
+		d.logger.Error("Failed to fetch sprint name", zap.Error(err))
+		return "", &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Failed to fetch sprint name",
+		}
+	}
+	return sprint.Name, nil
+}

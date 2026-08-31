@@ -48,21 +48,26 @@ func TestGlobalSearchSuccess(t *testing.T) {
 	userID := uuid.Must(uuid.NewV7())
 
 	projectID := uuid.Must(uuid.NewV7())
+	project := models.Project{
+		ID:   projectID,
+		Name: "Project 1",
+		Slug: "proj-1",
+	}
 	mockRepo := &mockSearchRepo{
 		tasks: []models.Task{
-			{Title: "Task 1", Key: "T-1", ProjectID: projectID},
+			{Title: "Task 1", Key: "T-1", ProjectID: projectID, Project: project},
 		},
 		stories: []models.UserStory{
-			{Title: "Story 1", Key: "US-1", ProjectID: projectID},
+			{Title: "Story 1", Key: "US-1", ProjectID: projectID, Project: project},
 		},
 		projects: []models.Project{
-			{ID: projectID, Name: "Project 1", Slug: "proj-1"},
+			project,
 		},
 		users: []models.User{
 			{FullName: "User 1", UserName: "user1"},
 		},
 		sprints: []models.Sprint{
-			{Name: "Sprint 1", Goal: "Goal 1", ProjectID: projectID},
+			{Name: "Sprint 1", Goal: "Goal 1", ProjectID: projectID, Project: project},
 		},
 	}
 
@@ -84,13 +89,22 @@ func TestGlobalSearchSuccess(t *testing.T) {
 	if len(resp.Tasks) != 1 || resp.Tasks[0].Title != "Task 1" {
 		t.Errorf("expected 1 task with Title 'Task 1', got %v", resp.Tasks)
 	}
+	if resp.Tasks[0].ProjectSlug != "proj-1" || resp.Tasks[0].ProjectName != "Project 1" {
+		t.Errorf("expected task project details to be set, got %+v", resp.Tasks[0])
+	}
 
 	if len(resp.UserStories) != 1 || resp.UserStories[0].Title != "Story 1" {
 		t.Errorf("expected 1 user story with Title 'Story 1', got %v", resp.UserStories)
 	}
+	if resp.UserStories[0].ProjectSlug != "proj-1" || resp.UserStories[0].ProjectName != "Project 1" {
+		t.Errorf("expected story project details to be set, got %+v", resp.UserStories[0])
+	}
 
 	if len(resp.Projects) != 1 || resp.Projects[0].Title != "Project 1" {
 		t.Errorf("expected 1 project with Title 'Project 1', got %v", resp.Projects)
+	}
+	if resp.Projects[0].ProjectSlug != "proj-1" || resp.Projects[0].ProjectName != "Project 1" {
+		t.Errorf("expected project project details to be set, got %+v", resp.Projects[0])
 	}
 
 	if len(resp.Members) != 1 || resp.Members[0].Title != "User 1" {
@@ -99,6 +113,9 @@ func TestGlobalSearchSuccess(t *testing.T) {
 
 	if len(resp.Sprints) != 1 || resp.Sprints[0].Title != "Sprint 1" {
 		t.Errorf("expected 1 sprint with Title 'Sprint 1', got %v", resp.Sprints)
+	}
+	if resp.Sprints[0].ProjectSlug != "proj-1" || resp.Sprints[0].ProjectName != "Project 1" {
+		t.Errorf("expected sprint project details to be set, got %+v", resp.Sprints[0])
 	}
 }
 

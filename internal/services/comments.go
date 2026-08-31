@@ -306,7 +306,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 		userName = user.Email
 	}
 	if userName == "" {
-		userName = req.UserID.String()
+		userName = "a user"
 	}
 
 	var resourceTitle string
@@ -318,7 +318,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 			resourceTitle = story.Title
 			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, story.Title, comment.Content)
 		} else {
-			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, userStoryID.String(), comment.Content)
+			detail = fmt.Sprintf("%s commented on the userstory: %s as %s", userName, "userstory", comment.Content)
 		}
 	} else if taskID != nil {
 		task, taskErr := s.taskRepo.GetTaskByID(*taskID, *projectID)
@@ -326,7 +326,7 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 			resourceTitle = task.Title
 			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, task.Title, comment.Content)
 		} else {
-			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, taskID.String(), comment.Content)
+			detail = fmt.Sprintf("%s commented on the task: %s as %s", userName, "task", comment.Content)
 		}
 	}
 
@@ -456,7 +456,7 @@ func resolveUserName(user models.User, fallbackID uuid.UUID) string {
 	if user.Email != "" {
 		return user.Email
 	}
-	return fallbackID.String()
+	return "a user"
 }
 
 func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (responsedto.CommentedUserResponse, *response.Error) {
@@ -537,7 +537,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 	}
 
 	user, userErr := s.authRepo.GetUserByID(req.UserID)
-	userName := req.UserID.String()
+	userName := "a user"
 	if userErr == nil {
 		userName = resolveUserName(user, req.UserID)
 	}
@@ -554,7 +554,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 			resourceTitle = story.Title
 			targetStr = fmt.Sprintf("userstory: %s", story.Title)
 		} else {
-			targetStr = fmt.Sprintf("userstory: %s", comment.UserStoryID.String())
+			targetStr = "userstory"
 		}
 	} else if comment.TaskID != nil && projectID != nil {
 		taskID = comment.TaskID
@@ -563,7 +563,7 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 			resourceTitle = task.Title
 			targetStr = fmt.Sprintf("task: %s", task.Title)
 		} else {
-			targetStr = fmt.Sprintf("task: %s", comment.TaskID.String())
+			targetStr = "task"
 		}
 	}
 
@@ -710,7 +710,7 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			resourceTitle = story.Title
 			targetStr = fmt.Sprintf("userstory: %s", story.Title)
 		} else {
-			targetStr = fmt.Sprintf("userstory: %s", comment.UserStoryID.String())
+			targetStr = "userstory"
 		}
 	} else if comment.TaskID != nil && projectID != nil {
 		taskID = comment.TaskID
@@ -719,7 +719,7 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 			resourceTitle = task.Title
 			targetStr = fmt.Sprintf("task: %s", task.Title)
 		} else {
-			targetStr = fmt.Sprintf("task: %s", comment.TaskID.String())
+			targetStr = "task"
 		}
 	}
 
@@ -814,7 +814,7 @@ func (s *commentsService) GetCommentsByTaskID(req requestdto.GetComments) ([]res
 
 	taskTitle := task.Title
 	if taskTitle == "" {
-		taskTitle = task.ID.String()
+		taskTitle = "task"
 	}
 
 	auditLog := models.AuditLog{
@@ -961,7 +961,7 @@ func (s *commentsService) GetCommentsByUserStoryID(req requestdto.GetComments) (
 	user, _ := s.authRepo.GetUserByID(req.UserID)
 	userName := resolveUserName(user, req.UserID)
 
-	storyTitle := userStoryID.String()
+	storyTitle := "userstory"
 	if projectID != nil {
 		story, storyErr := s.userStoryRepo.GetUserStoryByID(userStoryID, *projectID)
 		if storyErr == nil && story != nil && story.Title != "" {

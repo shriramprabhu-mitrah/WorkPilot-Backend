@@ -947,7 +947,25 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			targetSprint = req.SprintID
 		}
 		if oldSprint != newSprint {
-			changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
+			oldSprintName := "nil"
+			if task.SprintID != nil {
+				name, err := s.taskRepo.GetSprintNameByID(*task.SprintID)
+				if err == nil && name != "" {
+					oldSprintName = fmt.Sprintf("'%s'", name)
+				} else {
+					oldSprintName = "sprint"
+				}
+			}
+			newSprintName := "nil"
+			if targetSprint != nil {
+				name, err := s.taskRepo.GetSprintNameByID(*targetSprint)
+				if err == nil && name != "" {
+					newSprintName = fmt.Sprintf("'%s'", name)
+				} else {
+					newSprintName = "sprint"
+				}
+			}
+			changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprintName, newSprintName))
 			task.SprintID = targetSprint
 		}
 	}
@@ -963,7 +981,25 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			targetStory = userStoryID
 		}
 		if oldStory != newStory {
-			changes = append(changes, fmt.Sprintf("user story changed from %s to %s", oldStory, newStory))
+			oldStoryName := "nil"
+			if task.UserStoryID != nil {
+				story, err := s.userStoryRepo.GetUserStoryByID(*task.UserStoryID, req.ProjectID)
+				if err == nil && story != nil {
+					oldStoryName = fmt.Sprintf("'%s'", story.Title)
+				} else {
+					oldStoryName = "user story"
+				}
+			}
+			newStoryName := "nil"
+			if targetStory != nil {
+				story, err := s.userStoryRepo.GetUserStoryByID(*targetStory, req.ProjectID)
+				if err == nil && story != nil {
+					newStoryName = fmt.Sprintf("'%s'", story.Title)
+				} else {
+					newStoryName = "user story"
+				}
+			}
+			changes = append(changes, fmt.Sprintf("user story changed from %s to %s", oldStoryName, newStoryName))
 			task.UserStoryID = targetStory
 		}
 	}
@@ -1156,7 +1192,7 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		changedBy = user.Email
 	}
 	if changedBy == "" {
-		changedBy = req.UserID.String()
+		changedBy = "a user"
 	}
 
 	var detail string
@@ -1661,7 +1697,25 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 				newSprint = item.SprintID.String()
 			}
 			if oldSprint != newSprint {
-				changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprint, newSprint))
+				oldSprintName := "nil"
+				if task.SprintID != nil {
+					name, err := s.taskRepo.GetSprintNameByID(*task.SprintID)
+					if err == nil && name != "" {
+						oldSprintName = fmt.Sprintf("'%s'", name)
+					} else {
+						oldSprintName = "sprint"
+					}
+				}
+				newSprintName := "nil"
+				if *item.SprintID != uuid.Nil {
+					name, err := s.taskRepo.GetSprintNameByID(*item.SprintID)
+					if err == nil && name != "" {
+						newSprintName = fmt.Sprintf("'%s'", name)
+					} else {
+						newSprintName = "sprint"
+					}
+				}
+				changes = append(changes, fmt.Sprintf("sprint changed from %s to %s", oldSprintName, newSprintName))
 				if *item.SprintID == uuid.Nil {
 					task.SprintID = nil
 					updates["sprint_id"] = nil
@@ -2094,7 +2148,7 @@ func (s *taskService) AssignTaskToMe(taskID, userID, organizationID, projectID u
 			changedBy = user.Email
 		}
 		if changedBy == "" {
-			changedBy = userID.String()
+			changedBy = "a user"
 		}
 
 		var detail string
