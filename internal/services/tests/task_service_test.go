@@ -694,6 +694,10 @@ func (s *stubTaskRepo) GetSprintStatus(sprintID uuid.UUID) (string, *response.Er
 	return status, nil
 }
 
+func (s *stubTaskRepo) GetSprintNameByID(sprintID uuid.UUID) (string, *response.Error) {
+	return "Mock Sprint", nil
+}
+
 func TestTaskService_CreateTask_IncrementsKeysAndSetsKeyPrefix(t *testing.T) {
 	orgID := uuid.Must(uuid.NewV4())
 	userID := uuid.Must(uuid.NewV4())

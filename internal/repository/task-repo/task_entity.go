@@ -38,6 +38,7 @@ type TaskRepository interface {
 	UpdateTaskStatusName(projectID uuid.UUID, oldStatus, newStatus string) *response.Error
 	GetTaskCountsByProjectIDs(projectIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
 	UpdateAttachmentsTaskID(attachmentIDs []uuid.UUID, taskID uuid.UUID) *response.Error
+	GetSprintNameByID(sprintID uuid.UUID) (string, *response.Error)
 }
 
 func InitTaskRepository(deps models.Config) TaskRepository {

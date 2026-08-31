@@ -137,6 +137,7 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 			Priority:    t.Priority,
 			ProjectID:   &projID,
 			ProjectName: t.Project.Name,
+			ProjectSlug: t.Project.Slug,
 		})
 	}
 
@@ -155,6 +156,7 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 			Priority:    us.Priority,
 			ProjectID:   &projID,
 			ProjectName: us.Project.Name,
+			ProjectSlug: us.Project.Slug,
 		})
 	}
 
@@ -169,6 +171,9 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 			Key:         p.Slug,
 			Description: p.Description,
 			Status:      p.Status,
+			ProjectID:   &p.ID,
+			ProjectName: p.Name,
+			ProjectSlug: p.Slug,
 		})
 	}
 
@@ -195,6 +200,8 @@ func (s *searchService) GlobalSearch(userID, orgID uuid.UUID, query string) (*re
 			Description: sp.Goal,
 			Status:      sp.Status,
 			ProjectID:   &projID,
+			ProjectName: sp.Project.Name,
+			ProjectSlug: sp.Project.Slug,
 		})
 	}
 

@@ -15,6 +15,7 @@ type SearchResult struct {
 	AvatarURL   string    `json:"avatar_url,omitempty"`
 	ProjectID   *uuid.UUID `json:"project_id,omitempty"`
 	ProjectName string     `json:"project_name,omitempty"`
+	ProjectSlug string     `json:"project_slug,omitempty"`
 }
 
 type GlobalSearchResponse struct {

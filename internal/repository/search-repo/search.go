@@ -155,7 +155,7 @@ func (r *searchRepository) SearchSprints(orgID uuid.UUID, tsQuery string, rawQue
 		)
 	}
 
-	err := query.Limit(20).Find(&sprints).Error
+	err := query.Preload("Project").Limit(20).Find(&sprints).Error
 	if err != nil {
 		r.logger.Error("failed to search sprints", zap.Error(err), zap.String("orgID", orgID.String()))
 		return nil, err
