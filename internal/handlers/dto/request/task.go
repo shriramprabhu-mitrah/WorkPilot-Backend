@@ -132,7 +132,6 @@ type UpdateTaskRequest struct {
 	Priority       *string         `json:"priority" binding:"omitempty,oneof=low medium high critical"`
 	StatusID       *uuid.UUID      `json:"status_id" binding:"omitempty"`
 	Status         *string         `json:"status" binding:"omitempty"`
-	BlockedReason  *string         `json:"blocked_reason"`
 	AssigneeID     *uuid.UUID      `json:"assignee_id"`
 	ReporterID     *uuid.UUID      `json:"reporter_id"`
 	SprintID       *uuid.UUID      `json:"sprint_id"`
@@ -242,7 +241,6 @@ type BulkUpdateTaskItem struct {
 	TaskID        uuid.UUID  `json:"task_id" binding:"required"`
 	StatusID      *uuid.UUID `json:"status_id" binding:"omitempty"`
 	Status        *string    `json:"status" binding:"omitempty"`
-	BlockedReason *string    `json:"blocked_reason"`
 	SprintID      *uuid.UUID `json:"sprint_id"`
 	AssigneeID    *uuid.UUID `json:"assignee_id"`
 }

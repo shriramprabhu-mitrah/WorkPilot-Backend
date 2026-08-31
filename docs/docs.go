@@ -9019,9 +9019,6 @@ const docTemplate = `{
                 "assignee_id": {
                     "type": "string"
                 },
-                "blocked_reason": {
-                    "type": "string"
-                },
                 "sprint_id": {
                     "type": "string"
                 },
@@ -9727,9 +9724,6 @@ const docTemplate = `{
                 "assignee_id": {
                     "type": "string"
                 },
-                "blocked_reason": {
-                    "type": "string"
-                },
                 "description": {
                     "type": "string"
                 },
@@ -10368,9 +10362,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "assignee_name": {
-                    "type": "string"
-                },
-                "blocked_reason": {
                     "type": "string"
                 },
                 "created_at": {

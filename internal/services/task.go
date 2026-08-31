@@ -203,7 +203,6 @@ func mapToTaskResponse(task models.Task, colorMap map[string]string, isFinalMap 
 		DueDate:               task.DueDate,
 		EstimatedHours:        task.EstimatedHours,
 		ActualHours:           task.ActualHours,
-		BlockedReason:         task.BlockedReason,
 		CreatedAt:             task.CreatedAt,
 		UpdatedAt:             task.UpdatedAt,
 		Labels:                labelsRes,
@@ -856,16 +855,6 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 			newStatus := newNormalizedStatus
 			oldStatus := models.NormalizeTaskStatus(task.Status)
 
-			if models.NormalizeTaskStatus(newStatus) == string(dto.TaskStatusBlocked) {
-				if req.BlockedReason == nil || strings.TrimSpace(*req.BlockedReason) == "" {
-					return nil, &response.Error{
-						Code:       response.ErrBadRequest,
-						StatusCode: http.StatusBadRequest,
-						Message:    "Moving to Blocked requires a blocked reason",
-					}
-				}
-			}
-
 			if !isPMOrAdmin {
 				allowedTransition := false
 				if models.IsDefaultTaskStatus(oldStatus) && models.IsDefaultTaskStatus(newStatus) {
@@ -927,13 +916,6 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 		changes = append(changes, fmt.Sprintf("status changed from '%s' to '%s'", task.Status, newNormalizedStatus))
 		task.StatusID = newStatusID
 		task.Status = newNormalizedStatus
-		if models.NormalizeTaskStatus(newNormalizedStatus) == string(dto.TaskStatusBlocked) {
-			if req.BlockedReason != nil {
-				task.BlockedReason = *req.BlockedReason
-			}
-		} else {
-			task.BlockedReason = ""
-		}
 	}
 	if req.IsAssigneeIDNull() || req.AssigneeID != nil {
 		oldAssigneeIDStr := "nil"
@@ -1054,13 +1036,6 @@ func (s *taskService) UpdateTask(req dto.UpdateTaskRequest) (*responsedto.TaskRe
 	if isStatusChanging {
 		updates["status_id"] = newStatusID
 		updates["status"] = newNormalizedStatus
-		if models.NormalizeTaskStatus(newNormalizedStatus) == string(dto.TaskStatusBlocked) {
-			if req.BlockedReason != nil {
-				updates["blocked_reason"] = *req.BlockedReason
-			}
-		} else {
-			updates["blocked_reason"] = ""
-		}
 	}
 	if req.IsAssigneeIDNull() || req.AssigneeID != nil {
 		if !req.IsAssigneeIDNull() && *req.AssigneeID != uuid.Nil {
@@ -1647,15 +1622,6 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 			}
 		}
 
-		// 5. Validate Status Transition to Blocked
-		if isStatusChanging && models.NormalizeTaskStatus(resolvedStatusName) == string(dto.TaskStatusBlocked) {
-			if item.BlockedReason == nil || strings.TrimSpace(*item.BlockedReason) == "" {
-				failedTaskIDs = append(failedTaskIDs, item.TaskID)
-				failureReasons[item.TaskID.String()] = "Moving to Blocked requires a blocked reason"
-				continue
-			}
-		}
-
 		// 6. Track Changes and Update Task
 		var changes []string
 		updates := make(map[string]interface{})
@@ -1665,13 +1631,6 @@ func (s *taskService) BulkUpdateTasks(req dto.BulkUpdateTasksRequest) (*response
 			task.Status = resolvedStatusName
 			updates["status_id"] = resolvedStatusID
 			updates["status"] = resolvedStatusName
-			if models.NormalizeTaskStatus(resolvedStatusName) == string(dto.TaskStatusBlocked) {
-				task.BlockedReason = *item.BlockedReason
-				updates["blocked_reason"] = *item.BlockedReason
-			} else {
-				task.BlockedReason = ""
-				updates["blocked_reason"] = ""
-			}
 		}
 		if item.AssigneeID != nil {
 			oldAssigneeIDStr := "nil"
