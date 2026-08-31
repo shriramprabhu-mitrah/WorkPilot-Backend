@@ -30,7 +30,7 @@ func InitWorkItemHandler(service services.WorkItemService, logger *zap.Logger) W
 // GetWorkItemBySerialNumber godoc
 // @Summary Get project work item by global serial ID
 // @Description Retrieve a project work item (task or user story) using its global serial ID.
-// @Tags WorkItem
+// @Tags Work Items
 // @Produce json
 // @Param project_id path string true "Project ID (UUID) or Project Slug"
 // @Param serial_id path string true "Global Serial ID or Key (e.g. US-1, MP-1)"
@@ -67,7 +67,7 @@ func (h *workItemHandler) GetWorkItemBySerialNumber(g *gin.Context) {
 // GetTaskByKey godoc
 // @Summary Get project task by key
 // @Description Retrieve a project task using its unique project-scoped key.
-// @Tags WorkItem
+// @Tags Work Items
 // @Produce json
 // @Param project_id path string true "Project ID (UUID) or Project Slug"
 // @Param key path string true "Task Key (e.g. TF-101)"
@@ -104,7 +104,7 @@ func (h *workItemHandler) GetTaskByKey(g *gin.Context) {
 // GetUserStoryByKey godoc
 // @Summary Get project user story by key
 // @Description Retrieve a project user story using its unique project-scoped key.
-// @Tags WorkItem
+// @Tags Work Items
 // @Produce json
 // @Param project_id path string true "Project ID (UUID) or Project Slug"
 // @Param key path string true "User Story Key (e.g. US-1)"

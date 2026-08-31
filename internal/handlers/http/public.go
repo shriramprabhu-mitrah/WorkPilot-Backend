@@ -93,7 +93,7 @@ func (h *PublicHandler) HealthHandler(deps models.Config) gin.HandlerFunc {
 //
 // @Summary      Get all countries
 // @Description  Returns a list of countries (code + name)
-// @Tags         Lookup
+// @Tags         Public
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse
 // @Failure      500 {object} response.ErrorResponse

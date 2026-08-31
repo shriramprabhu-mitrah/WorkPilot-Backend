@@ -963,7 +963,7 @@ func (h *authHandler) GetUserByID(g *gin.Context) {
 //
 // @Summary      Get user task insights
 // @Description  Returns the task statistics of the currently authenticated user across the organization.
-// @Tags         Authentication
+// @Tags         Users
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse{data=responsedto.UserTaskInsightsResponse} "Insights retrieved successfully"
 // @Failure      400 {object} response.ErrorResponse "Invalid user ID"

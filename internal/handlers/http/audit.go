@@ -30,7 +30,7 @@ type auditHandler struct {
 // GetAuditLogs godoc
 // @Summary Get audit logs
 // @Description Get paginated audit/activity logs for the authenticated user's organization.
-// @Tags Audit
+// @Tags Audit Logs
 // @Accept json
 // @Produce json
 // @Security BearerAuth

@@ -27,7 +27,7 @@ func InitCustomStatusHandler(service services.CustomStatusService, logger *zap.L
 // CreateStatus godoc
 // @Summary Create a custom status
 // @Description Create a new custom status for a project
-// @Tags CustomStatus
+// @Tags Custom Statuses
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -100,7 +100,7 @@ func (h *customStatusHandler) CreateStatus(g *gin.Context) {
 // GetStatuses godoc
 // @Summary Get custom statuses
 // @Description Get all custom statuses for a project
-// @Tags CustomStatus
+// @Tags Custom Statuses
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Success 200 {object} response.SuccessResponse
@@ -143,7 +143,7 @@ func (h *customStatusHandler) GetStatuses(g *gin.Context) {
 // UpdateStatus godoc
 // @Summary Update a custom status
 // @Description Update an existing custom status
-// @Tags CustomStatus
+// @Tags Custom Statuses
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -226,7 +226,7 @@ func (h *customStatusHandler) UpdateStatus(g *gin.Context) {
 // DeleteStatus godoc
 // @Summary Delete a custom status
 // @Description Delete an existing custom status
-// @Tags CustomStatus
+// @Tags Custom Statuses
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param status_id path string true "Status ID"

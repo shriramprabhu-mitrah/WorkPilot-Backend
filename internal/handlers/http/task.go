@@ -31,7 +31,7 @@ func InitTaskHandler(service services.TaskService, logger *zap.Logger) *taskHand
 // CreateTask godoc
 // @Summary Create a new task
 // @Description Create a new task in the specified project. The description field accepts HTML and is sanitized before storage.
-// @Tags Task
+// @Tags Tasks
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -107,7 +107,7 @@ func (h *taskHandler) CreateTask(g *gin.Context) {
 // GetTaskByID godoc
 // @Summary Get Task By ID or Key
 // @Description Retrieve details of a specific task by ID or Task Key
-// @Tags Task
+// @Tags Tasks
 // @Produce json
 // @Param project_id path string true "Project ID or Slug"
 // @Param task_id path string true "Task ID or Task Key"
@@ -167,7 +167,7 @@ func (h *taskHandler) GetTaskByID(g *gin.Context) {
 // UpdateTask godoc
 // @Summary Update Task
 // @Description Update the details of a specific task by ID. Description supports HTML content and is sanitized before storage.
-// @Tags Task
+// @Tags Tasks
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -252,7 +252,7 @@ func (h *taskHandler) UpdateTask(g *gin.Context) {
 // DeleteTasks godoc
 // @Summary Bulk Delete Tasks
 // @Description Soft delete multiple tasks in a project
-// @Tags Task
+// @Tags Tasks
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -340,7 +340,7 @@ func (h *taskHandler) DeleteTasks(g *gin.Context) {
 // RestoreTask godoc
 // @Summary Restore Task
 // @Description Restore a soft-deleted task by ID (within the retention period)
-// @Tags Task
+// @Tags Tasks
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
@@ -398,7 +398,7 @@ func (h *taskHandler) RestoreTask(g *gin.Context) {
 // CloneTask godoc
 // @Summary Clone Task
 // @Description Clone a task to create a copy of it
-// @Tags Task
+// @Tags Tasks
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -498,7 +498,7 @@ func parseMultiQueryParam(g *gin.Context, key string) []string {
 // GetTasks godoc
 // @Summary Get Tasks
 // @Description Retrieve tasks for a project with search, filter, sort and pagination options
-// @Tags Task
+// @Tags Tasks
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param page query int false "Page number" default(1)
@@ -596,7 +596,7 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 // BulkUpdateTasks godoc
 // @Summary Bulk Update Tasks
 // @Description Update status, sprint, or assignee of multiple tasks in a project
-// @Tags Task
+// @Tags Tasks
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -684,7 +684,7 @@ func (h *taskHandler) BulkUpdateTasks(g *gin.Context) {
 // AttachLabelToTask godoc
 // @Summary Attach Label to Task
 // @Description Attach a project label to a specific task
-// @Tags Task
+// @Tags Tasks
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
 // @Param label_id path string true "Label ID"
@@ -743,7 +743,7 @@ func (h *taskHandler) AttachLabelToTask(g *gin.Context) {
 // RemoveLabelFromTask godoc
 // @Summary Remove Label from Task
 // @Description Remove a project label from a specific task
-// @Tags Task
+// @Tags Tasks
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
 // @Param label_id path string true "Label ID"
@@ -804,7 +804,7 @@ func (h *taskHandler) RemoveLabelFromTask(g *gin.Context) {
 // AssignToMe godoc
 // @Summary Assign Task to Me
 // @Description Assign a specific task to the currently authenticated user
-// @Tags Task
+// @Tags Tasks
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"

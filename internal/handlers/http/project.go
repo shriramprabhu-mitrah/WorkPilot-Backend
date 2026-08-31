@@ -932,7 +932,7 @@ func (h *ProjectHandler) GetRecentProjects(g *gin.Context) {
 //
 //	@Summary		Update project member role
 //	@Description	Update the role of an existing project member. Only authorized users can update member roles based on project role permissions.
-//	@Tags			Projects
+//	@Tags			Project Members
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth

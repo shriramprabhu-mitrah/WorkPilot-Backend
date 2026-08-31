@@ -27,7 +27,7 @@ func InitLabelHandler(service services.LabelService, logger *zap.Logger) *labelH
 // CreateLabel godoc
 // @Summary Create a label
 // @Description Create a new label for a project
-// @Tags Label
+// @Tags Labels
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -100,7 +100,7 @@ func (h *labelHandler) CreateLabel(g *gin.Context) {
 // GetLabels godoc
 // @Summary Get labels
 // @Description Get all labels for a project
-// @Tags Label
+// @Tags Labels
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Success 200 {object} response.SuccessResponse
@@ -143,7 +143,7 @@ func (h *labelHandler) GetLabels(g *gin.Context) {
 // UpdateLabel godoc
 // @Summary Update a label
 // @Description Update an existing label
-// @Tags Label
+// @Tags Labels
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -226,7 +226,7 @@ func (h *labelHandler) UpdateLabel(g *gin.Context) {
 // DeleteLabel godoc
 // @Summary Delete a label
 // @Description Delete an existing label
-// @Tags Label
+// @Tags Labels
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param label_id path string true "Label ID"

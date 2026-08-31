@@ -1497,7 +1497,7 @@ paths:
       - BearerAuth: []
       summary: Get audit logs
       tags:
-      - Audit
+      - Audit Logs
   /auth/{user_id}:
     get:
       consumes:
@@ -1655,7 +1655,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get user task insights
       tags:
-      - Authentication
+      - Users
   /auth/password-reset/confirm:
     post:
       consumes:
@@ -2005,7 +2005,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get all countries
       tags:
-      - Lookup
+      - Public
   /favorites:
     delete:
       description: Remove a favorite item by favorite ID or query params (item_type
@@ -2048,7 +2048,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Remove item from favorites
       tags:
-      - Favorite
+      - Favorites
     get:
       description: Get all user stories and tasks added in favorites for the current
         user
@@ -2094,7 +2094,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get all favorites
       tags:
-      - Favorite
+      - Favorites
     post:
       consumes:
       - application/json
@@ -2135,7 +2135,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Add item to favorites
       tags:
-      - Favorite
+      - Favorites
   /health:
     get:
       description: Returns system health status and dependency checks (database, redis)
@@ -2353,7 +2353,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get all system members/users (Super Admin)
       tags:
-      - Organizations
+      - Organization Members
   /organization/create:
     post:
       consumes:
@@ -2509,7 +2509,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get current Organization
       tags:
-      - Organizations
+      - Organization Members
   /organization/invitations/accept:
     get:
       description: Validates the token, checks login status, and renders acceptance
@@ -2529,7 +2529,7 @@ paths:
             type: string
       summary: Show accept invitation page or redirect to login
       tags:
-      - Organizations
+      - Organization Members
     post:
       consumes:
       - application/json
@@ -2558,7 +2558,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Accept organization invitation
       tags:
-      - Organizations
+      - Organization Members
   /organization/invite:
     post:
       consumes:
@@ -2596,7 +2596,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Invite member to organization
       tags:
-      - Organizations
+      - Organization Members
   /organization/remove-user/{user_id}:
     delete:
       consumes:
@@ -2639,7 +2639,7 @@ paths:
       - BearerAuth: []
       summary: Remove user from organization
       tags:
-      - Organizations
+      - Organization Members
   /organization/roles:
     get:
       consumes:
@@ -2991,7 +2991,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update User Role
       tags:
-      - Organizations
+      - Organization Members
   /organization/user-status:
     patch:
       consumes:
@@ -3025,7 +3025,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update User Status
       tags:
-      - Organizations
+      - Organization Members
   /project/{project_id}:
     delete:
       consumes:
@@ -3330,7 +3330,7 @@ paths:
       - BearerAuth: []
       summary: Update project member role
       tags:
-      - Projects
+      - Project Members
   /project/{project_id}/user-role:
     get:
       consumes:
@@ -3837,7 +3837,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get custom statuses
       tags:
-      - CustomStatus
+      - Custom Statuses
     post:
       consumes:
       - application/json
@@ -3883,7 +3883,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Create a custom status
       tags:
-      - CustomStatus
+      - Custom Statuses
   /projects/{project_id}/custom-statuses/{status_id}:
     delete:
       description: Delete an existing custom status
@@ -3923,7 +3923,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Delete a custom status
       tags:
-      - CustomStatus
+      - Custom Statuses
     patch:
       consumes:
       - application/json
@@ -3974,7 +3974,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update a custom status
       tags:
-      - CustomStatus
+      - Custom Statuses
   /projects/{project_id}/labels:
     get:
       description: Get all labels for a project
@@ -4005,7 +4005,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get labels
       tags:
-      - Label
+      - Labels
     post:
       consumes:
       - application/json
@@ -4051,7 +4051,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Create a label
       tags:
-      - Label
+      - Labels
   /projects/{project_id}/labels/{label_id}:
     delete:
       description: Delete an existing label
@@ -4091,7 +4091,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Delete a label
       tags:
-      - Label
+      - Labels
     patch:
       consumes:
       - application/json
@@ -4142,7 +4142,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update a label
       tags:
-      - Label
+      - Labels
   /projects/{project_id}/sprint:
     get:
       description: Retrieve all sprints for a project with pagination, search, sorting
@@ -4235,7 +4235,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get Sprints
       tags:
-      - Sprint
+      - Sprints
     post:
       consumes:
       - application/json
@@ -4281,7 +4281,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Create Sprints
       tags:
-      - Sprint
+      - Sprints
   /projects/{project_id}/sprint/{sprint_id}:
     delete:
       description: Delete a sprint from a project
@@ -4325,7 +4325,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Delete Sprint
       tags:
-      - Sprint
+      - Sprints
     get:
       description: Retrieve a sprint by project ID and sprint ID
       parameters:
@@ -4368,7 +4368,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get Sprint By ID
       tags:
-      - Sprint
+      - Sprints
     patch:
       consumes:
       - application/json
@@ -4423,7 +4423,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update Sprint
       tags:
-      - Sprint
+      - Sprints
   /projects/{project_id}/sprint/{sprint_id}/burndown:
     get:
       description: Retrieve burndown chart data for a specific sprint
@@ -4508,6 +4508,50 @@ paths:
       summary: Trigger Sprint Snapshots
       tags:
       - Sprints
+  /projects/{project_id}/sprint/complete:
+    post:
+      description: Complete an active sprint and record velocity
+      parameters:
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Sprint ID (UUID)
+        in: query
+        name: sprint_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sprint completed successfully
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "404":
+          description: Sprint not found
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
+      summary: Complete Sprint
+      tags:
+      - Sprints
   /projects/{project_id}/sprint/start:
     post:
       consumes:
@@ -4554,7 +4598,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Start Sprint
       tags:
-      - Sprint
+      - Sprints
   /projects/{project_id}/tasks:
     delete:
       consumes:
@@ -4601,7 +4645,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Bulk Delete Tasks
       tags:
-      - Task
+      - Tasks
     get:
       description: Retrieve tasks for a project with search, filter, sort and pagination
         options
@@ -4725,7 +4769,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get Tasks
       tags:
-      - Task
+      - Tasks
     post:
       consumes:
       - application/json
@@ -4768,7 +4812,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Create a new task
       tags:
-      - Task
+      - Tasks
   /projects/{project_id}/tasks/{task_id}:
     get:
       description: Retrieve details of a specific task by ID or Task Key
@@ -4812,7 +4856,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get Task By ID or Key
       tags:
-      - Task
+      - Tasks
     patch:
       consumes:
       - application/json
@@ -4864,7 +4908,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update Task
       tags:
-      - Task
+      - Tasks
   /projects/{project_id}/tasks/{task_id}/assign-to-me:
     patch:
       description: Assign a specific task to the currently authenticated user
@@ -4908,17 +4952,18 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Assign Task to Me
       tags:
-      - Task
+      - Tasks
   /projects/{project_id}/tasks/{task_id}/attachments:
     get:
-      description: Get all attachments associated with a task
+      description: Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for
+        all files attached to a specific Task.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: Task ID
+      - description: Task ID (UUID)
         in: path
         name: task_id
         required: true
@@ -4927,7 +4972,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Attachments retrieved successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "403":
@@ -4942,25 +4987,26 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Retrieve Task Attachments
+      summary: List Attachments for Task
       tags:
-      - Attachment
+      - Task Attachments
     post:
       consumes:
       - multipart/form-data
-      description: Upload a file associated with a task
+      description: Upload one or more files and link them directly to an already existing
+        Task. Use multipart/form-data with field name 'file' or 'files'.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: Task ID
+      - description: Task ID (UUID)
         in: path
         name: task_id
         required: true
         type: string
-      - description: File to upload
+      - description: File to upload (field name 'file' or 'files')
         in: formData
         name: file
         required: true
@@ -4969,7 +5015,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Attachments uploaded and linked successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
@@ -4988,31 +5034,32 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Upload Task Attachment
+      summary: Upload Attachment to Existing Task
       tags:
-      - Attachment
+      - Task Attachments
   /projects/{project_id}/tasks/{task_id}/attachments/{attachment_id}:
     delete:
-      description: Delete task attachment if authorized
+      description: Permanently delete an attachment associated with a Task from both
+        storage and database.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: Task ID
+      - description: Task ID (UUID)
         in: path
         name: task_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
         type: string
       responses:
         "200":
-          description: OK
+          description: Attachment deleted successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "403":
@@ -5027,24 +5074,25 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Delete Attachment
+      summary: Delete Task Attachment
       tags:
-      - Attachment
+      - Task Attachments
   /projects/{project_id}/tasks/{task_id}/attachments/{attachment_id}/download:
     get:
-      description: Validate membership and download a task attachment
+      description: Stream and download the binary file content of a specific task
+        attachment.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: Task ID
+      - description: Task ID (UUID)
         in: path
         name: task_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
@@ -5066,9 +5114,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Download Attachment
+      summary: Download Task Attachment File
       tags:
-      - Attachment
+      - Task Attachments
   /projects/{project_id}/tasks/{task_id}/clone:
     post:
       consumes:
@@ -5120,7 +5168,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Clone Task
       tags:
-      - Task
+      - Tasks
   /projects/{project_id}/tasks/{task_id}/favorite:
     delete:
       description: Remove a task from favorites under project path
@@ -5160,8 +5208,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Unfavorite a task
       tags:
-      - Task
-      - Favorite
+      - Favorites
     post:
       description: Add a task to favorites under project path
       parameters:
@@ -5204,8 +5251,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Favorite a task
       tags:
-      - Task
-      - Favorite
+      - Favorites
   /projects/{project_id}/tasks/{task_id}/labels/{label_id}:
     delete:
       description: Remove a project label from a specific task
@@ -5252,7 +5298,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Remove Label from Task
       tags:
-      - Task
+      - Tasks
     put:
       description: Attach a project label to a specific task
       parameters:
@@ -5298,7 +5344,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Attach Label to Task
       tags:
-      - Task
+      - Tasks
   /projects/{project_id}/tasks/{task_id}/restore:
     post:
       description: Restore a soft-deleted task by ID (within the retention period)
@@ -5342,19 +5388,21 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Restore Task
       tags:
-      - Task
+      - Tasks
   /projects/{project_id}/tasks/attachments:
     post:
       consumes:
       - multipart/form-data
-      description: Upload a task attachment before the task itself is created
+      description: Pre-upload file(s) before creating a Task. Returns attachment UUIDs
+        and URLs that must be passed in the 'attachments' array of the CreateTask
+        payload.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: File to upload
+      - description: File to upload (field name 'file' or 'files')
         in: formData
         name: file
         required: true
@@ -5363,7 +5411,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Draft task attachments uploaded successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
@@ -5382,9 +5430,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Upload Task Attachment without Task ID
+      summary: Upload Task Attachment (Draft / Before Task Creation)
       tags:
-      - Attachment
+      - Task Attachments
   /projects/{project_id}/tasks/bulk:
     patch:
       consumes:
@@ -5431,7 +5479,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Bulk Update Tasks
       tags:
-      - Task
+      - Tasks
   /projects/{project_id}/user-stories:
     get:
       description: Retrieve a paginated and filtered list of user stories in a project
@@ -5537,7 +5585,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get User Stories
       tags:
-      - UserStory
+      - User Stories
     post:
       consumes:
       - application/json
@@ -5580,7 +5628,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Create a new user story
       tags:
-      - UserStory
+      - User Stories
   /projects/{project_id}/user-stories/{user_story_id}:
     delete:
       description: Soft delete a specific user story by ID
@@ -5624,7 +5672,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Delete User Story
       tags:
-      - UserStory
+      - User Stories
     get:
       description: Retrieve details of a specific user story by ID or Key
       parameters:
@@ -5667,7 +5715,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get User Story By ID or Key
       tags:
-      - UserStory
+      - User Stories
     patch:
       consumes:
       - application/json
@@ -5719,17 +5767,18 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update User Story
       tags:
-      - UserStory
+      - User Stories
   /projects/{project_id}/user-stories/{user_story_id}/attachments:
     get:
-      description: Get all attachments associated with a user story
+      description: Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for
+        all files attached to a specific User Story.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: User Story ID
+      - description: User Story ID (UUID)
         in: path
         name: user_story_id
         required: true
@@ -5738,7 +5787,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Attachments retrieved successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "403":
@@ -5753,25 +5802,26 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Retrieve User Story Attachments
+      summary: List Attachments for User Story
       tags:
-      - User Story Attachment
+      - User Story Attachments
     post:
       consumes:
       - multipart/form-data
-      description: Upload a file associated with a user story
+      description: Upload one or more files and link them directly to an already existing
+        User Story. Use multipart/form-data with field name 'file' or 'files'.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: User Story ID
+      - description: User Story ID (UUID)
         in: path
         name: user_story_id
         required: true
         type: string
-      - description: File to upload
+      - description: File to upload (field name 'file' or 'files')
         in: formData
         name: file
         required: true
@@ -5780,7 +5830,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Attachments uploaded and linked successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
@@ -5799,31 +5849,32 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Upload User Story Attachment
+      summary: Upload Attachment to Existing User Story
       tags:
-      - User Story Attachment
+      - User Story Attachments
   /projects/{project_id}/user-stories/{user_story_id}/attachments/{attachment_id}:
     delete:
-      description: Delete user story attachment if authorized
+      description: Permanently delete an attachment associated with a User Story from
+        both storage and database.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: User Story ID
+      - description: User Story ID (UUID)
         in: path
         name: user_story_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
         type: string
       responses:
         "200":
-          description: OK
+          description: Attachment deleted successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "403":
@@ -5840,22 +5891,23 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Delete User Story Attachment
       tags:
-      - User Story Attachment
+      - User Story Attachments
   /projects/{project_id}/user-stories/{user_story_id}/attachments/{attachment_id}/download:
     get:
-      description: Validate membership and download a user story attachment
+      description: Stream and download the binary file content of a specific User
+        Story attachment.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: User Story ID
+      - description: User Story ID (UUID)
         in: path
         name: user_story_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
@@ -5877,9 +5929,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Download User Story Attachment
+      summary: Download User Story Attachment File
       tags:
-      - User Story Attachment
+      - User Story Attachments
   /projects/{project_id}/user-stories/{user_story_id}/comments:
     get:
       consumes:
@@ -5943,15 +5995,21 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload a comment attachment before the comment itself is created
-        on a User Story
+      description: Pre-upload file(s) before creating a comment on a User Story. Returns
+        attachment UUIDs and URLs to pass in the 'attachments' array of the CreateComment
+        payload.
       parameters:
-      - description: User Story ID
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID (UUID)
         in: path
         name: user_story_id
         required: true
         type: string
-      - description: File to upload
+      - description: File to upload (field name 'file' or 'files')
         in: formData
         name: file
         required: true
@@ -5960,7 +6018,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Draft user story comment attachments uploaded successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
@@ -5979,26 +6037,32 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Upload User Story Comment Attachment without Comment ID
+      summary: Upload User Story Comment Attachment (Draft / Before Comment Creation)
       tags:
-      - Comment Attachment
+      - Comment Attachments
   /projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id}:
     delete:
-      description: Delete user story comment attachment if authorized
+      description: Permanently delete an attachment associated with a User Story Comment
+        from both storage and database.
       parameters:
-      - description: User Story ID
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID (UUID)
         in: path
         name: user_story_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
         type: string
       responses:
         "200":
-          description: OK
+          description: Attachment deleted successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "403":
@@ -6015,18 +6079,23 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Delete User Story Comment Attachment
       tags:
-      - Comment Attachment
+      - Comment Attachments
   /projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id}/download:
     get:
-      description: Validate membership and download a comment attachment for a user
-        story
+      description: Stream and download the binary file content of a specific attachment
+        on a User Story Comment.
       parameters:
-      - description: User Story ID
+      - description: Project ID (UUID)
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: User Story ID (UUID)
         in: path
         name: user_story_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
@@ -6048,9 +6117,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Download User Story Comment Attachment
+      summary: Download User Story Comment Attachment File
       tags:
-      - Comment Attachment
+      - Comment Attachments
   /projects/{project_id}/user-stories/{user_story_id}/favorite:
     delete:
       description: Remove a user story from favorites under project path
@@ -6090,8 +6159,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Unfavorite a user story
       tags:
-      - UserStory
-      - Favorite
+      - Favorites
     post:
       description: Add a user story to favorites under project path
       parameters:
@@ -6134,8 +6202,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Favorite a user story
       tags:
-      - UserStory
-      - Favorite
+      - Favorites
   /projects/{project_id}/user-stories/{user_story_id}/status:
     patch:
       consumes:
@@ -6192,20 +6259,21 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update User Story Status
       tags:
-      - UserStory
+      - User Stories
   /projects/{project_id}/user-stories/attachments:
     post:
       consumes:
       - multipart/form-data
-      description: Upload a user story attachment before the user story itself is
-        created
+      description: Pre-upload file(s) before creating a User Story. Returns attachment
+        UUIDs and URLs that must be passed in the 'attachments' array of the CreateUserStory
+        payload.
       parameters:
-      - description: Project ID
+      - description: Project ID (UUID)
         in: path
         name: project_id
         required: true
         type: string
-      - description: File to upload
+      - description: File to upload (field name 'file' or 'files')
         in: formData
         name: file
         required: true
@@ -6214,7 +6282,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Draft user story attachments uploaded successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
@@ -6233,9 +6301,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Upload User Story Attachment without User Story ID
+      summary: Upload User Story Attachment (Draft / Before User Story Creation)
       tags:
-      - Attachment
+      - User Story Attachments
   /projects/{project_id}/user-stories/reorder:
     patch:
       consumes:
@@ -6278,7 +6346,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Reorder User Stories in the Product Backlog
       tags:
-      - UserStory
+      - User Stories
   /projects/{project_id}/user-story-statuses:
     get:
       description: Get all User Story statuses for a project
@@ -6309,7 +6377,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get User Story statuses
       tags:
-      - UserStoryStatus
+      - User Story Statuses
     post:
       consumes:
       - application/json
@@ -6355,7 +6423,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Create a User Story status
       tags:
-      - UserStoryStatus
+      - User Story Statuses
   /projects/{project_id}/user-story-statuses/{status_id}:
     delete:
       description: Delete an existing User Story custom status
@@ -6395,7 +6463,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Delete a User Story status
       tags:
-      - UserStoryStatus
+      - User Story Statuses
     patch:
       consumes:
       - application/json
@@ -6446,7 +6514,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Update a User Story status
       tags:
-      - UserStoryStatus
+      - User Story Statuses
   /projects/{project_id}/work-items/{serial_id}:
     get:
       description: Retrieve a project work item (task or user story) using its global
@@ -6491,7 +6559,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get project work item by global serial ID
       tags:
-      - WorkItem
+      - Work Items
   /projects/{project_id}/work-items/task/{key}:
     get:
       description: Retrieve a project task using its unique project-scoped key.
@@ -6535,7 +6603,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get project task by key
       tags:
-      - WorkItem
+      - Work Items
   /projects/{project_id}/work-items/us/{key}:
     get:
       description: Retrieve a project user story using its unique project-scoped key.
@@ -6579,7 +6647,7 @@ paths:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
       summary: Get project user story by key
       tags:
-      - WorkItem
+      - Work Items
   /search:
     get:
       description: Search across all Tasks, User Stories, Projects, and Members in
@@ -6859,14 +6927,15 @@ paths:
       - Comments
   /task/{task_id}/comments/{comment_id}/attachments:
     get:
-      description: Get all attachments associated with a comment
+      description: Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for
+        all files attached to a specific Comment on a Task.
       parameters:
-      - description: Task ID
+      - description: Task ID (UUID or Key)
         in: path
         name: task_id
         required: true
         type: string
-      - description: Comment ID
+      - description: Comment ID (UUID)
         in: path
         name: comment_id
         required: true
@@ -6875,7 +6944,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Comment attachments retrieved successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "403":
@@ -6890,25 +6959,26 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Retrieve Comment Attachments
+      summary: List Attachments for Task Comment
       tags:
-      - Comment Attachment
+      - Comment Attachments
     post:
       consumes:
       - multipart/form-data
-      description: Upload a file associated with a comment
+      description: Upload one or more files and link them directly to an already existing
+        Comment on a Task.
       parameters:
-      - description: Task ID
+      - description: Task ID (UUID or Key)
         in: path
         name: task_id
         required: true
         type: string
-      - description: Comment ID
+      - description: Comment ID (UUID)
         in: path
         name: comment_id
         required: true
         type: string
-      - description: File to upload
+      - description: File to upload (field name 'file' or 'files')
         in: formData
         name: file
         required: true
@@ -6917,7 +6987,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Comment attachments uploaded successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
@@ -6936,31 +7006,32 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Upload Comment Attachment
+      summary: Upload Attachment to Existing Task Comment
       tags:
-      - Comment Attachment
+      - Comment Attachments
   /task/{task_id}/comments/{comment_id}/attachments/{attachment_id}:
     delete:
-      description: Delete comment attachment if authorized
+      description: Permanently delete an attachment associated with a Task Comment
+        from both storage and database.
       parameters:
-      - description: Task ID
+      - description: Task ID (UUID or Key)
         in: path
         name: task_id
         required: true
         type: string
-      - description: Comment ID
+      - description: Comment ID (UUID)
         in: path
         name: comment_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
         type: string
       responses:
         "200":
-          description: OK
+          description: Attachment deleted successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "403":
@@ -6975,24 +7046,25 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Delete Comment Attachment
+      summary: Delete Task Comment Attachment
       tags:
-      - Comment Attachment
+      - Comment Attachments
   /task/{task_id}/comments/{comment_id}/attachments/{attachment_id}/download:
     get:
-      description: Validate membership and download a comment attachment
+      description: Stream and download the binary file content of a specific attachment
+        on a Task Comment.
       parameters:
-      - description: Task ID
+      - description: Task ID (UUID or Key)
         in: path
         name: task_id
         required: true
         type: string
-      - description: Comment ID
+      - description: Comment ID (UUID)
         in: path
         name: comment_id
         required: true
         type: string
-      - description: Attachment ID
+      - description: Attachment ID (UUID)
         in: path
         name: attachment_id
         required: true
@@ -7014,21 +7086,23 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Download Comment Attachment
+      summary: Download Task Comment Attachment File
       tags:
-      - Comment Attachment
+      - Comment Attachments
   /task/{task_id}/comments/attachments:
     post:
       consumes:
       - multipart/form-data
-      description: Upload a comment attachment before the comment itself is created
+      description: Pre-upload file(s) before creating a comment on a Task. Returns
+        attachment UUIDs and URLs to pass in the 'attachments' array of the CreateComment
+        payload.
       parameters:
-      - description: Task ID
+      - description: Task ID (UUID or Key)
         in: path
         name: task_id
         required: true
         type: string
-      - description: File to upload
+      - description: File to upload (field name 'file' or 'files')
         in: formData
         name: file
         required: true
@@ -7037,7 +7111,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Draft task comment attachments uploaded successfully
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse'
         "400":
@@ -7056,9 +7130,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse'
-      summary: Upload Comment Attachment without Comment ID
+      summary: Upload Task Comment Attachment (Draft / Before Comment Creation)
       tags:
-      - Comment Attachment
+      - Comment Attachments
   /task/{task_id}/comments/replies/{parent_comment_id}:
     get:
       consumes:
