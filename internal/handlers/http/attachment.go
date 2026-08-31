@@ -105,15 +105,15 @@ func writeAttachmentDownload(
 }
 
 // UploadAttachment godoc
-// @Summary Upload Task Attachment
-// @Description Upload a file associated with a task
-// @Tags Attachment
+// @Summary Upload Attachment to Existing Task
+// @Description Upload one or more files and link them directly to an already existing Task. Use multipart/form-data with field name 'file' or 'files'.
+// @Tags Task Attachments
 // @Accept multipart/form-data
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param task_id path string true "Task ID"
-// @Param file formData file true "File to upload"
-// @Success 201 {object} response.SuccessResponse
+// @Param project_id path string true "Project ID (UUID)"
+// @Param task_id path string true "Task ID (UUID)"
+// @Param file formData file true "File to upload (field name 'file' or 'files')"
+// @Success 201 {object} response.SuccessResponse "Attachments uploaded and linked successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -160,13 +160,13 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 }
 
 // GetAttachments godoc
-// @Summary Retrieve Task Attachments
-// @Description Get all attachments associated with a task
-// @Tags Attachment
+// @Summary List Attachments for Task
+// @Description Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific Task.
+// @Tags Task Attachments
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param task_id path string true "Task ID"
-// @Success 200 {object} response.SuccessResponse
+// @Param project_id path string true "Project ID (UUID)"
+// @Param task_id path string true "Task ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Attachments retrieved successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -206,12 +206,12 @@ func (h *attachmentHandler) GetAttachments(g *gin.Context) {
 }
 
 // DownloadAttachment godoc
-// @Summary Download Attachment
-// @Description Validate membership and download a task attachment
-// @Tags Attachment
-// @Param project_id path string true "Project ID"
-// @Param task_id path string true "Task ID"
-// @Param attachment_id path string true "Attachment ID"
+// @Summary Download Task Attachment File
+// @Description Stream and download the binary file content of a specific task attachment.
+// @Tags Task Attachments
+// @Param project_id path string true "Project ID (UUID)"
+// @Param task_id path string true "Task ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
 // @Success 200 {file} file "Attachment File Stream"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -247,13 +247,13 @@ func (h *attachmentHandler) DownloadAttachment(g *gin.Context) {
 }
 
 // DeleteAttachment godoc
-// @Summary Delete Attachment
-// @Description Delete task attachment if authorized
-// @Tags Attachment
-// @Param project_id path string true "Project ID"
-// @Param task_id path string true "Task ID"
-// @Param attachment_id path string true "Attachment ID"
-// @Success 200 {object} response.SuccessResponse
+// @Summary Delete Task Attachment
+// @Description Permanently delete an attachment associated with a Task from both storage and database.
+// @Tags Task Attachments
+// @Param project_id path string true "Project ID (UUID)"
+// @Param task_id path string true "Task ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Attachment deleted successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -292,15 +292,15 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 }
 
 // UploadCommentAttachment godoc
-// @Summary Upload Comment Attachment
-// @Description Upload a file associated with a comment
-// @Tags Comment Attachment
+// @Summary Upload Attachment to Existing Task Comment
+// @Description Upload one or more files and link them directly to an already existing Comment on a Task.
+// @Tags Comment Attachments
 // @Accept multipart/form-data
 // @Produce json
-// @Param task_id path string true "Task ID"
-// @Param comment_id path string true "Comment ID"
-// @Param file formData file true "File to upload"
-// @Success 201 {object} response.SuccessResponse
+// @Param task_id path string true "Task ID (UUID or Key)"
+// @Param comment_id path string true "Comment ID (UUID)"
+// @Param file formData file true "File to upload (field name 'file' or 'files')"
+// @Success 201 {object} response.SuccessResponse "Comment attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -349,13 +349,13 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 }
 
 // GetCommentAttachments godoc
-// @Summary Retrieve Comment Attachments
-// @Description Get all attachments associated with a comment
-// @Tags Comment Attachment
+// @Summary List Attachments for Task Comment
+// @Description Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific Comment on a Task.
+// @Tags Comment Attachments
 // @Produce json
-// @Param task_id path string true "Task ID"
-// @Param comment_id path string true "Comment ID"
-// @Success 200 {object} response.SuccessResponse
+// @Param task_id path string true "Task ID (UUID or Key)"
+// @Param comment_id path string true "Comment ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Comment attachments retrieved successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -397,12 +397,12 @@ func (h *attachmentHandler) GetCommentAttachments(g *gin.Context) {
 }
 
 // DownloadCommentAttachment godoc
-// @Summary Download Comment Attachment
-// @Description Validate membership and download a comment attachment
-// @Tags Comment Attachment
-// @Param task_id path string true "Task ID"
-// @Param comment_id path string true "Comment ID"
-// @Param attachment_id path string true "Attachment ID"
+// @Summary Download Task Comment Attachment File
+// @Description Stream and download the binary file content of a specific attachment on a Task Comment.
+// @Tags Comment Attachments
+// @Param task_id path string true "Task ID (UUID or Key)"
+// @Param comment_id path string true "Comment ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
 // @Success 200 {file} file "Attachment File Stream"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -440,13 +440,13 @@ func (h *attachmentHandler) DownloadCommentAttachment(g *gin.Context) {
 }
 
 // DeleteCommentAttachment godoc
-// @Summary Delete Comment Attachment
-// @Description Delete comment attachment if authorized
-// @Tags Comment Attachment
-// @Param task_id path string true "Task ID"
-// @Param comment_id path string true "Comment ID"
-// @Param attachment_id path string true "Attachment ID"
-// @Success 200 {object} response.SuccessResponse
+// @Summary Delete Task Comment Attachment
+// @Description Permanently delete an attachment associated with a Task Comment from both storage and database.
+// @Tags Comment Attachments
+// @Param task_id path string true "Task ID (UUID or Key)"
+// @Param comment_id path string true "Comment ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Attachment deleted successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -487,15 +487,15 @@ func (h *attachmentHandler) DeleteCommentAttachment(g *gin.Context) {
 }
 
 // UploadUserStoryAttachment godoc
-// @Summary Upload User Story Attachment
-// @Description Upload a file associated with a user story
-// @Tags User Story Attachment
+// @Summary Upload Attachment to Existing User Story
+// @Description Upload one or more files and link them directly to an already existing User Story. Use multipart/form-data with field name 'file' or 'files'.
+// @Tags User Story Attachments
 // @Accept multipart/form-data
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param user_story_id path string true "User Story ID"
-// @Param file formData file true "File to upload"
-// @Success 201 {object} response.SuccessResponse
+// @Param project_id path string true "Project ID (UUID)"
+// @Param user_story_id path string true "User Story ID (UUID)"
+// @Param file formData file true "File to upload (field name 'file' or 'files')"
+// @Success 201 {object} response.SuccessResponse "Attachments uploaded and linked successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -542,13 +542,13 @@ func (h *attachmentHandler) UploadUserStoryAttachment(g *gin.Context) {
 }
 
 // GetUserStoryAttachments godoc
-// @Summary Retrieve User Story Attachments
-// @Description Get all attachments associated with a user story
-// @Tags User Story Attachment
+// @Summary List Attachments for User Story
+// @Description Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific User Story.
+// @Tags User Story Attachments
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param user_story_id path string true "User Story ID"
-// @Success 200 {object} response.SuccessResponse
+// @Param project_id path string true "Project ID (UUID)"
+// @Param user_story_id path string true "User Story ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Attachments retrieved successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -588,12 +588,12 @@ func (h *attachmentHandler) GetUserStoryAttachments(g *gin.Context) {
 }
 
 // DownloadUserStoryAttachment godoc
-// @Summary Download User Story Attachment
-// @Description Validate membership and download a user story attachment
-// @Tags User Story Attachment
-// @Param project_id path string true "Project ID"
-// @Param user_story_id path string true "User Story ID"
-// @Param attachment_id path string true "Attachment ID"
+// @Summary Download User Story Attachment File
+// @Description Stream and download the binary file content of a specific User Story attachment.
+// @Tags User Story Attachments
+// @Param project_id path string true "Project ID (UUID)"
+// @Param user_story_id path string true "User Story ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
 // @Success 200 {file} file "Attachment File Stream"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -630,12 +630,12 @@ func (h *attachmentHandler) DownloadUserStoryAttachment(g *gin.Context) {
 
 // DeleteUserStoryAttachment godoc
 // @Summary Delete User Story Attachment
-// @Description Delete user story attachment if authorized
-// @Tags User Story Attachment
-// @Param project_id path string true "Project ID"
-// @Param user_story_id path string true "User Story ID"
-// @Param attachment_id path string true "Attachment ID"
-// @Success 200 {object} response.SuccessResponse
+// @Description Permanently delete an attachment associated with a User Story from both storage and database.
+// @Tags User Story Attachments
+// @Param project_id path string true "Project ID (UUID)"
+// @Param user_story_id path string true "User Story ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Attachment deleted successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -674,14 +674,14 @@ func (h *attachmentHandler) DeleteUserStoryAttachment(g *gin.Context) {
 }
 
 // UploadCommentAttachmentWithoutComment godoc
-// @Summary Upload Comment Attachment without Comment ID
-// @Description Upload a comment attachment before the comment itself is created
-// @Tags Comment Attachment
+// @Summary Upload Task Comment Attachment (Draft / Before Comment Creation)
+// @Description Pre-upload file(s) before creating a comment on a Task. Returns attachment UUIDs and URLs to pass in the 'attachments' array of the CreateComment payload.
+// @Tags Comment Attachments
 // @Accept multipart/form-data
 // @Produce json
-// @Param task_id path string true "Task ID"
-// @Param file formData file true "File to upload"
-// @Success 201 {object} response.SuccessResponse
+// @Param task_id path string true "Task ID (UUID or Key)"
+// @Param file formData file true "File to upload (field name 'file' or 'files')"
+// @Success 201 {object} response.SuccessResponse "Draft task comment attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -723,14 +723,15 @@ func (h *attachmentHandler) UploadCommentAttachmentWithoutComment(g *gin.Context
 }
 
 // UploadUserStoryCommentAttachmentWithoutComment godoc
-// @Summary Upload User Story Comment Attachment without Comment ID
-// @Description Upload a comment attachment before the comment itself is created on a User Story
-// @Tags Comment Attachment
+// @Summary Upload User Story Comment Attachment (Draft / Before Comment Creation)
+// @Description Pre-upload file(s) before creating a comment on a User Story. Returns attachment UUIDs and URLs to pass in the 'attachments' array of the CreateComment payload.
+// @Tags Comment Attachments
 // @Accept multipart/form-data
 // @Produce json
-// @Param user_story_id path string true "User Story ID"
-// @Param file formData file true "File to upload"
-// @Success 201 {object} response.SuccessResponse
+// @Param project_id path string true "Project ID (UUID)"
+// @Param user_story_id path string true "User Story ID (UUID)"
+// @Param file formData file true "File to upload (field name 'file' or 'files')"
+// @Success 201 {object} response.SuccessResponse "Draft user story comment attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -770,11 +771,12 @@ func (h *attachmentHandler) UploadUserStoryCommentAttachmentWithoutComment(g *gi
 }
 
 // DownloadUserStoryCommentAttachment godoc
-// @Summary Download User Story Comment Attachment
-// @Description Validate membership and download a comment attachment for a user story
-// @Tags Comment Attachment
-// @Param user_story_id path string true "User Story ID"
-// @Param attachment_id path string true "Attachment ID"
+// @Summary Download User Story Comment Attachment File
+// @Description Stream and download the binary file content of a specific attachment on a User Story Comment.
+// @Tags Comment Attachments
+// @Param project_id path string true "Project ID (UUID)"
+// @Param user_story_id path string true "User Story ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
 // @Success 200 {file} file "Attachment File Stream"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -811,11 +813,12 @@ func (h *attachmentHandler) DownloadUserStoryCommentAttachment(g *gin.Context) {
 
 // DeleteUserStoryCommentAttachment godoc
 // @Summary Delete User Story Comment Attachment
-// @Description Delete user story comment attachment if authorized
-// @Tags Comment Attachment
-// @Param user_story_id path string true "User Story ID"
-// @Param attachment_id path string true "Attachment ID"
-// @Success 200 {object} response.SuccessResponse
+// @Description Permanently delete an attachment associated with a User Story Comment from both storage and database.
+// @Tags Comment Attachments
+// @Param project_id path string true "Project ID (UUID)"
+// @Param user_story_id path string true "User Story ID (UUID)"
+// @Param attachment_id path string true "Attachment ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Attachment deleted successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -854,14 +857,14 @@ func (h *attachmentHandler) DeleteUserStoryCommentAttachment(g *gin.Context) {
 }
 
 // UploadAttachmentWithoutTask godoc
-// @Summary Upload Task Attachment without Task ID
-// @Description Upload a task attachment before the task itself is created
-// @Tags Attachment
+// @Summary Upload Task Attachment (Draft / Before Task Creation)
+// @Description Pre-upload file(s) before creating a Task. Returns attachment UUIDs and URLs that must be passed in the 'attachments' array of the CreateTask payload.
+// @Tags Task Attachments
 // @Accept multipart/form-data
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param file formData file true "File to upload"
-// @Success 201 {object} response.SuccessResponse
+// @Param project_id path string true "Project ID (UUID)"
+// @Param file formData file true "File to upload (field name 'file' or 'files')"
+// @Success 201 {object} response.SuccessResponse "Draft task attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -901,14 +904,14 @@ func (h *attachmentHandler) UploadAttachmentWithoutTask(g *gin.Context) {
 }
 
 // UploadUserStoryAttachmentWithoutUserStory godoc
-// @Summary Upload User Story Attachment without User Story ID
-// @Description Upload a user story attachment before the user story itself is created
-// @Tags Attachment
+// @Summary Upload User Story Attachment (Draft / Before User Story Creation)
+// @Description Pre-upload file(s) before creating a User Story. Returns attachment UUIDs and URLs that must be passed in the 'attachments' array of the CreateUserStory payload.
+// @Tags User Story Attachments
 // @Accept multipart/form-data
 // @Produce json
-// @Param project_id path string true "Project ID"
-// @Param file formData file true "File to upload"
-// @Success 201 {object} response.SuccessResponse
+// @Param project_id path string true "Project ID (UUID)"
+// @Param file formData file true "File to upload (field name 'file' or 'files')"
+// @Success 201 {object} response.SuccessResponse "Draft user story attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"

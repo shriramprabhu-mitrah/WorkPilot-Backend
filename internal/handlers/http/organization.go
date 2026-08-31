@@ -487,7 +487,7 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 //
 // @Summary      Update User Status
 // @Description  Updates User profile.
-// @Tags         Organizations
+// @Tags         Organization Members
 // @Accept       json
 // @Produce      json
 // @Param        request body requestdto.UserStatusRequest true "Update User Status Request"
@@ -558,7 +558,7 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 //
 // @Summary      Update User Role
 // @Description  Updates User profile.
-// @Tags         Organizations
+// @Tags         Organization Members
 // @Accept       json
 // @Produce      json
 // @Param        request body requestdto.UserRoleRequest true "Update User Role Request"
@@ -642,7 +642,7 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 //
 // @Summary      Get current Organization
 // @Description  Returns the profile of the authenticated Organization.
-// @Tags         Organizations
+// @Tags         Organization Members
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse{data=[]responsedto.UserProfile}
 // @Failure      401 {object} response.ErrorResponse
@@ -735,7 +735,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 //
 //	@Summary		Get all system members/users (Super Admin)
 //	@Description	Returns a paginated list of all members across all organizations with search, filters, and sorting.
-//	@Tags			Organizations
+//	@Tags			Organization Members
 //	@Produce		json
 //	@Param			page			query		int		false	"Page Number"		default(1)
 //	@Param			page_size		query		int		false	"Page Size"			default(10)
@@ -799,7 +799,7 @@ func (h *OrganizationHandler) GetAllMembers(g *gin.Context) {
 //
 //	@Summary		Remove user from organization
 //	@Description	Removes a user from the current organization.
-//	@Tags			Organizations
+//	@Tags			Organization Members
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
@@ -859,7 +859,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 //
 // @Summary      Invite member to organization
 // @Description  Sends an email invitation to a user to join the organization.
-// @Tags         Organizations
+// @Tags         Organization Members
 // @Accept       json
 // @Produce      json
 // @Param        request body requestdto.InviteOrganizationMemberRequest true "Invite Organization Member Request"
@@ -910,7 +910,7 @@ func (h *OrganizationHandler) InviteOrganizationMember(g *gin.Context) {
 //
 // @Summary      Show accept invitation page or redirect to login
 // @Description  Validates the token, checks login status, and renders acceptance page or redirects to login.
-// @Tags         Organizations
+// @Tags         Organization Members
 // @Produce      html
 // @Param        token query string true "Invitation token"
 // @Success      200 {string} string "HTML Confirmation Page"
@@ -1022,7 +1022,7 @@ func (h *OrganizationHandler) AcceptInvitationPage(g *gin.Context) {
 //
 // @Summary      Accept organization invitation
 // @Description  Accepts a pending organization invitation using the provided token.
-// @Tags         Organizations
+// @Tags         Organization Members
 // @Accept       json
 // @Produce      json
 // @Param        request body requestdto.AcceptInvitationRequest true "Accept invitation"

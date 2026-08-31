@@ -31,7 +31,7 @@ type sprintHandler struct {
 // CreateSprint godoc
 // @Summary Create Sprints
 // @Description Create one or more sprints under a project
-// @Tags Sprint
+// @Tags Sprints
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -109,7 +109,7 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 // StartSprint godoc
 // @Summary Start Sprint
 // @Description start a created sprint
-// @Tags Sprint
+// @Tags Sprints
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -226,6 +226,20 @@ func (h *sprintHandler) StartSprint(g *gin.Context) {
 	})
 }
 
+// CompleteSprint godoc
+// @Summary Complete Sprint
+// @Description Complete an active sprint and record velocity
+// @Tags Sprints
+// @Produce json
+// @Param project_id path string true "Project ID (UUID)"
+// @Param sprint_id query string true "Sprint ID (UUID)"
+// @Success 200 {object} response.SuccessResponse "Sprint completed successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request parameters"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Failure 403 {object} response.ErrorResponse "Forbidden"
+// @Failure 404 {object} response.ErrorResponse "Sprint not found"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /projects/{project_id}/sprint/complete [post]
 func (h *sprintHandler) CompleteSprint(g *gin.Context) {
 
 	projectIDParam := g.Param("project_id")
@@ -320,7 +334,7 @@ func (h *sprintHandler) CompleteSprint(g *gin.Context) {
 // DeleteSprint godoc
 // @Summary Delete Sprint
 // @Description Delete a sprint from a project
-// @Tags Sprint
+// @Tags Sprints
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"
@@ -389,7 +403,7 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 // UpdateSprint godoc
 // @Summary Update Sprint
 // @Description Update sprint details
-// @Tags Sprint
+// @Tags Sprints
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -477,7 +491,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // GetSprints godoc
 // @Summary Get Sprints
 // @Description Retrieve all sprints for a project with pagination, search, sorting and status filter
-// @Tags Sprint
+// @Tags Sprints
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param page query int false "Page number" default(1)
@@ -629,7 +643,7 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 // GetSprintByID godoc
 // @Summary Get Sprint By ID
 // @Description Retrieve a sprint by project ID and sprint ID
-// @Tags Sprint
+// @Tags Sprints
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"

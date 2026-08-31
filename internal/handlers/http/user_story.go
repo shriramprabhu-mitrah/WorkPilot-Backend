@@ -30,7 +30,7 @@ func InitUserStoryHandler(service services.UserStoryService, logger *zap.Logger)
 // CreateUserStory godoc
 // @Summary Create a new user story
 // @Description Create a new user story in the specified project. The description field accepts HTML and is sanitized before storage.
-// @Tags UserStory
+// @Tags User Stories
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -103,7 +103,7 @@ func (h *userStoryHandler) CreateUserStory(g *gin.Context) {
 // GetUserStoryByID godoc
 // @Summary Get User Story By ID or Key
 // @Description Retrieve details of a specific user story by ID or Key
-// @Tags UserStory
+// @Tags User Stories
 // @Produce json
 // @Param project_id path string true "Project ID or Slug"
 // @Param user_story_id path string true "User Story ID or Key (e.g. US-1)"
@@ -162,7 +162,7 @@ func (h *userStoryHandler) GetUserStoryByID(g *gin.Context) {
 // UpdateUserStory godoc
 // @Summary Update User Story
 // @Description Update fields of a specific user story by ID. Description supports HTML content and is sanitized before storage.
-// @Tags UserStory
+// @Tags User Stories
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -245,7 +245,7 @@ func (h *userStoryHandler) UpdateUserStory(g *gin.Context) {
 // DeleteUserStory godoc
 // @Summary Delete User Story
 // @Description Soft delete a specific user story by ID
-// @Tags UserStory
+// @Tags User Stories
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
@@ -303,7 +303,7 @@ func (h *userStoryHandler) DeleteUserStory(g *gin.Context) {
 // GetUserStories godoc
 // @Summary Get User Stories
 // @Description Retrieve a paginated and filtered list of user stories in a project
-// @Tags UserStory
+// @Tags User Stories
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param page query int false "Page number" default(1)
@@ -387,7 +387,7 @@ func (h *userStoryHandler) GetUserStories(g *gin.Context) {
 // ReorderUserStories godoc
 // @Summary Reorder User Stories in the Product Backlog
 // @Description Persist a new ordering for user stories in the project backlog
-// @Tags UserStory
+// @Tags User Stories
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -459,7 +459,7 @@ func (h *userStoryHandler) ReorderUserStories(g *gin.Context) {
 // UpdateUserStoryStatus godoc
 // @Summary Update User Story Status
 // @Description Update the status of a specific user story using the dedicated User Story status endpoint.
-// @Tags UserStory
+// @Tags User Stories
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"

@@ -37,7 +37,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Audit"
+                    "Audit Logs"
                 ],
                 "summary": "Get audit logs",
                 "parameters": [
@@ -242,7 +242,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authentication"
+                    "Users"
                 ],
                 "summary": "Get user task insights",
                 "responses": {
@@ -877,7 +877,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Lookup"
+                    "Public"
                 ],
                 "summary": "Get all countries",
                 "responses": {
@@ -903,7 +903,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Favorite"
+                    "Favorites"
                 ],
                 "summary": "Get all favorites",
                 "parameters": [
@@ -974,7 +974,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Favorite"
+                    "Favorites"
                 ],
                 "summary": "Add item to favorites",
                 "parameters": [
@@ -1033,7 +1033,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Favorite"
+                    "Favorites"
                 ],
                 "summary": "Remove item from favorites",
                 "parameters": [
@@ -1269,7 +1269,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Get all system members/users (Super Admin)",
                 "parameters": [
@@ -1615,7 +1615,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Get current Organization",
                 "responses": {
@@ -1662,7 +1662,7 @@ const docTemplate = `{
                     "text/html"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Show accept invitation page or redirect to login",
                 "parameters": [
@@ -1692,7 +1692,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Accept organization invitation",
                 "parameters": [
@@ -1738,7 +1738,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Invite member to organization",
                 "parameters": [
@@ -1801,7 +1801,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Remove user from organization",
                 "parameters": [
@@ -2363,7 +2363,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Update User Role",
                 "parameters": [
@@ -2415,7 +2415,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Organizations"
+                    "Organization Members"
                 ],
                 "summary": "Update User Status",
                 "parameters": [
@@ -3504,7 +3504,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Projects"
+                    "Project Members"
                 ],
                 "summary": "Update project member role",
                 "parameters": [
@@ -3654,7 +3654,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "CustomStatus"
+                    "Custom Statuses"
                 ],
                 "summary": "Get custom statuses",
                 "parameters": [
@@ -3702,7 +3702,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "CustomStatus"
+                    "Custom Statuses"
                 ],
                 "summary": "Create a custom status",
                 "parameters": [
@@ -3770,7 +3770,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "CustomStatus"
+                    "Custom Statuses"
                 ],
                 "summary": "Delete a custom status",
                 "parameters": [
@@ -3831,7 +3831,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "CustomStatus"
+                    "Custom Statuses"
                 ],
                 "summary": "Update a custom status",
                 "parameters": [
@@ -3906,7 +3906,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Label"
+                    "Labels"
                 ],
                 "summary": "Get labels",
                 "parameters": [
@@ -3954,7 +3954,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Label"
+                    "Labels"
                 ],
                 "summary": "Create a label",
                 "parameters": [
@@ -4022,7 +4022,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Label"
+                    "Labels"
                 ],
                 "summary": "Delete a label",
                 "parameters": [
@@ -4083,7 +4083,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Label"
+                    "Labels"
                 ],
                 "summary": "Update a label",
                 "parameters": [
@@ -4158,7 +4158,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Sprint"
+                    "Sprints"
                 ],
                 "summary": "Get Sprints",
                 "parameters": [
@@ -4290,7 +4290,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Sprint"
+                    "Sprints"
                 ],
                 "summary": "Create Sprints",
                 "parameters": [
@@ -4351,6 +4351,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{project_id}/sprint/complete": {
+            "post": {
+                "description": "Complete an active sprint and record velocity",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sprints"
+                ],
+                "summary": "Complete Sprint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID (UUID)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sprint ID (UUID)",
+                        "name": "sprint_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sprint completed successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Sprint not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{project_id}/sprint/start": {
             "post": {
                 "description": "start a created sprint",
@@ -4361,7 +4427,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Sprint"
+                    "Sprints"
                 ],
                 "summary": "Start Sprint",
                 "parameters": [
@@ -4429,7 +4495,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Sprint"
+                    "Sprints"
                 ],
                 "summary": "Get Sprint By ID",
                 "parameters": [
@@ -4493,7 +4559,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Sprint"
+                    "Sprints"
                 ],
                 "summary": "Delete Sprint",
                 "parameters": [
@@ -4560,7 +4626,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Sprint"
+                    "Sprints"
                 ],
                 "summary": "Update Sprint",
                 "parameters": [
@@ -4767,7 +4833,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Get Tasks",
                 "parameters": [
@@ -4947,7 +5013,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Create a new task",
                 "parameters": [
@@ -5010,7 +5076,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Bulk Delete Tasks",
                 "parameters": [
@@ -5073,7 +5139,7 @@ const docTemplate = `{
         },
         "/projects/{project_id}/tasks/attachments": {
             "post": {
-                "description": "Upload a task attachment before the task itself is created",
+                "description": "Pre-upload file(s) before creating a Task. Returns attachment UUIDs and URLs that must be passed in the 'attachments' array of the CreateTask payload.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -5081,20 +5147,20 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Attachment"
+                    "Task Attachments"
                 ],
-                "summary": "Upload Task Attachment without Task ID",
+                "summary": "Upload Task Attachment (Draft / Before Task Creation)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (field name 'file' or 'files')",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -5102,7 +5168,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Draft task attachments uploaded successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -5144,7 +5210,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Bulk Update Tasks",
                 "parameters": [
@@ -5212,7 +5278,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Get Task By ID or Key",
                 "parameters": [
@@ -5279,7 +5345,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Update Task",
                 "parameters": [
@@ -5354,7 +5420,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Assign Task to Me",
                 "parameters": [
@@ -5415,25 +5481,25 @@ const docTemplate = `{
         },
         "/projects/{project_id}/tasks/{task_id}/attachments": {
             "get": {
-                "description": "Get all attachments associated with a task",
+                "description": "Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific Task.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Attachment"
+                    "Task Attachments"
                 ],
-                "summary": "Retrieve Task Attachments",
+                "summary": "List Attachments for Task",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
@@ -5441,7 +5507,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Attachments retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -5467,7 +5533,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Upload a file associated with a task",
+                "description": "Upload one or more files and link them directly to an already existing Task. Use multipart/form-data with field name 'file' or 'files'.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -5475,27 +5541,27 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Attachment"
+                    "Task Attachments"
                 ],
-                "summary": "Upload Task Attachment",
+                "summary": "Upload Attachment to Existing Task",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (field name 'file' or 'files')",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -5503,7 +5569,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Attachments uploaded and linked successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -5537,29 +5603,29 @@ const docTemplate = `{
         },
         "/projects/{project_id}/tasks/{task_id}/attachments/{attachment_id}": {
             "delete": {
-                "description": "Delete task attachment if authorized",
+                "description": "Permanently delete an attachment associated with a Task from both storage and database.",
                 "tags": [
-                    "Attachment"
+                    "Task Attachments"
                 ],
-                "summary": "Delete Attachment",
+                "summary": "Delete Task Attachment",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true
@@ -5567,7 +5633,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Attachment deleted successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -5595,29 +5661,29 @@ const docTemplate = `{
         },
         "/projects/{project_id}/tasks/{task_id}/attachments/{attachment_id}/download": {
             "get": {
-                "description": "Validate membership and download a task attachment",
+                "description": "Stream and download the binary file content of a specific task attachment.",
                 "tags": [
-                    "Attachment"
+                    "Task Attachments"
                 ],
-                "summary": "Download Attachment",
+                "summary": "Download Task Attachment File",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true
@@ -5661,7 +5727,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Clone Task",
                 "parameters": [
@@ -5736,8 +5802,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task",
-                    "Favorite"
+                    "Favorites"
                 ],
                 "summary": "Favorite a task",
                 "parameters": [
@@ -5801,8 +5866,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task",
-                    "Favorite"
+                    "Favorites"
                 ],
                 "summary": "Unfavorite a task",
                 "parameters": [
@@ -5859,7 +5923,7 @@ const docTemplate = `{
             "put": {
                 "description": "Attach a project label to a specific task",
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Attach Label to Task",
                 "parameters": [
@@ -5927,7 +5991,7 @@ const docTemplate = `{
             "delete": {
                 "description": "Remove a project label from a specific task",
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Remove Label from Task",
                 "parameters": [
@@ -6000,7 +6064,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Task"
+                    "Tasks"
                 ],
                 "summary": "Restore Task",
                 "parameters": [
@@ -6066,7 +6130,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory"
+                    "User Stories"
                 ],
                 "summary": "Get User Stories",
                 "parameters": [
@@ -6219,7 +6283,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory"
+                    "User Stories"
                 ],
                 "summary": "Create a new user story",
                 "parameters": [
@@ -6276,7 +6340,7 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/attachments": {
             "post": {
-                "description": "Upload a user story attachment before the user story itself is created",
+                "description": "Pre-upload file(s) before creating a User Story. Returns attachment UUIDs and URLs that must be passed in the 'attachments' array of the CreateUserStory payload.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -6284,20 +6348,20 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Attachment"
+                    "User Story Attachments"
                 ],
-                "summary": "Upload User Story Attachment without User Story ID",
+                "summary": "Upload User Story Attachment (Draft / Before User Story Creation)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (field name 'file' or 'files')",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -6305,7 +6369,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Draft user story attachments uploaded successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -6347,7 +6411,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory"
+                    "User Stories"
                 ],
                 "summary": "Reorder User Stories in the Product Backlog",
                 "parameters": [
@@ -6409,7 +6473,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory"
+                    "User Stories"
                 ],
                 "summary": "Get User Story By ID or Key",
                 "parameters": [
@@ -6473,7 +6537,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory"
+                    "User Stories"
                 ],
                 "summary": "Delete User Story",
                 "parameters": [
@@ -6540,7 +6604,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory"
+                    "User Stories"
                 ],
                 "summary": "Update User Story",
                 "parameters": [
@@ -6610,25 +6674,25 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/{user_story_id}/attachments": {
             "get": {
-                "description": "Get all attachments associated with a user story",
+                "description": "Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific User Story.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "User Story Attachment"
+                    "User Story Attachments"
                 ],
-                "summary": "Retrieve User Story Attachments",
+                "summary": "List Attachments for User Story",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "User Story ID",
+                        "description": "User Story ID (UUID)",
                         "name": "user_story_id",
                         "in": "path",
                         "required": true
@@ -6636,7 +6700,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Attachments retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -6662,7 +6726,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Upload a file associated with a user story",
+                "description": "Upload one or more files and link them directly to an already existing User Story. Use multipart/form-data with field name 'file' or 'files'.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -6670,27 +6734,27 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "User Story Attachment"
+                    "User Story Attachments"
                 ],
-                "summary": "Upload User Story Attachment",
+                "summary": "Upload Attachment to Existing User Story",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "User Story ID",
+                        "description": "User Story ID (UUID)",
                         "name": "user_story_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (field name 'file' or 'files')",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -6698,7 +6762,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Attachments uploaded and linked successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -6732,29 +6796,29 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/{user_story_id}/attachments/{attachment_id}": {
             "delete": {
-                "description": "Delete user story attachment if authorized",
+                "description": "Permanently delete an attachment associated with a User Story from both storage and database.",
                 "tags": [
-                    "User Story Attachment"
+                    "User Story Attachments"
                 ],
                 "summary": "Delete User Story Attachment",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "User Story ID",
+                        "description": "User Story ID (UUID)",
                         "name": "user_story_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true
@@ -6762,7 +6826,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Attachment deleted successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -6790,29 +6854,29 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/{user_story_id}/attachments/{attachment_id}/download": {
             "get": {
-                "description": "Validate membership and download a user story attachment",
+                "description": "Stream and download the binary file content of a specific User Story attachment.",
                 "tags": [
-                    "User Story Attachment"
+                    "User Story Attachments"
                 ],
-                "summary": "Download User Story Attachment",
+                "summary": "Download User Story Attachment File",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Project ID",
+                        "description": "Project ID (UUID)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "User Story ID",
+                        "description": "User Story ID (UUID)",
                         "name": "user_story_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true
@@ -6936,7 +7000,7 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/{user_story_id}/comments/attachments": {
             "post": {
-                "description": "Upload a comment attachment before the comment itself is created on a User Story",
+                "description": "Pre-upload file(s) before creating a comment on a User Story. Returns attachment UUIDs and URLs to pass in the 'attachments' array of the CreateComment payload.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -6944,20 +7008,27 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
-                "summary": "Upload User Story Comment Attachment without Comment ID",
+                "summary": "Upload User Story Comment Attachment (Draft / Before Comment Creation)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "User Story ID",
+                        "description": "Project ID (UUID)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User Story ID (UUID)",
                         "name": "user_story_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (field name 'file' or 'files')",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -6965,7 +7036,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Draft user story comment attachments uploaded successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -6999,22 +7070,29 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id}": {
             "delete": {
-                "description": "Delete user story comment attachment if authorized",
+                "description": "Permanently delete an attachment associated with a User Story Comment from both storage and database.",
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
                 "summary": "Delete User Story Comment Attachment",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "User Story ID",
+                        "description": "Project ID (UUID)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User Story ID (UUID)",
                         "name": "user_story_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true
@@ -7022,7 +7100,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Attachment deleted successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -7050,22 +7128,29 @@ const docTemplate = `{
         },
         "/projects/{project_id}/user-stories/{user_story_id}/comments/attachments/{attachment_id}/download": {
             "get": {
-                "description": "Validate membership and download a comment attachment for a user story",
+                "description": "Stream and download the binary file content of a specific attachment on a User Story Comment.",
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
-                "summary": "Download User Story Comment Attachment",
+                "summary": "Download User Story Comment Attachment File",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "User Story ID",
+                        "description": "Project ID (UUID)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User Story ID (UUID)",
                         "name": "user_story_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true
@@ -7106,8 +7191,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory",
-                    "Favorite"
+                    "Favorites"
                 ],
                 "summary": "Favorite a user story",
                 "parameters": [
@@ -7171,8 +7255,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory",
-                    "Favorite"
+                    "Favorites"
                 ],
                 "summary": "Unfavorite a user story",
                 "parameters": [
@@ -7235,7 +7318,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStory"
+                    "User Stories"
                 ],
                 "summary": "Update User Story Status",
                 "parameters": [
@@ -7316,7 +7399,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStoryStatus"
+                    "User Story Statuses"
                 ],
                 "summary": "Get User Story statuses",
                 "parameters": [
@@ -7364,7 +7447,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStoryStatus"
+                    "User Story Statuses"
                 ],
                 "summary": "Create a User Story status",
                 "parameters": [
@@ -7432,7 +7515,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStoryStatus"
+                    "User Story Statuses"
                 ],
                 "summary": "Delete a User Story status",
                 "parameters": [
@@ -7493,7 +7576,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "UserStoryStatus"
+                    "User Story Statuses"
                 ],
                 "summary": "Update a User Story status",
                 "parameters": [
@@ -7568,7 +7651,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "WorkItem"
+                    "Work Items"
                 ],
                 "summary": "Get project task by key",
                 "parameters": [
@@ -7634,7 +7717,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "WorkItem"
+                    "Work Items"
                 ],
                 "summary": "Get project user story by key",
                 "parameters": [
@@ -7700,7 +7783,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "WorkItem"
+                    "Work Items"
                 ],
                 "summary": "Get project work item by global serial ID",
                 "parameters": [
@@ -7956,7 +8039,7 @@ const docTemplate = `{
         },
         "/task/{task_id}/comments/attachments": {
             "post": {
-                "description": "Upload a comment attachment before the comment itself is created",
+                "description": "Pre-upload file(s) before creating a comment on a Task. Returns attachment UUIDs and URLs to pass in the 'attachments' array of the CreateComment payload.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -7964,20 +8047,20 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
-                "summary": "Upload Comment Attachment without Comment ID",
+                "summary": "Upload Task Comment Attachment (Draft / Before Comment Creation)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID or Key)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (field name 'file' or 'files')",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -7985,7 +8068,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Draft task comment attachments uploaded successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -8328,25 +8411,25 @@ const docTemplate = `{
         },
         "/task/{task_id}/comments/{comment_id}/attachments": {
             "get": {
-                "description": "Get all attachments associated with a comment",
+                "description": "Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific Comment on a Task.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
-                "summary": "Retrieve Comment Attachments",
+                "summary": "List Attachments for Task Comment",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID or Key)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Comment ID",
+                        "description": "Comment ID (UUID)",
                         "name": "comment_id",
                         "in": "path",
                         "required": true
@@ -8354,7 +8437,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Comment attachments retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -8380,7 +8463,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Upload a file associated with a comment",
+                "description": "Upload one or more files and link them directly to an already existing Comment on a Task.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -8388,27 +8471,27 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
-                "summary": "Upload Comment Attachment",
+                "summary": "Upload Attachment to Existing Task Comment",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID or Key)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Comment ID",
+                        "description": "Comment ID (UUID)",
                         "name": "comment_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (field name 'file' or 'files')",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -8416,7 +8499,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Comment attachments uploaded successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -8450,29 +8533,29 @@ const docTemplate = `{
         },
         "/task/{task_id}/comments/{comment_id}/attachments/{attachment_id}": {
             "delete": {
-                "description": "Delete comment attachment if authorized",
+                "description": "Permanently delete an attachment associated with a Task Comment from both storage and database.",
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
-                "summary": "Delete Comment Attachment",
+                "summary": "Delete Task Comment Attachment",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID or Key)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Comment ID",
+                        "description": "Comment ID (UUID)",
                         "name": "comment_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true
@@ -8480,7 +8563,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Attachment deleted successfully",
                         "schema": {
                             "$ref": "#/definitions/github_com_ms-kanban-server_internal_pkg_response.SuccessResponse"
                         }
@@ -8508,29 +8591,29 @@ const docTemplate = `{
         },
         "/task/{task_id}/comments/{comment_id}/attachments/{attachment_id}/download": {
             "get": {
-                "description": "Validate membership and download a comment attachment",
+                "description": "Stream and download the binary file content of a specific attachment on a Task Comment.",
                 "tags": [
-                    "Comment Attachment"
+                    "Comment Attachments"
                 ],
-                "summary": "Download Comment Attachment",
+                "summary": "Download Task Comment Attachment File",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Task ID",
+                        "description": "Task ID (UUID or Key)",
                         "name": "task_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Comment ID",
+                        "description": "Comment ID (UUID)",
                         "name": "comment_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Attachment ID",
+                        "description": "Attachment ID (UUID)",
                         "name": "attachment_id",
                         "in": "path",
                         "required": true

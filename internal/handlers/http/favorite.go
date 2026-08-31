@@ -26,7 +26,7 @@ func InitFavoriteHandler(service services.FavoriteService, logger *zap.Logger) *
 // AddFavorite godoc
 // @Summary Add item to favorites
 // @Description Add a user story or task to user favorites
-// @Tags Favorite
+// @Tags Favorites
 // @Accept json
 // @Produce json
 // @Param request body requestdto.AddFavoriteRequest true "Add Favorite Request Body"
@@ -77,7 +77,7 @@ func (h *favoriteHandler) AddFavorite(g *gin.Context) {
 // RemoveFavorite godoc
 // @Summary Remove item from favorites
 // @Description Remove a favorite item by favorite ID or query params (item_type and item_id)
-// @Tags Favorite
+// @Tags Favorites
 // @Produce json
 // @Param favorite_id path string false "Favorite ID"
 // @Param item_type query string false "Item Type (user_story or task)"
@@ -128,7 +128,7 @@ func (h *favoriteHandler) RemoveFavorite(g *gin.Context) {
 // GetFavorites godoc
 // @Summary Get all favorites
 // @Description Get all user stories and tasks added in favorites for the current user
-// @Tags Favorite
+// @Tags Favorites
 // @Produce json
 // @Param item_type query string false "Filter by item type (user_story or task)"
 // @Param search query string false "Search keyword in title or description"
@@ -174,7 +174,7 @@ func (h *favoriteHandler) GetFavorites(g *gin.Context) {
 // AddUserStoryFavorite godoc
 // @Summary Favorite a user story
 // @Description Add a user story to favorites under project path
-// @Tags UserStory, Favorite
+// @Tags Favorites
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
@@ -218,7 +218,7 @@ func (h *favoriteHandler) AddUserStoryFavorite(g *gin.Context) {
 // RemoveUserStoryFavorite godoc
 // @Summary Unfavorite a user story
 // @Description Remove a user story from favorites under project path
-// @Tags UserStory, Favorite
+// @Tags Favorites
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
@@ -262,7 +262,7 @@ func (h *favoriteHandler) RemoveUserStoryFavorite(g *gin.Context) {
 // AddTaskFavorite godoc
 // @Summary Favorite a task
 // @Description Add a task to favorites under project path
-// @Tags Task, Favorite
+// @Tags Favorites
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
@@ -306,7 +306,7 @@ func (h *favoriteHandler) AddTaskFavorite(g *gin.Context) {
 // RemoveTaskFavorite godoc
 // @Summary Unfavorite a task
 // @Description Remove a task from favorites under project path
-// @Tags Task, Favorite
+// @Tags Favorites
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"

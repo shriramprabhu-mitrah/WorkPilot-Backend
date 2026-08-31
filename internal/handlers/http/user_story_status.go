@@ -27,7 +27,7 @@ func InitUserStoryStatusHandler(service services.UserStoryStatusService, logger 
 // CreateStatus godoc
 // @Summary Create a User Story status
 // @Description Create a new User Story custom status for a project
-// @Tags UserStoryStatus
+// @Tags User Story Statuses
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -100,7 +100,7 @@ func (h *userStoryStatusHandler) CreateStatus(g *gin.Context) {
 // GetStatuses godoc
 // @Summary Get User Story statuses
 // @Description Get all User Story statuses for a project
-// @Tags UserStoryStatus
+// @Tags User Story Statuses
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Success 200 {object} response.SuccessResponse
@@ -143,7 +143,7 @@ func (h *userStoryStatusHandler) GetStatuses(g *gin.Context) {
 // UpdateStatus godoc
 // @Summary Update a User Story status
 // @Description Update an existing User Story custom status
-// @Tags UserStoryStatus
+// @Tags User Story Statuses
 // @Accept json
 // @Produce json
 // @Param project_id path string true "Project ID"
@@ -226,7 +226,7 @@ func (h *userStoryStatusHandler) UpdateStatus(g *gin.Context) {
 // DeleteStatus godoc
 // @Summary Delete a User Story status
 // @Description Delete an existing User Story custom status
-// @Tags UserStoryStatus
+// @Tags User Story Statuses
 // @Produce json
 // @Param project_id path string true "Project ID"
 // @Param status_id path string true "Status ID"
