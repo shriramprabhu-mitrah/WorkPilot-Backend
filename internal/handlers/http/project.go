@@ -32,6 +32,7 @@ type ProjectHandler struct {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			request	body		requestdto.CreateProjectRequest	true	"Create Project Request"
 //	@Success		201		{object}	response.SuccessResponse	"Project created successfully"
 //	@Failure		400		{object}	response.ErrorResponse		"Validation error"
@@ -102,14 +103,15 @@ func (h *ProjectHandler) CreateProject(g *gin.Context) {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path		string						true	"Project ID"
-//	@Param			request	body		requestdto.UpdateProjectRequest	true	"Update Project Request"
-//	@Success		200		{object}	response.SuccessResponse	"Project updated successfully"
-//	@Failure		400		{object}	response.ErrorResponse		"Validation error"
-//	@Failure		401		{object}	response.ErrorResponse		"Unauthorized"
-//	@Failure		403		{object}	response.ErrorResponse		"Forbidden"
-//	@Failure		404		{object}	response.ErrorResponse		"Project not found"
-//	@Failure		500		{object}	response.ErrorResponse		"Internal server error"
+//	@Security		BearerAuth
+//	@Param			project_id	path	string							true	"Project ID"
+//	@Param			request		body	requestdto.UpdateProjectRequest	true	"Update Project Request"
+//	@Success		200			{object}	response.SuccessResponse	"Project updated successfully"
+//	@Failure		400			{object}	response.ErrorResponse		"Validation error"
+//	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
+//	@Failure		403			{object}	response.ErrorResponse		"Forbidden"
+//	@Failure		404			{object}	response.ErrorResponse		"Project not found"
+//	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
 //
 // @Router /project/update/{project_id} [patch]
 func (h *ProjectHandler) UpdateProject(g *gin.Context) {
@@ -195,7 +197,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //	@Param			sort_order	query		string	false	"Sort order"	Enums(ASC,DESC)
 //	@Param			fields		query		string	false	"Fields to return (comma separated)"
 //	@Param			include_sprints	query	bool	false	"Include project sprints in the response"
-//	@Success		200			{object}	response.SuccessResponse	"Projects retrieved successfully"
+//	@Success		200			{object}	response.SuccessResponse{data=[]responsedto.ProjectResponse}	"Projects retrieved successfully"
 //	@Failure		400			{object}	response.ErrorResponse		"Invalid query parameters"
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
 //	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
@@ -268,6 +270,7 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 //	@Description	Returns a paginated list of all projects across all organizations with search, filters, and sorting.
 //	@Tags			Projects
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			page			query		int		false	"Page Number"		default(1)
 //	@Param			page_size		query		int		false	"Page Size"			default(10)
 //	@Param			search			query		string	false	"Search query (name, description)"
@@ -278,7 +281,7 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 //	@Param			include_sprints	query		bool	false	"Include project sprints"
 //	@Param			sort_by			query		string	false	"Sort by field"	Enums(name,created_at,updated_at,status)
 //	@Param			sort_order		query		string	false	"Sort order"	Enums(ASC,DESC)
-//	@Success		200				{object}	response.SuccessResponse	"Projects retrieved successfully"
+//	@Success		200				{object}	response.SuccessResponse{data=[]responsedto.ProjectResponse}	"Projects retrieved successfully"
 //	@Failure		400				{object}	response.ErrorResponse		"Invalid query parameters"
 //	@Failure		401				{object}	response.ErrorResponse		"Unauthorized"
 //	@Failure		403				{object}	response.ErrorResponse		"Forbidden"
@@ -326,6 +329,7 @@ func (h *ProjectHandler) GetAllProjects(g *gin.Context) {
 //	@Tags			Project Members
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			request	body		requestdto.CreateProjectMemberRequest	true	"Project Member Request"
 //	@Success		201		{object}	response.SuccessResponse	"Project members added successfully"
 //	@Failure		400		{object}	response.ErrorResponse		"Validation error"
@@ -398,13 +402,12 @@ func (h *ProjectHandler) CreateProjectMember(g *gin.Context) {
 //	@Param			page		query		int		false	"Page Number"	default(1)
 //	@Param			page_size	query		int		false	"Page Size"		default(10)
 //	@Param			name		query		string	false	"Member Name"
-//	@Success		200			{object}	response.SuccessResponse	"Project members retrieved successfully"
+//	@Success		200			{object}	response.SuccessResponse{data=[]responsedto.ProjectMember}	"Project members retrieved successfully"
 //	@Failure		400			{object}	response.ErrorResponse		"Invalid request"
 //	@Failure		401			{object}	response.ErrorResponse		"Unauthorized"
 //	@Failure		404			{object}	response.ErrorResponse		"Project not found"
 //	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
 //
-// @Param           project_id path string true "Project ID"
 // @Router          /project/members/{project_id} [get]
 func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 	var filter requestdto.ProjectMemberFilter
@@ -477,6 +480,7 @@ func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 //	@Tags			Project Members
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			project_id	path		string	true	"Project ID"
 //	@Param			user_id		path		string	true	"User ID"
 //	@Success		200			{object}	response.SuccessResponse	"Project member removed successfully"
@@ -485,8 +489,6 @@ func (h *ProjectHandler) GetProjectMembers(g *gin.Context) {
 //	@Failure		404			{object}	response.ErrorResponse		"Project member not found"
 //	@Failure		500			{object}	response.ErrorResponse		"Internal server error"
 //
-// @Param project_id path string true "Project ID"
-// @Param user_id path string true "User ID"
 // @Router /project/{project_id}/member/{user_id} [delete]
 func (h *ProjectHandler) RemoveProjectMember(g *gin.Context) {
 	projectID := g.Param("project_id")
@@ -638,6 +640,7 @@ func (h *ProjectHandler) GetProjectActivity(g *gin.Context) {
 //	@Tags			Projects
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			project_id	path		string	true	"Project ID (UUID) or Project Slug"
 //	@Success		200	{object}	response.SuccessResponse{data=responsedto.ProjectDetail}	"Project retrieved successfully"
 //	@Failure		400	{object}	response.ErrorResponse	"Invalid project ID or Slug"

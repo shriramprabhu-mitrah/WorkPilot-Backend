@@ -39,7 +39,7 @@ type PublicHandler struct {
 // @Produce      json
 // @Param        full query bool false "Include detailed dependency health checks"
 // @Success      200 {object} map[string]interface{}
-// @Failure      538 {object} map[string]interface{}
+// @Failure      503 {object} map[string]interface{}
 // @Router       /health [get]
 func (h *PublicHandler) HealthHandler(deps models.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -95,7 +95,8 @@ func (h *PublicHandler) HealthHandler(deps models.Config) gin.HandlerFunc {
 // @Description  Returns a list of countries (code + name)
 // @Tags         Public
 // @Produce      json
-// @Success      200 {object} response.SuccessResponse
+// @Param        name query string false "Filter by country name"
+// @Success      200 {object} response.SuccessResponse{data=[]models.Country}
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /countries [get]
 func (h *PublicHandler) GetAllCountries(c *gin.Context) {

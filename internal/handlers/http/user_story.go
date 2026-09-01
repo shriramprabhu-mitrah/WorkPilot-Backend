@@ -33,9 +33,10 @@ func InitUserStoryHandler(service services.UserStoryService, logger *zap.Logger)
 // @Tags User Stories
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.CreateUserStoryRequest true "Create User Story Request Body"
-// @Success 201 {object} response.SuccessResponse
+// @Success 201 {object} response.SuccessResponse{data=responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -105,9 +106,10 @@ func (h *userStoryHandler) CreateUserStory(g *gin.Context) {
 // @Description Retrieve details of a specific user story by ID or Key
 // @Tags User Stories
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID or Slug"
 // @Param user_story_id path string true "User Story ID or Key (e.g. US-1)"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -165,10 +167,11 @@ func (h *userStoryHandler) GetUserStoryByID(g *gin.Context) {
 // @Tags User Stories
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
 // @Param request body requestdto.UpdateUserStoryRequest true "Update User Story Request Body"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -247,6 +250,7 @@ func (h *userStoryHandler) UpdateUserStory(g *gin.Context) {
 // @Description Soft delete a specific user story by ID
 // @Tags User Stories
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
 // @Success 200 {object} response.SuccessResponse
@@ -305,6 +309,7 @@ func (h *userStoryHandler) DeleteUserStory(g *gin.Context) {
 // @Description Retrieve a paginated and filtered list of user stories in a project
 // @Tags User Stories
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Page size" default(10)
@@ -318,7 +323,7 @@ func (h *userStoryHandler) DeleteUserStory(g *gin.Context) {
 // @Param search query string false "Search query for title or description"
 // @Param fields query string false "Fields to return (comma separated)"
 // @Param is_unassigned_story query boolean false "Filter user stories that are not assigned to any sprint"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -390,6 +395,7 @@ func (h *userStoryHandler) GetUserStories(g *gin.Context) {
 // @Tags User Stories
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.ReorderUserStoriesRequest true "Reorder User Stories Request Body"
 // @Success 200 {object} response.SuccessResponse
@@ -462,10 +468,11 @@ func (h *userStoryHandler) ReorderUserStories(g *gin.Context) {
 // @Tags User Stories
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
 // @Param request body requestdto.UpdateUserStoryStatusAssignmentRequest true "Update User Story Status Request Body"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse

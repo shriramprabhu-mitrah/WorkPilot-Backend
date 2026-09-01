@@ -412,7 +412,9 @@ func (h *authHandler) ResendVerificationOTP(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
+// @Param        request body requestdto.RefreshTokenRequest false "Refresh token request (optional if sent via cookie)"
 // @Success      200 {object} response.SuccessResponse{data=requestdto.AuthTokensResponse}
+// @Failure      400 {object} response.ErrorResponse
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/refresh [post]
@@ -505,6 +507,7 @@ func (h *authHandler) RefreshToken(g *gin.Context) {
 // @Description  Revokes the user's refresh token and let user logout.
 // @Tags         Authentication
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
@@ -566,6 +569,7 @@ func (h *authHandler) Logout(g *gin.Context) {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        request body requestdto.ChangePasswordRequest true "Change Password Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
@@ -641,12 +645,14 @@ func (h *authHandler) ChangePassword(g *gin.Context) {
 // @Tags         Users
 // @Accept       multipart/form-data
 // @Produce      json
+// @Security     BearerAuth
 // @Param        full_name formData string false "Full name"
 // @Param        username  formData string false "Username"
 // @Param        timezone  formData string false "Timezone"
 // @Param        avatar    formData file   false "User avatar image (PNG, JPG/JPEG, WEBP — max configurable MB)"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /auth/update [patch]
@@ -739,6 +745,7 @@ func (h *authHandler) UpdateUser(g *gin.Context) {
 // @Description  Returns the profile of the authenticated user.
 // @Tags         Users
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse{data=responsedto.UserProfile}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
@@ -889,6 +896,7 @@ func (h *authHandler) Validate(g *gin.Context) {
 //	@Tags			Users
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			user_id	path		string	true	"User ID (UUID)"
 //	@Success		200		{object}	response.SuccessResponse{data=responsedto.UserProfile}	"User retrieved successfully"
 //	@Failure		400		{object}	response.ErrorResponse	"Invalid user ID"
@@ -965,6 +973,7 @@ func (h *authHandler) GetUserByID(g *gin.Context) {
 // @Description  Returns the task statistics of the currently authenticated user across the organization.
 // @Tags         Users
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse{data=responsedto.UserTaskInsightsResponse} "Insights retrieved successfully"
 // @Failure      400 {object} response.ErrorResponse "Invalid user ID"
 // @Failure      401 {object} response.ErrorResponse "Unauthorized"

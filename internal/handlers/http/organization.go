@@ -37,12 +37,13 @@ type OrganizationHandler struct {
 	logger        *zap.Logger
 }
 
-// deleteOrganization godoc
+// DeleteOrganization godoc
 //
 // @Summary      delete current Organization
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse{data=responsedto.OrganizationSummary}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
@@ -81,6 +82,7 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       multipart/form-data
 // @Produce      json
+// @Security     BearerAuth
 // @Param        name      formData string false "Organization name"
 // @Param        domain    formData string false "Organization domain"
 // @Param        team_size formData string false "Team size" Enums(1-10,11-50,51-200,201-500,501-1000,1000+)
@@ -88,6 +90,7 @@ func (h *OrganizationHandler) DeleteOrganization(g *gin.Context) {
 // @Param        logo      formData file   false "Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/update [patch]
@@ -185,12 +188,13 @@ func (h *OrganizationHandler) UpdateOrganization(g *gin.Context) {
 	g.JSON(successResponse.StatusCode, successResponse)
 }
 
-// GetOrganization godoc
+// GetOrganizationByID godoc
 //
 // @Summary      Get current Organization
 // @Description  Returns the profile of the authenticated Organization.
 // @Tags         Organizations
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse{data=responsedto.OrganizationSummary}
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
@@ -235,6 +239,7 @@ func (h *OrganizationHandler) GetOrganizationByID(g *gin.Context) {
 //	@Description	Returns a list of all registered Organizations with filtering, sorting, and pagination.
 //	@Tags			Organizations
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			page		query		int		false	"Page Number"		default(1)
 //	@Param			page_size	query		int		false	"Page Size"			default(10)
 //	@Param			name		query		string	false	"Organization Name"
@@ -294,6 +299,8 @@ func (h *OrganizationHandler) GetAllOrganizations(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
+// @Param        organization_id path string true "Organization ID (UUID)"
 // @Param        payload body requestdto.UpdateOrganizationStatusRequest true "Organization Status Payload"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
@@ -383,6 +390,7 @@ func (h *OrganizationHandler) UpdateOrganizationStatus(g *gin.Context) {
 // @Tags         Organizations
 // @Accept       multipart/form-data
 // @Produce      json
+// @Security     BearerAuth
 // @Param        name       formData string true  "Organization name"
 // @Param        domain     formData string true  "Organization domain"
 // @Param        industry   formData string true  "Industry" Enums(Information_Technology,Finance,Healthcare,Education,Manufacturing,Retail,Real Estate,Logistics,Hospitality,Other)
@@ -391,6 +399,7 @@ func (h *OrganizationHandler) UpdateOrganizationStatus(g *gin.Context) {
 // @Param        logo       formData file   false "Organization logo (PNG, JPG/JPEG, WEBP — max configurable MB)"
 // @Success      201 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
 // @Failure      409 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/create [post]
@@ -490,9 +499,11 @@ func (h *OrganizationHandler) CreateOrganization(g *gin.Context) {
 // @Tags         Organization Members
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        request body requestdto.UserStatusRequest true "Update User Status Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/user-status [patch]
@@ -561,9 +572,11 @@ func (h *OrganizationHandler) UpdateUserStatus(g *gin.Context) {
 // @Tags         Organization Members
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        request body requestdto.UserRoleRequest true "Update User Role Request"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
 // @Failure      404 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/user-role [patch]
@@ -640,11 +653,24 @@ func (h *OrganizationHandler) UpdateUserRole(g *gin.Context) {
 
 // GetUserInOrganization godoc
 //
-// @Summary      Get current Organization
-// @Description  Returns the profile of the authenticated Organization.
+// @Summary      Get users in organization
+// @Description  Returns the paginated list of members in the current organization with optional filters.
 // @Tags         Organization Members
 // @Produce      json
+// @Security     BearerAuth
+// @Param        page               query int    false "Page number" default(1)
+// @Param        page_size          query int    false "Page size" default(10)
+// @Param        full_name          query string false "Full Name filter"
+// @Param        email              query string false "Email filter"
+// @Param        username           query string false "Username filter"
+// @Param        role               query string false "Role filter"
+// @Param        timezone           query string false "Timezone filter"
+// @Param        status             query string false "Status filter"
+// @Param        is_active          query bool   false "Is Active filter"
+// @Param        is_verified        query bool   false "Is Verified filter"
+// @Param        include_org_admins query bool   false "Include Organization Admins filter"
 // @Success      200 {object} response.SuccessResponse{data=[]responsedto.UserProfile}
+// @Failure      400 {object} response.ErrorResponse
 // @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/get-users [get]
@@ -737,6 +763,7 @@ func (h *OrganizationHandler) GetUserInOrganization(g *gin.Context) {
 //	@Description	Returns a paginated list of all members across all organizations with search, filters, and sorting.
 //	@Tags			Organization Members
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			page			query		int		false	"Page Number"		default(1)
 //	@Param			page_size		query		int		false	"Page Size"			default(10)
 //	@Param			search			query		string	false	"Search query (full_name, email, username)"
@@ -862,6 +889,7 @@ func (h *OrganizationHandler) RemoveUser(g *gin.Context) {
 // @Tags         Organization Members
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        request body requestdto.InviteOrganizationMemberRequest true "Invite Organization Member Request"
 // @Success      201 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
@@ -1025,9 +1053,11 @@ func (h *OrganizationHandler) AcceptInvitationPage(g *gin.Context) {
 // @Tags         Organization Members
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        request body requestdto.AcceptInvitationRequest true "Accept invitation"
 // @Success      200 {object} response.SuccessResponse
 // @Failure      400 {object} response.ErrorResponse
+// @Failure      401 {object} response.ErrorResponse
 // @Failure      500 {object} response.ErrorResponse
 // @Router       /organization/invitations/accept [post]
 func (h *OrganizationHandler) AcceptInvitation(g *gin.Context) {

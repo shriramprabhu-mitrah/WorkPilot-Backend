@@ -5,11 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.FavoriteResponse{}
 
 type favoriteHandler struct {
 	service services.FavoriteService
@@ -29,8 +32,9 @@ func InitFavoriteHandler(service services.FavoriteService, logger *zap.Logger) *
 // @Tags Favorites
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param request body requestdto.AddFavoriteRequest true "Add Favorite Request Body"
-// @Success 201 {object} response.SuccessResponse
+// @Success 201 {object} response.SuccessResponse{data=responsedto.FavoriteResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -76,13 +80,13 @@ func (h *favoriteHandler) AddFavorite(g *gin.Context) {
 
 // RemoveFavorite godoc
 // @Summary Remove item from favorites
-// @Description Remove a favorite item by favorite ID or query params (item_type and item_id)
+// @Description Remove a favorite item by query params (item_type and item_id)
 // @Tags Favorites
 // @Produce json
-// @Param favorite_id path string false "Favorite ID"
-// @Param item_type query string false "Item Type (user_story or task)"
-// @Param item_id query string false "Item ID"
-// @Success 200 {object} response.SuccessResponse
+// @Security BearerAuth
+// @Param item_type query string true "Item Type (user_story or task)" Enums(user_story,task)
+// @Param item_id query string true "Item ID (UUID)"
+// @Success 200 {object} response.SuccessResponse{data=responsedto.RemoveFavoriteResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -130,13 +134,14 @@ func (h *favoriteHandler) RemoveFavorite(g *gin.Context) {
 // @Description Get all user stories and tasks added in favorites for the current user
 // @Tags Favorites
 // @Produce json
+// @Security BearerAuth
 // @Param item_type query string false "Filter by item type (user_story or task)"
 // @Param search query string false "Search keyword in title or description"
 // @Param sort_by query string false "Sort by field (created_at, title, name)"
 // @Param sort_order query string false "Sort order (ASC or DESC)"
 // @Param page query int false "Page number"
 // @Param page_size query int false "Page size"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.FavoriteListResponse}
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Router /favorites [get]
@@ -176,9 +181,10 @@ func (h *favoriteHandler) GetFavorites(g *gin.Context) {
 // @Description Add a user story to favorites under project path
 // @Tags Favorites
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
-// @Success 201 {object} response.SuccessResponse
+// @Success 201 {object} response.SuccessResponse{data=responsedto.FavoriteResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -220,9 +226,10 @@ func (h *favoriteHandler) AddUserStoryFavorite(g *gin.Context) {
 // @Description Remove a user story from favorites under project path
 // @Tags Favorites
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param user_story_id path string true "User Story ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.FavoriteResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -264,9 +271,10 @@ func (h *favoriteHandler) RemoveUserStoryFavorite(g *gin.Context) {
 // @Description Add a task to favorites under project path
 // @Tags Favorites
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
-// @Success 201 {object} response.SuccessResponse
+// @Success 201 {object} response.SuccessResponse{data=responsedto.FavoriteResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -308,9 +316,10 @@ func (h *favoriteHandler) AddTaskFavorite(g *gin.Context) {
 // @Description Remove a task from favorites under project path
 // @Tags Favorites
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.FavoriteResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse

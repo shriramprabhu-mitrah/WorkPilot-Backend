@@ -6,11 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.UserStoryStatusResponse{}
 
 type userStoryStatusHandler struct {
 	service services.UserStoryStatusService
@@ -30,9 +33,10 @@ func InitUserStoryStatusHandler(service services.UserStoryStatusService, logger 
 // @Tags User Story Statuses
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.CreateUserStoryStatusRequest true "Create User Story Status Request Body"
-// @Success 201 {object} response.SuccessResponse
+// @Success 201 {object} response.SuccessResponse{data=responsedto.UserStoryStatusResponse}
 // @Failure 422 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -102,8 +106,9 @@ func (h *userStoryStatusHandler) CreateStatus(g *gin.Context) {
 // @Description Get all User Story statuses for a project
 // @Tags User Story Statuses
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.UserStoryStatusResponse}
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -146,10 +151,11 @@ func (h *userStoryStatusHandler) GetStatuses(g *gin.Context) {
 // @Tags User Story Statuses
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param status_id path string true "Status ID"
 // @Param request body requestdto.UpdateUserStoryStatusRequest true "Update User Story Status Request Body"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.UserStoryStatusResponse}
 // @Failure 422 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -228,6 +234,7 @@ func (h *userStoryStatusHandler) UpdateStatus(g *gin.Context) {
 // @Description Delete an existing User Story custom status
 // @Tags User Story Statuses
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param status_id path string true "Status ID"
 // @Success 200 {object} response.SuccessResponse

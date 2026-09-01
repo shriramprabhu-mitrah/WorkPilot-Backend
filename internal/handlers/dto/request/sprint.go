@@ -81,15 +81,15 @@ type SprintBurndownResponse struct {
 }
 
 type StartSprintRequest struct {
-	ProjectID uuid.UUID `json:"project_id"`
-	SprintID  uuid.UUID `json:"-"`
-	UserID    uuid.UUID `json:"-"`
+	ProjectID uuid.UUID `json:"-" swaggerignore:"true"`
+	SprintID  uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID    uuid.UUID `json:"-" swaggerignore:"true"`
 	StartDate string    `json:"start_date" form:"start_date" binding:"required"`
 	EndDate   string    `json:"end_date" form:"end_date" binding:"required"`
 }
 
 type CompleteSprintRequest struct {
-	ProjectID uuid.UUID `json:"project_id"`
-	SprintID  uuid.UUID `json:"-"`
-	UserID    uuid.UUID `json:"-"`
+	ProjectID uuid.UUID `json:"-" swaggerignore:"true"`
+	SprintID  uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID    uuid.UUID `json:"-" swaggerignore:"true"`
 }

@@ -34,6 +34,7 @@ type sprintHandler struct {
 // @Tags Sprints
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.CreateSprintRequest true "List of sprints to create"
 // @Success 201 {object} response.SuccessResponse "Sprint(s) created successfully"
@@ -112,9 +113,11 @@ func (h *sprintHandler) CreateSprint(g *gin.Context) {
 // @Tags Sprints
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
+// @Param sprint_id query string true "Sprint ID (UUID)"
 // @Param request body requestdto.StartSprintRequest true "Start sprint payload"
-// @Success 201 {object} response.SuccessResponse "Sprint started successfully"
+// @Success 200 {object} response.SuccessResponse{data=responsedto.Sprint} "Sprint started successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Failure 403 {object} response.ErrorResponse "Forbidden"
@@ -231,9 +234,10 @@ func (h *sprintHandler) StartSprint(g *gin.Context) {
 // @Description Complete an active sprint and record velocity
 // @Tags Sprints
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param sprint_id query string true "Sprint ID (UUID)"
-// @Success 200 {object} response.SuccessResponse "Sprint completed successfully"
+// @Success 200 {object} response.SuccessResponse{data=responsedto.Sprint} "Sprint completed successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request parameters"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Failure 403 {object} response.ErrorResponse "Forbidden"
@@ -336,6 +340,7 @@ func (h *sprintHandler) CompleteSprint(g *gin.Context) {
 // @Description Delete a sprint from a project
 // @Tags Sprints
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"
 // @Success 200 {object} response.SuccessResponse
@@ -406,6 +411,7 @@ func (h *sprintHandler) DeleteSprint(g *gin.Context) {
 // @Tags Sprints
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"
 // @Param request body requestdto.UpdateSprintRequest true "Sprint Update Details"
@@ -493,6 +499,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Description Retrieve all sprints for a project with pagination, search, sorting and status filter
 // @Tags Sprints
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Page size" default(10)
@@ -503,7 +510,7 @@ func (h *sprintHandler) UpdateSprint(g *gin.Context) {
 // @Param fields query string false "Fields to return (comma separated)"
 // @Param start_date query string false "Filter sprints from this start date" Format(date)
 // @Param end_date query string false "Filter sprints up to this end date" Format(date)
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.Sprint}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -645,9 +652,10 @@ func (h *sprintHandler) GetSprints(g *gin.Context) {
 // @Description Retrieve a sprint by project ID and sprint ID
 // @Tags Sprints
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id path string true "Sprint ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.Sprint}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -712,9 +720,10 @@ func (h *sprintHandler) GetSprintByID(g *gin.Context) {
 // @Description Retrieve burndown chart data for a specific sprint
 // @Tags Sprints
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param sprint_id path string true "Sprint ID (UUID)"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=requestdto.SprintBurndownResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -769,6 +778,7 @@ func (h *sprintHandler) GetSprintBurndown(g *gin.Context) {
 // @Description Trigger daily snapshot calculation for active sprints in a project
 // @Tags Sprints
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param sprint_id path string true "Sprint ID (UUID)"
 // @Success 200 {object} response.SuccessResponse
