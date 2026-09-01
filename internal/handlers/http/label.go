@@ -6,11 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.LabelResponse{}
 
 type labelHandler struct {
 	service services.LabelService
@@ -30,9 +33,10 @@ func InitLabelHandler(service services.LabelService, logger *zap.Logger) *labelH
 // @Tags Labels
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.CreateLabelRequest true "Create Label Request Body"
-// @Success 201 {object} response.SuccessResponse
+// @Success 201 {object} response.SuccessResponse{data=responsedto.LabelResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -102,8 +106,9 @@ func (h *labelHandler) CreateLabel(g *gin.Context) {
 // @Description Get all labels for a project
 // @Tags Labels
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.LabelResponse}
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -146,10 +151,11 @@ func (h *labelHandler) GetLabels(g *gin.Context) {
 // @Tags Labels
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param label_id path string true "Label ID"
 // @Param request body requestdto.UpdateLabelRequest true "Update Label Request Body"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.LabelResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -228,6 +234,7 @@ func (h *labelHandler) UpdateLabel(g *gin.Context) {
 // @Description Delete an existing label
 // @Tags Labels
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param label_id path string true "Label ID"
 // @Success 200 {object} response.SuccessResponse

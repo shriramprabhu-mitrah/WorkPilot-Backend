@@ -34,6 +34,7 @@ func InitTaskHandler(service services.TaskService, logger *zap.Logger) *taskHand
 // @Tags Tasks
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.CreateTaskRequest true "Create Task Request Body"
 // @Success 201 {object} response.SuccessResponse
@@ -109,9 +110,10 @@ func (h *taskHandler) CreateTask(g *gin.Context) {
 // @Description Retrieve details of a specific task by ID or Task Key
 // @Tags Tasks
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID or Slug"
 // @Param task_id path string true "Task ID or Task Key"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.TaskResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -170,6 +172,7 @@ func (h *taskHandler) GetTaskByID(g *gin.Context) {
 // @Tags Tasks
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
 // @Param request body requestdto.UpdateTaskRequest true "Update Task Request Body"
@@ -255,10 +258,11 @@ func (h *taskHandler) UpdateTask(g *gin.Context) {
 // @Tags Tasks
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.BulkDeleteTasksRequest true "Bulk Delete Tasks Request Body"
-// @Success 200 {object} response.SuccessResponse
-// @Success 207 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.BulkDeleteTasksResponse}
+// @Success 207 {object} response.SuccessResponse{data=responsedto.BulkDeleteTasksResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -342,6 +346,7 @@ func (h *taskHandler) DeleteTasks(g *gin.Context) {
 // @Description Restore a soft-deleted task by ID (within the retention period)
 // @Tags Tasks
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
 // @Success 200 {object} response.SuccessResponse
@@ -401,10 +406,11 @@ func (h *taskHandler) RestoreTask(g *gin.Context) {
 // @Tags Tasks
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
 // @Param request body requestdto.CloneTaskRequest true "Clone Task Request Body"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.TaskResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -500,6 +506,7 @@ func parseMultiQueryParam(g *gin.Context, key string) []string {
 // @Description Retrieve tasks for a project with search, filter, sort and pagination options
 // @Tags Tasks
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Page size" default(10)
@@ -517,7 +524,7 @@ func parseMultiQueryParam(g *gin.Context, key string) []string {
 // @Param is_deleted query boolean false "Get soft deleted tasks"
 // @Param unassigned_task query boolean false "Filter tasks that are not assigned to any sprint and user story"
 // @Param match query string false "Match mode" Enums(any,all)
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.TaskResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -599,10 +606,11 @@ func (h *taskHandler) GetTasks(g *gin.Context) {
 // @Tags Tasks
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param request body requestdto.BulkUpdateTasksRequest true "Bulk Update Tasks Request Body"
-// @Success 200 {object} response.SuccessResponse
-// @Success 207 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.BulkUpdateTasksResponse}
+// @Success 207 {object} response.SuccessResponse{data=responsedto.BulkUpdateTasksResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -685,6 +693,7 @@ func (h *taskHandler) BulkUpdateTasks(g *gin.Context) {
 // @Summary Attach Label to Task
 // @Description Attach a project label to a specific task
 // @Tags Tasks
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
 // @Param label_id path string true "Label ID"
@@ -744,6 +753,7 @@ func (h *taskHandler) AttachLabelToTask(g *gin.Context) {
 // @Summary Remove Label from Task
 // @Description Remove a project label from a specific task
 // @Tags Tasks
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
 // @Param label_id path string true "Label ID"
@@ -806,9 +816,10 @@ func (h *taskHandler) RemoveLabelFromTask(g *gin.Context) {
 // @Description Assign a specific task to the currently authenticated user
 // @Tags Tasks
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param task_id path string true "Task ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.TaskResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse

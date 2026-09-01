@@ -17,9 +17,9 @@ type CreateUserStoryRequest struct {
 	AssigneeID     *uuid.UUID  `json:"assignee_id"`
 	SprintID       *uuid.UUID  `json:"sprint_id"`
 	AttachmentIDs  []uuid.UUID `json:"attachment_ids,omitempty"`
-	ProjectID      uuid.UUID   `json:"-"`
-	ReporterID     uuid.UUID   `json:"-"`
-	OrganizationID uuid.UUID   `json:"-"`
+	ProjectID      uuid.UUID   `json:"-" swaggerignore:"true"`
+	ReporterID     uuid.UUID   `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
 }
 
 type UpdateUserStoryRequest struct {
@@ -32,19 +32,19 @@ type UpdateUserStoryRequest struct {
 	IsClosed       *bool           `json:"is_closed"`
 	AssigneeID     *uuid.UUID      `json:"assignee_id"`
 	SprintID       *uuid.UUID      `json:"sprint_id"`
-	UserStoryID    uuid.UUID       `json:"-"`
-	ProjectID      uuid.UUID       `json:"-"`
-	UserID         uuid.UUID       `json:"-"`
-	OrganizationID uuid.UUID       `json:"-"`
-	IsNullFields   map[string]bool `json:"-"`
+	UserStoryID    uuid.UUID       `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID       `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID       `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID       `json:"-" swaggerignore:"true"`
+	IsNullFields   map[string]bool `json:"-" swaggerignore:"true"`
 }
 
 type UpdateUserStoryStatusAssignmentRequest struct {
 	StatusID       uuid.UUID `json:"status_id" binding:"required"`
-	UserStoryID    uuid.UUID `json:"-"`
-	ProjectID      uuid.UUID `json:"-"`
-	UserID         uuid.UUID `json:"-"`
-	OrganizationID uuid.UUID `json:"-"`
+	UserStoryID    uuid.UUID `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 func (r *UpdateUserStoryRequest) UnmarshalJSON(data []byte) error {
@@ -97,7 +97,7 @@ type UserStoryFilter struct {
 
 type ReorderUserStoriesRequest struct {
 	StoryIDs       []uuid.UUID `json:"story_ids" binding:"required,min=1"`
-	ProjectID      uuid.UUID   `json:"-"`
-	UserID         uuid.UUID   `json:"-"`
-	OrganizationID uuid.UUID   `json:"-"`
+	ProjectID      uuid.UUID   `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID   `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
 }

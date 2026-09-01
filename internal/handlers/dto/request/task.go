@@ -95,9 +95,9 @@ type CreateTaskRequest struct {
 	ActualHours    *float64    `json:"actual_hours" binding:"omitempty,min=0"`
 	LabelIDs       []uuid.UUID `json:"label_ids"`
 	AttachmentIDs  []uuid.UUID `json:"attachment_ids,omitempty"`
-	ProjectID      uuid.UUID   `json:"-"`
-	UserID         uuid.UUID   `json:"-"`
-	OrganizationID uuid.UUID   `json:"-"`
+	ProjectID      uuid.UUID   `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID   `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
 }
 
 func (r *CreateTaskRequest) UnmarshalJSON(data []byte) error {
@@ -141,11 +141,11 @@ type UpdateTaskRequest struct {
 	EstimatedHours *float64        `json:"estimated_hours" binding:"omitempty,min=0"`
 	ActualHours    *float64        `json:"actual_hours" binding:"omitempty,min=0"`
 	LabelIDs       *[]uuid.UUID    `json:"label_ids"`
-	TaskID         uuid.UUID       `json:"-"`
-	ProjectID      uuid.UUID       `json:"-"`
-	UserID         uuid.UUID       `json:"-"`
-	OrganizationID uuid.UUID       `json:"-"`
-	IsNullFields   map[string]bool `json:"-"`
+	TaskID         uuid.UUID       `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID       `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID       `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID       `json:"-" swaggerignore:"true"`
+	IsNullFields   map[string]bool `json:"-" swaggerignore:"true"`
 }
 
 func (r *UpdateTaskRequest) UnmarshalJSON(data []byte) error {
@@ -211,10 +211,10 @@ func (r *UpdateTaskRequest) IsActualHoursNull() bool {
 
 type CloneTaskRequest struct {
 	KeepAssignee   bool      `json:"keep_assignee"`
-	TaskID         uuid.UUID `json:"-"`
-	ProjectID      uuid.UUID `json:"-"`
-	UserID         uuid.UUID `json:"-"`
-	OrganizationID uuid.UUID `json:"-"`
+	TaskID         uuid.UUID `json:"-" swaggerignore:"true"`
+	ProjectID      uuid.UUID `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID `json:"-" swaggerignore:"true"`
 }
 
 type TaskFilter struct {
@@ -234,7 +234,7 @@ type TaskFilter struct {
 	SequenceNumber *int        `form:"sequence_number"`
 	SerialNumber   *int64      `form:"serial_number"`
 	UnassignedTask bool        `form:"unassigned_task"`
-	StatusIDs      []uuid.UUID `form:"-"` // Internal resolved status IDs
+	StatusIDs      []uuid.UUID `form:"-" swaggerignore:"true"` // Internal resolved status IDs
 }
 
 type BulkUpdateTaskItem struct {
@@ -247,14 +247,14 @@ type BulkUpdateTaskItem struct {
 
 type BulkUpdateTasksRequest struct {
 	Tasks          []BulkUpdateTaskItem `json:"tasks" binding:"required,min=1,dive"`
-	ProjectID      uuid.UUID            `json:"-"`
-	UserID         uuid.UUID            `json:"-"`
-	OrganizationID uuid.UUID            `json:"-"`
+	ProjectID      uuid.UUID            `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID            `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID            `json:"-" swaggerignore:"true"`
 }
 
 type BulkDeleteTasksRequest struct {
 	TaskIDs        []uuid.UUID `json:"task_ids" binding:"required,min=1,dive"`
-	ProjectID      uuid.UUID   `json:"-"`
-	UserID         uuid.UUID   `json:"-"`
-	OrganizationID uuid.UUID   `json:"-"`
+	ProjectID      uuid.UUID   `json:"-" swaggerignore:"true"`
+	UserID         uuid.UUID   `json:"-" swaggerignore:"true"`
+	OrganizationID uuid.UUID   `json:"-" swaggerignore:"true"`
 }

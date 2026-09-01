@@ -32,9 +32,10 @@ type DashboardHandler struct {
 // @Description Retrieve the task overview for a project
 // @Tags Dashboard
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id query string false "Sprint ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.DashboardOverview}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -115,9 +116,10 @@ func (h *DashboardHandler) GetOverview(c *gin.Context) {
 // @Description Retrieve the task status summary for a project
 // @Tags Dashboard
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id query string false "Sprint ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=map[string]any}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -206,9 +208,10 @@ func (h *DashboardHandler) GetTaskStatus(c *gin.Context) {
 // @Description Retrieve the workload of team members for a project
 // @Tags Dashboard
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id query string false "Sprint ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.TeamWorkload}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -289,10 +292,11 @@ func (h *DashboardHandler) GetTeamWorkload(c *gin.Context) {
 // @Description Retrieve weekly task progress for a project within the specified date range
 // @Tags Dashboard
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param start_date query string true "Start date" example(2026-08-01)
 // @Param end_date query string true "End date" example(2026-08-07)
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.WeeklyProgress}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -393,6 +397,7 @@ func (h *DashboardHandler) GetWeeklyProgress(c *gin.Context) {
 // @Description Get sprint burndown chart data for dashboard. If sprint_id is provided, returns that sprint's burndown. If omitted, returns burndown for all active sprints of the project.
 // @Tags Dashboard
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id query string false "Sprint ID"
 // @Success 200 {object} response.SuccessResponse{data=responsedto.DashboardSprintBurndownResponse}
@@ -476,9 +481,10 @@ func (h *DashboardHandler) GetSprintBurndown(c *gin.Context) {
 // @Description Retrieve dashboard data for a project and sprint
 // @Tags Dashboard
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID"
 // @Param sprint_id query string false "Sprint ID"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.DashboardResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse

@@ -10,11 +10,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.AttachmentResponse{}
 
 type attachmentHandler struct {
 	service services.AttachmentService
@@ -110,10 +113,11 @@ func writeAttachmentDownload(
 // @Tags Task Attachments
 // @Accept multipart/form-data
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param task_id path string true "Task ID (UUID)"
 // @Param file formData file true "File to upload (field name 'file' or 'files')"
-// @Success 201 {object} response.SuccessResponse "Attachments uploaded and linked successfully"
+// @Success 201 {object} response.SuccessResponse{data=[]responsedto.AttachmentResponse} "Attachments uploaded and linked successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -164,9 +168,10 @@ func (h *attachmentHandler) UploadAttachment(g *gin.Context) {
 // @Description Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific Task.
 // @Tags Task Attachments
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param task_id path string true "Task ID (UUID)"
-// @Success 200 {object} response.SuccessResponse "Attachments retrieved successfully"
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.AttachmentResponse} "Attachments retrieved successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -209,6 +214,7 @@ func (h *attachmentHandler) GetAttachments(g *gin.Context) {
 // @Summary Download Task Attachment File
 // @Description Stream and download the binary file content of a specific task attachment.
 // @Tags Task Attachments
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param task_id path string true "Task ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -250,6 +256,7 @@ func (h *attachmentHandler) DownloadAttachment(g *gin.Context) {
 // @Summary Delete Task Attachment
 // @Description Permanently delete an attachment associated with a Task from both storage and database.
 // @Tags Task Attachments
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param task_id path string true "Task ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -297,10 +304,11 @@ func (h *attachmentHandler) DeleteAttachment(g *gin.Context) {
 // @Tags Comment Attachments
 // @Accept multipart/form-data
 // @Produce json
+// @Security BearerAuth
 // @Param task_id path string true "Task ID (UUID or Key)"
 // @Param comment_id path string true "Comment ID (UUID)"
 // @Param file formData file true "File to upload (field name 'file' or 'files')"
-// @Success 201 {object} response.SuccessResponse "Comment attachments uploaded successfully"
+// @Success 201 {object} response.SuccessResponse{data=[]responsedto.CommentAttachmentResponse} "Comment attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -353,9 +361,10 @@ func (h *attachmentHandler) UploadCommentAttachment(g *gin.Context) {
 // @Description Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific Comment on a Task.
 // @Tags Comment Attachments
 // @Produce json
+// @Security BearerAuth
 // @Param task_id path string true "Task ID (UUID or Key)"
 // @Param comment_id path string true "Comment ID (UUID)"
-// @Success 200 {object} response.SuccessResponse "Comment attachments retrieved successfully"
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.CommentAttachmentResponse} "Comment attachments retrieved successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -400,6 +409,7 @@ func (h *attachmentHandler) GetCommentAttachments(g *gin.Context) {
 // @Summary Download Task Comment Attachment File
 // @Description Stream and download the binary file content of a specific attachment on a Task Comment.
 // @Tags Comment Attachments
+// @Security BearerAuth
 // @Param task_id path string true "Task ID (UUID or Key)"
 // @Param comment_id path string true "Comment ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -443,6 +453,7 @@ func (h *attachmentHandler) DownloadCommentAttachment(g *gin.Context) {
 // @Summary Delete Task Comment Attachment
 // @Description Permanently delete an attachment associated with a Task Comment from both storage and database.
 // @Tags Comment Attachments
+// @Security BearerAuth
 // @Param task_id path string true "Task ID (UUID or Key)"
 // @Param comment_id path string true "Comment ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -492,10 +503,11 @@ func (h *attachmentHandler) DeleteCommentAttachment(g *gin.Context) {
 // @Tags User Story Attachments
 // @Accept multipart/form-data
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param user_story_id path string true "User Story ID (UUID)"
 // @Param file formData file true "File to upload (field name 'file' or 'files')"
-// @Success 201 {object} response.SuccessResponse "Attachments uploaded and linked successfully"
+// @Success 201 {object} response.SuccessResponse{data=[]responsedto.UserStoryAttachmentResponse} "Attachments uploaded and linked successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -546,9 +558,10 @@ func (h *attachmentHandler) UploadUserStoryAttachment(g *gin.Context) {
 // @Description Retrieve metadata (IDs, filenames, MIME types, sizes, URLs) for all files attached to a specific User Story.
 // @Tags User Story Attachments
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param user_story_id path string true "User Story ID (UUID)"
-// @Success 200 {object} response.SuccessResponse "Attachments retrieved successfully"
+// @Success 200 {object} response.SuccessResponse{data=[]responsedto.UserStoryAttachmentResponse} "Attachments retrieved successfully"
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -591,6 +604,7 @@ func (h *attachmentHandler) GetUserStoryAttachments(g *gin.Context) {
 // @Summary Download User Story Attachment File
 // @Description Stream and download the binary file content of a specific User Story attachment.
 // @Tags User Story Attachments
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param user_story_id path string true "User Story ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -632,6 +646,7 @@ func (h *attachmentHandler) DownloadUserStoryAttachment(g *gin.Context) {
 // @Summary Delete User Story Attachment
 // @Description Permanently delete an attachment associated with a User Story from both storage and database.
 // @Tags User Story Attachments
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param user_story_id path string true "User Story ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -679,9 +694,10 @@ func (h *attachmentHandler) DeleteUserStoryAttachment(g *gin.Context) {
 // @Tags Comment Attachments
 // @Accept multipart/form-data
 // @Produce json
+// @Security BearerAuth
 // @Param task_id path string true "Task ID (UUID or Key)"
 // @Param file formData file true "File to upload (field name 'file' or 'files')"
-// @Success 201 {object} response.SuccessResponse "Draft task comment attachments uploaded successfully"
+// @Success 201 {object} response.SuccessResponse{data=[]responsedto.CommentAttachmentResponse} "Draft task comment attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -728,10 +744,11 @@ func (h *attachmentHandler) UploadCommentAttachmentWithoutComment(g *gin.Context
 // @Tags Comment Attachments
 // @Accept multipart/form-data
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param user_story_id path string true "User Story ID (UUID)"
 // @Param file formData file true "File to upload (field name 'file' or 'files')"
-// @Success 201 {object} response.SuccessResponse "Draft user story comment attachments uploaded successfully"
+// @Success 201 {object} response.SuccessResponse{data=[]responsedto.CommentAttachmentResponse} "Draft user story comment attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -774,6 +791,7 @@ func (h *attachmentHandler) UploadUserStoryCommentAttachmentWithoutComment(g *gi
 // @Summary Download User Story Comment Attachment File
 // @Description Stream and download the binary file content of a specific attachment on a User Story Comment.
 // @Tags Comment Attachments
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param user_story_id path string true "User Story ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -815,6 +833,7 @@ func (h *attachmentHandler) DownloadUserStoryCommentAttachment(g *gin.Context) {
 // @Summary Delete User Story Comment Attachment
 // @Description Permanently delete an attachment associated with a User Story Comment from both storage and database.
 // @Tags Comment Attachments
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param user_story_id path string true "User Story ID (UUID)"
 // @Param attachment_id path string true "Attachment ID (UUID)"
@@ -862,9 +881,10 @@ func (h *attachmentHandler) DeleteUserStoryCommentAttachment(g *gin.Context) {
 // @Tags Task Attachments
 // @Accept multipart/form-data
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param file formData file true "File to upload (field name 'file' or 'files')"
-// @Success 201 {object} response.SuccessResponse "Draft task attachments uploaded successfully"
+// @Success 201 {object} response.SuccessResponse{data=[]responsedto.AttachmentResponse} "Draft task attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"
@@ -909,9 +929,10 @@ func (h *attachmentHandler) UploadAttachmentWithoutTask(g *gin.Context) {
 // @Tags User Story Attachments
 // @Accept multipart/form-data
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID)"
 // @Param file formData file true "File to upload (field name 'file' or 'files')"
-// @Success 201 {object} response.SuccessResponse "Draft user story attachments uploaded successfully"
+// @Success 201 {object} response.SuccessResponse{data=[]responsedto.UserStoryAttachmentResponse} "Draft user story attachments uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 413 {object} response.ErrorResponse "Payload Too Large"
 // @Failure 415 {object} response.ErrorResponse "Unsupported Media Type"

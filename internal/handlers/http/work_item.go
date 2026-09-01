@@ -4,10 +4,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.WorkItemResponse{}
 
 type WorkItemHandler interface {
 	GetWorkItemBySerialNumber(g *gin.Context)
@@ -32,9 +35,10 @@ func InitWorkItemHandler(service services.WorkItemService, logger *zap.Logger) W
 // @Description Retrieve a project work item (task or user story) using its global serial ID.
 // @Tags Work Items
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID) or Project Slug"
 // @Param serial_id path string true "Global Serial ID or Key (e.g. US-1, MP-1)"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.WorkItemResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -69,9 +73,10 @@ func (h *workItemHandler) GetWorkItemBySerialNumber(g *gin.Context) {
 // @Description Retrieve a project task using its unique project-scoped key.
 // @Tags Work Items
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID) or Project Slug"
 // @Param key path string true "Task Key (e.g. TF-101)"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.TaskResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
@@ -106,9 +111,10 @@ func (h *workItemHandler) GetTaskByKey(g *gin.Context) {
 // @Description Retrieve a project user story using its unique project-scoped key.
 // @Tags Work Items
 // @Produce json
+// @Security BearerAuth
 // @Param project_id path string true "Project ID (UUID) or Project Slug"
 // @Param key path string true "User Story Key (e.g. US-1)"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.UserStoryResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse

@@ -4,10 +4,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.GlobalSearchResponse{}
 
 type SearchHandler interface {
 	GlobalSearch(c *gin.Context)
@@ -30,11 +33,11 @@ func InitSearchHandler(service services.SearchService, logger *zap.Logger) Searc
 // @Description Search across all Tasks, User Stories, Projects, and Members in the current user's organization
 // @Tags Search
 // @Produce json
+// @Security BearerAuth
 // @Param q query string true "Search query string"
-// @Success 200 {object} response.SuccessResponse
+// @Success 200 {object} response.SuccessResponse{data=responsedto.GlobalSearchResponse}
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
-// @Security BearerAuth
 // @Router /search [get]
 func (h *searchHandler) GlobalSearch(c *gin.Context) {
 	userUUID, ok := getRequiredContextUUID(c, h.logger, "user_id", "user")

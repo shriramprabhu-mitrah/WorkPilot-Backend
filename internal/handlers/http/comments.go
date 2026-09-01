@@ -7,11 +7,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	requestdto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
 	"github.com/ms-kanban-server/internal/pkg/response"
 	"github.com/ms-kanban-server/internal/pkg/utils"
 	"github.com/ms-kanban-server/internal/services"
 	"go.uber.org/zap"
 )
+
+var _ = responsedto.CommentsResponse{}
 
 func InitCommentsHandler(commentService services.CommentsService, logger *zap.Logger) *commentsHandler {
 	return &commentsHandler{
@@ -35,13 +38,11 @@ type commentsHandler struct {
 //	@Security		BearerAuth
 //	@Param			task_id	path		string								true	"Task ID (UUID)"
 //	@Param			request	body		requestdto.CreateCommentsRequest	true	"Comment details"
-//
-// @Success 201 {object} response.SuccessResponse
-//
-//	@Failure		400			{object}	response.ErrorResponse				"Invalid request, task ID, parent comment, or comment content"
-//	@Failure		401			{object}	response.ErrorResponse				"Unauthorized"
-//	@Failure		403			{object}	response.ErrorResponse				"Forbidden"
-//	@Failure		500			{object}	response.ErrorResponse				"Internal server error"
+//	@Success		201		{object}	response.SuccessResponse{data=responsedto.CommentsResponse}
+//	@Failure		400		{object}	response.ErrorResponse				"Invalid request, task ID, parent comment, or comment content"
+//	@Failure		401		{object}	response.ErrorResponse				"Unauthorized"
+//	@Failure		403		{object}	response.ErrorResponse				"Forbidden"
+//	@Failure		500		{object}	response.ErrorResponse				"Internal server error"
 //	@Router			/task/{task_id}/comments [post]
 func (h *commentsHandler) CreateComments(g *gin.Context) {
 
@@ -124,14 +125,12 @@ func (h *commentsHandler) CreateComments(g *gin.Context) {
 //	@Security		BearerAuth
 //	@Param			task_id		path		string	true	"Task ID"
 //	@Param			comment_id	path		string	true	"Comment ID"
-//
-// @Success 200 {object} response.SuccessResponse
-//
-//	@Failure		400	{object}	response.ErrorResponse
-//	@Failure		401	{object}	response.ErrorResponse
-//	@Failure		403	{object}	response.ErrorResponse
-//	@Failure		404	{object}	response.ErrorResponse
-//	@Failure		500	{object}	response.ErrorResponse
+//	@Success		200			{object}	response.SuccessResponse{data=responsedto.CommentsResponse}
+//	@Failure		400			{object}	response.ErrorResponse
+//	@Failure		401			{object}	response.ErrorResponse
+//	@Failure		403			{object}	response.ErrorResponse
+//	@Failure		404			{object}	response.ErrorResponse
+//	@Failure		500			{object}	response.ErrorResponse
 //	@Router			/task/{task_id}/comments/{comment_id} [get]
 func (h *commentsHandler) GetCommentByID(g *gin.Context) {
 
@@ -211,12 +210,12 @@ func (h *commentsHandler) GetCommentByID(g *gin.Context) {
 //	@Param			task_id		path		string								true	"Task ID"
 //	@Param			comment_id	path		string								true	"Comment ID"
 //	@Param			request		body		requestdto.UpdateCommentsRequest	true	"Update Comment"
-//	@Success		200			{object}	response.SuccessResponse
-//	@Failure		400			{object}	response.Error
-//	@Failure		401			{object}	response.Error
-//	@Failure		403			{object}	response.Error
-//	@Failure		404			{object}	response.Error
-//	@Failure		500			{object}	response.Error
+//	@Success		200			{object}	response.SuccessResponse{data=responsedto.CommentsResponse}
+//	@Failure		400			{object}	response.ErrorResponse
+//	@Failure		401			{object}	response.ErrorResponse
+//	@Failure		403			{object}	response.ErrorResponse
+//	@Failure		404			{object}	response.ErrorResponse
+//	@Failure		500			{object}	response.ErrorResponse
 //	@Router			/task/{task_id}/comments/{comment_id} [patch]
 func (h *commentsHandler) UpdateComments(g *gin.Context) {
 
@@ -309,11 +308,11 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 //	@Param			task_id		path		string	true	"Task ID"
 //	@Param			comment_id	path		string	true	"Comment ID"
 //	@Success		200			{object}	response.SuccessResponse
-//	@Failure		400			{object}	response.Error
-//	@Failure		401			{object}	response.Error
-//	@Failure		403			{object}	response.Error
-//	@Failure		404			{object}	response.Error
-//	@Failure		500			{object}	response.Error
+//	@Failure		400			{object}	response.ErrorResponse
+//	@Failure		401			{object}	response.ErrorResponse
+//	@Failure		403			{object}	response.ErrorResponse
+//	@Failure		404			{object}	response.ErrorResponse
+//	@Failure		500			{object}	response.ErrorResponse
 //	@Router			/task/{task_id}/comments/{comment_id} [delete]
 func (h *commentsHandler) DeleteComments(g *gin.Context) {
 
@@ -383,22 +382,22 @@ func (h *commentsHandler) DeleteComments(g *gin.Context) {
 
 // GetCommentsByTaskID godoc
 //
-//		@Summary		Get Task Comments
-//		@Description	Get paginated top-level comments for a task along with their replies
-//		@Tags			Comments
-//		@Accept			json
-//		@Produce		json
-//		@Security		BearerAuth
-//		@Param			task_id		path		string	true	"Task ID"
-//		@Param			page		query		int		false	"Page number"		default(1)
-//		@Param			page_size	query		int		false	"Number of comments per page"	default(10)
-//	 @Success 200    {object} response.SuccessResponse
-//		@Failure		400			{object}	response.ErrorResponse
-//		@Failure		401			{object}	response.ErrorResponse
-//		@Failure		403			{object}	response.ErrorResponse
-//		@Failure		404			{object}	response.ErrorResponse
-//		@Failure		500			{object}	response.ErrorResponse
-//		@Router			/task/{task_id}/comments [get]
+//	@Summary		Get Task Comments
+//	@Description	Get paginated top-level comments for a task along with their replies
+//	@Tags			Comments
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			task_id		path		string	true	"Task ID"
+//	@Param			page		query		int		false	"Page number"		default(1)
+//	@Param			page_size	query		int		false	"Number of comments per page"	default(10)
+//	@Success		200			{object}	response.SuccessResponse{data=[]responsedto.CommentsResponse}
+//	@Failure		400			{object}	response.ErrorResponse
+//	@Failure		401			{object}	response.ErrorResponse
+//	@Failure		403			{object}	response.ErrorResponse
+//	@Failure		404			{object}	response.ErrorResponse
+//	@Failure		500			{object}	response.ErrorResponse
+//	@Router			/task/{task_id}/comments [get]
 func (h *commentsHandler) GetCommentsByTaskID(g *gin.Context) {
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
@@ -469,22 +468,22 @@ func (h *commentsHandler) GetCommentsByTaskID(g *gin.Context) {
 
 // GetCommentsByParentID godoc
 //
-//		@Summary		Get Reply Comments
-//		@Description	Get all replies for a parent comment in a task
-//		@Tags			Comments
-//		@Accept			json
-//		@Produce		json
-//		@Security		BearerAuth
-//		@Param			task_id				path		string	true	"Task ID"
-//		@Param			parent_comment_id	path		string	true	"Parent Comment ID"
-//		@Param			page				query		int		false	"Page Number"		default(1)
-//		@Param			page_size			query		int		false	"Page Size"			default(10)
-//	 @Success 200    {object} response.SuccessResponse
-//		@Failure		400	{object}	response.ErrorResponse
-//		@Failure		401	{object}	response.ErrorResponse
-//		@Failure		403	{object}	response.ErrorResponse
-//		@Failure		500	{object}	response.ErrorResponse
-//		@Router			/task/{task_id}/comments/replies/{parent_comment_id} [get]
+//	@Summary		Get Reply Comments
+//	@Description	Get all replies for a parent comment in a task
+//	@Tags			Comments
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			task_id				path		string	true	"Task ID"
+//	@Param			parent_comment_id	path		string	true	"Parent Comment ID"
+//	@Param			page				query		int		false	"Page Number"		default(1)
+//	@Param			page_size			query		int		false	"Page Size"			default(10)
+//	@Success		200					{object}	response.SuccessResponse{data=[]responsedto.CommentsResponse}
+//	@Failure		400					{object}	response.ErrorResponse
+//	@Failure		401					{object}	response.ErrorResponse
+//	@Failure		403					{object}	response.ErrorResponse
+//	@Failure		500					{object}	response.ErrorResponse
+//	@Router			/task/{task_id}/comments/replies/{parent_comment_id} [get]
 func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
@@ -588,23 +587,23 @@ func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 
 // GetCommentsByUserStoryID godoc
 //
-//		@Summary		Get User Story Comments
-//		@Description	Get paginated top-level comments for a user story along with their replies
-//		@Tags			Comments
-//		@Accept			json
-//		@Produce		json
-//		@Security		BearerAuth
-//		@Param			project_id	path		string	true	"Project ID"
-//		@Param			user_story_id	path		string	true	"User Story ID"
-//		@Param			page		query		int		false	"Page number"		default(1)
-//		@Param			page_size	query		int		false	"Number of comments per page"	default(10)
-//	 @Success 200    {object} response.SuccessResponse
-//		@Failure		400			{object}	response.ErrorResponse
-//		@Failure		401			{object}	response.ErrorResponse
-//		@Failure		403			{object}	response.ErrorResponse
-//		@Failure		404			{object}	response.ErrorResponse
-//		@Failure		500			{object}	response.ErrorResponse
-//		@Router			/projects/{project_id}/user-stories/{user_story_id}/comments [get]
+//	@Summary		Get User Story Comments
+//	@Description	Get paginated top-level comments for a user story along with their replies
+//	@Tags			Comments
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			project_id		path		string	true	"Project ID"
+//	@Param			user_story_id	path		string	true	"User Story ID"
+//	@Param			page			query		int		false	"Page number"					default(1)
+//	@Param			page_size		query		int		false	"Number of comments per page"	default(10)
+//	@Success		200				{object}	response.SuccessResponse{data=[]responsedto.CommentsResponse}
+//	@Failure		400				{object}	response.ErrorResponse
+//	@Failure		401				{object}	response.ErrorResponse
+//	@Failure		403				{object}	response.ErrorResponse
+//	@Failure		404				{object}	response.ErrorResponse
+//	@Failure		500				{object}	response.ErrorResponse
+//	@Router			/projects/{project_id}/user-stories/{user_story_id}/comments [get]
 func (h *commentsHandler) GetCommentsByUserStoryID(g *gin.Context) {
 
 	organizationUUID, ok := getRequiredContextUUID(g, h.logger, "organization_id", "organization")
