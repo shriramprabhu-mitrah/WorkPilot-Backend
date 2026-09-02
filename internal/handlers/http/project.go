@@ -191,7 +191,7 @@ func (h *ProjectHandler) UpdateProject(g *gin.Context) {
 //	@Security		BearerAuth
 //	@Param			page		query		int		false	"Page Number"		default(1)
 //	@Param			page_size	query		int		false	"Page Size"			default(10)
-//	@Param			name		query		string	false	"Project Name"
+//	@Param			name		query		string	false	"Project Name or Slug"
 //	@Param			status		query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
 //	@Param			sort_by		query		string	false	"Sort by field"	Enums(name,created_at,updated_at,status)
 //	@Param			sort_order	query		string	false	"Sort order"	Enums(ASC,DESC)
@@ -273,8 +273,8 @@ func (h *ProjectHandler) GetProjects(g *gin.Context) {
 //	@Security		BearerAuth
 //	@Param			page			query		int		false	"Page Number"		default(1)
 //	@Param			page_size		query		int		false	"Page Size"			default(10)
-//	@Param			search			query		string	false	"Search query (name, description)"
-//	@Param			name			query		string	false	"Project Name"
+//	@Param			search			query		string	false	"Search query (name, description, slug)"
+//	@Param			name			query		string	false	"Project Name or Slug"
 //	@Param			status			query		string	false	"Project Status"	Enums(planning,active,on_hold,completed,cancelled,archived)
 //	@Param			organization_id	query		string	false	"Organization ID"
 //	@Param			created_by		query		string	false	"Creator User ID"

@@ -2857,13 +2857,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Search query (name, description)",
+                        "description": "Search query (name, description, slug)",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Project Name",
+                        "description": "Project Name or Slug",
                         "name": "name",
                         "in": "query"
                     },
@@ -3075,7 +3075,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Project Name",
+                        "description": "Project Name or Slug",
                         "name": "name",
                         "in": "query"
                     },

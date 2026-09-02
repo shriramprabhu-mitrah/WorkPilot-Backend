@@ -295,7 +295,7 @@ func (d *projectDatabase) GetProjectsByOrganizationID(organizationID uuid.UUID, 
 
 	if filter.Name != "" {
 		name := "%" + strings.ToLower(strings.TrimSpace(filter.Name)) + "%"
-		baseQuery = baseQuery.Where("LOWER(projects.name) LIKE ?", name)
+		baseQuery = baseQuery.Where("LOWER(projects.name) LIKE ? OR LOWER(projects.slug) LIKE ?", name, name)
 	}
 
 	if filter.Status != "" {
@@ -394,12 +394,12 @@ func (d *projectDatabase) GetAllProjects(filter dto.GlobalProjectFilterRequest) 
 
 	if filter.Search != "" {
 		searchTerm := "%" + strings.ToLower(strings.TrimSpace(filter.Search)) + "%"
-		baseQuery = baseQuery.Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ?", searchTerm, searchTerm)
+		baseQuery = baseQuery.Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(slug) LIKE ?", searchTerm, searchTerm, searchTerm)
 	}
 
 	if filter.Name != "" {
 		name := "%" + strings.ToLower(strings.TrimSpace(filter.Name)) + "%"
-		baseQuery = baseQuery.Where("LOWER(name) LIKE ?", name)
+		baseQuery = baseQuery.Where("LOWER(name) LIKE ? OR LOWER(slug) LIKE ?", name, name)
 	}
 
 	if filter.Status != "" {
