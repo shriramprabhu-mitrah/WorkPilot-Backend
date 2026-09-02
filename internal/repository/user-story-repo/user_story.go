@@ -292,14 +292,25 @@ func (d *userStoryDatabase) GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUI
 }
 
 func (d *userStoryDatabase) GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error) {
+	return d.GetUserStoryAccessContextByIDOrKey(id.String())
+}
+
+func (d *userStoryDatabase) GetUserStoryAccessContextByIDOrKey(idOrKey string) (*models.UserStoryAccessContext, *response.Error) {
 	var ctx models.UserStoryAccessContext
-	err := d.db.Table("user_stories").
+	query := d.db.Table("user_stories").
 		Select("user_stories.id as user_story_id, user_stories.project_id as project_id, projects.organization_id as organization_id, user_stories.title as title").
 		Joins("join projects on projects.id = user_stories.project_id").
-		Where("user_stories.id = ? AND user_stories.deleted_at IS NULL", id).
-		Scan(&ctx).Error
+		Where("user_stories.deleted_at IS NULL")
+
+	if parsedID, err := uuid.FromString(strings.TrimSpace(idOrKey)); err == nil {
+		query = query.Where("user_stories.id = ?", parsedID)
+	} else {
+		query = query.Where("LOWER(user_stories.key) = LOWER(?)", strings.TrimSpace(idOrKey))
+	}
+
+	err := query.Scan(&ctx).Error
 	if err != nil {
-		d.logger.Error("Failed to fetch user story access context", zap.Error(err), zap.String("user_story_id", id.String()))
+		d.logger.Error("Failed to fetch user story access context", zap.Error(err), zap.String("user_story_id_or_key", idOrKey))
 		return nil, &response.Error{
 			Code:       response.ErrInternalServerError,
 			StatusCode: http.StatusInternalServerError,

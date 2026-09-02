@@ -58,6 +58,9 @@ func resolveProjectName(project models.Project, fallbackID uuid.UUID) string {
 	if project.Name != "" {
 		return project.Name
 	}
+	if fallbackID != uuid.Nil {
+		return fallbackID.String()
+	}
 	return "project"
 }
 

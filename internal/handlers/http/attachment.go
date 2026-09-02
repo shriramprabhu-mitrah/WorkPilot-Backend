@@ -526,10 +526,12 @@ func (h *attachmentHandler) UploadUserStoryAttachment(g *gin.Context) {
 		return
 	}
 
-	storyUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert user story ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	storyUUID, errResp := h.service.ResolveUserStoryID(g.Param("user_story_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -579,10 +581,12 @@ func (h *attachmentHandler) GetUserStoryAttachments(g *gin.Context) {
 		return
 	}
 
-	storyUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert user story ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	storyUUID, errResp := h.service.ResolveUserStoryID(g.Param("user_story_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -760,10 +764,12 @@ func (h *attachmentHandler) UploadUserStoryCommentAttachmentWithoutComment(g *gi
 		return
 	}
 
-	userStoryUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert user story ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	userStoryUUID, errResp := h.service.ResolveUserStoryID(g.Param("user_story_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -806,10 +812,12 @@ func (h *attachmentHandler) DownloadUserStoryCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	userStoryUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert user story ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	userStoryUUID, errResp := h.service.ResolveUserStoryID(g.Param("user_story_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 
@@ -848,10 +856,12 @@ func (h *attachmentHandler) DeleteUserStoryCommentAttachment(g *gin.Context) {
 		return
 	}
 
-	userStoryUUID, errorResponse := utils.StringToUUID(g.Param("user_story_id"))
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert user story ID string into UUID")
-		g.JSON(errorResponse.StatusCode, errorResponse)
+	userStoryUUID, errResp := h.service.ResolveUserStoryID(g.Param("user_story_id"))
+	if errResp != nil {
+		g.JSON(errResp.StatusCode, response.ErrorResponse{
+			Success: false,
+			Error:   *errResp,
+		})
 		return
 	}
 

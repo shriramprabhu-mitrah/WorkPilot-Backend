@@ -9,6 +9,7 @@ type CreateCommentsRequest struct {
 	TaskID          *uuid.UUID  `json:"-" swaggerignore:"true"`
 	TaskIDOrKey     string      `json:"-" swaggerignore:"true"`
 	UserStoryID     *uuid.UUID  `json:"-" swaggerignore:"true"`
+	UserStoryIDOrKey string     `json:"-" swaggerignore:"true"`
 	UserID          uuid.UUID   `json:"-" swaggerignore:"true"`
 	OrganizationID  uuid.UUID   `json:"-" swaggerignore:"true"`
 	Content         string      `json:"content" binding:"required,min=1,max=5000"`
@@ -17,30 +18,33 @@ type CreateCommentsRequest struct {
 }
 
 type UpdateCommentsRequest struct {
-	CommentID      uuid.UUID  `json:"-" swaggerignore:"true"`
-	TaskID         *uuid.UUID `json:"-" swaggerignore:"true"`
-	TaskIDOrKey    string     `json:"-" swaggerignore:"true"`
-	UserStoryID    *uuid.UUID `json:"-" swaggerignore:"true"`
-	UserID         uuid.UUID  `json:"-" swaggerignore:"true"`
-	OrganizationID uuid.UUID  `json:"-" swaggerignore:"true"`
-	Content        string     `json:"content" binding:"required"`
+	CommentID        uuid.UUID  `json:"-" swaggerignore:"true"`
+	TaskID           *uuid.UUID `json:"-" swaggerignore:"true"`
+	TaskIDOrKey      string     `json:"-" swaggerignore:"true"`
+	UserStoryID      *uuid.UUID `json:"-" swaggerignore:"true"`
+	UserStoryIDOrKey string     `json:"-" swaggerignore:"true"`
+	UserID           uuid.UUID  `json:"-" swaggerignore:"true"`
+	OrganizationID   uuid.UUID  `json:"-" swaggerignore:"true"`
+	Content          string     `json:"content" binding:"required"`
 }
 
 type DeleteComments struct {
-	CommentID      uuid.UUID  `json:"-" swaggerignore:"true"`
-	TaskID         *uuid.UUID `json:"-" swaggerignore:"true"`
-	TaskIDOrKey    string     `json:"-" swaggerignore:"true"`
-	UserStoryID    *uuid.UUID `json:"-" swaggerignore:"true"`
-	UserID         uuid.UUID  `json:"-" swaggerignore:"true"`
-	OrganizationID uuid.UUID  `json:"-" swaggerignore:"true"`
+	CommentID        uuid.UUID  `json:"-" swaggerignore:"true"`
+	TaskID           *uuid.UUID `json:"-" swaggerignore:"true"`
+	TaskIDOrKey      string     `json:"-" swaggerignore:"true"`
+	UserStoryID      *uuid.UUID `json:"-" swaggerignore:"true"`
+	UserStoryIDOrKey string     `json:"-" swaggerignore:"true"`
+	UserID           uuid.UUID  `json:"-" swaggerignore:"true"`
+	OrganizationID   uuid.UUID  `json:"-" swaggerignore:"true"`
 }
 
 type GetComments struct {
 	response.PaginationQuery
-	CommentID      uuid.UUID  `json:"-" swaggerignore:"true"`
-	TaskID         *uuid.UUID `json:"-" swaggerignore:"true"`
-	TaskIDOrKey    string     `json:"-" swaggerignore:"true"`
-	UserStoryID    *uuid.UUID `json:"-" swaggerignore:"true"`
-	UserID         uuid.UUID  `json:"-" swaggerignore:"true"`
-	OrganizationID uuid.UUID  `json:"-" swaggerignore:"true"`
+	CommentID        uuid.UUID  `json:"-" swaggerignore:"true"`
+	TaskID           *uuid.UUID `json:"-" swaggerignore:"true"`
+	TaskIDOrKey      string     `json:"-" swaggerignore:"true"`
+	UserStoryID      *uuid.UUID `json:"-" swaggerignore:"true"`
+	UserStoryIDOrKey string     `json:"-" swaggerignore:"true"`
+	UserID           uuid.UUID  `json:"-" swaggerignore:"true"`
+	OrganizationID   uuid.UUID  `json:"-" swaggerignore:"true"`
 }

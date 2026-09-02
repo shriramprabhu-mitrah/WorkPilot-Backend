@@ -617,8 +617,8 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 	projectID := uuid.Must(uuid.NewV4())
 	sprintID := uuid.Must(uuid.NewV4())
 	authRepo := &sprintAuthRepoStub{user: models.User{OrganizationID: &orgID}}
-	startdate := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-	enddate := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
+	startdate := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
+	enddate := time.Date(2026, 9, 18, 0, 0, 0, 0, time.UTC)
 	sprintRepo := &sprintRepoStub{
 		getSprintByIDRes: &models.Sprint{
 			ID:        sprintID,
@@ -635,8 +635,8 @@ func TestSprintService_UpdateSprint_AllowsDuplicateDateRangeAndName(t *testing.T
 		UserID:         userID,
 		OrganizationID: orgID,
 		SprintID:       sprintID,
-		StartDate:      strPtr("2026-09-01"),
-		EndDate:        strPtr("2026-09-08"),
+		StartDate:      strPtr("2026-09-10"),
+		EndDate:        strPtr("2026-09-18"),
 		Name:           strPtr("Sprint 1"),
 	})
 	if err != nil {

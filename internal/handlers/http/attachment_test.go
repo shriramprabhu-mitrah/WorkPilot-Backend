@@ -127,6 +127,17 @@ func (m *mockAttachmentService) ResolveTaskID(taskIDOrKey string) (uuid.UUID, *r
 	return uuid.Must(uuid.NewV4()), nil
 }
 
+func (m *mockAttachmentService) ResolveUserStoryID(userStoryIDOrKey string) (uuid.UUID, *response.Error) {
+	if m.errResponse != nil {
+		return uuid.Nil, m.errResponse
+	}
+	id, err := uuid.FromString(userStoryIDOrKey)
+	if err == nil {
+		return id, nil
+	}
+	return uuid.Must(uuid.NewV4()), nil
+}
+
 func setupTestContext(mockSvc *mockAttachmentService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

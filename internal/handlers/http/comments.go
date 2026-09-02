@@ -75,16 +75,10 @@ func (h *commentsHandler) CreateComments(g *gin.Context) {
 
 	storyParam := g.Param("user_story_id")
 	if storyParam != "" {
-		storyUUID, errorResponse := utils.StringToUUID(storyParam)
-		if errorResponse != nil {
-			h.logger.Error("Failed to convert user_story_id into UUID")
-			g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-				Success: false,
-				Error:   *errorResponse,
-			})
-			return
+		if storyUUID, errResp := utils.StringToUUID(storyParam); errResp == nil {
+			payload.UserStoryID = &storyUUID
 		}
-		payload.UserStoryID = &storyUUID
+		payload.UserStoryIDOrKey = storyParam
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
@@ -163,16 +157,10 @@ func (h *commentsHandler) GetCommentByID(g *gin.Context) {
 
 	storyParam := g.Param("user_story_id")
 	if storyParam != "" {
-		storyUUID, errorResponse := utils.StringToUUID(storyParam)
-		if errorResponse != nil {
-			h.logger.Error("Failed to convert user_story_id into UUID")
-			g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-				Success: false,
-				Error:   *errorResponse,
-			})
-			return
+		if storyUUID, errResp := utils.StringToUUID(storyParam); errResp == nil {
+			req.UserStoryID = &storyUUID
 		}
-		req.UserStoryID = &storyUUID
+		req.UserStoryIDOrKey = storyParam
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
@@ -263,16 +251,10 @@ func (h *commentsHandler) UpdateComments(g *gin.Context) {
 
 	storyParam := g.Param("user_story_id")
 	if storyParam != "" {
-		storyUUID, errorResponse := utils.StringToUUID(storyParam)
-		if errorResponse != nil {
-			h.logger.Error("Failed to convert user_story_id into UUID")
-			g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-				Success: false,
-				Error:   *errorResponse,
-			})
-			return
+		if storyUUID, errResp := utils.StringToUUID(storyParam); errResp == nil {
+			req.UserStoryID = &storyUUID
 		}
-		req.UserStoryID = &storyUUID
+		req.UserStoryIDOrKey = storyParam
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
@@ -345,16 +327,10 @@ func (h *commentsHandler) DeleteComments(g *gin.Context) {
 
 	storyParam := g.Param("user_story_id")
 	if storyParam != "" {
-		storyUUID, errorResponse := utils.StringToUUID(storyParam)
-		if errorResponse != nil {
-			h.logger.Error("Failed to convert user_story_id into UUID")
-			g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-				Success: false,
-				Error:   *errorResponse,
-			})
-			return
+		if storyUUID, errResp := utils.StringToUUID(storyParam); errResp == nil {
+			req.UserStoryID = &storyUUID
 		}
-		req.UserStoryID = &storyUUID
+		req.UserStoryIDOrKey = storyParam
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
@@ -502,16 +478,9 @@ func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 
 	storyParam := g.Param("user_story_id")
 	if storyParam != "" {
-		storyU, errorResponse := utils.StringToUUID(storyParam)
-		if errorResponse != nil {
-			h.logger.Error("Failed to convert user_story_id into UUID")
-			g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-				Success: false,
-				Error:   *errorResponse,
-			})
-			return
+		if storyU, errResp := utils.StringToUUID(storyParam); errResp == nil {
+			storyUUID = &storyU
 		}
-		storyUUID = &storyU
 	} else {
 		taskParam := g.Param("task_id")
 		if taskParam != "" {
@@ -556,13 +525,14 @@ func (h *commentsHandler) GetCommentsByParentID(g *gin.Context) {
 	}
 
 	result, meta, err := h.commentService.GetCommentsByParentID(requestdto.GetComments{
-		PaginationQuery: paginationQuery,
-		TaskID:          taskUUID,
-		TaskIDOrKey:     taskIDOrKey,
-		UserStoryID:     storyUUID,
-		OrganizationID:  organizationUUID,
-		UserID:          userUUID,
-		CommentID:       commentUUID,
+		PaginationQuery:  paginationQuery,
+		TaskID:           taskUUID,
+		TaskIDOrKey:      taskIDOrKey,
+		UserStoryID:      storyUUID,
+		UserStoryIDOrKey: storyParam,
+		OrganizationID:   organizationUUID,
+		UserID:           userUUID,
+		CommentID:        commentUUID,
 	})
 
 	if err != nil {
@@ -617,14 +587,9 @@ func (h *commentsHandler) GetCommentsByUserStoryID(g *gin.Context) {
 	}
 
 	storyParam := g.Param("user_story_id")
-	storyUUID, errorResponse := utils.StringToUUID(storyParam)
-	if errorResponse != nil {
-		h.logger.Error("Failed to convert user_story_id into UUID")
-		g.JSON(errorResponse.StatusCode, response.ErrorResponse{
-			Success: false,
-			Error:   *errorResponse,
-		})
-		return
+	var storyUUIDPtr *uuid.UUID
+	if storyUUID, errResp := utils.StringToUUID(storyParam); errResp == nil {
+		storyUUIDPtr = &storyUUID
 	}
 
 	page, pageErr := strconv.Atoi(g.DefaultQuery("page", "1"))
@@ -650,10 +615,11 @@ func (h *commentsHandler) GetCommentsByUserStoryID(g *gin.Context) {
 	}
 
 	result, meta, err := h.commentService.GetCommentsByUserStoryID(requestdto.GetComments{
-		PaginationQuery: paginationQuery,
-		UserStoryID:     &storyUUID,
-		OrganizationID:  organizationUUID,
-		UserID:          userUUID,
+		PaginationQuery:  paginationQuery,
+		UserStoryID:      storyUUIDPtr,
+		UserStoryIDOrKey: storyParam,
+		OrganizationID:   organizationUUID,
+		UserID:           userUUID,
 	})
 
 	if err != nil {
