@@ -4137,11 +4137,11 @@ paths:
         in: query
         name: page_size
         type: integer
-      - description: Search query (name, description)
+      - description: Search query (name, description, slug)
         in: query
         name: search
         type: string
-      - description: Project Name
+      - description: Project Name or Slug
         in: query
         name: name
         type: string
@@ -4279,7 +4279,7 @@ paths:
         in: query
         name: page_size
         type: integer
-      - description: Project Name
+      - description: Project Name or Slug
         in: query
         name: name
         type: string
