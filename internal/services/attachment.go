@@ -63,6 +63,7 @@ type AttachmentService interface {
 
 	GetConfig() models.AttachmentConfig
 	ResolveTaskID(taskIDOrKey string) (uuid.UUID, *response.Error)
+	ResolveUserStoryID(userStoryIDOrKey string) (uuid.UUID, *response.Error)
 }
 
 type attachmentService struct {

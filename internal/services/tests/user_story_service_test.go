@@ -214,6 +214,27 @@ func (s *stubUserStoryRepo) GetUserStoryAccessContext(id uuid.UUID) (*models.Use
 	}, nil
 }
 
+func (s *stubUserStoryRepo) GetUserStoryAccessContextByIDOrKey(idOrKey string) (*models.UserStoryAccessContext, *response.Error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	id, err := uuid.FromString(idOrKey)
+	if err == nil {
+		return s.GetUserStoryAccessContext(id)
+	}
+	for _, story := range s.stories {
+		if strings.EqualFold(story.Key, idOrKey) && !story.DeletedAt.Valid {
+			return &models.UserStoryAccessContext{
+				UserStoryID:    story.ID,
+				Title:          story.Title,
+				ProjectID:      story.ProjectID,
+				OrganizationID: story.Project.OrganizationID,
+			}, nil
+		}
+	}
+	return nil, &response.Error{Code: response.ErrNotFound, StatusCode: 404, Message: "User story not found"}
+}
+
 func (s *stubUserStoryRepo) RecalculateUserStoryIsClosed(userStoryID uuid.UUID) *response.Error {
 	if s.stories == nil {
 		return nil

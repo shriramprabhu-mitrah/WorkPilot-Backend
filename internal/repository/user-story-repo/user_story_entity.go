@@ -21,6 +21,7 @@ type UserStoryRepository interface {
 	ReorderUserStories(projectID uuid.UUID, storyIDs []uuid.UUID) *response.Error
 	GetStoryTaskStats(projectID uuid.UUID) (map[uuid.UUID]models.StoryTaskStats, *response.Error)
 	GetUserStoryAccessContext(id uuid.UUID) (*models.UserStoryAccessContext, *response.Error)
+	GetUserStoryAccessContextByIDOrKey(idOrKey string) (*models.UserStoryAccessContext, *response.Error)
 	RecalculateUserStoryIsClosed(userStoryID uuid.UUID) *response.Error
 	CountStoriesByStatusID(projectID, statusID uuid.UUID) (int64, *response.Error)
 	GetNextSequenceNumber(projectID uuid.UUID) (int, *response.Error)

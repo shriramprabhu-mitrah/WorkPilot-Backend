@@ -93,15 +93,15 @@ func (s *commentsService) checkAuthorization(userID, taskID uuid.UUID) (*uuid.UU
 	return projectID, authorized, err
 }
 
-func (s *commentsService) checkUserStoryAuthorization(userID, userStoryID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
+func (s *commentsService) checkUserStoryAuthorizationByIDOrKey(userID uuid.UUID, userStoryIDOrKey string) (*models.UserStoryAccessContext, *uuid.UUID, bool, *response.Error) {
 	user, err := s.authRepo.GetUserByID(userID)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
-	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContext(userStoryID)
+	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContextByIDOrKey(userStoryIDOrKey)
 	if err != nil {
-		return nil, false, &response.Error{
+		return nil, nil, false, &response.Error{
 			Code:       response.ErrBadRequest,
 			StatusCode: http.StatusBadRequest,
 			Message:    "User story does not belong to the specified project",
@@ -109,7 +109,7 @@ func (s *commentsService) checkUserStoryAuthorization(userID, userStoryID uuid.U
 	}
 
 	if user.Role.Name == string(requestdto.RoleSuperAdmin) {
-		return &storyCtx.ProjectID, false, &response.Error{
+		return storyCtx, &storyCtx.ProjectID, false, &response.Error{
 			Code:       response.ErrForbidden,
 			StatusCode: http.StatusForbidden,
 			Message:    "Super admins are not allowed to perform organization-level activities",
@@ -118,10 +118,15 @@ func (s *commentsService) checkUserStoryAuthorization(userID, userStoryID uuid.U
 
 	authorized, permErr := CheckPermission(s.authRepo, s.projectRepo, userID, storyCtx.ProjectID, "comments", "view")
 	if permErr != nil {
-		return nil, false, permErr
+		return nil, nil, false, permErr
 	}
 
-	return &storyCtx.ProjectID, authorized, nil
+	return storyCtx, &storyCtx.ProjectID, authorized, nil
+}
+
+func (s *commentsService) checkUserStoryAuthorization(userID, userStoryID uuid.UUID) (*uuid.UUID, bool, *response.Error) {
+	_, projectID, authorized, err := s.checkUserStoryAuthorizationByIDOrKey(userID, userStoryID.String())
+	return projectID, authorized, err
 }
 
 func (s *commentsService) validateParentComment(parentCommentID uuid.UUID, taskID *uuid.UUID, userStoryID *uuid.UUID, projectID, organizationID uuid.UUID) *response.Error {
@@ -202,9 +207,18 @@ func (s *commentsService) CreateComments(req requestdto.CreateCommentsRequest) (
 	var taskID *uuid.UUID
 	var userStoryID *uuid.UUID
 
-	if req.UserStoryID != nil {
-		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
-		userStoryID = req.UserStoryID
+	if req.UserStoryIDOrKey != "" {
+		var storyCtx *models.UserStoryAccessContext
+		storyCtx, projectID, authorized, err = s.checkUserStoryAuthorizationByIDOrKey(req.UserID, req.UserStoryIDOrKey)
+		if storyCtx != nil {
+			userStoryID = &storyCtx.UserStoryID
+		}
+	} else if req.UserStoryID != nil {
+		var storyCtx *models.UserStoryAccessContext
+		storyCtx, projectID, authorized, err = s.checkUserStoryAuthorizationByIDOrKey(req.UserID, req.UserStoryID.String())
+		if storyCtx != nil {
+			userStoryID = &storyCtx.UserStoryID
+		}
 	} else if req.TaskIDOrKey != "" {
 		var task *models.Task
 		task, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
@@ -372,7 +386,13 @@ func (s *commentsService) GetCommentByID(req requestdto.GetComments) (*responsed
 	var authorized bool
 	var err *response.Error
 
-	if req.UserStoryID != nil {
+	if req.UserStoryIDOrKey != "" {
+		var storyCtx *models.UserStoryAccessContext
+		storyCtx, projectID, authorized, err = s.checkUserStoryAuthorizationByIDOrKey(req.UserID, req.UserStoryIDOrKey)
+		if storyCtx != nil {
+			req.UserStoryID = &storyCtx.UserStoryID
+		}
+	} else if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
 	} else if req.TaskIDOrKey != "" {
 		_, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
@@ -456,6 +476,9 @@ func resolveUserName(user models.User, fallbackID uuid.UUID) string {
 	if user.Email != "" {
 		return user.Email
 	}
+	if fallbackID != uuid.Nil {
+		return fallbackID.String()
+	}
 	return "a user"
 }
 
@@ -465,7 +488,13 @@ func (s *commentsService) UpdateComments(req requestdto.UpdateCommentsRequest) (
 	var authorized bool
 	var err *response.Error
 
-	if req.UserStoryID != nil {
+	if req.UserStoryIDOrKey != "" {
+		var storyCtx *models.UserStoryAccessContext
+		storyCtx, projectID, authorized, err = s.checkUserStoryAuthorizationByIDOrKey(req.UserID, req.UserStoryIDOrKey)
+		if storyCtx != nil {
+			req.UserStoryID = &storyCtx.UserStoryID
+		}
+	} else if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
 	} else if req.TaskIDOrKey != "" {
 		_, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
@@ -624,7 +653,13 @@ func (s *commentsService) DeleteComments(req requestdto.DeleteComments) *respons
 	var authorized bool
 	var err *response.Error
 
-	if req.UserStoryID != nil {
+	if req.UserStoryIDOrKey != "" {
+		var storyCtx *models.UserStoryAccessContext
+		storyCtx, projectID, authorized, err = s.checkUserStoryAuthorizationByIDOrKey(req.UserID, req.UserStoryIDOrKey)
+		if storyCtx != nil {
+			req.UserStoryID = &storyCtx.UserStoryID
+		}
+	} else if req.UserStoryID != nil {
 		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
 	} else if req.TaskIDOrKey != "" {
 		_, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
@@ -843,9 +878,20 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 	var taskID *uuid.UUID
 	var userStoryID *uuid.UUID
 
-	if req.UserStoryID != nil {
-		projectID, authorized, err = s.checkUserStoryAuthorization(req.UserID, *req.UserStoryID)
-		userStoryID = req.UserStoryID
+	if req.UserStoryIDOrKey != "" {
+		var storyCtx *models.UserStoryAccessContext
+		storyCtx, projectID, authorized, err = s.checkUserStoryAuthorizationByIDOrKey(req.UserID, req.UserStoryIDOrKey)
+		if storyCtx != nil {
+			userStoryID = &storyCtx.UserStoryID
+			req.UserStoryID = &storyCtx.UserStoryID
+		}
+	} else if req.UserStoryID != nil {
+		var storyCtx *models.UserStoryAccessContext
+		storyCtx, projectID, authorized, err = s.checkUserStoryAuthorizationByIDOrKey(req.UserID, req.UserStoryID.String())
+		if storyCtx != nil {
+			userStoryID = &storyCtx.UserStoryID
+			req.UserStoryID = &storyCtx.UserStoryID
+		}
 	} else if req.TaskIDOrKey != "" {
 		var task *models.Task
 		task, projectID, authorized, err = s.checkAuthorizationByIDOrKey(req.UserID, req.TaskIDOrKey)
@@ -928,11 +974,14 @@ func (s *commentsService) GetCommentsByParentID(req requestdto.GetComments) ([]r
 }
 
 func (s *commentsService) GetCommentsByUserStoryID(req requestdto.GetComments) ([]responsedto.CommentsResponse, response.Pagination, *response.Error) {
-	userStoryID := uuid.Nil
-	if req.UserStoryID != nil {
-		userStoryID = *req.UserStoryID
+	var storyIDOrKey string
+	if req.UserStoryIDOrKey != "" {
+		storyIDOrKey = req.UserStoryIDOrKey
+	} else if req.UserStoryID != nil {
+		storyIDOrKey = req.UserStoryID.String()
 	}
-	projectID, authorized, err := s.checkUserStoryAuthorization(req.UserID, userStoryID)
+
+	storyCtx, projectID, authorized, err := s.checkUserStoryAuthorizationByIDOrKey(req.UserID, storyIDOrKey)
 	if err != nil {
 		s.logger.Error("You do not have permission to list comments to this project",
 			zap.String("user_id", req.UserID.String()))
@@ -948,6 +997,13 @@ func (s *commentsService) GetCommentsByUserStoryID(req requestdto.GetComments) (
 			Message:    "You do not have permission to view this comment",
 		}
 	}
+
+	var userStoryID uuid.UUID
+	if storyCtx != nil {
+		userStoryID = storyCtx.UserStoryID
+		req.UserStoryID = &storyCtx.UserStoryID
+	}
+
 	comments, pagination, err := s.commentsRepo.GetCommentsByUserStoryID(req)
 	if err != nil {
 		return nil, response.Pagination{}, err
@@ -962,11 +1018,8 @@ func (s *commentsService) GetCommentsByUserStoryID(req requestdto.GetComments) (
 	userName := resolveUserName(user, req.UserID)
 
 	storyTitle := "userstory"
-	if projectID != nil {
-		story, storyErr := s.userStoryRepo.GetUserStoryByID(userStoryID, *projectID)
-		if storyErr == nil && story != nil && story.Title != "" {
-			storyTitle = story.Title
-		}
+	if storyCtx != nil && storyCtx.Title != "" {
+		storyTitle = storyCtx.Title
 	}
 
 	auditLog := models.AuditLog{

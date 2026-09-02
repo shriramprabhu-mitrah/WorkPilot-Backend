@@ -538,3 +538,11 @@ func (s *attachmentService) ResolveTaskID(taskIDOrKey string) (uuid.UUID, *respo
 	}
 	return taskCtx.TaskID, nil
 }
+
+func (s *attachmentService) ResolveUserStoryID(userStoryIDOrKey string) (uuid.UUID, *response.Error) {
+	storyCtx, err := s.userStoryRepo.GetUserStoryAccessContextByIDOrKey(userStoryIDOrKey)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return storyCtx.UserStoryID, nil
+}
