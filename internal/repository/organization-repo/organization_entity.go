@@ -1,0 +1,48 @@
+package organizationrepo
+
+import (
+	"github.com/gofrs/uuid"
+	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	"github.com/ms-kanban-server/internal/pkg/models"
+	"github.com/ms-kanban-server/internal/pkg/response"
+	redisclient "github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+type OrganizationRepository interface {
+	CreateOrganization(row models.Organization) *response.Error
+	GetByName(name string) (models.Organization, *response.Error)
+	GetByID(id uuid.UUID) (models.Organization, *response.Error)
+	GetByIDUnscoped(id uuid.UUID) (models.Organization, *response.Error)
+	GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]models.Organization, response.Pagination, *response.Error)
+	UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error
+	SoftDeleteOrganization(orgID uuid.UUID) *response.Error
+	RestoreOrganization(orgID uuid.UUID) *response.Error
+	DeleteOrganization(id uuid.UUID) *response.Error
+	UpdateStatusAndRole(userID uuid.UUID, req models.User) *response.Error
+	CreateOrganizationInvitation(invitation models.OrganizationInvitation) *response.Error
+	GetPendingInvitationByEmail(orgID uuid.UUID, email string) (models.OrganizationInvitation, *response.Error)
+	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
+	UpdateInvitation(invitation models.OrganizationInvitation) *response.Error
+	GetUsersByOrganizationID(organizationID uuid.UUID, filter dto.OrganizationMemberListFilter) ([]models.User, response.Pagination, *response.Error)
+	GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error)
+	DeleteUser(id uuid.UUID) *response.Error
+	GetProjectCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
+	GetMemberCountsByOrganizationIDs(orgIDs []uuid.UUID) (map[uuid.UUID]int64, *response.Error)
+	CreateDefaultRolesForOrg(orgID uuid.UUID) *response.Error
+}
+
+func InitOrganizationRepository(deps models.Config) OrganizationRepository {
+	return &organizationDatabase{
+		DB:          deps.Database,
+		redisClient: deps.Redis,
+		logger:      deps.Logger,
+	}
+}
+
+type organizationDatabase struct {
+	DB          *gorm.DB
+	redisClient *redisclient.Client
+	logger      *zap.Logger
+}

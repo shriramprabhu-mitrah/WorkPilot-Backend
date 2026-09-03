@@ -1,0 +1,1021 @@
+package services
+
+import (
+	"crypto/rand"
+	"fmt"
+	"math"
+	"math/big"
+	"net/http"
+	"strings"
+	"time"
+	"unicode"
+
+	"github.com/gofrs/uuid"
+	"github.com/ms-kanban-server/config"
+	dto "github.com/ms-kanban-server/internal/handlers/dto/request"
+	responsedto "github.com/ms-kanban-server/internal/handlers/dto/response"
+	"github.com/ms-kanban-server/internal/middleware"
+	"github.com/ms-kanban-server/internal/pkg/email"
+	"github.com/ms-kanban-server/internal/pkg/models"
+	"github.com/ms-kanban-server/internal/pkg/response"
+	"github.com/ms-kanban-server/internal/pkg/utils"
+	auditrepo "github.com/ms-kanban-server/internal/repository/audit-repo"
+	authrepo "github.com/ms-kanban-server/internal/repository/auth-repo"
+	organizationrepo "github.com/ms-kanban-server/internal/repository/organization-repo"
+	"go.uber.org/zap"
+)
+
+type OrganizationService interface {
+	GetOrganizationByID(id, userID uuid.UUID) (models.Organization, *response.Error)
+	GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]responsedto.OrganizationSummary, response.Pagination, *response.Error)
+	CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error)
+	UpdateOrganization(id uuid.UUID, req models.Organization) *response.Error
+	UpdateOrganizationStatus(req dto.UpdateOrganizationStatusRequest) *response.Error
+	DeleteOrganization(id uuid.UUID) *response.Error
+	UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error
+	UpdateUserRole(payload dto.UpdateUserRole) *response.Error
+	InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error
+	AcceptInvitation(userID uuid.UUID, token string) *response.Error
+	GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error)
+	GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]responsedto.UserProfile, response.Pagination, *response.Error)
+	GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error)
+	RemoveUser(payload dto.RemoveUser) *response.Error
+}
+
+func InitOrganizationService(repo organizationrepo.OrganizationRepository, AuthRepo authrepo.AuthRepository, auditRepo auditrepo.AuditLogRepository, logger *zap.Logger) OrganizationService {
+	return &organizationService{
+		OrganizationRepo: repo,
+		AuthRepo:         AuthRepo,
+		auditRepo:        auditRepo,
+		logger:           logger,
+	}
+}
+
+type organizationService struct {
+	AuthRepo         authrepo.AuthRepository
+	OrganizationRepo organizationrepo.OrganizationRepository
+	auditRepo        auditrepo.AuditLogRepository
+	logger           *zap.Logger
+}
+
+func (s *organizationService) GetOrganizationByID(id, userID uuid.UUID) (models.Organization, *response.Error) {
+	organization, err := s.OrganizationRepo.GetByID(id)
+	if err != nil {
+		return organization, err
+	}
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &id,
+		Action:         "viewed",
+		ResourceType:   "organization",
+		ResourceID:     id.String(),
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return organization, auditErr
+	}
+	return organization, nil
+}
+
+func (s *organizationService) GetAllOrganizations(filter dto.OrganizationFilterRequest) ([]responsedto.OrganizationSummary, response.Pagination, *response.Error) {
+	organizations, pagination, err := s.OrganizationRepo.GetAllOrganizations(filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	orgSummaries := make([]responsedto.OrganizationSummary, 0, len(organizations))
+	if len(organizations) > 0 {
+		orgIDs := make([]uuid.UUID, len(organizations))
+		for i, o := range organizations {
+			orgIDs[i] = o.ID
+		}
+
+		projectCounts, _ := s.OrganizationRepo.GetProjectCountsByOrganizationIDs(orgIDs)
+		memberCounts, _ := s.OrganizationRepo.GetMemberCountsByOrganizationIDs(orgIDs)
+
+		for _, o := range organizations {
+			summary := responsedto.OrganizationFromModel(o, int(projectCounts[o.ID]), int(memberCounts[o.ID]))
+			orgSummaries = append(orgSummaries, summary)
+		}
+	}
+
+	return orgSummaries, pagination, nil
+}
+
+func (s *organizationService) CreateOrganization(row models.Organization) (*dto.AuthTokensResponse, *response.Error) {
+
+	slug := utils.ExtractSlug(row.Domain)
+	row.Slug = slug
+
+	err := s.OrganizationRepo.CreateOrganization(row)
+	if err != nil {
+		return nil, err
+	}
+
+	organization, err := s.OrganizationRepo.GetByName(row.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.OrganizationRepo.CreateDefaultRolesForOrg(organization.ID); err != nil {
+		s.OrganizationRepo.DeleteOrganization(organization.ID)
+		return nil, err
+	}
+
+	orgAdminRole, roleErr := s.AuthRepo.GetRoleByNameAndOrg("org_admin", organization.ID)
+	if roleErr != nil {
+		s.OrganizationRepo.DeleteOrganization(organization.ID)
+		return nil, roleErr
+	}
+
+	user := models.User{
+		OrganizationID: &organization.ID,
+		RoleID:         orgAdminRole.ID,
+		IsActive:       true,
+		JoinedAt:       time.Now(),
+	}
+
+	err = s.AuthRepo.UpdateUser(row.CreatedBy, user)
+	if err != nil {
+		s.OrganizationRepo.DeleteOrganization(organization.ID)
+		return nil, err
+	}
+
+	tokencredentials := dto.JWtcredentials{
+		Role:           "org_admin",
+		UserID:         row.CreatedBy,
+		OrganizationID: &organization.ID,
+	}
+
+	accessToken, tokenErr := middleware.GenerateJWT(tokencredentials, s.logger)
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+
+	refreshTokenValue, refreshTokenErr := generateRefreshTokenValue()
+	if refreshTokenErr != nil {
+		s.logger.Error("Failed to create refresh token after email verification",
+			zap.String("email", user.Email))
+		return nil, &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+
+	hashedRefreshToken, hashErr := utils.HashPassword(refreshTokenValue)
+	if hashErr != nil {
+		s.logger.Error("Failed hashing the refresh token after email verification",
+			zap.String("email", user.Email), zap.Error(fmt.Errorf("%v", hashErr)))
+		return nil, hashErr
+	}
+
+	expiresIn, parseErr := utils.StringToInt(config.GetEnv("JWT_EXPIRY", "900"))
+	if parseErr != nil {
+		s.logger.Error("Failed to set the expire time",
+			zap.Error(fmt.Errorf("%v", parseErr)))
+		return nil, parseErr
+	}
+
+	refreshExpiresIn, refreshParseErr := utils.StringToInt(config.GetEnv("REFRESH_TOKEN_EXPIRY", "604800"))
+	if refreshParseErr != nil {
+		s.logger.Error("Failed to set the expire time",
+			zap.Error(fmt.Errorf("%v", refreshParseErr)))
+		return nil, refreshParseErr
+	}
+
+	expiresAt := time.Now().Add(time.Duration(refreshExpiresIn) * time.Second)
+	storedToken, storeErr := s.AuthRepo.StoreRefreshToken(models.RefreshToken{UserID: user.ID, TokenHash: hashedRefreshToken, ExpiresAt: expiresAt})
+	if storeErr != nil {
+		return nil, storeErr
+	}
+
+	// Prefix refresh token with stored token ID
+	refreshTokenValue = fmt.Sprintf("%s.%s", storedToken.ID.String(), refreshTokenValue)
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &row.CreatedBy,
+		OrganizationID: &organization.ID,
+		Action:         "created",
+		ResourceType:   "organization",
+		ResourceID:     organization.ID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "created",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return nil, auditErr
+	}
+
+	return &dto.AuthTokensResponse{
+		AccessToken:      accessToken,
+		RefreshToken:     refreshTokenValue,
+		TokenType:        "Bearer",
+		ExpiresIn:        expiresIn,
+		RefreshExpiresIn: refreshExpiresIn,
+	}, nil
+}
+
+func (s *organizationService) UpdateOrganization(OrganizationID uuid.UUID, req models.Organization) *response.Error {
+
+	if req.Domain != "" {
+		slug := utils.ExtractSlug(req.Domain)
+		req.Slug = slug
+	}
+
+	err := s.OrganizationRepo.UpdateOrganization(OrganizationID, req)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &OrganizationID,
+		OrganizationID: &OrganizationID,
+		Action:         "updated",
+		ResourceType:   "organization",
+		ResourceID:     OrganizationID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "updated",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
+}
+
+func (s *organizationService) DeleteOrganization(id uuid.UUID) *response.Error {
+
+	err := s.OrganizationRepo.DeleteOrganization(id)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &id,
+		OrganizationID: &id,
+		Action:         "deleted",
+		ResourceType:   "organization",
+		ResourceID:     id.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "deleted",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
+}
+
+func (s *organizationService) UpdateOrganizationStatus(req dto.UpdateOrganizationStatusRequest) *response.Error {
+	org, err := s.OrganizationRepo.GetByIDUnscoped(req.OrganizationID)
+	if err != nil {
+		return err
+	}
+
+	if *req.IsActive {
+		err = s.OrganizationRepo.RestoreOrganization(req.OrganizationID)
+	} else {
+		err = s.OrganizationRepo.SoftDeleteOrganization(req.OrganizationID)
+	}
+	if err != nil {
+		return err
+	}
+
+	statusStr := "deactivated"
+	if *req.IsActive {
+		statusStr = "activated"
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &req.UserID,
+		OrganizationID: &req.OrganizationID,
+		Action:         "updated",
+		ResourceType:   "organization_status",
+		ResourceID:     req.OrganizationID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("organization %s (%s)", org.Name, statusStr),
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		s.logger.Warn("Failed to create audit log for organization status update", zap.String("error", auditErr.Message))
+	}
+
+	return nil
+}
+
+func (s *organizationService) UpdateUserStatus(payload dto.UpdateUserStatus) *response.Error {
+
+	result, err := s.AuthRepo.GetUserByID(payload.UserID)
+	if err != nil {
+		return err
+	}
+
+	if result.OrganizationID == nil || payload.OrganizationID == nil {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != *payload.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	request := result
+	request.IsActive = payload.IsActive
+	if payload.IsActive {
+		request.Status = "active"
+	} else {
+		request.Status = "inactive"
+	}
+
+	err = s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &payload.UserID,
+		OrganizationID: payload.OrganizationID,
+		Action:         "updated",
+		ResourceType:   "user_status",
+		ResourceID:     payload.UserID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("updated user status for %s", result.Email),
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
+
+}
+
+func (s *organizationService) UpdateUserRole(payload dto.UpdateUserRole) *response.Error {
+
+	result, err := s.AuthRepo.GetUserByID(payload.UserID)
+	if err != nil {
+		return err
+	}
+
+	if result.OrganizationID == nil || payload.OrganizationID == nil {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != *payload.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Payload Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	roleName := "developer"
+	if payload.Role == "org_admin" {
+		roleName = "org_admin"
+	}
+	role, roleErr := s.AuthRepo.GetRoleByNameAndOrg(roleName, *payload.OrganizationID)
+	if roleErr != nil {
+		return roleErr
+	}
+	roleID := role.ID
+
+	request := result
+	request.RoleID = roleID
+
+	err = s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request)
+	if err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &payload.UserID,
+		OrganizationID: payload.OrganizationID,
+		Action:         "updated",
+		ResourceType:   "user_role",
+		ResourceID:     payload.UserID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        fmt.Sprintf("updated user role for %s", result.Email),
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
+
+}
+
+func (s *organizationService) InviteOrganizationMember(inviterID uuid.UUID, organizationID uuid.UUID, payload dto.InviteOrganizationMemberRequest) *response.Error {
+	inviter, invErr := s.AuthRepo.GetUserByID(inviterID)
+	if invErr != nil {
+		return invErr
+	}
+	if inviter.Role.Name != "org_admin" || inviter.OrganizationID == nil || *inviter.OrganizationID != organizationID {
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	inviteItems := payload.Members
+	if len(inviteItems) == 0 {
+		return &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "At least one member invitation is required",
+		}
+	}
+
+	developerRole, roleErr := s.AuthRepo.GetRoleByNameAndOrg("developer", organizationID)
+	if roleErr != nil {
+		return roleErr
+	}
+
+	org, orgErr := s.OrganizationRepo.GetByID(organizationID)
+	if orgErr != nil {
+		return orgErr
+	}
+
+	for _, inviteItem := range inviteItems {
+		inviteEmail := strings.ToLower(strings.TrimSpace(inviteItem.Email))
+
+		existingUser, userErr := s.AuthRepo.GetByEmail(inviteEmail)
+		if userErr == nil {
+			if existingUser.OrganizationID != nil && *existingUser.OrganizationID != uuid.Nil {
+				return &response.Error{
+					Code:       response.ErrConflict,
+					StatusCode: http.StatusConflict,
+					Message:    "User is already in an organization",
+				}
+			}
+			existingUser.OrganizationID = &organizationID
+			existingUser.RoleID = developerRole.ID
+			existingUser.IsActive = false
+			existingUser.Status = "pending"
+			if err := s.AuthRepo.UpdateUser(existingUser.ID, existingUser); err != nil {
+				return err
+			}
+		} else if userErr.StatusCode != http.StatusNotFound && userErr.StatusCode != http.StatusInternalServerError {
+			return userErr
+		}
+
+		existingPending, pendingErr := s.OrganizationRepo.GetPendingInvitationByEmail(organizationID, inviteEmail)
+		if pendingErr != nil {
+			return pendingErr
+		}
+
+		expiresAt := time.Now().Add(1 * 24 * time.Hour)
+		invitation := models.OrganizationInvitation{
+			OrganizationID: organizationID,
+			Email:          inviteEmail,
+			RoleID:         developerRole.ID,
+			Status:         models.InvitationStatusPending,
+			ExpiresAt:      expiresAt,
+			CreatedBy:      inviterID,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+
+		invitationToken, err := s.generateInvitationToken()
+		if err != nil {
+			return err
+		}
+		invitation.Token = invitationToken
+		invitation.Status = models.InvitationStatusPending
+		invitation.ExpiresAt = expiresAt
+		invitation.AcceptedAt = nil
+		invitation.UpdatedAt = time.Now()
+		if existingPending.ID != uuid.Nil {
+			invitation.ID = existingPending.ID
+			invitation.CreatedAt = existingPending.CreatedAt
+			if err := s.OrganizationRepo.UpdateInvitation(invitation); err != nil {
+				return err
+			}
+		} else {
+			if err := s.OrganizationRepo.CreateOrganizationInvitation(invitation); err != nil {
+				return err
+			}
+		}
+
+		inviteLink := fmt.Sprintf("%s/api/v1/organization/invitations/accept?token=%s", config.GetEnv("BACKEND_API_URL", "http://localhost:6369"), invitation.Token)
+		tempPassword := ""
+		if userErr != nil {
+			invitationTempPassword, err := s.inviteUserWithTemporaryCredentials(inviteEmail, organizationID, developerRole.ID)
+			if err != nil {
+				return err
+			}
+			tempPassword = invitationTempPassword
+		}
+
+		if err := email.SendOrganizationInvitation(inviteEmail, org.Name, developerRole.Name, inviteLink, tempPassword); err != nil {
+			s.logger.Warn("Failed to send organization invitation email", zap.Error(err))
+		}
+
+		auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+			UserID:         &inviterID,
+			OrganizationID: &organizationID,
+			Action:         "invitation_sended",
+			ResourceType:   "organization_invitation",
+			ResourceID:     invitation.Token,
+			Details:        fmt.Sprintf("Invited %s to %s", inviteItem.Email, org.Name),
+			Type:           models.AuditLogTypeAudit,
+			CreatedAt:      time.Now(),
+		})
+		if auditErr != nil {
+			return auditErr
+		}
+	}
+	return nil
+}
+
+func (s *organizationService) generateInvitationToken() (string, *response.Error) {
+	newToken, err := uuid.NewV7()
+	if err != nil {
+		return "", &response.Error{
+			Code:       response.ErrInternalServerError,
+			StatusCode: http.StatusInternalServerError,
+			Message:    "Something went wrong. Please try again later.",
+		}
+	}
+	return newToken.String(), nil
+}
+
+func (s *organizationService) generateTemporaryPassword(length int) (string, *response.Error) {
+	if length < 8 {
+		length = 8
+	}
+	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var password strings.Builder
+	for i := 0; i < length; i++ {
+		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			s.logger.Error("Failed to generate temporary password", zap.Error(err))
+			return "", &response.Error{
+				Code:       response.ErrInternalServerError,
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Something went wrong. Please try again later.",
+			}
+		}
+		password.WriteByte(chars[idx.Int64()])
+	}
+	return password.String(), nil
+}
+
+func (s *organizationService) generateUsernameFromEmail(email string) string {
+	local := strings.TrimSpace(strings.Split(strings.ToLower(email), "@")[0])
+	if local == "" {
+		id, err := uuid.NewV7()
+		if err == nil {
+			return fmt.Sprintf("user_%s", strings.ReplaceAll(id.String(), "-", "")[:8])
+		}
+		return fmt.Sprintf("user_%d", time.Now().UnixNano()%1000000)
+	}
+
+	parts := strings.FieldsFunc(local, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+	})
+	if len(parts) == 0 {
+		return local
+	}
+
+	username := strings.Join(parts, "_")
+	if username == "" {
+		return "user"
+	}
+	if len(username) > 30 {
+		username = username[:30]
+	}
+	return username
+}
+
+func (s *organizationService) generateFullNameFromEmail(email string) string {
+	local := strings.TrimSpace(strings.Split(strings.ToLower(email), "@")[0])
+	if local == "" {
+		return "User"
+	}
+
+	parts := strings.FieldsFunc(local, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+	})
+	if len(parts) == 0 {
+		return "User"
+	}
+
+	words := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		runes := []rune(part)
+		if len(runes) == 0 {
+			continue
+		}
+		runes[0] = unicode.ToUpper(runes[0])
+		for i := 1; i < len(runes); i++ {
+			runes[i] = unicode.ToLower(runes[i])
+		}
+		words = append(words, string(runes))
+	}
+	if len(words) == 0 {
+		return "User"
+	}
+	return strings.Join(words, " ")
+}
+
+func (s *organizationService) generateUniqueUsername(email string) (string, *response.Error) {
+	base := s.generateUsernameFromEmail(email)
+	for attempt := 0; attempt < 5; attempt++ {
+		candidate := base
+		if attempt > 0 {
+			candidate = fmt.Sprintf("%s%d", base, attempt)
+		}
+		exists, err := s.AuthRepo.ExistsByUsername(candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+	return "", &response.Error{
+		Code:       response.ErrConflict,
+		StatusCode: http.StatusConflict,
+		Message:    "Unable to generate unique username for invited user",
+	}
+}
+
+func (s *organizationService) inviteUserWithTemporaryCredentials(email string, organizationID uuid.UUID, roleID uuid.UUID) (string, *response.Error) {
+	tempPassword, err := s.generateTemporaryPassword(12)
+	if err != nil {
+		return "", err
+	}
+	passwordHash, hashErr := utils.HashPassword(tempPassword)
+	if hashErr != nil {
+		return "", hashErr
+	}
+	username, usernameErr := s.generateUniqueUsername(email)
+	if usernameErr != nil {
+		return "", usernameErr
+	}
+
+	user := models.User{
+		ID:                    uuid.Must(uuid.NewV7()),
+		Email:                 strings.ToLower(strings.TrimSpace(email)),
+		FullName:              s.generateFullNameFromEmail(email),
+		UserName:              username,
+		PasswordHash:          passwordHash,
+		Timezone:              "UTC",
+		IsActive:              false,
+		IsVerified:            true,
+		OrganizationID:        &organizationID,
+		RoleID:                roleID,
+		Status:                "pending",
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+		RequirePasswordChange: true,
+	}
+
+	if err := s.AuthRepo.CreateUser(user); err != nil {
+		return "", err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		OrganizationID: &organizationID,
+		Action:         "created",
+		ResourceType:   "temp_user",
+		ResourceID:     user.ID.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "create temp user",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return "", auditErr
+	}
+
+	return tempPassword, nil
+}
+
+func (s *organizationService) AcceptInvitation(userID uuid.UUID, token string) *response.Error {
+	if token == "" {
+		return &response.Error{
+			Code:       response.ErrValidation,
+			StatusCode: http.StatusBadRequest,
+			Message:    "Invitation token is required",
+		}
+	}
+
+	invitation, invErr := s.OrganizationRepo.GetInvitationByToken(token)
+	if invErr != nil {
+		return invErr
+	}
+	if invitation.ID == uuid.Nil {
+		return &response.Error{
+			Code:       response.ErrNotFound,
+			StatusCode: http.StatusNotFound,
+			Message:    "Invitation not found",
+		}
+	}
+	if invitation.Status == models.InvitationStatusAccepted {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "Invitation has already been accepted",
+		}
+	}
+	if invitation.Status == models.InvitationStatusExpired || invitation.ExpiresAt.Before(time.Now()) {
+		invitation.Status = models.InvitationStatusExpired
+		invitation.UpdatedAt = time.Now()
+		if err := s.OrganizationRepo.UpdateInvitation(invitation); err != nil {
+			return err
+		}
+		return &response.Error{
+			Code:       response.ErrGone,
+			StatusCode: http.StatusGone,
+			Message:    "Invitation has expired",
+		}
+	}
+
+	user, userErr := s.AuthRepo.GetUserByID(userID)
+	if userErr != nil {
+		return userErr
+	}
+
+	if !strings.EqualFold(user.Email, invitation.Email) {
+		s.logger.Error("Invitation email does not match authenticated user",
+			zap.String("user_email", user.Email),
+			zap.String("invitation_email", invitation.Email))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You are not authorized to accept this invitation",
+		}
+	}
+
+	if user.OrganizationID != nil && *user.OrganizationID != uuid.Nil && *user.OrganizationID != invitation.OrganizationID {
+		return &response.Error{
+			Code:       response.ErrConflict,
+			StatusCode: http.StatusConflict,
+			Message:    "User is already assigned to another organization",
+		}
+	}
+
+	user.OrganizationID = &invitation.OrganizationID
+	user.RoleID = invitation.RoleID
+	user.Role = invitation.Role
+	user.IsActive = true
+	user.Status = "active"
+	user.JoinedAt = time.Now()
+	if err := s.AuthRepo.UpdateUser(userID, user); err != nil {
+		return err
+	}
+
+	acceptedAt := time.Now()
+	invitation.Status = models.InvitationStatusAccepted
+	invitation.AcceptedAt = &acceptedAt
+	invitation.UpdatedAt = acceptedAt
+	if err := s.OrganizationRepo.UpdateInvitation(invitation); err != nil {
+		return err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &userID,
+		OrganizationID: &invitation.OrganizationID,
+		Action:         "accepted",
+		ResourceType:   "invitation",
+		ResourceID:     invitation.Token,
+		Details:        "accepted invitation",
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      acceptedAt,
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	return nil
+}
+
+func (s *organizationService) GetInvitationByToken(token string) (models.OrganizationInvitation, *response.Error) {
+	invitation, err := s.OrganizationRepo.GetInvitationByToken(token)
+	if err != nil {
+		return models.OrganizationInvitation{}, err
+	}
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		OrganizationID: &invitation.OrganizationID,
+		Action:         "viewed",
+		ResourceType:   "invitation",
+		ResourceID:     invitation.Token,
+		Type:           models.AuditLogTypeAudit,
+		Details:        "view invitation",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return models.OrganizationInvitation{}, auditErr
+	}
+	return invitation, nil
+}
+
+func (s *organizationService) GetUserInOrganization(id uuid.UUID, filter dto.OrganizationMemberListFilter) ([]responsedto.UserProfile, response.Pagination, *response.Error) {
+	filter.PaginationQuery.Normalize(10)
+	if filter.Role != "" {
+		filter.Role = strings.ToLower(strings.TrimSpace(filter.Role))
+	}
+	if filter.FullName != "" {
+		filter.FullName = strings.TrimSpace(filter.FullName)
+	}
+	if filter.Email != "" {
+		filter.Email = strings.TrimSpace(filter.Email)
+	}
+	if filter.Username != "" {
+		filter.Username = strings.TrimSpace(filter.Username)
+	}
+	if filter.Timezone != "" {
+		filter.Timezone = strings.TrimSpace(filter.Timezone)
+	}
+
+	users, pagination, err := s.OrganizationRepo.GetUsersByOrganizationID(id, filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	// Extract User IDs
+	userIDs := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		userIDs[i] = u.ID
+	}
+
+	// Fetch User Insights if there are users
+	var statsMap map[uuid.UUID]responsedto.UserTaskStats
+	if len(userIDs) > 0 {
+		var statsErr *response.Error
+		statsMap, statsErr = s.AuthRepo.GetUsersInsights(userIDs, id)
+		if statsErr != nil {
+			s.logger.Warn("Failed to fetch user insights for organization users", zap.Any("error", statsErr))
+		}
+	}
+
+	// Map to UserProfile DTOs including stats
+	usersResponse := make([]responsedto.UserProfile, 0, len(users))
+	for _, user := range users {
+		profile := responsedto.UserProfileFromModel(user)
+		if statsMap != nil {
+			if stats, exists := statsMap[user.ID]; exists {
+				var completionPercentage float64 = 0.0
+				if stats.TotalTasks > 0 {
+					completionPercentage = math.Round((float64(stats.Completed)/float64(stats.TotalTasks))*100*100) / 100
+				}
+				profile.TotalAssigned = &stats.TotalTasks
+				profile.InProgress = &stats.InProgress
+				profile.Completed = &stats.Completed
+				profile.CompletionPercentage = &completionPercentage
+			} else {
+				var zero int64 = 0
+				var zeroPct float64 = 0.0
+				profile.TotalAssigned = &zero
+				profile.InProgress = &zero
+				profile.Completed = &zero
+				profile.CompletionPercentage = &zeroPct
+			}
+		} else {
+			var zero int64 = 0
+			var zeroPct float64 = 0.0
+			profile.TotalAssigned = &zero
+			profile.InProgress = &zero
+			profile.Completed = &zero
+			profile.CompletionPercentage = &zeroPct
+		}
+		usersResponse = append(usersResponse, profile)
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		OrganizationID: &id,
+		Action:         "viewed",
+		ResourceType:   "users_in_organization",
+		ResourceID:     id.String(),
+		Type:           models.AuditLogTypeAudit,
+		Details:        "view users in organization",
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return usersResponse, pagination, auditErr
+	}
+
+	return usersResponse, pagination, nil
+}
+
+func (s *organizationService) GetAllMembers(filter dto.GlobalMemberListFilter) ([]models.User, response.Pagination, *response.Error) {
+	filter.PaginationQuery.Normalize(10)
+	filter.SortQuery.Normalize("created_at", "DESC")
+
+	users, pagination, err := s.OrganizationRepo.GetAllMembers(filter)
+	if err != nil {
+		return nil, response.Pagination{}, err
+	}
+
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		Action:       "viewed",
+		ResourceType: "all_users",
+		Type:         models.AuditLogTypeAudit,
+		Details:      "Super Admin viewed all system users/members",
+		CreatedAt:    time.Now(),
+	})
+	if auditErr != nil {
+		return users, pagination, auditErr
+	}
+
+	return users, pagination, nil
+}
+
+func (s *organizationService) RemoveUser(payload dto.RemoveUser) *response.Error {
+	result, err := s.AuthRepo.GetUserByID(payload.UserID)
+	if err != nil {
+		return err
+	}
+
+	if result.Role.Name == "org_admin" {
+		s.logger.Error("Unauthorized access: cannot remove organization admin",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "Unauthorized access: cannot remove organization admin",
+		}
+	}
+
+	if result.OrganizationID == nil || payload.OrganizationID == nil {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	if *result.OrganizationID != *payload.OrganizationID {
+		s.logger.Error("Unauthorized Access",
+			zap.String("Organization Id", payload.OrganizationID.String()),
+			zap.String("User Organization Id", result.OrganizationID.String()))
+		return &response.Error{
+			Code:       response.ErrForbidden,
+			StatusCode: http.StatusForbidden,
+			Message:    "You do not have permission to perform this action",
+		}
+	}
+
+	// Instead of deleting the user record (soft-delete), detach the user
+	// from the organization so their account can be reused or they can be
+	// invited to other organizations later.
+
+	// Clear organization-related fields and mark as inactive
+	request := result
+	request.OrganizationID = nil
+	request.RoleID = uuid.Nil
+	request.IsActive = false
+	request.JoinedAt = time.Time{}
+
+	// Use OrganizationRepo.UpdateStatusAndRole which calls Save and persists zero-values
+	if err := s.OrganizationRepo.UpdateStatusAndRole(payload.UserID, request); err != nil {
+		return err
+	}
+
+	// create an audit log for the removal
+	auditErr := s.auditRepo.CreateAuditLog(models.AuditLog{
+		UserID:         &payload.UserID,
+		OrganizationID: payload.OrganizationID,
+		Action:         "removed",
+		ResourceType:   "organization_user",
+		ResourceID:     payload.UserID.String(),
+		Details:        "Removed user from organization",
+		Type:           models.AuditLogTypeAudit,
+		CreatedAt:      time.Now(),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+
+	return nil
+
+}
